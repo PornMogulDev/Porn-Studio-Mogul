@@ -10,9 +10,9 @@ QGridLayout
 from collections import defaultdict
 
 from game_state import Talent, Scene
-from talent_filter_dialog import TalentFilterDialog
+from ui.dialogs.talent_filter_dialog import TalentFilterDialog
 from ui.dialogs.talent_profile_dialog import TalentProfileDialog
-from scene_dialog import SceneDialog
+from ui.dialogs.scene_dialog import SceneDialog
 
 class TalentListModel(QAbstractListModel):
     def __init__(self, talents: list = None, parent=None): super().__init__(parent); self.talents = talents or []

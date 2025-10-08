@@ -3,9 +3,9 @@ from PyQt6.QtCore import QSize, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 from PyQt6.QtSvgWidgets import QSvgWidget
-from save_load_ui import SaveLoadDialog
+from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
-from paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO
+from utils.paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO
 from game_strings import version
 
 class MenuButton(QPushButton):

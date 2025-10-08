@@ -3,11 +3,11 @@ from PyQt6.QtCore import QObject, pyqtSlot, Qt
 from PyQt6.QtWidgets import QDialog
 
 from interfaces import IGameController
-from hire_talent import HireWindow
-from talent_filter_dialog import TalentFilterDialog
+from ui.tabs.talent_tab import HireWindow
+from ui.dialogs.talent_filter_dialog import TalentFilterDialog
 from game_state import Talent
 from ui.dialogs.talent_profile_dialog import TalentProfileDialog
-from scene_dialog import SceneDialog
+from ui.dialogs.scene_dialog import SceneDialog
 
 class HireTalentPresenter(QObject):
     def __init__(self, controller: IGameController, view: HireWindow):

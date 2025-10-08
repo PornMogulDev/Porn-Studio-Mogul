@@ -5,13 +5,13 @@ from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
 )
 
-from hire_talent import HireWindow
-from scenes_tab import ScenesTab
-from schedule_tab import ScheduleTab
+from ui.tabs.talent_tab import HireWindow
+from ui.tabs.scenes_tab import ScenesTab
+from ui.tabs.schedule_tab import ScheduleTab
 from notifications import NotificationManager
-from save_load_ui import SaveLoadDialog
-from go_to_list import GoToTalentDialog
-from market_tab import MarketTab 
+from ui.dialogs.save_load_ui import SaveLoadDialog
+from ui.dialogs.go_to_list import GoToTalentDialog
+from ui.tabs.market_tab import MarketTab 
 from ui.dialogs.email_dialog import EmailDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.incomplete_scheduled_scene import IncompleteCastingDialog

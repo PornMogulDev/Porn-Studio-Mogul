@@ -4,8 +4,8 @@ from PyQt6.QtWidgets import QDialog, QMessageBox, QListWidgetItem
 
 from interfaces import IGameController
 from game_state import Scene, Talent, ShootingBloc
-from scene_dialog import SceneDialog
-from scene_filter_dialog import SceneFilterDialog
+from ui.dialogs.scene_dialog import SceneDialog
+from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from services.scene_editor_service import SceneEditorService
 
 class ScenePlannerPresenter:
