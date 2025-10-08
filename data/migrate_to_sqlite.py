@@ -2,7 +2,7 @@ import sqlite3
 import json
 import os
 
-DB_FILE = "game_data.sqlite"
+DB_FILE = os.path.join(os.getcwd(), "game_data.sqlite")
 
 def create_tables(cursor):
     """Creates all the necessary tables in the database."""
@@ -35,15 +35,18 @@ def create_tables(cursor):
         PRIMARY KEY (ethnicity, gender, part, name)
     )
     """)
+    
+    # MODIFIED: talent_affinities is now a single, unified table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS talent_affinities (
-        gender TEXT NOT NULL,
-        affinity_name TEXT NOT NULL,
-        age_points_json TEXT NOT NULL,
-        values_json TEXT NOT NULL,
-        PRIMARY KEY (gender, affinity_name)
+        category TEXT NOT NULL, -- e.g., 'Female', 'Male', 'BoobSize', 'DickSize'
+        name TEXT NOT NULL,     -- e.g., 'Teen', 'MILF', 'C', 'default'
+        data_json TEXT NOT NULL,
+        PRIMARY KEY (category, name)
     )
     """)
+
+    # REMOVED: boob_size_affinities and dick_size_affinities tables are no longer needed.
 
     # market
     cursor.execute("""
@@ -190,18 +193,35 @@ def migrate_aliases(cursor, data):
     print(f"{count} alias entries migrated.")
 
 def migrate_talent_affinities(cursor, data):
+    """Migrates all talent affinities into the unified talent_affinities table."""
     print("Migrating talent_affinity_data.json...")
     count = 0
-    for gender, affinities in data.items():
-        for affinity_name, details in affinities.items():
-            age_points_str = json.dumps(details['age_points'])
-            values_str = json.dumps(details['values'])
+
+    for category, items in data.items():
+        if category in ["Male", "Female"]:  # Age affinities
+            for affinity_name, details in items.items():
+                cursor.execute("""
+                    INSERT OR REPLACE INTO talent_affinities (category, name, data_json)
+                    VALUES (?, ?, ?)
+                """, (category, affinity_name, json.dumps(details)))
+                count += 1
+        elif category == "BoobSize":  # Boob size affinities
+            for cup_size, affinities in items.items():
+                cursor.execute("""
+                    INSERT OR REPLACE INTO talent_affinities (category, name, data_json)
+                    VALUES (?, ?, ?)
+                """, (category, cup_size, json.dumps(affinities)))
+                count += 1
+        elif category == "DickSize":  # Dick size affinity
+            # The entire DickSize object is stored under a single 'default' name
             cursor.execute("""
-                INSERT OR REPLACE INTO talent_affinities (gender, affinity_name, age_points_json, values_json)
-                VALUES (?, ?, ?, ?)
-            """, (gender, affinity_name, age_points_str, values_str))
+                INSERT OR REPLACE INTO talent_affinities (category, name, data_json)
+                VALUES (?, ?, ?)
+            """, (category, 'default', json.dumps(items)))
             count += 1
-    print(f"{count} talent affinity entries migrated.")
+            
+    print(f"{count} talent affinity entries migrated into the unified table.")
+
 
 def migrate_market(cursor, data):
     print("Migrating market.json...")
@@ -339,7 +359,7 @@ def migrate_scene_events(cursor, data):
 
 def migrate_talent_archetypes(cursor, data):
     """Migrates talent archetypes from JSON to the database."""
-    print("Migrating talent_archetypes.json...")
+    print("Migrating talent archetypes.json...")
     count = 0
     for archetype in data:
         cursor.execute("""
@@ -360,7 +380,7 @@ def migrate_talent_archetypes(cursor, data):
     print(f"{count} talent archetype entries migrated.")
 
 def main():
-    """Main function to run the entire migration process."""
+
     if os.path.exists(DB_FILE):
         print(f"'{DB_FILE}' already exists. Deleting to start fresh.")
         os.remove(DB_FILE)
@@ -412,7 +432,7 @@ def main():
         print(f"An error occurred: {e}")
         conn.rollback()
     else:
-        print("\nMigration completed successfully!")
+        print(f"\nMigration completed successfully! Database created at '{DB_FILE}'.")
         conn.commit()
     finally:
         conn.close()
