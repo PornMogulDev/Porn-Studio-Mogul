@@ -113,12 +113,14 @@ class TalentDetailView(QWidget):
             child = layout.takeAt(0)
             if child.widget(): child.widget().deleteLater()
 
-    def _format_orientation(self, score: int) -> str:
-        if -100 <= score <= -81: return "Straight";_ = score
+    def _format_orientation(self, score: int, gender: str) -> str:
+        if -100 <= score <= -81: return "Straight"
         if -80 <= score <= -30: return "Mostly Straight"
         if -29 <= score <= 29: return "Bisexual"
-        if 30 <= score <= 79: return "Mostly Gay/Lesbian"
-        if 80 <= score <= 100: return "Gay/Lesbian"
+        if 30 <= score <= 79:
+            return "Mostly Lesbian" if gender == "Female" else "Mostly Gay"
+        if 80 <= score <= 100:
+            return "Lesbian" if gender == "Female" else "Gay"
         return "Unknown"
 
     def _populate_preferences_lists(self, talent: Talent, tag_definitions: dict):
@@ -171,7 +173,7 @@ class TalentDetailView(QWidget):
         self._selected_talent = talent
         self.alias_label.setText(f"<b>Alias:</b> {talent.alias}"); self.age_label.setText(f"<b>Age:</b> {talent.age}")
         self.ethnicity_label.setText(f"<b>Ethnicity:</b> {talent.ethnicity}")
-        self.orientation_label.setText(f"<b>Orientation:</b> {self._format_orientation(talent.orientation_score)}")
+        self.orientation_label.setText(f"<b>Orientation:</b> {self._format_orientation(talent.orientation_score, talent.gender)}")
         self.boob_cup_label.setVisible(talent.boob_cup is not None)
         if talent.boob_cup: self.boob_cup_label.setText(f"<b>Cup Size:</b> {talent.boob_cup}")
         

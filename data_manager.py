@@ -98,19 +98,24 @@ class DataManager:
 
     def _load_talent_affinities(self) -> Dict[str, Dict]:
         cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM talent_affinities")
-        affinities = {}
+        cursor.execute("SELECT category, name, data_json FROM talent_affinities")
+        
+        affinities = defaultdict(dict)
+        
         for row in cursor.fetchall():
-            affinity_data = self._rehydrate_json_fields(dict(row))
-            gender = affinity_data.pop('gender')
-            affinity_name = affinity_data.pop('affinity_name')
-            if gender not in affinities:
-                affinities[gender] = {}
-            affinities[gender][affinity_name] = {
-                "age_points": affinity_data.get('age_points'),
-                "values": affinity_data.get('values')
-            }
-        return affinities
+            category = row['category']
+            name = row['name']
+            data = json.loads(row['data_json']) if row['data_json'] else {}
+            
+            # FIX: Handle the special structure of DickSize data.
+            # Instead of nesting it under a 'default' key, assign it directly
+            # to the 'DickSize' category key.
+            if category == "DickSize":
+                affinities[category] = data
+            else:
+                affinities[category][name] = data
+            
+        return dict(affinities)
 
     def _load_generator_data(self) -> Dict[str, Any]:
         cursor = self.conn.cursor()

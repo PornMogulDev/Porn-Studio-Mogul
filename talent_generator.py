@@ -13,7 +13,7 @@ class TalentGenerator:
         self.boob_cup_data = generator_data.get('boob_cups', []) 
         self.affinity_data = affinity_data
         self.tag_definitions = tag_definitions
-        self.talent_archetypes = talent_archetypes # Added
+        self.talent_archetypes = talent_archetypes
             
         # A common ethnicity to fall back on if a specific one has no names
         self.fallback_ethnicity = "White"
@@ -234,42 +234,27 @@ class TalentGenerator:
         return affinities
 
     def _calculate_boob_affinities(self, cup: str) -> Dict[str, int]:
-        affinities = {
-            "AA": {"Small Boobs": 100, "Medium Boobs": 0, "Big Boobs": 0, "Huge Boobs": 0 },
-            "A": {"Small Boobs": 100, "Medium Boobs": 0, "Big Boobs": 0, "Huge Boobs": 0 },
-            "B": {"Small Boobs": 80, "Medium Boobs": 20, "Big Boobs": 0, "Huge Boobs": 0 },
-            "C": {"Small Boobs": 10, "Medium Boobs": 70, "Big Boobs": 20, "Huge Boobs": 0 },
-            "D": {"Small Boobs": 0, "Medium Boobs": 20, "Big Boobs": 80, "Huge Boobs": 0 },
-            "E": {"Small Boobs": 0, "Medium Boobs": 10, "Big Boobs": 90, "Huge Boobs": 0 },
-            "F": {"Small Boobs": 0, "Medium Boobs": 5, "Big Boobs": 90, "Huge Boobs": 5 },
-            "G": {"Small Boobs": 0, "Medium Boobs": 0, "Big Boobs": 80, "Huge Boobs": 20 },
-            "H": {"Small Boobs": 0, "Medium Boobs": 0, "Big Boobs": 50, "Huge Boobs": 50 },
-            "I": {"Small Boobs": 0, "Medium Boobs": 0, "Big Boobs": 20, "Huge Boobs": 80 },
-            "J": {"Small Boobs": 0, "Medium Boobs": 0, "Big Boobs": 0, "Huge Boobs": 100 },
-            "K": {"Small Boobs": 0, "Medium Boobs": 0, "Big Boobs": 0, "Huge Boobs": 100 },
-            "L": {"Small Boobs": 0, "Medium Boobs": 0, "Big Boobs": 0, "Huge Boobs": 100 }
-        }
-        return affinities.get(cup, {"Small Boobs": 33, "Medium Boobs": 34, "Big Boobs": 33})
+        boob_affinity_data = self.affinity_data.get("BoobSize", {})
+        return boob_affinity_data.get(cup, boob_affinity_data.get("default", {}))
 
     def _calculate_dick_size_affinities(self, size: int) -> Dict[str, int]:
         """Calculates dick size-based tag affinities."""
-        size_points =   [2, 5,   6,   8,   9,  12]
-        small_values =  [100, 100,  50,   0,   0,   0]
-        medium_values = [0,   0,  50, 100,  50,   0]
-        big_values =    [0,   0,   0,   0,  50, 100]
+        dick_size_data = self.affinity_data.get("DickSize", {})
+        size_points = dick_size_data.get("size_points", [])
+        tags_data = dick_size_data.get("tags", {})
 
-        raw_small = np.interp(size, size_points, small_values)
-        raw_medium = np.interp(size, size_points, medium_values)
-        raw_big = np.interp(size, size_points, big_values)
+        if not size_points or not tags_data:
+            return {}
 
-        total = raw_small + raw_medium + raw_big
-        if total == 0: return {"Small Dick": 0, "Medium Dick": 0, "Big Dick": 0}
+        raw_scores = {}
+        for tag, values in tags_data.items():
+            raw_scores[tag] = np.interp(size, size_points, values)
 
-        return {
-            "Small Dick": int(round((raw_small / total) * 100)),
-            "Medium Dick": int(round((raw_medium / total) * 100)),
-            "Big Dick": int(round((raw_big / total) * 100))
-        }
+        total = sum(raw_scores.values())
+        if total == 0:
+            return {tag: 0 for tag in tags_data}
+
+        return {tag: int(round((raw_score / total) * 100)) for tag, raw_score in raw_scores.items()}
 
     def generate_talent(self, talent_id: int) -> Talent:
         """Generates a single, fully-formed Talent object."""
