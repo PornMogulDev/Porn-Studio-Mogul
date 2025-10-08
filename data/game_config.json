@@ -1,0 +1,66 @@
+{
+  "initial_money": 2000000,
+  "starting_year": 2010,
+  "game_over_threshold": -5000,
+  "weekly_event_chance_percent": 10,
+  "base_release_revenue": 2000,
+  "market_saturation_recovery_rate": 0.05,
+  "saturation_spend_rate": 0.15,
+  "base_talent_demand": 400,
+  "median_ambition": 5.5,
+  "ambition_demand_divisor": 10.0,
+  "popularity_demand_scalar": 0.01,
+  "minimum_talent_demand": 100,
+  "skill_gain_base_rate_per_minute": 0.02,
+  "skill_gain_ambition_scalar": 0.015,
+  "skill_gain_diminishing_returns_cap": 100.0,
+  "maximum_skill_level": 100.0,
+  "base_bad_event_chance_per_category": 0.50,
+  "base_good_event_chance_per_category": 0.50,
+  "scene_quality_weights": {
+    "performance": 0.5,
+    "acting": 0.3,
+    "stamina": 0.2
+  },
+  "chemistry_performance_scalar": 0.125,
+  "chemistry_discovery_weights": {
+    "2": 2,   
+    "1": 8,  
+    "0": 80,
+    "-1": 8, 
+    "-2": 2   
+  },
+  "stamina_to_pool_multiplier": 1,
+  "in_scene_penalty_scalar": 0.4,
+  "fatigue_penalty_scalar": 0.3,
+  "base_fatigue_weeks": 0,
+  "popularity_decay_rate_weekly": 0.995,
+  "default_style_tag_quality_weight": 5.0,
+  "action_tag_overall_weight_ratio": 0.7,
+  "cast_appeal_scalar": 0.25,
+  "quality_revenue_multiplier": 1,
+  "thematic_appeal_weight": 0.7,
+  "cast_appeal_weight": 0.3,
+  "revenue_penalties": {
+    "short_scene": {
+      "enabled": true,
+      "no_penalty_minutes": 10,
+      "max_penalty_minutes": 1,
+      "max_penalty_multiplier": 0.1 
+    },
+    "long_monotonous_scene": {
+      "enabled": true,
+      "min_runtime_minutes_for_penalty": 40,
+      "target_concepts_per_10_min": 0.5,
+      "max_penalty_multiplier": 0.65
+    },
+    "overstuffed_scene": {
+      "enabled": true,
+      "min_runtime_minutes_for_penalty": 10,
+      "penalty_threshold_tags_per_10_min": 4.0,
+      "max_penalty_tags_per_10_min": 6.0,
+      "max_penalty_multiplier": 0.65
+    }
+  },
+  "default_sentiment_multiplier": 1.0
+}

@@ -1,0 +1,43 @@
+{
+  "editing_tiers": [
+    {
+      "id": "quick_dirty",
+      "name": "Quick & Dirty Edit",
+      "cost": 250,
+      "weeks": 1,
+      "description": "A fast, cheap edit that gets the job done, but nothing more. Ineffective for complex footage.",
+      "base_quality_modifier": 0.9,
+      "synergy_mods": {
+        "1": 0.0,
+        "2": -0.15,
+        "3": -0.25
+      }
+    },
+    {
+      "id": "standard_studio",
+      "name": "Standard Studio Edit",
+      "cost": 1000,
+      "weeks": 2,
+      "description": "A professional edit that meets industry standards. Works well with multi-camera setups.",
+      "base_quality_modifier": 1.05,
+      "synergy_mods": {
+        "1": 0.0,
+        "2": 0.1,
+        "3": 0.05
+      }
+    },
+    {
+      "id": "auteur_cut",
+      "name": "Auteur's Cut",
+      "cost": 4000,
+      "weeks": 3,
+      "description": "A meticulous, artistic edit that can elevate the source material to new heights.",
+      "base_quality_modifier": 1.1,
+      "synergy_mods": {
+        "1": 0.05,
+        "2": 0.2,
+        "3": 0.35
+      }
+    }
+  ]
+}

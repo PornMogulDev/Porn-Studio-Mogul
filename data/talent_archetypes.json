@@ -1,0 +1,153 @@
+[
+  {
+    "id": "professional",
+    "name": "The Professional",
+    "description": "Treats their work like any other job. Dependable, consistent, and willing to do what's required, provided the conditions are professional and the pay is fair.",
+    "weight": 25,
+    "preferences": {
+      "Facial": 0.9,
+      "Analingus": 0.9,
+      "Gangbang": 0.9
+    },
+    "hard_limits": [],
+    "stat_modifiers": {
+      "professionalism": { "min": 7, "max": 10 },
+      "ambition": { "min": 4, "max": 8 }
+    }
+  },
+  {
+    "id": "people_pleaser",
+    "name": "The People Pleaser",
+    "description": "Genuinely enjoys their work and is eager to please their scene partners and the director. Very agreeable and versatile.",
+    "weight": 25,
+    "preferences": {
+      "Vaginal": 1.2,
+      "Blowjob": 1.2,
+      "Group": 1.1,
+      "Masturbation": 0.8
+    },
+    "hard_limits": [],
+    "stat_modifiers": {
+      "professionalism": { "min": 5, "max": 9 },
+      "ambition": { "min": 2, "max": 6 }
+    }
+  },
+  {
+    "id": "kink_explorer",
+    "name": "The Kink Explorer",
+    "description": "Adventurous, open-minded, and always looking to push boundaries. Thrives in intense, unusual, or group-oriented scenes.",
+    "weight": 15,
+    "preferences": {
+      "Anal": 1.4,
+      "Group": 1.3,
+      "Gangbang": 1.3,
+      "Facefuck": 1.5,
+      "Pegging": 1.5,
+      "Masturbation": 0.7,
+      "Vaginal": 0.9
+    },
+    "hard_limits": [],
+    "stat_modifiers": {
+      "ambition": { "min": 6, "max": 10 }
+    }
+  },
+  {
+    "id": "diva",
+    "name": "The Diva",
+    "description": "Extremely talented but equally high-maintenance. They know their worth and won't do anything they consider messy, uncomfortable, or beneath them.",
+    "weight": 8,
+    "preferences": {
+      "Facial": 0.4,
+      "Analingus": 0.5,
+      "Gangbang": 0.6,
+      "Group": 0.8,
+      "Anal": 0.8
+    },
+    "hard_limits": [
+      "Facefuck"
+    ],
+    "stat_modifiers": {
+      "ambition": { "min": 8, "max": 10 },
+      "professionalism": { "min": 1, "max": 5 }
+    }
+  },
+  {
+    "id": "reluctant_participant",
+    "name": "The Reluctant Participant",
+    "description": "They're in this business strictly for the money and are often uncomfortable with the work. They have many boundaries and will complain about anything too intense.",
+    "weight": 12,
+    "preferences": {
+      "Anal": 0.6,
+      "Group": 0.7,
+      "Facial": 0.5,
+      "Analingus": 0.4,
+      "Blowjob Orgy": 0.6,
+      "Vaginal Gangbang": 0.5
+    },
+    "hard_limits": [
+      "Anal Gangbang",
+      "Facefuck"
+    ],
+    "stat_modifiers": {
+      "ambition": { "min": 1, "max": 4 },
+      "professionalism": { "min": 2, "max": 6 }
+    }
+  },
+  {
+    "id": "anal_specialist",
+    "name": "The Anal Specialist",
+    "description": "This performer has found their niche and they excel at it. They strongly prefer anal scenes over all others.",
+    "weight": 5,
+    "preferences": {
+      "Anal": 2.0,
+      "Analingus": 1.5,
+      "Pegging": 1.8,
+      "Prostate Massage": 1.5,
+      "Vaginal": 0.5,
+      "Blowjob": 0.8
+    },
+    "hard_limits": [
+      "Vaginal Gangbang"
+    ],
+    "stat_modifiers": {}
+  },
+  {
+    "id": "oral_specialist",
+    "name": "The Oral Specialist",
+    "description": "An expert in oral performance, this talent prefers scenes that showcase their specific skills.",
+    "weight": 5,
+    "preferences": {
+      "Blowjob": 2.0,
+      "Facial": 1.5,
+      "Cunnilingus": 1.5,
+      "Deepthroat": 1.8,
+      "Facefuck": 1.6,
+      "Anal": 0.7,
+      "Vaginal": 0.8
+    },
+    "hard_limits": [],
+    "stat_modifiers": {}
+  },
+  {
+    "id": "vanilla",
+    "name": "The Vanilla Performer",
+    "description": "Prefers simple, straightforward scenes without extreme acts. Reliable for conventional content but hesitant to explore.",
+    "weight": 5,
+    "preferences": {
+      "Vaginal": 1.3,
+      "Blowjob": 1.2,
+      "Masturbation": 1.1,
+      "Anal": 0.6,
+      "Group": 0.8,
+      "Facial": 0.7
+    },
+    "hard_limits": [
+      "Anal Gangbang",
+      "Vaginal Gangbang",
+      "Facefuck"
+    ],
+    "stat_modifiers": {
+      "ambition": { "min": 1, "max": 5 }
+    }
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "description": "Gay talent in a Gay scene has lower demand (more willing).",
+    "conditions": {
+      "talent_has_property": { "orientation": "Gay" },
+      "scene_has_any_tag": ["Gay"]
+    },
+    "modifier": 0.8
+  },
+  {
+    "description": "Lesbian talent in a Lesbian scene has lower demand (more willing).",
+    "conditions": {
+      "talent_has_property": { "orientation": "Lesbian" },
+      "scene_has_any_tag": ["Lesbian"]
+    },
+    "modifier": 0.8
+  },
+  {
+    "description": "Straight talent in a non-straight scene has higher demand (less willing).",
+    "conditions": {
+      "talent_has_property": { "orientation": "Straight" },
+      "scene_has_any_tag": ["Gay", "Lesbian", "Bi"]
+    },
+    "modifier": 1.25
+  },
+  {
+    "description": "Talent with a 'MILF' affinity gets a bonus for MILF scenes.",
+    "conditions": {
+      "talent_has_affinity": "MILF",
+      "scene_has_any_tag": ["MILF"]
+    },
+    "modifier": 1.15
+  },
+  {
+    "description": "Talent with a 'Teen' affinity gets a bonus for Teen scenes.",
+    "conditions": {
+      "talent_has_affinity": "Teen",
+      "scene_has_any_tag": ["Teen"]
+    },
+    "modifier": 1.1
+  }
+]

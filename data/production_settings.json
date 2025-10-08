@@ -1,0 +1,130 @@
+{
+  "Location": [
+    {
+      "tier_name": "Shady Warehouse",
+      "cost_per_scene": 150,
+      "quality_modifier": 0.9,
+      "description": "A cheap, unconditioned warehouse. What could go wrong?",
+      "bad_event_chance_modifier": 2.5,
+      "good_event_chance_modifier": 0.5,
+      "is_low_tier": true
+    },
+    {
+      "tier_name": "Rented Apartment",
+      "cost_per_scene": 500,
+      "quality_modifier": 1.0,
+      "description": "A standard, climate-controlled apartment.",
+      "bad_event_chance_modifier": 1.0,
+      "good_event_chance_modifier": 1.0
+    },
+    {
+      "tier_name": "Luxury Villa",
+      "cost_per_scene": 2000,
+      "quality_modifier": 1.2,
+      "description": "A high-end location with all the amenities. Impresses talent and crew.",
+      "bad_event_chance_modifier": 0.2,
+      "good_event_chance_modifier": 2.0
+    }
+  ],
+  "Camera Equipment": [
+    {
+      "tier_name": "Professional",
+      "cost_per_scene": 850,
+      "quality_modifier": 1.1,
+      "description": "4K cameras, professional lighting rig.",
+      "bad_event_chance_modifier": 0.8,
+      "good_event_chance_modifier": 1.2
+    }
+  ],
+  "Camera Setup": [
+    {
+      "tier_name": "1",
+      "cost_multiplier": 1,
+      "quality_modifier": 1,
+      "description": "A standard single-camera shoot. The total camera cost is determined by the selected equipment.",
+      "bad_event_chance_modifier": 1.0,
+      "good_event_chance_modifier": 1.0
+    },
+    {
+      "tier_name": "2",
+      "cost_multiplier": 2,
+      "quality_modifier": 1,
+      "description": "A two-camera setup. Provides more options in post-production, but doubles the cost of the camera equipment.",
+      "bad_event_chance_modifier": 1.1,
+      "good_event_chance_modifier": 1.1
+    },
+    {
+      "tier_name": "3",
+      "cost_multiplier": 3,
+      "quality_modifier": 1,
+      "description": "A three-camera setup for a cinematic feel. Triples the camera equipment cost and requires a skilled editor to utilize effectively.",
+      "bad_event_chance_modifier": 1.2,
+      "good_event_chance_modifier": 1.2
+    }
+  ],
+  "Wardrobe": [
+    {
+      "tier_name": "None",
+      "cost_per_scene": 0,
+      "quality_modifier": 0.95,
+      "description": "Talent is requested to wear their own clothes.",
+      "bad_event_chance_modifier": 1.5,
+      "good_event_chance_modifier": 0.9,
+      "is_low_tier": true
+    },
+    {
+      "tier_name": "Basic",
+      "cost_per_scene": 75,
+      "quality_modifier": 0.98,
+      "description": "A limited selection of generic outfits are available.",
+      "bad_event_chance_modifier": 1.1,
+      "good_event_chance_modifier": 1.0
+    }
+  ],
+  "Makeup": [
+    {
+      "tier_name": "None",
+      "cost_per_scene": 0,
+      "quality_modifier": 0.93,
+      "description": "Talent is requested to do their makeup by themselves.",
+      "bad_event_chance_modifier": 1.7,
+      "good_event_chance_modifier": 0.8,
+      "is_low_tier": true
+    },
+    {
+      "tier_name": "Standard",
+      "cost_per_scene": 200,
+      "quality_modifier": 1.0,
+      "description": "A dedicated makeup artist is on-site to ensure talent looks their best.",
+      "bad_event_chance_modifier": 1.0,
+      "good_event_chance_modifier": 1.0
+    }
+  ],
+  "Catering": [
+    {
+      "tier_name": "None",
+      "cost_per_scene": 0,
+      "quality_modifier": 1.0,
+      "description": "Talent is requested to bring whatever they want to have.",
+      "bad_event_chance_modifier": 1.8,
+      "good_event_chance_modifier": 0.8,
+      "is_low_tier": true
+    },
+    {
+      "tier_name": "Basic",
+      "cost_per_scene": 50,
+      "quality_modifier": 1.0,
+      "description": "Pizza and cheap coffee.",
+      "bad_event_chance_modifier": 1.2,
+      "good_event_chance_modifier": 1.0
+    },
+    {
+      "tier_name": "Gourmet",
+      "cost_per_scene": 250,
+      "quality_modifier": 1.0,
+      "description": "High-quality, catered meals with options for all dietary needs.",
+      "bad_event_chance_modifier": 0.3,
+      "good_event_chance_modifier": 1.7
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+    "save_on_exit": true,
+    "unit_system": "imperial",
+    "window_geometries": {
+        "SettingsDialog": {
+            "x": 1141,
+            "y": 643,
+            "width": 277,
+            "height": 216
+        },
+        "GameMenuDialog": {
+            "x": 1208,
+            "y": 643,
+            "width": 143,
+            "height": 216
+        },
+        "ShootingBlocDialog": {
+            "x": 1130,
+            "y": 351,
+            "width": 364,
+            "height": 800
+        },
+        "SceneDialog": {
+            "x": 597,
+            "y": 367,
+            "width": 1366,
+            "height": 768
+        },
+        "ApplicationWindow": {
+            "x": 593,
+            "y": 327,
+            "width": 1366,
+            "height": 960
+        }
+    },
+    "last_shooting_bloc_settings": {
+        "production_settings": {
+            "Camera Equipment": "Professional",
+            "Camera Setup": "1",
+            "Catering": "None",
+            "Location": "Shady Warehouse",
+            "Makeup": "None",
+            "Wardrobe": "None"
+        },
+        "policies": []
+    }
+}

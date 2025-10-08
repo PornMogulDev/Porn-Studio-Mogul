@@ -1,0 +1,550 @@
+[
+  {
+    "id": "location_no_ac",
+    "name": "Sweltering Heat",
+    "description": "The cheap warehouse you rented for '{scene_title}' has no air conditioning, and it's boiling inside. {talent_name} is complaining that they can't work under these conditions.",
+    "category": "Location",
+    "type": "bad",
+    "base_chance": 0.7,
+    "triggering_tiers": ["Shady Warehouse"],
+    "choices": [
+      {
+        "id": "ignore",
+        "text": "Tell them to deal with it.",
+        "hint": "Their performance in this scene will suffer.",
+        "effects": [
+          {
+            "type": "modify_performer_contribution",
+            "target": "triggering_talent",
+            "modifier": 0.8,
+            "reason": "Low Morale (Heat)"
+          },
+          {
+            "type": "notification",
+            "message": "{talent_name} reluctantly continues, but their unhappiness is clear."
+          }
+        ]
+      },
+      {
+        "id": "pay_fix",
+        "text": "Rent industrial fans ($250).",
+        "hint": "Solves the problem for a price.",
+        "requirements": [
+          {
+            "type": "has_money",
+            "amount": 250
+          }
+        ],
+        "effects": [
+          {
+            "type": "add_cost",
+            "amount": 250,
+            "reason": "Emergency Fan Rental"
+          },
+          {
+            "type": "notification",
+            "message": "The fans arrive and cool the set. The shoot proceeds without issue."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "location_construction_noise",
+    "name": "Construction Work Nearby",
+    "description": "There is construction work going on near the shooting location of '{scene_title}' and the mics clearly pick it up.",
+    "category": "Location",
+    "type": "bad",
+    "base_chance": 0.5,
+    "triggering_tiers": ["Shady Warehouse", "Rented Apartment"],
+    "choices": [
+      {
+        "id": "ignore",
+        "text": "Proceed as planned.",
+        "hint": "The quality of the scene will suffer.",
+        "effects": [
+          {
+            "type": "modify_scene_quality",
+            "key": "overall",
+            "modifier": 0.75,
+            "reason": "Audio Issues (Construction Noise)"
+          },
+          {
+            "type": "notification",
+            "message": "The noise is impossible to mask."
+          }
+        ]
+      },
+      {
+        "id": "wait",
+        "text": "Wait until the noise subsides.",
+        "hint": "You will incur costs for the delay ($400).",
+        "requirements": [
+          {
+            "type": "has_money",
+            "amount": 400
+          }
+        ],
+        "effects": [
+          {
+            "type": "add_cost",
+            "amount": 400,
+            "reason": "Shooting Delays"
+          },
+          {
+            "type": "notification",
+            "message": "You wait for a while until the noise isn't as disruptive."
+          }
+        ]
+      },
+      {
+        "id": "confront_workers",
+        "text": "Go to the noise source and try to put an end to it.",
+        "hint": "Who knows what you'll find there.",
+        "effects": [
+          {
+            "type": "trigger_event",
+            "event_id": "construction_confrontation_result"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "construction_confrontation_result",
+    "name": "The Confrontation",
+    "description": "You find the construction crew on their lunch break. They don't seem happy to be interrupted. Their foreman, a large man named 'Tiny', asks what you want.",
+    "category": "Location",
+    "type": "bad",
+    "base_chance": 0.0,
+    "choices": [
+      {
+        "id": "bribe",
+        "text": "Offer them $150 to take a long lunch.",
+        "hint": "A simple solution, if you have the cash.",
+        "requirements": [
+          { "type": "has_money", "amount": 150 }
+        ],
+        "effects": [
+          { "type": "add_cost", "amount": 150, "reason": "Construction 'Donation'" },
+          { "type": "notification", "message": "'Tiny' accepts your 'donation'. The crew enjoys an extended lunch break, giving you quiet time to shoot." }
+        ]
+      },
+      {
+        "id": "intimidate",
+        "text": "Try to intimidate them into stopping.",
+        "hint": "This could go very wrong.",
+        "effects": [
+          {
+            "type": "random_outcome",
+            "outcomes": [
+              {
+                "chance": 0.1,
+                "effects": [
+                  { "type": "notification", "message": "They're surprisingly intimidated! They agree to work quietly for the next hour." }
+                ]
+              },
+              {
+                "chance": 0.9,
+                "effects": [
+                  { "type": "notification", "message": "Your intimidation attempt is met with laughter. Annoyed, they start up a jackhammer 'by accident'. The noise is worse now." },
+                  { "type": "modify_scene_quality", "key": "overall", "modifier": 0.6, "reason": "Audio Issues (Vengeful Construction)" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "plead",
+        "text": "Explain your situation and ask nicely.",
+        "hint": "Appeals to their better nature... if they have one.",
+        "effects": [
+          {
+            "type": "random_outcome",
+            "outcomes": [
+              {
+                "chance": 0.5,
+                "effects": [
+                  { "type": "notification", "message": "'Tiny' grunts, but agrees to keep the loudest work until later. The shoot can proceed." }
+                ]
+              },
+              {
+                "chance": 0.5,
+                "effects": [
+                  { "type": "notification", "message": "They tell you they have a schedule to keep. The noise continues unabated." },
+                  { "type": "modify_scene_quality", "key": "overall", "modifier": 0.75, "reason": "Audio Issues (Construction Noise)" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "spectators",
+        "text": "Offer them first row seats to the shot.",
+        "hint": "Appeals to their baser nature...",
+        "effects": [
+          {
+            "type": "random_outcome",
+            "outcomes": [
+              {
+                "chance": 0.5,
+                "effects": [
+                  { "type": "notification", "message": "The foreman enthusiastically agrees and the workers come to the shooting location, ready to enjoy the show." }
+                ]
+              },
+              {
+                "chance": 0.5,
+                "effects": [
+                  { "type": "notification", "message": "They tell you they have a schedule to keep. The noise continues unabated." },
+                  { "type": "modify_scene_quality", "key": "overall", "modifier": 0.75, "reason": "Audio Issues (Construction Noise)" }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "location_pigeon_attack",
+    "name": "Pigeon Attack!",
+    "description": "A flock of pigeons seems to be carrying out a remarkably coordinated aerial attack on the set of '{scene_title}', causing all sorts of trouble to talent and crew.",
+    "category": "Location",
+    "type": "bad",
+    "base_chance": 0.05,
+    "triggering_tiers": ["Luxury Villa"],
+    "choices": [
+      {
+        "id": "ignore",
+        "text": "Ignore them and keep shooting.",
+        "hint": "They are probably just seeking attention.",
+        "effects": [
+          {
+            "type": "modify_scene_quality",
+            "key": "overall",
+            "modifier": 0.5,
+            "reason": "Pigeon Issues"
+          },
+          {
+            "type": "notification",
+            "message": "They keep up their shenanigans, annoying everyone on set and affecting the scene quality."
+          }
+        ]
+      },
+      {
+        "id": "deal",
+        "text": "Seek a truce with the pigeons.",
+        "hint": "You will incur costs for the delay ($400).",
+        "requirements": [
+          {
+            "type": "has_money",
+            "amount": 400
+          }
+        ],
+        "effects": [
+          {
+            "type": "add_cost",
+            "amount": 400,
+            "reason": "Shooting Delays"
+          },
+          {
+            "type": "notification",
+            "message": "You wait for a while until the noise isn't as disruptive."
+          }
+        ]
+      },
+      {
+        "id": "control",
+        "text": "Contact a pest control company.",
+        "hint": "Better to allow professionals to do their job ($500).",
+        "requirements": [
+          {
+            "type": "has_money",
+            "amount": 500
+          }
+        ],
+        "effects": [
+          {
+            "type": "add_cost",
+            "amount": 500,
+            "reason": "Pigeon Issues"
+          },
+          {
+            "type": "notification",
+            "message": "You had to pay the pest control company and everyone on-set for the delay, but the scene proceeded without issues from there."
+          }
+        ]
+      },
+      {
+        "id": "attack",
+        "text": "Rally everyone to fight back!",
+        "hint": "No pigeons can stop you.",
+        "effects": [
+          {
+            "type": "random_outcome",
+            "outcomes": [
+              {
+                "chance": 0.6,
+                "effects": [
+                  { "type": "notification", "message": "Victory! Against all odds, the cast and crew manage to drive off the avian menace. The shoot proceeds." }
+                ]
+              },
+              {
+                "chance": 0.4,
+                "effects": [
+                  { "type": "notification", "message": "It's a disaster. The pigeons are surprisingly resilient and make a huge mess. The set is ruined for the day." },
+                  { "type": "cancel_scene", "reason": "Lost to Pigeons" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "give_up",
+        "text": "Cancel the shot.",
+        "hint": "It's not a good omen.",
+        "effects": [
+          { "type": "cancel_scene", "reason": "Pigeon Issues" },
+          { "type": "notification", "message": "You cancelled the shoot for the day to ensure the higher power didn't get upset, but the bloc's costs for the day are lost." }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "catering_gourmet_praise",
+    "name": "Catering Praise",
+    "description": "The gourmet catering is a huge hit! {talent_name} pulls you aside to say it's the best food they've ever had on set. This will surely boost morale.",
+    "category": "Catering",
+    "type": "good",
+    "base_chance": 1.0,
+    "triggering_tiers": ["Gourmet"],
+    "choices": [
+      {
+        "id": "accept_praise",
+        "text": "Glad you like it!",
+        "hint": "The happy cast will perform slightly better.",
+        "effects": [
+          {
+            "type": "modify_scene_quality",
+            "key": "overall",
+            "modifier": 1.05,
+            "reason": "High Morale"
+          },
+          {
+            "type": "notification",
+            "message": "The excellent catering has boosted morale and improved the scene's final quality."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "policy_condom_fit_issue",
+    "name": "Wardrobe Issue",
+    "description": "{talent_name} reports that none of the provided condoms fit properly, causing a delay while a runner is sent out to find a different size.",
+    "category": "Policy",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_conditions": [
+      { "type": "policy_active", "id": "policy_condoms_mandatory" },
+      { "type": "cast_has_gender", "gender": "Male" }
+    ],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Handle it.",
+        "hint": "A small cost is incurred to resolve the issue.",
+        "effects": [
+          { "type": "add_cost", "amount": 75, "reason": "Emergency Supply Run" },
+          { "type": "notification", "message": "A runner was dispatched to find suitable condoms. The shoot was slightly delayed." }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "policy_std_symptom",
+    "name": "Health Concern",
+    "description": "During prep, someone on set notices what could be a symptom of an STD on {talent_name}. The shoot is halted as everyone looks to you for a decision.",
+    "category": "Policy",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_conditions": [
+      { "type": "policy_inactive", "id": "policy_std_test_required" }
+    ],
+    "choices": [
+      {
+        "id": "proceed_cautiously",
+        "text": "Proceed with the shoot.",
+        "hint": "Risk alienating the other performers.",
+        "effects": [
+          { "type": "notification", "message": "The shoot continues, but the atmosphere on set is tense."}
+        ]
+      },
+      {
+        "id": "cancel_shoot",
+        "text": "Cancel the scene for today.",
+        "hint": "You'll lose the salary costs for today's shoot.",
+        "effects": [
+          { "type": "cancel_scene", "reason": "Health Concern" },
+          { "type": "notification", "message": "You cancelled the shoot for the day to ensure everyone's safety. The bloc's costs for the day are lost." }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "policy_talent_high_allowed",
+    "name": "Under the Influence",
+    "description": "{talent_name} has arrived on set clearly high. Since you have a relaxed drug policy, they don't see it as a problem, but their performance might be erratic.",
+    "category": "Policy",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_conditions": [
+      { "type": "policy_inactive", "id": "policy_no_drugs_allowed" },
+      { "type": "talent_professionalism_below", "value": 4 }
+    ],
+    "choices": [
+      {
+        "id": "let_perform",
+        "text": "Let them perform. It might be interesting.",
+        "hint": "Their performance will be unpredictable. Could be great, could be terrible.",
+        "effects": [
+          { "type": "modify_performer_contribution_random", "target": "triggering_talent", "min_mod": 0.5, "max_mod": 1.5, "reason": "Erratic Performance" },
+          { "type": "notification", "message": "You let {talent_name} perform. It was... memorable." }
+        ]
+      },
+      {
+        "id": "sober_up",
+        "text": "Try to get them to sober up first.",
+        "hint": "This will delay the shoot and may not be fully effective.",
+        "effects": [
+          { "type": "modify_scene_quality", "key": "overall", "modifier": 0.9, "reason": "Delayed Shoot" },
+          { "type": "modify_performer_contribution", "target": "triggering_talent", "modifier": 0.8, "reason": "Still Woozy" },
+          { "type": "notification", "message": "After a delay and a lot of coffee, the shoot proceeds, but it's not their best work." }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "policy_talent_high_banned",
+    "name": "Policy Violation",
+    "description": "{talent_name} has arrived on set clearly high, in direct violation of your on-set drug policy. The crew is looking to you to see how you'll enforce the rules.",
+    "category": "Policy",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_conditions": [
+      { "type": "policy_active", "id": "policy_no_drugs_allowed" },
+      { "type": "talent_professionalism_below", "value": 3 }
+    ],
+    "choices": [
+      {
+        "id": "send_home",
+        "text": "Send them home immediately. No pay.",
+        "hint": "Enforces your rules strictly, but you'll have to cancel the scene and lose their salary.",
+        "effects": [
+          { "type": "cancel_scene", "reason": "Policy Violation" },
+          { "type": "notification", "message": "You sent {talent_name} home without pay. Your authority is clear, but the scene is a wash for today." }
+        ]
+      },
+      {
+        "id": "warn",
+        "text": "Give a stern warning and let it slide.",
+        "hint": "The shoot can proceed, but your rules will be seen as empty threats. Their performance will be poor.",
+        "effects": [
+          { "type": "modify_performer_contribution", "target": "triggering_talent", "modifier": 0.7, "reason": "Under the Influence" },
+          { "type": "notification", "message": "You let {talent_name} work after a stern warning, but your policy now seems toothless." }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "bad_hygiene_anal",
+    "name": "Hygiene Issue",
+    "description": "During a take for '{scene_title}', it becomes apparent that {talent_name} did not properly prepare for the anal scene. The shoot is paused due to the unsanitary conditions.",
+    "category": "Location",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_tiers": ["Shady Warehouse", "Rented Apartment"],
+    "triggering_conditions": [
+      { "type": "talent_participates_in_concept", "concept": "Anal" },
+      { "type": "talent_professionalism_below", "value": 4 },
+      { "type": "has_production_tier", "category": "Catering", "tier_name": "None" }
+    ],
+    "choices": [
+      {
+        "id": "cancel_and_reschedule",
+        "text": "Cancel the scene for today.",
+        "hint": "You'll lose the salary costs for today's shoot.",
+        "effects": [
+          { "type": "cancel_scene", "reason": "Hygiene Issue" },
+          { "type": "notification", "message": "You cancel the shoot. It's a costly but necessary decision." }
+        ]
+      },
+      {
+        "id": "delay_and_clean",
+        "text": "Delay the shoot for a clean-up.",
+        "hint": "The scene quality will suffer from the delay and bad mood.",
+        "effects": [
+          { "type": "modify_scene_quality", "key": "overall", "modifier": 0.85, "reason": "Hygiene Incident Delay" },
+          { "type": "notification", "message": "After a lengthy and unpleasant delay, the shoot continues, but the mood is ruined." }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "bad_hygiene_general",
+    "name": "Hygiene Complaint",
+    "description": "After a take, {other_talent_name} pulls you aside to complain about {talent_name}'s poor personal hygiene. The mood on set is souring.",
+    "category": "Location",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_tiers": ["Shady Warehouse"],
+    "triggering_conditions": [
+      { "type": "cast_size_is", "comparison": "gte", "value": 2 },
+      { "type": "talent_professionalism_below", "value": 3 }
+    ],
+    "choices": [
+      {
+        "id": "ignore_complaint",
+        "text": "Tell them to be professional and deal with it.",
+        "hint": "The complaining talent's morale and performance will drop.",
+        "effects": [
+           { "type": "modify_performer_contribution", "target": "other_talent_in_scene", "modifier": 0.85, "reason": "Ignored Complaint" },
+           { "type": "notification", "message": "{other_talent_name} is unhappy with your response, but gets back to work." }
+        ]
+      },
+      {
+        "id": "talk_to_offender",
+        "text": "Discreetly talk to {talent_name}.",
+        "hint": "May cause embarrassment and affect their performance.",
+        "effects": [
+          { "type": "modify_performer_contribution", "target": "triggering_talent", "modifier": 0.9, "reason": "Embarrassed by Complaint" },
+          { "type": "notification", "message": "You have a quiet word with {talent_name}. The issue is addressed, but they seem embarrassed." }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "makeup_allergy",
+    "name": "Allergic Reaction",
+    "description": "{talent_name} is having an allergic reaction to the makeup, causing their skin to become red and blotchy. The shoot must be delayed while it's addressed.",
+    "category": "Makeup",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_tiers": ["Standard"],
+    "choices": [
+      {
+        "id": "handle_it",
+        "text": "Get some hydrocortisone cream.",
+        "hint": "The delay will slightly reduce the final scene quality.",
+        "effects": [
+          { "type": "add_cost", "amount": 50, "reason": "Medical Supplies" },
+          { "type": "modify_scene_quality", "key": "overall", "modifier": 0.95, "reason": "Delay (Allergic Reaction)" },
+          { "type": "notification", "message": "The cream helps, and after a short delay, shooting resumes." }
+        ]
+      }
+    ]
+  }
+]

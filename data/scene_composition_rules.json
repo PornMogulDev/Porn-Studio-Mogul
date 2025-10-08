@@ -1,0 +1,69 @@
+[
+  {
+    "conditions": {
+      "total_performers": 1,
+      "gender_counts": { "Female": 1 }
+    },
+    "result": { "base_name": "Solo" }
+  },
+  {
+    "conditions": {
+      "total_performers": 1,
+      "gender_counts": { "Male": 1 }
+    },
+    "result": { "base_name": "Solo" }
+  },
+  {
+    "conditions": {
+      "total_performers": 2,
+      "gender_counts": { "Female": 2 }
+    },
+    "result": { "base_name": "Couple (Lesbian)" }
+  },
+  {
+    "conditions": {
+      "total_performers": 2,
+      "gender_counts": { "Male": 2 }
+    },
+    "result": { "base_name": "Couple (Gay)" }
+  },
+  {
+    "conditions": {
+      "total_performers": 2,
+      "gender_counts": { "Female": 1, "Male": 1 }
+    },
+    "result": { "base_name": "Couple" }
+  },
+  {
+    "conditions": {
+      "total_performers": 3,
+      "gender_counts": { "Female": 2, "Male": 1 }
+    },
+    "result": { "base_name": "Threesome" }
+  },
+  {
+    "conditions": {
+      "total_performers": 3,
+      "gender_counts": { "Female": 1, "Male": 2 }
+    },
+    "result": { "base_name": "Threesome" }
+  },
+  {
+    "conditions": {
+      "min_performers": 5,
+      "gender_counts": { "Female": 1 }
+    },
+    "result": { "base_name": "Gangbang" }
+  },
+  {
+    "conditions": {
+      "min_performers": 5,
+      "gender_counts": { "Male": 1 }
+    },
+    "result": { "base_name": "Reverse Gangbang" }
+  },
+  {
+    "conditions": { "min_performers": 6 },
+    "result": { "base_name": "Orgy" }
+  }
+]

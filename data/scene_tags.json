@@ -1,0 +1,740 @@
+[
+  { "name": "Masturbation", "orientation": "Female",
+    "type": "Action",
+    "concept": "Masturbation",
+    "categories": ["Solo"],
+    "slots": [ { "role": "Performer", "gender": "Female", "count": 1, "stamina_modifier": 1.0} ]
+  },
+  { "name": "Masturbation", "orientation": "Male",
+    "type": "Action",
+    "concept": "Masturbation",
+    "categories": ["Solo"],
+    "slots": [ { "role": "Performer", "gender": "Male", "count": 1, "stamina_modifier": 1.0} ]
+  },
+  { "name": "Blowjob", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Blowjob",
+    "categories": ["Oral", "Group"],
+    "slots": [
+      { "role": "Receiver", "gender": "Male", "count": 1, "stamina_modifier": 0.9,
+        "stamina_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 1.2,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
+  { "name": "Blowjob Orgy", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Blowjob",
+    "categories": ["Oral", "Group"],
+    "slots": [
+      { "role": "Receiver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 0.9 },
+      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 1.2,
+        "demand_modifier_scaling_per_other":0.05,
+        "demand_modifier_scaling_per_peer":-0.02 }
+    ]
+  },
+  { "name": "Deepthroat", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Blowjob",
+    "dom_sub_multiplier": 1.2,
+    "categories": ["Oral", "Group"],
+    "slots": [
+      { "role": "Receiver", "gender": "Male", "count": 1, "stamina_modifier": 1.0,
+        "stamina_modifier_scaling_per_other": 0.08 },
+      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "demand_modifier": 1.1,
+        "stamina_modifier": 1.3,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
+  { "name": "Facefuck", "orientation": "Straight",
+    "type": "Action",
+    "concept": "Blowjob",
+    "dom_sub_multiplier": 1.5,
+    "categories": ["Oral"],
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1, "demand_modifier": 1.3, "stamina_modifier": 1.3 },
+      { "role": "Giver", "gender": "Male", "count": 1,
+        "demand_modifier": 1.1,
+        "stamina_modifier": 1.3 }
+    ]
+  },
+  { "name": "Facefuck Complete", "orientation": "Straight",
+    "type": "Action",
+    "concept": "Blowjob",
+    "categories": ["Oral", "Container"],
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1 },
+      { "role": "Giver", "gender": "Male", "count": 1 }
+    ],
+    "expands_to": [
+      { "tag_name": "Blowjob (Straight)", "runtime_ratio": 1,
+        "role_map": { "Receiver": "Giver", "Giver": "Receiver" } },
+      { "tag_name": "Deepthroat (Straight)", "runtime_ratio": 1,
+        "role_map": { "Receiver": "Giver", "Giver": "Receiver" } },
+      { "tag_name": "Facefuck (Straight)", "runtime_ratio": 1 }
+    ],
+    "tooltip": "Blowjob + Deepthroat + Facefuck"
+  },
+  { "name": "Blowjob", "orientation": "Gay",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Blowjob",
+    "categories": ["Oral", "Group"],
+    "slots": [
+      { "role": "Receiver", "gender": "Male", "count": 1,
+        "demand_modifier": 1.1,
+        "stamina_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 1.2,
+        "demand_modifier": 1.2,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
+  { "name": "Vaginal", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Vaginal",
+    "categories": ["Vaginal", "Concurrently"],
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1, "stamina_modifier": 1.3,
+        "demand_modifier_scaling_per_other": 0.4,
+        "stamina_modifier_scaling_per_other": 0.3 },
+      { "role": "Giver", "gender": "Any", "parameterized_by": "count", "min_count": 1, "max_count": 4, "stamina_modifier": 1.3,
+        "demand_modifier_scaling_per_peer": 0.05,
+        "stamina_modifier_scaling_per_peer": 0.15 }
+    ]
+  },
+  { "name": "Vaginal", "orientation": "Lesbian",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Vaginal",
+    "categories": ["Vaginal", "Concurrently"],
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1, "demand_modifier": 1.1, "stamina_modifier": 1.3,
+        "demand_modifier_scaling_per_other": 0.3,
+        "stamina_modifier_scaling_per_other": 0.3 },
+      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 4, "demand_modifier": 1.1, "stamina_modifier": 1.4,
+        "demand_modifier_scaling_per_peer": 0.05,
+        "stamina_modifier_scaling_per_peer": 0.2 }
+    ]
+  },
+  { "name": "Vaginal Gangbang", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Vaginal",
+    "categories": ["Vaginal", "Group", "Gangbang"],
+    "appeal_weight": 12.0,
+    "slots": [
+      { "role": "Receiver",
+      "gender": "Female",
+      "count": 1,
+      "stamina_modifier": 1.3,
+      "demand_modifier_scaling_per_other": 0.1, 
+      "stamina_modifier_scaling_per_other": 0.1
+    },
+      { "role": "Giver",
+        "gender": "Any",
+        "parameterized_by": "count",
+        "min_count": 2,
+        "max_count": 20,
+        "stamina_modifier": 1.3,
+        "demand_modifier_scaling_per_peer": 0.05,
+        "stamina_modifier_scaling_per_peer": -0.1 
+      }
+    ],
+    "tooltip": "Each 'Giver' at a time. So just Vaginal, not Double Vaginal, etc. So you don't have to add 2+ instances of the same."
+  },
+  {
+    "name": "Anal", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Anal",
+    "categories": ["Anal", "Concurrently"],
+    "appeal_weight": 12.0,
+    "slots": [
+      { 
+        "role": "Receiver", 
+        "gender": "Female", 
+        "count": 1, 
+        "demand_modifier": 1.3,
+        "stamina_modifier": 1.2,
+        "demand_modifier_scaling_per_other": 0.4,  
+        "stamina_modifier_scaling_per_other": 0.3   
+      },
+      { 
+        "role": "Giver", 
+        "gender": "Male", 
+        "parameterized_by": "count", 
+        "min_count": 1, 
+        "max_count": 4,
+        "demand_modifier": 1.1,
+        "stamina_modifier": 1.3,
+        "demand_modifier_scaling_per_peer": 0.1,
+        "stamina_modifier_scaling_per_peer": 0.1
+      }
+    ],
+    "tooltip": "At the same time. So 2 'Givers' would mean a Double Anal, etc."
+  },
+    {
+    "name": "Anal", "orientation": "Gay",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Anal",
+    "categories": ["Anal", "Concurrently"],
+    "appeal_weight": 12.0,
+    "slots": [
+      { 
+        "role": "Receiver", 
+        "gender": "Male", 
+        "count": 1, 
+        "demand_modifier": 1.3,
+        "stamina_modifier": 1.2,
+        "demand_modifier_scaling_per_other": 0.4,  
+        "stamina_modifier_scaling_per_other": 0.3   
+      },
+      { 
+        "role": "Giver", 
+        "gender": "Male", 
+        "parameterized_by": "count", 
+        "min_count": 1, 
+        "max_count": 4,
+        "demand_modifier": 1.1,
+        "stamina_modifier": 1.3,
+        "demand_modifier_scaling_per_peer": 0.1,
+        "stamina_modifier_scaling_per_peer": 0.1
+      }
+    ],
+    "tooltip": "At the same time. So 2 'Givers' would mean a Double Anal, etc."
+  },
+  {
+    "name": "Pegging", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Anal",
+    "dom_sub_multiplier": 1.8,
+    "categories": ["Anal", "Concurrently"],
+    "appeal_weight": 12.0,
+    "slots": [
+      { 
+        "role": "Receiver", 
+        "gender": "Male", 
+        "count": 1, 
+        "demand_modifier": 1.3,
+        "stamina_modifier": 1.3,
+        "demand_modifier_scaling_per_other": 0.4,  
+        "stamina_modifier_scaling_per_other": 0.3   
+      },
+      { 
+        "role": "Giver", 
+        "gender": "Female", 
+        "parameterized_by": "count", 
+        "min_count": 1, 
+        "max_count": 4,
+        "demand_modifier": 1.2,
+        "stamina_modifier": 1.4,
+        "demand_modifier_scaling_per_peer": 0.05,
+        "stamina_modifier_scaling_per_peer": 0.1
+      }
+    ],
+    "tooltip": "At the same time. So 2 'Givers' would mean a Double Anal, etc."
+  },
+  {
+    "name": "Anal", "orientation": "Lesbian",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Anal",
+    "categories": ["Anal", "Concurrently"],
+    "appeal_weight": 12.0,
+    "slots": [
+      { 
+        "role": "Receiver", 
+        "gender": "Female", 
+        "count": 1, 
+        "demand_modifier": 1.3,
+        "stamina_modifier": 1.3,
+        "demand_modifier_scaling_per_other": 0.4,  
+        "stamina_modifier_scaling_per_other": 0.3   
+      },
+      { 
+        "role": "Giver", 
+        "gender": "Female", 
+        "parameterized_by": "count", 
+        "min_count": 1, 
+        "max_count": 4,
+        "demand_modifier": 1.2,
+        "stamina_modifier": 1.4,
+        "demand_modifier_scaling_per_peer": 0.05,
+        "stamina_modifier_scaling_per_peer": 0.1
+      }
+    ],
+    "tooltip": "At the same time. So 2 'Givers' would mean a Double Anal, etc."
+  },
+  {
+    "name": "Facial", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Facial",
+    "categories": ["Climax", "Facial", "Group"],
+    "appeal_weight": 18.0,
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 0.7, "demand_modifier": 1.4,
+        "stamina_modifier_scaling_per_peer": -0.01,
+        "demand_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.0,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
+  { "name": "Fingering", "orientation": "Straight",
+    "type": "Action", "is_template": true, "concept": "Fingering", "categories": [],
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1, "stamina_modifier": 0.9},
+      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.0,
+        "stamina_modifier_scaling_per_peer": -0.05 } ]
+  },
+  { "name": "Fingering", "orientation": "Lesbian",
+    "type": "Action", "is_template": true, "concept": "Fingering", "categories": [], "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1},
+      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.0,
+        "stamina_modifier_scaling_per_peer": -0.05 } ]
+  },
+  { "name": "Fingering", "orientation": "Bi",
+    "type": "Action", "is_template": true, "concept": "Fingering", "categories": [], "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1},
+      { "role": "Giver", "gender": "Any", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.0,
+        "stamina_modifier_scaling_per_peer": -0.05 } ]
+  },
+  { "name": "Cunnilingus", "orientation": "Straight",
+    "type": "Action", "is_template": true, "concept": "Cunnilingus", "categories": ["Oral"],
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1, "stamina_modifier": 0.9},
+      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "demand_modifier": 1.1, "stamina_modifier": 1.1,
+        "demand_modifier_scaling_per_peer": 0.05,
+        "stamina_modifier_scaling_per_peer": -0.05 } ]
+  },
+  { "name": "Anal Fingering", "orientation": "Straight",
+    "type": "Action", "is_template": true, "concept": "Fingering", "categories": ["Anal"],
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1, "demand_modifier": 1.1 },
+      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "demand_modifier": 1.05, "stamina_modifier": 1.1,
+        "demand_modifier_scaling_per_peer": 0.05,
+        "stamina_modifier_scaling_per_peer": -0.05 } ]
+  },
+  { "name": "Prostate Massage", "orientation": "Straight",
+    "type": "Action", "is_template": true, "concept": "Fingering", "categories": ["Anal"],
+    "slots": [
+      { "role": "Receiver", "gender": "Male", "count": 1, "demand_modifier": 1.1 },
+      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "demand_modifier": 1.05, "stamina_modifier": 1.1,
+        "stamina_modifier_scaling_per_peer": -0.05 } ]
+  },
+  { "name": "Prostate Massage", "orientation": "Gay",
+    "type": "Action", "is_template": true, "concept": "Fingering", "categories": ["Anal"],
+    "slots": [
+      { "role": "Receiver", "gender": "Male", "count": 1, "demand_modifier": 1.1 },
+      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "demand_modifier": 1.1, "stamina_modifier": 1.1,
+        "stamina_modifier_scaling_per_peer": -0.05 } ]
+  },
+  { "name": "Analingus", "orientation": "Straight",
+    "type": "Action", "is_template": true, "concept": "Analingus", "categories": ["Oral"],
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1, "stamina_modifier": 0.9},
+      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "demand_modifier": 1.2, "stamina_modifier": 1.1,
+        "demand_modifier_scaling_per_peer": 0.05,
+        "stamina_modifier_scaling_per_peer": -0.05 } ]
+  },
+  { "name": "Rimjob", "orientation": "Straight",
+    "type": "Action", "is_template": true, "concept": "Analingus", "categories": ["Oral"],
+    "slots": [
+      { "role": "Receiver", "gender": "Male", "count": 1, "stamina_modifier": 0.9},
+      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "demand_modifier": 1.3, "stamina_modifier": 1.1,
+        "stamina_modifier_scaling_per_peer": -0.05 } ]
+  },
+  { "name": "Rimjob", "orientation": "Gay",
+    "type": "Action", "is_template": true, "concept": "Analingus", "categories": ["Oral"],
+    "slots": [
+      { "role": "Receiver", "gender": "Male", "count": 1, "demand_modifier": 1.1, "stamina_modifier": 0.9},
+      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "demand_modifier": 1.3, "stamina_modifier": 1.1,
+        "stamina_modifier_scaling_per_peer": -0.05 } ]
+  },
+  { "name": "Complete Oral on Female", "orientation": "Straight",
+    "type": "Action", "is_template": true, "concept": "Oral", "categories": ["Container", "Oral", "Anal"],
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1 },
+      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20 } ],
+      "expands_to": [
+      { "tag_name": "Fingering (Straight)", "runtime_ratio": 1 },
+      { "tag_name": "Anal Fingering (Straight)", "runtime_ratio": 1 },
+      { "tag_name": "Cunnilingus (Straight)", "runtime_ratio": 2 },
+      { "tag_name": "Analingus (Straight)", "runtime_ratio": 2 }
+    ],
+    "tooltip": "Fingering, Anal Fingering, Cunnilingus, and Analingus"
+  },
+  {
+    "name": "BVF", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "BVF",
+    "categories": ["Container", "Oral", "Vaginal", "Climax"],
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "count": 1 },
+      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20 }
+    ],
+    "expands_to": [
+      { "tag_name": "Blowjob (Straight)", "runtime_ratio": 3,
+        "role_map": { "Receiver": "Giver", "Giver": "Receiver" } },
+      { "tag_name": "Vaginal (Straight)", "runtime_ratio": 6 },
+      { "tag_name": "Facial (Straight)", "runtime_ratio": 1 }
+    ],
+    "tooltip": "Blowjob -> Vaginal -> Facial"
+  },
+  { "name": "Cosplay", "type": "Global", "categories": "Wardrobe",
+    "quality_source": { "scope": "all", "base": "acting" }, "revenue_weights": {   
+      "focused": 7.0         
+    } 
+  },
+  { "name": "Heels", "type": "Global", "categories": "Wardrobe", "revenue_weights": {   
+      "focused": 3.0         
+    }
+  },
+  { "name": "Fishnets", "type": "Global", "categories": "Wardrobe", "revenue_weights": {   
+      "focused": 3.0         
+    }
+  },
+  {
+    "name": "Interracial (BM/WF)",
+    "concept": "Interracial",
+    "type": "Global",
+    "categories": ["Composition", "Interracial"],
+    "is_auto_taggable": true,
+    "validation_rule": {
+      "mode": "match_all",
+      "profiles": [
+        { "gender": "Male", "ethnicity": "Black" },
+        { "gender": "Female", "ethnicity": "White" }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "quality_blend": [
+        { "source": "static", "value": 75, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 20.0,      
+      "auto": 5.0          
+    }
+  },
+  {
+    "name": "Interracial (WM/AF)",
+    "concept": "Interracial",
+    "type": "Global",
+    "categories": ["Composition", "Interracial"],
+    "is_auto_taggable": true,
+    "validation_rule": {
+      "mode": "match_all",
+      "profiles": [
+        { "gender": "Male", "ethnicity": "White" },
+        { "gender": "Female", "ethnicity": "Asian" }
+      ]
+    },
+    "quality_source": { 
+      "scope": "matched",
+      "base": "acting",
+      "quality_blend": [
+        { "source": "static", "value": 75, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ] },
+      "revenue_weights": { 
+        "focused": 15.0, 
+        "auto": 2.0
+    }
+  },
+  {
+    "name": "Age Gap (MILF/Teen)",
+    "concept": "Age Gap",
+    "type": "Global",
+    "categories": ["Composition", "Age Gap"],
+    "is_auto_taggable": true,
+    "validation_rule": {
+      "mode": "match_all",
+      "min_gap_years": 15,
+      "profiles": [
+        { "role": "older", "gender": "Female", "min_age": 35, "max_age": 50 },
+        { "role": "younger", "gender": "Any", "min_age": 18, "max_age": 22 }
+      ]
+    },
+    "quality_source": { "scope": "matched", "base": "acting",
+  "quality_blend": [
+        { "source": "static", "value": 75, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ] 
+      },
+    "revenue_weights": { 
+      "focused": 10.0, 
+      "auto": 3.5
+    }
+  },
+  {
+    "name": "Age Gap (Mature/Young Adult)",
+    "concept": "Age Gap",
+    "type": "Global",
+    "categories": ["Composition", "Age Gap"],
+    "validation_rule": {
+      "mode": "match_all",
+      "min_gap_years": 10,
+      "profiles": [
+        { "role": "older", "gender": "Any", "min_age": 40, "max_age": 55 },
+        { "role": "younger", "gender": "Any", "min_age": 25, "max_age": 32 }
+      ]
+    },
+    "quality_source": { "scope": "matched", "base": "acting",
+  "quality_blend": [
+        { "source": "static", "value": 75, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ] 
+    },
+    "revenue_weights": { 
+      "focused": 7.0, 
+      "auto": 1.5
+    }
+  },
+  { "name": "Small Dick", "type": "Assigned",
+    "orientation": "Male",
+    "categories": "Dick",
+    "is_auto_taggable": true,
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Small Dick",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 15.0,      
+      "auto": 5.0          
+    }
+  },
+  { "name": "Medium Dick", "type": "Assigned",
+    "orientation": "Male",
+    "categories": "Dick",
+    "is_auto_taggable": true,
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Medium Dick",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 3.5,      
+      "auto": 1.5          
+    },
+    "tooltip": "It can talk to ghosts."
+  },
+  { "name": "Big Dick", "type": "Assigned",
+    "orientation": "Male",
+    "gender": "Male",
+    "categories": "Dick",
+    "is_auto_taggable": true,
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Big Dick",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 10.0,      
+      "auto": 3.5          
+    }
+  },
+  { "name": "Teen", "type": "Assigned",
+    "orientation": "Female",
+    "categories": "Age",
+    "is_auto_taggable": true,
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Teen",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 8.0,      
+      "auto": 3.0          
+    }
+  },
+  { "name": "MILF",
+    "type": "Assigned",
+    "orientation": "Female",
+    "categories": "Age",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "quality_source": {
+      "base": "acting",
+      "affinity": "MILF",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 8.0,      
+      "auto": 2.5          
+    }
+  },
+  { "name": "Granny", "type": "Assigned", "categories": "Age",
+    "orientation": "Female",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Granny",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 25.0,      
+      "auto": 10.0          
+    } },
+  { "name": "Small Boobs",
+    "type": "Assigned",
+    "categories": "Boobs",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Small Boobs",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 5.0, 
+      "auto": 2.0
+    }
+  },
+  { "name": "Medium Boobs",
+    "type": "Assigned",
+    "categories": "Boobs",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Medium Boobs",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 4.0, 
+      "auto": 1.0
+    },
+    "tooltip": "They can talk to ghosts."
+  },
+  { "name": "Big Boobs",
+    "type": "Assigned",
+    "categories": "Boobs",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Big Boobs",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 5.0, 
+      "auto": 2.5
+    }
+  },
+  { "name": "Ebony",
+    "type": "Assigned",
+    "categories": "Race",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "ethnicity": "Black",
+    "quality_source": {
+      "base": "acting",
+      "quality_blend": [
+        { "source": "static", "value": 75, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 10.0, 
+      "auto": 2.5
+    }
+  },
+  { "name": "BBC",
+    "type": "Assigned",
+    "categories": "Race",
+    "gender": "Male",
+    "is_auto_taggable": true,
+    "ethnicity": "Black",
+    "quality_source": {
+      "base": "acting",
+      "quality_blend": [
+        { "source": "dick_size", "multiplier": 10, "weight": 0.9 }, 
+        { "source": "base", "weight": 0.1 }                
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 10.0, 
+      "auto": 5.0
+    }
+  },
+  { "name": "Latina",
+    "type": "Assigned",
+    "categories": "Race",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "ethnicity": "Latin",
+    "quality_source": {
+      "base": "acting",
+      "quality_blend": [
+        { "source": "static", "value": 75, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 8.5, 
+      "auto": 2.5
+    }
+  },
+  { "name": "White",  "type": "Ethnicity", "quality_weight": 1.0 },
+  { "name": "Black",  "type": "Ethnicity", "quality_weight": 1.0 },
+  { "name": "Asian",  "type": "Ethnicity", "quality_weight": 1.0 },
+  { "name": "Latin", "type": "Ethnicity", "quality_weight": 1.0 },
+  { "name": "Japanese", "type": "Ethnicity", "quality_weight": 1.0 },
+  { "name": "Thai", "type": "Ethnicity", "quality_weight": 1.0 },
+  { "name": "Arab", "type": "Ethnicity", "quality_weight": 1.0 },
+  { "name": "Indian", "type": "Ethnicity", "quality_weight": 1.0 },
+  { "name": "Korean", "type": "Ethnicity", "quality_weight": 1.0 },
+  { "name": "Russian", "type": "Ethnicity", "quality_weight": 1.0 }
+]

@@ -1,0 +1,56 @@
+{
+  "genders": [
+    { "name": "Male", "weight": 30 },
+    { "name": "Female", "weight": 70 }
+  ],
+  "ethnicities": [
+    { "name": "White", "weight": 30 },
+    { "name": "Black", "weight": 15 },
+    { "name": "Latin", "weight": 15 },
+    { "name": "Asian", "weight": 10 },
+    { "name": "Japanese", "weight": 8 },
+    { "name": "Korean", "weight": 5 },
+    { "name": "Russian", "weight": 8 },
+    { "name": "Thai", "weight": 5 }
+  ],
+  "aliases": {
+    "female_first": [
+      "Angel", "Brandi", "Candy", "Destiny", "Eden", "Faith", "Ginger", 
+      "Harmony", "India", "Jenna", "Krystal", "Lacey", "Misty", "Nikki", 
+      "Paris", "Raven", "Savannah", "Tori", "Vixen", "Zoey", "Lexi", 
+      "Cherry", "Skye", "Stormy", "Sunny"
+    ],
+    "male_first": [
+      "Johnny", "Rocco", "Tommy", "Jordi", "Lex", "Nacho", "Mick", "Shane",
+      "Brick", "Gunner", "Wolf", "Spike", "Ace"
+    ],
+    "unisex_last": [
+      "Love", "Sins", "Lust", "Starr", "Fox", "West", "Lee", "Steele", 
+      "Stone", "Wilde", "Savage", "Young", "Danger", "Blaze", "Cross",
+      "Gunn", "Chase", "Redd", "Rivers", "Knight"
+    ]
+  },
+  "physiques": [
+    { "name": "Skinny", "weight": 15 },
+    { "name": "Average", "weight": 30 },
+    { "name": "Fit", "weight": 25 },
+    { "name": "Muscular", "weight": 10 },
+    { "name": "Chubby", "weight": 15 },
+    { "name": "Fat", "weight": 5 }
+  ],
+  "boob_cups": [
+    { "name": "AA", "weight": 1 },
+    { "name":"A", "weight": 10 },
+    { "name": "B",  "weight": 24 },
+    { "name": "C",  "weight": 21 },
+    { "name": "D",  "weight": 16 },
+    { "name": "E",  "weight": 14 },
+    { "name": "F",  "weight": 6 },
+    { "name": "G",  "weight": 2 },
+    { "name": "H",  "weight": 2 },
+    { "name": "I", "weight": 1 },
+    { "name": "J",  "weight": 1 },
+    { "name": "K",  "weight": 1 },
+    { "name": "L",  "weight": 1 }
+  ] 
+}

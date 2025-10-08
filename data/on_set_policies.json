@@ -1,0 +1,20 @@
+[
+  {
+    "id": "policy_condoms_mandatory",
+    "name": "Condoms Mandatory",
+    "description": "All scenes involving penetration must use condoms. Prioritizes safety.",
+    "cost_per_bloc": 20
+  },
+  {
+    "id": "policy_std_test_required",
+    "name": "Recent STD Test Required",
+    "description": "Talent must provide a recent, clean STD panel to be cast. May deter some talent.",
+    "cost_per_bloc": 0
+  },
+  {
+    "id": "policy_no_drugs_allowed",
+    "name": "No Drugs Allowed",
+    "description": "Strictly enforce a no-drug policy on set. Increases professionalism but may deter some talent.",
+    "cost_per_bloc": 50
+  }
+]

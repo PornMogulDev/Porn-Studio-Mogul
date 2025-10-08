@@ -1,0 +1,153 @@
+{
+  "viewer_groups": [
+    {
+      "name": "Straight Men",
+      "market_share_percent": 40,
+      "spending_power": 1.0,
+      "focus_bonus": 1.1,
+      "popularity_spillover": {
+        "Blowjob Enthusiasts": 0.80,
+        "Gay Men": 0.10,
+        "Straight Women": 0.05
+      },
+      "preferences": {
+        "orientation_sentiments": {
+          "Straight": 2.0,
+          "Female": 1.7,
+          "Lesbian": 1.5,
+          "Bi": 0.2,
+          "Gay": 0.0,
+          "Male": 0.0
+        },
+        "concept_sentiments": {
+          "Big Boobs": 2.5,
+          "Vaginal": 2.5,
+          "Blowjob": 1.5,
+          "MILF": 2.0,
+          "Teen": 2.5,
+          "Masturbation": 0.0,
+          "Interracial": 2.1,
+          "Age Gap": 1.9
+        },
+        "tag_sentiments": {
+          "Interracial (BM/WF)": 1.9,
+          "Interracial (WM/AF)": 1.8,
+          "Interracial (WM/LF)": 2.0,
+          "Age Gap (Older Woman/Younger Man)": 1.9,
+          "Anal (Pegging)": 0.2
+        },
+        "scaling_sentiments": {
+          "Anal": { "based_on_role": "Giver", "applies_after": 1, "bonuses": [0.2, 0.15, 0.1] },
+          "Vaginal": { "based_on_role": "Giver", "bonus_per_unit": 0.2, "applies_after": 1 },
+          "Blowjob": { "based_on_role": "Giver", "applies_after": 1, "bonuses": [0.2, 0.1], "penalty_after": 7, "penalty_per_unit": -0.2 }
+        },
+        "dom_sub_sentiments": {
+          "0": 1.1,
+          "1": 1.3,
+          "2": 0.8,
+          "3": 0.5
+        }
+      }
+    },
+    {
+      "name": "Blowjob Enthusiasts",
+      "inherits_from": "Straight Men",
+      "market_share_percent": 10,
+      "spending_power": 1.8,
+      "focus_bonus": 1.8,
+      "popularity_spillover": {
+        "Straight Men": 0.20,
+        "Straight Women": 0.15
+      },
+      "preferences": {
+        "concept_sentiments": {
+          "Blowjob": 3.5,
+          "Facial": 3.0,
+          "Vaginal": 1.0
+        },
+        "tag_sentiments": {
+          "Deepthroat (Straight)": 3.5,
+          "Facefuck (Straight)": 3.0
+        },
+        "scaling_sentiments": {
+          "Blowjob": {
+            "based_on_role": "Giver",
+            "applies_after": 1,
+            "bonuses": [0.3, 0.2, 0.1]
+          },
+          "Facial": { "based_on_role": "Giver", "bonus_per_unit": 0.4, "applies_after": 1 }
+        },
+        "dom_sub_sentiments": {
+          "2": 1.1
+        }
+      }
+    },
+    {
+      "name": "Straight Women",
+      "market_share_percent": 25,
+      "spending_power": 0.8,
+      "focus_bonus": 1.5,
+      "popularity_spillover": {
+        "Straight Men": 0.10
+      },
+      "preferences": {
+        "orientation_sentiments": {
+          "Straight": 2.0,
+          "Male": 2.0,
+          "Bi": 1.7,
+          "Lesbian": 1.5,
+          "Gay": 1.4,
+          "Female": 0.5
+        },
+        "concept_sentiments": {
+          "Blowjob": 2.0,
+          "Vaginal": 2.5,
+          "Anal": 1.5,
+          "Fingering": 1.5
+        },
+        "dom_sub_sentiments": {
+          "0": 1.0,
+          "1": 1.2,
+          "2": 1.5,
+          "3": 1.0
+        }
+      }
+    },
+    {
+      "name": "Gay Men",
+      "market_share_percent": 25,
+      "spending_power": 1.2,
+      "focus_bonus": 1.5,
+      "popularity_spillover": {
+        "Straight Men": 0.05
+      },
+      "preferences": {
+        "orientation_sentiments": {
+          "Gay": 2.0,
+          "Male": 1.7,
+          "Bi": 1.2,
+          "Straight": 0.5,
+          "Lesbian": 0.0,
+          "Female": 0.0
+        },
+        "concept_sentiments": {
+          "Anal": 2.0,
+          "Blowjob": 2.0
+        },
+        "tag_sentiments": {
+          "Anal (Pegging)": 0.5
+        },
+        "scaling_sentiments": {
+          "Anal": { "based_on_role": "Giver", "bonus_per_unit": 0.25, "applies_after": 1 },
+          "Blowjob": { "based_on_role": "Giver", "bonus_per_unit": 0.3, "applies_after": 1 }
+        },
+        "dom_sub_sentiments": {
+          "0": 0.9,
+          "1": 1.1,
+          "2": 1.3,
+          "3": 1.5
+        }
+      }
+    }
+  ]
+}
