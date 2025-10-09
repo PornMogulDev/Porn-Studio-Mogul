@@ -41,7 +41,6 @@ class ScenesTab(QWidget):
         layout.addLayout(button_layout)
 
     def refresh_view(self):
-        # --- MODIFIED: Get data from the controller's DB query method ---
         shot_scenes = self.controller.get_shot_scenes()
         self.source_model.setScenes(shot_scenes)
         self.update_button_states()
