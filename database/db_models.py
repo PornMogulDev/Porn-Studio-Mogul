@@ -113,6 +113,7 @@ class TalentDB(Base, DataclassMapper):
     ambition = Column(Integer)
     professionalism = Column(Integer, default=5, nullable=False)
     orientation_score = Column(Integer, default=0, nullable=False)
+    disposition_score = Column(Integer, default=0, nullable=False)
     boob_cup = Column(String, nullable=True)
     dick_size = Column(Integer, nullable=True)
     tag_affinities = Column(JSON, default=dict)
@@ -124,6 +125,8 @@ class TalentDB(Base, DataclassMapper):
     chemistry_b = relationship("TalentChemistryDB", foreign_keys=[TalentChemistryDB.talent_b_id], back_populates="talent_b", cascade="all, delete-orphan")
     tag_preferences = Column(JSON, default=dict)
     hard_limits = Column(JSON, default=list)
+    max_scene_partners = Column(Integer, default=10, nullable=False)
+    concurrency_limits = Column(JSON, default=dict)
     policy_requirements = Column(JSON, default=dict)
 
 class SceneCastDB(Base, DataclassMapper):

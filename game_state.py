@@ -21,7 +21,8 @@ class Talent:
     dom_skill: float; sub_skill: float
     ambition: int
     professionalism: int = 5
-    orientation_score: int = 0 
+    orientation_score: int = 0
+    disposition_score: int = 0 
     chemistry: Dict[int, int] = field(default_factory=dict)
     popularity: Dict[str, float] = field(default_factory=dict)
     boob_cup: Optional[str] = None
@@ -32,6 +33,8 @@ class Talent:
     fatigue_end_year: int = 0
     tag_preferences: Dict[str, Dict[str, float]] = field(default_factory=dict)
     hard_limits: List[str] = field(default_factory=list)
+    max_scene_partners: int = 10
+    concurrency_limits: Dict[str, int] = field(default_factory=dict)
     policy_requirements: Dict[str, List[str]] = field(default_factory=dict)
 
 @dataclass_json
