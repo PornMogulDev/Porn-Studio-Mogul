@@ -31,7 +31,8 @@ class SettingsManager:
         self._default_settings = {
             "save_on_exit": True,
             "unit_system": "imperial",  # 'imperial' or 'metric'
-            "window_geometries": {}
+            "window_geometries": {},
+            "theme": "system"  #'dark', 'light', or 'system'
         }
         self.settings = self._load_settings()
 

@@ -2,6 +2,8 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QGroupBox, QHBoxLayout, QLabel, 
     QComboBox, QDialogButtonBox, QPushButton, QMessageBox
 )
+from PyQt6.QtCore import pyqtSlot
+
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 
 class SettingsDialog(GeometryManagerMixin, QDialog):
@@ -9,6 +11,9 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         super().__init__(parent)
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
+
+        # --- NEW: Store the initial theme to allow for cancellation ---
+        self.initial_theme = self.settings_manager.get_setting("theme")
 
         self.setWindowTitle("Settings")
         self.setModal(True)
@@ -21,19 +26,32 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
 
         # Display Group
         display_group = QGroupBox("Display")
-        display_layout = QHBoxLayout(display_group)
-        
+        display_v_layout = QVBoxLayout(display_group)
+
+        # Unit System layout
+        unit_layout = QHBoxLayout()
         unit_label = QLabel("Unit System:")
         self.unit_combo = QComboBox()
         self.unit_combo.addItem("Imperial (inches)", "imperial")
         self.unit_combo.addItem("Metric (cm)", "metric")
-        
-        display_layout.addWidget(unit_label)
-        display_layout.addWidget(self.unit_combo)
+        unit_layout.addWidget(unit_label)
+        unit_layout.addWidget(self.unit_combo)
+        display_v_layout.addLayout(unit_layout)
+
+        # Theme layout
+        theme_layout = QHBoxLayout()
+        theme_label = QLabel("Theme:")
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItem("Dark", "dark")
+        self.theme_combo.addItem("Light", "light")
+        self.theme_combo.addItem("System", "system")
+        theme_layout.addWidget(theme_label)
+        theme_layout.addWidget(self.theme_combo)
+        display_v_layout.addLayout(theme_layout) 
         
         main_layout.addWidget(display_group)
         
-        # Window Layout Group
+        # ... (Window Layout Group is unchanged) ...
         layout_group = QGroupBox("Window Layout")
         layout_vbox = QVBoxLayout(layout_group)
 
@@ -53,13 +71,31 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         main_layout.addWidget(button_box)
-    
+
+        # Connect the theme combo box to the preview slot ---
+        self.theme_combo.currentTextChanged.connect(self._preview_theme)
+
+    # Slot to handle live previewing of the theme 
+    @pyqtSlot(str)
+    def _preview_theme(self, theme_name: str):
+        """Applies the selected theme as a preview."""
+        # This works because set_setting emits a signal that the ApplicationWindow
+        # is already listening to.
+        self.settings_manager.set_setting("theme", theme_name.lower())
+
     def load_current_settings(self):
         """Sets the UI controls to reflect the current settings."""
+        # Load unit system
         current_unit = self.settings_manager.get_setting("unit_system")
         index = self.unit_combo.findData(current_unit)
         if index != -1:
             self.unit_combo.setCurrentIndex(index)
+            
+        # Load theme setting
+        current_theme = self.settings_manager.get_setting("theme")
+        theme_index = self.theme_combo.findData(current_theme)
+        if theme_index != -1:
+            self.theme_combo.setCurrentIndex(theme_index)
 
     def _confirm_and_reset_geometries(self):
         """Shows a confirmation dialog and resets window geometries if confirmed."""
@@ -75,6 +111,19 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
 
     def accept(self):
         """Saves the settings when the user clicks OK."""
+        # Save unit system
         selected_unit = self.unit_combo.currentData()
         self.settings_manager.set_setting("unit_system", selected_unit)
+        
+        # --- MODIFIED: Theme is already set by the preview, so no action is needed ---
+        # The last previewed theme is now the final one.
+
         super().accept()
+
+    def reject(self):
+        """Reverts the theme to its original state and closes the dialog."""
+        current_theme = self.settings_manager.get_setting("theme")
+        if current_theme != self.initial_theme:
+            self.settings_manager.set_setting("theme", self.initial_theme)
+        
+        super().reject()

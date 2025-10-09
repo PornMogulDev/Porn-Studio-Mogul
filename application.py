@@ -1,6 +1,8 @@
 import os, sys, traceback
 from datetime import datetime
 from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QMessageBox
+from PyQt6.QtCore import pyqtSlot
+import qdarktheme
 
 from data_manager import DataManager
 from game_controller import GameController
@@ -57,14 +59,33 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     # 5. Call the default excepthook to exit the program
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
+def apply_theme(settings_manager: SettingsManager):
+    """Reads the theme from settings and applies it to the application."""
+    theme_name = settings_manager.get_setting("theme", "system")
+    app = QApplication.instance()
+    if not app:
+        return
+        
+    if theme_name == "system":
+        # An empty stylesheet reverts to the default system style
+        app.setStyleSheet("")
+    else:
+        try:
+            app.setStyleSheet(qdarktheme.load_stylesheet(theme_name))
+        except TypeError:
+            # Fallback if an invalid theme name is somehow in settings.json
+            print(f"Warning: Invalid theme '{theme_name}' in settings. Reverting to system default.")
+            app.setStyleSheet("")
+
+
 class ApplicationWindow(QMainWindow, GeometryManagerMixin):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(game_name)
         self.setMinimumSize(1366, 768)
 
-        # The mixin needs this attribute to be available.
         self.settings_manager = SettingsManager()
+        self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
 
         self.data_manager = DataManager()
 
@@ -97,10 +118,22 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         self.main_window.refresh_all_ui() 
         self.stacked_widget.setCurrentWidget(self.main_window)
 
+    @pyqtSlot(str)
+    def _on_setting_changed(self, key: str):
+        """
+        Listens for changes from the SettingsManager and applies them.
+        """
+        if key == "theme":
+            apply_theme(self.settings_manager)
+
 
 if __name__ == "__main__":
     sys.excepthook = handle_exception
     app = QApplication(sys.argv)
+
+    settings = SettingsManager()
+    apply_theme(settings)
+    
     window = ApplicationWindow()
     window.show()
     sys.exit(app.exec())
