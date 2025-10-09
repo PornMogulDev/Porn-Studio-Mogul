@@ -28,7 +28,6 @@ class GameMenuDialog(GeometryManagerMixin, QDialog):
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
         self.setWindowTitle("Game Menu")
-        self.setModal(True)
         self.setup_ui()
         self._restore_geometry()
 
@@ -91,6 +90,7 @@ class MainGameWindow(QWidget):
         super().__init__()
         self.controller = controller
         self.hire_presenter = None
+        self.go_to_list_dialog = None
         self.setup_ui()
         self.notification_manager = NotificationManager(self)
 
@@ -138,7 +138,7 @@ class MainGameWindow(QWidget):
         
         self.hire_tab = HireWindow()
         self.hire_presenter = HireTalentPresenter(self.controller, self.hire_tab)
-        
+
         self.scenes_tab = ScenesTab(self.controller)
         self.schedule_tab = ScheduleTab(self.controller)
         self.market_tab = MarketTab(self.controller)
@@ -214,8 +214,12 @@ class MainGameWindow(QWidget):
     
     def show_go_to_list(self):
         """Creates and shows the Go-To talent list dialog."""
-        dialog = GoToTalentDialog(self.controller, self)
-        dialog.exec()
+        if self.go_to_list_dialog is None:
+            self.go_to_list_dialog = GoToTalentDialog(self.controller, self)
+
+        self.go_to_list_dialog.show()
+        self.go_to_list_dialog.raise_()
+        self.go_to_list_dialog.activateWindow()
     
     def show_inbox(self):
         """Creates and shows the email inbox dialog."""

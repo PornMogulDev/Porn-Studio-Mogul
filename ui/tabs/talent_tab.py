@@ -1,5 +1,5 @@
 import random
-from PyQt6.QtCore import Qt, QAbstractListModel, QModelIndex, pyqtSignal
+from PyQt6.QtCore import Qt, QAbstractListModel, QModelIndex, pyqtSignal, QPoint
 from PyQt6.QtGui import QAction, QColor
 from PyQt6.QtWidgets import (
 QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
@@ -259,7 +259,9 @@ class HireWindow(QWidget):
     role_filter_applied = pyqtSignal(int, int) # scene_id, vp_id
     role_filter_cleared = pyqtSignal()
     scene_filter_selected = pyqtSignal(int) # scene_id
-    add_to_go_to_list_requested = pyqtSignal(int) # talent_id
+    context_menu_requested = pyqtSignal(object, QPoint) # talent, global pos
+    add_talent_to_category_requested = pyqtSignal(int, int) # talent_id, category_id
+    remove_talent_from_category_requested = pyqtSignal(int, int) # talent_id, category_id
     open_advanced_filters_requested = pyqtSignal(dict) # current_filters
     talent_selected = pyqtSignal(object) # talent object
     hire_requested = pyqtSignal(int, list)
@@ -362,9 +364,39 @@ class HireWindow(QWidget):
         index = self.talent_list_view.indexAt(pos)
         if not index.isValid(): return
         if talent := self.talent_model.data(index, Qt.ItemDataRole.UserRole):
-            menu = QMenu(); add_to_go_to_action = QAction("Add to Go-To List", self)
-            add_to_go_to_action.triggered.connect(lambda: self.add_to_go_to_list_requested.emit(talent.id))
-            menu.addAction(add_to_go_to_action); menu.exec(self.talent_list_view.viewport().mapToGlobal(pos))
+            global_pos = self.talent_list_view.viewport().mapToGlobal(pos)
+            self.context_menu_requested.emit(talent, global_pos)
+
+    def display_talent_context_menu(self, talent: Talent, all_categories: list, talent_categories: list, pos: QPoint):
+        menu = QMenu(self)
+
+        # --- "Add to..." Sub-menu ---
+        add_menu = menu.addMenu("Add to Go-To Category...")
+        if all_categories:
+            for category in sorted(all_categories, key=lambda c: c['name']):
+                action = QAction(category['name'], self)
+                action.triggered.connect(
+                    lambda checked=False, t_id=talent.id, c_id=category['id']: 
+                    self.add_talent_to_category_requested.emit(t_id, c_id)
+                )
+                add_menu.addAction(action)
+        else:
+            add_menu.setEnabled(False)
+
+        # --- "Remove from..." Sub-menu ---
+        remove_menu = menu.addMenu("Remove from Go-To Category...")
+        if talent_categories:
+            for category in sorted(talent_categories, key=lambda c: c['name']):
+                action = QAction(category['name'], self)
+                action.triggered.connect(
+                    lambda checked=False, t_id=talent.id, c_id=category['id']: 
+                    self.remove_talent_from_category_requested.emit(t_id, c_id)
+                )
+                remove_menu.addAction(action)
+        else:
+            remove_menu.setEnabled(False)
+
+        menu.exec(pos)
 
     def refresh_from_state(self):
         self.filter_talent_list()

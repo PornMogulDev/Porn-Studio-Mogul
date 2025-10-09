@@ -7,7 +7,10 @@ from sqlalchemy.orm import joinedload, selectinload
 from game_state import Talent, Scene, ActionSegment
 from services.market_service import MarketService
 from data_manager import DataManager
-from database.db_models import TalentDB, SceneDB, VirtualPerformerDB, ActionSegmentDB, TalentChemistryDB, ShootingBlocDB
+from database.db_models import (
+    TalentDB, SceneDB, VirtualPerformerDB, ActionSegmentDB, TalentChemistryDB,
+    ShootingBlocDB, GoToListAssignmentDB, TalentPopularityDB
+)
 
 class TalentService:
     def __init__(self, db_session, data_manager: DataManager, market_service: MarketService):
@@ -58,6 +61,11 @@ class TalentService:
         based on a dictionary of filter criteria.
         """
         query = self.session.query(TalentDB)
+        
+        # Go-To Category Filter
+        category_id = filters.get('go_to_category_id', -1)
+        if category_id != -1:
+            query = query.join(GoToListAssignmentDB).filter(GoToListAssignmentDB.category_id == category_id)
 
         # Text filter
         if text := filters.get('text', '').strip():

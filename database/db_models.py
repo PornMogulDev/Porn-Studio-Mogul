@@ -128,6 +128,8 @@ class TalentDB(Base, DataclassMapper):
     max_scene_partners = Column(Integer, default=10, nullable=False)
     concurrency_limits = Column(JSON, default=dict)
     policy_requirements = Column(JSON, default=dict)
+    # New relationship to assignments
+    go_to_list_assignments = relationship("GoToListAssignmentDB", back_populates="talent", cascade="all, delete-orphan")
 
 class SceneCastDB(Base, DataclassMapper):
     __tablename__ = 'scene_cast'
@@ -182,8 +184,6 @@ class SceneDB(Base, DataclassMapper):
     action_segments = relationship("ActionSegmentDB", back_populates="scene", cascade="all, delete-orphan")
     performer_contributions_rel = relationship("ScenePerformerContributionDB", back_populates="scene", cascade="all, delete-orphan")
 
-  
-
 class VirtualPerformerDB(Base, DataclassMapper):
     __tablename__ = 'virtual_performers'
     id = Column(Integer, primary_key=True)
@@ -235,6 +235,16 @@ class TalentPopularityDB(Base, DataclassMapper):
     talent = relationship("TalentDB", back_populates="popularity_scores")
     market_group = relationship("MarketGroupStateDB")
 
-class GoToListDB(Base):
-    __tablename__ = 'go_to_list'
-    talent_id = Column(Integer, primary_key=True)
+class GoToListCategoryDB(Base):
+    __tablename__ = 'go_to_list_categories'
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True, nullable=False)
+    is_deletable = Column(Boolean, default=True, nullable=False)
+    assignments = relationship("GoToListAssignmentDB", back_populates="category", cascade="all, delete-orphan")
+
+class GoToListAssignmentDB(Base):
+    __tablename__ = 'go_to_list_assignments'
+    category_id = Column(Integer, ForeignKey('go_to_list_categories.id'), primary_key=True)
+    talent_id = Column(Integer, ForeignKey('talents.id'), primary_key=True)
+    category = relationship("GoToListCategoryDB", back_populates="assignments")
+    talent = relationship("TalentDB", back_populates="go_to_list_assignments")

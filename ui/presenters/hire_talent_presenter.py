@@ -1,5 +1,5 @@
 from typing import List, Dict
-from PyQt6.QtCore import QObject, pyqtSlot, Qt
+from PyQt6.QtCore import QObject, pyqtSlot, Qt, QPoint
 from PyQt6.QtWidgets import QDialog
 
 from interfaces import IGameController
@@ -21,6 +21,9 @@ class HireTalentPresenter(QObject):
         self.controller.signals.scenes_changed.connect(self.on_global_scenes_changed)
         self.controller.signals.talent_pool_changed.connect(self.view.refresh_from_state)
         self.controller.settings_manager.signals.setting_changed.connect(self.view.talent_detail_view.on_setting_changed)
+        # Listen for category changes to potentially update context menus in the future
+        self.controller.signals.go_to_categories_changed.connect(self.view.refresh_from_state)
+
 
         # --- View Signals ---
         self.view.initial_load_requested.connect(self.on_initial_load)
@@ -29,7 +32,9 @@ class HireTalentPresenter(QObject):
         self.view.role_filter_cleared.connect(self.on_role_filter_cleared)
         self.view.standard_filters_changed.connect(self.on_standard_filters_changed)
         self.view.talent_selected.connect(self.on_talent_selected)
-        self.view.add_to_go_to_list_requested.connect(self.controller.add_talent_to_go_to_list)
+        self.view.context_menu_requested.connect(self.on_context_menu_requested)
+        self.view.add_talent_to_category_requested.connect(self.controller.add_talent_to_go_to_category)
+        self.view.remove_talent_from_category_requested.connect(self.controller.remove_talent_from_go_to_category)
         self.view.open_advanced_filters_requested.connect(self.on_open_advanced_filters)
         self.view.open_talent_profile_requested.connect(self.on_open_talent_profile)
         self.view.open_scene_dialog_requested.connect(self.on_open_scene_dialog)
@@ -81,15 +86,23 @@ class HireTalentPresenter(QObject):
         self.controller.cast_talent_for_multiple_roles(talent_id, roles)
         # After hiring, the list of castable scenes/roles may have changed
         self.on_global_scenes_changed()
+    
+    @pyqtSlot(object, QPoint)
+    def on_context_menu_requested(self, talent: Talent, pos: QPoint):
+        all_categories = self.controller.get_go_to_list_categories()
+        talent_categories = self.controller.get_talent_go_to_categories(talent.id)
+        self.view.display_talent_context_menu(talent, all_categories, talent_categories, pos)
 
     @pyqtSlot(dict)
     def on_open_advanced_filters(self, current_filters: dict):
         dialog = self.view.findChild(TalentFilterDialog)
         if dialog: dialog.raise_(); dialog.activateWindow(); return
 
+        categories = self.controller.get_go_to_list_categories()
         dialog = TalentFilterDialog(
             ethnicities=self.controller.get_available_ethnicities(),
             boob_cups=self.controller.get_available_boob_cups(),
+            go_to_categories=categories,
             current_filters=current_filters,
             settings_manager=self.controller.settings_manager,
             parent=self.view
@@ -109,6 +122,8 @@ class HireTalentPresenter(QObject):
     def on_open_scene_dialog(self, scene_id: int):
         # We create the view, then the presenter which takes control of it.
         dialog = SceneDialog(self.controller, parent=self.view.window())
+        # This import is here to avoid a circular dependency at the top level
+        from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
         presenter = ScenePlannerPresenter(self.controller, scene_id, dialog)
         dialog.exec()
         

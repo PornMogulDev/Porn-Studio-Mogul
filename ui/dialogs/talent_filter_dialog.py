@@ -2,14 +2,14 @@ from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QSpinBox, QLabel, QDoubleSpinBox,
     QListWidget, QPushButton, QDialogButtonBox, QWidget, QRadioButton, QButtonGroup,
-    QFormLayout, QSizePolicy, QStyle
+    QFormLayout, QSizePolicy, QStyle, QComboBox
 )
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 
 class TalentFilterDialog(GeometryManagerMixin, QDialog):
     filters_applied = pyqtSignal(dict)
 
-    def __init__(self, ethnicities: list, boob_cups: list, current_filters: dict, settings_manager, parent=None):
+    def __init__(self, ethnicities: list, boob_cups: list, go_to_categories: list, current_filters: dict, settings_manager, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.setWindowTitle("Advanced Talent Filter")
@@ -19,6 +19,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         # Data for populating lists
         self.all_ethnicities = ethnicities
         self.all_boob_cups = boob_cups
+        self.go_to_categories = go_to_categories
 
         self.setup_ui()
         self.load_current_filters()
@@ -26,6 +27,16 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
+
+        # --- Go-To Category Filter ---
+        category_group = QGroupBox("Go-To Category")
+        category_layout = QVBoxLayout(category_group)
+        self.category_combo = QComboBox()
+        self.category_combo.addItem("Any", -1) # Use -1 as sentinel for 'no filter'
+        for category in sorted(self.go_to_categories, key=lambda c: c['name']):
+            self.category_combo.addItem(category['name'], category['id'])
+        category_layout.addWidget(self.category_combo)
+        main_layout.addWidget(category_group)
 
         # --- Gender Filter ---
         gender_group = QGroupBox("Gender")
@@ -124,6 +135,10 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         return container
 
     def load_current_filters(self):
+        # Go-To Category
+        category_id = self.current_filters.get('go_to_category_id', -1)
+        index = self.category_combo.findData(category_id)
+        if index != -1: self.category_combo.setCurrentIndex(index)
         # Gender
         gender = self.current_filters.get('gender', 'Any')
         if gender == "Female": self.gender_female_radio.setChecked(True)
@@ -157,6 +172,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
 
     def apply_filters(self):
         filters = {
+            'go_to_category_id': self.category_combo.currentData(),
             'gender': 'Female' if self.gender_female_radio.isChecked() else 'Male' if self.gender_male_radio.isChecked() else 'Any',
             'age_min': self.min_age_spinbox.value(), 'age_max': self.max_age_spinbox.value(),
             'performance_min': self.min_perf_spin.value(), 'performance_max': self.max_perf_spin.value(),
@@ -171,6 +187,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.accept()
 
     def clear_filters(self):
+        self.category_combo.setCurrentIndex(0)
         self.gender_any_radio.setChecked(True)
         self.min_age_spinbox.setValue(18)
         self.max_age_spinbox.setValue(99)
