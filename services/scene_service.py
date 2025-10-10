@@ -90,9 +90,11 @@ class SceneService:
         ).order_by(SceneDB.scheduled_year, SceneDB.scheduled_week, SceneDB.title).all()
 
         results = []
+
         for scene in scenes_db:
             if len(scene.cast) < len(scene.virtual_performers):
                 results.append({'id': scene.id, 'title': scene.title})
+                
         return results
 
     def get_uncast_roles_for_scene_ui(self, scene_id: int) -> List[Dict]:

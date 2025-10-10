@@ -118,7 +118,7 @@ class SceneEditorService:
             if message:
                 return False, message
 
-        self.working_scene.status = new_status
+        self.working_scene.status = new_status.lower()
         return True, ""
 
     def _get_validation_errors_for_casting(self) -> Optional[str]:
