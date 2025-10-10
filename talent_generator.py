@@ -6,7 +6,7 @@ from collections import defaultdict
 from game_state import Talent
 
 class TalentGenerator:
-    def __init__(self, generator_data: dict, affinity_data: dict, tag_definitions: dict, talent_archetypes: dict):
+    def __init__(self, generator_data: dict, affinity_data: dict, tag_definitions: dict, talent_archetypes: list):
         self.genders_data = generator_data.get('genders', [])
         self.alias_data = generator_data.get('aliases', {})
         self.ethnicity_data = generator_data.get('ethnicities', [])
@@ -114,83 +114,92 @@ class TalentGenerator:
         # A triangular distribution makes the extremes less common than values in the middle.
         return int(round(random.triangular(-100, 100, 0)))
 
+    def _generate_disposition_score(self) -> int:
+        """Generates a disposition score from -100 (sub) to 100 (dom)."""
+        return int(round(random.triangular(-100, 100, 0)))
+
     def _assign_archetype(self) -> dict:
         """Performs a weighted random choice to assign a talent archetype."""
         choices = list(self.talent_archetypes.values())
         weights = [item.get('weight', 1) for item in choices]
         return random.choices(choices, weights=weights, k=1)[0]
 
-    def _generate_preferences_and_limits(self, gender: str, orientation_score: int, archetype_data: dict) -> tuple[Dict[str, Dict[str, float]], List[str]]:
+    def _generate_preferences_and_limits(self, gender: str, orientation_score: int, disposition_score: int, archetype_data: dict) -> tuple[Dict[str, Dict[str, float]], List[str]]:
         """
-        Generates role-based tag preferences and hard limits based on an archetype and orientation.
+        Generates role-based tag preferences and hard limits based on an archetype,
+        orientation, and D/S disposition.
         """
         prefs: Dict[str, Dict[str, float]] = defaultdict(dict)
-        
-        # Get baseline hard limits from the archetype. We will add to this list later.
         limits = archetype_data.get("hard_limits", []).copy()
-        base_prefs = archetype_data.get("preferences", {})
         
-        # Iterate through all tags to build preferences
-        for full_name, tag_def in self.tag_definitions.items():
-            if tag_def.get('type') != 'Action': continue
+        # These should be moved to a game config file
+        preference_shift_intensity = 0.5 
+        hard_limit_threshold = 0.1
 
-            # Step 1: GENDER COMPATIBILITY CHECK
-            # If the talent's gender cannot perform any role in this tag, skip it completely.
+        # Calculate shifters once
+        ds_balance = disposition_score / 100.0
+        
+        for full_name, tag_def in self.tag_definitions.items():
+            if tag_def.get('type') != 'Action':
+                continue
+
             slots = tag_def.get('slots', [])
             if not any(slot.get('gender') == gender or slot.get('gender') == "Any" for slot in slots):
                 continue
 
-            # Step 2: ORIENTATION COMPATIBILITY
+            # Calculate orientation multiplier for the tag
             orientation_targets = {"Straight": -100, "Gay": 100, "Lesbian": 100}
             tag_orientation = tag_def.get('orientation')
-            
             orientation_multiplier = 1.0
             if tag_orientation and tag_orientation in orientation_targets:
                 target_score = orientation_targets[tag_orientation]
                 distance = abs(orientation_score - target_score)
-                # An orientation mismatch results in a severe penalty.
                 orientation_multiplier = np.interp(distance, [0, 150, 200], [1.0, 0.4, 0.05])
 
-            # Step 3: ARCHETYPE PREFERENCE
-            # Find the base preference score from the archetype data.
-            concept = tag_def.get('concept')
-            base_name = tag_def.get('name')
-            archetype_score = 1.0
-            if full_name in base_prefs:
-                archetype_score = base_prefs[full_name]
-            elif concept and concept in base_prefs:
-                archetype_score = base_prefs[concept]
-            elif base_name and base_name in base_prefs:
-                archetype_score = base_prefs[base_name]
+            # Iterate through each specific role (slot) in the tag
+            for slot_def in slots:
+                if not (slot_def.get('gender') == gender or slot_def.get('gender') == "Any"):
+                    continue
 
-            # Step 4: CALCULATE FINAL SCORE
-            # Combine the archetype preference with the orientation penalty.
-            final_score = round(archetype_score * orientation_multiplier, 2)
+                role = slot_def['role']
+                dynamic_role = slot_def.get('dynamic_role', 'Neutral') # Assume Neutral if not specified
+                concept = tag_def.get('concept')
 
-            # Only store preferences that are not the default (1.0) or are not effectively a hard limit.
-            # This reduces clutter. We handle hard limits in the finalization step.
-            if final_score != 1.0:
-                roles = {slot['role'] for slot in tag_def.get('slots', [])}
-                for role in roles:
-                    prefs[full_name][role] = final_score
-        
-        # Step 5: FINALIZE HARD LIMITS AND CLEAN UP PREFERENCES
-        # This is a critical step to prevent contradictions.
-        hard_limit_threshold = 0.1
+                # Determine base preference with precedence: Full Tag Name > Concept
+                base_pref = 1.0
+                archetype_prefs = archetype_data.get("conceptual_preferences", {})
+                
+                # 1. Check for specific tag preference
+                if full_name in archetype_prefs and role in archetype_prefs[full_name]:
+                    base_pref = archetype_prefs[full_name][role]
+                # 2. Fall back to concept preference
+                elif concept in archetype_prefs and role in archetype_prefs[concept]:
+                    base_pref = archetype_prefs[concept][role]
+
+                # Apply D/S disposition shifter based on the dynamic_role
+                adjusted_pref = base_pref
+                if dynamic_role == "Dominant":
+                    adjusted_pref = base_pref * (1 + ds_balance * preference_shift_intensity)
+                elif dynamic_role == "Submissive":
+                    adjusted_pref = base_pref * (1 - ds_balance * preference_shift_intensity)
+                
+                # Combine with orientation and store
+                final_score = round(adjusted_pref * orientation_multiplier, 2)
+                prefs[full_name][role] = final_score
+
+        # Finalize hard limits: if any role for a tag is below the threshold, the whole tag is a limit.
         tags_to_make_limits = set()
-
         for tag_name, roles_prefs in prefs.items():
-            # If any role for a tag is below the threshold, the entire tag becomes a hard limit.
             if any(score < hard_limit_threshold for score in roles_prefs.values()):
                 tags_to_make_limits.add(tag_name)
 
         for tag_name in tags_to_make_limits:
             if tag_name not in limits:
                 limits.append(tag_name)
-            # CRUCIAL: Remove the tag from the preferences dictionary to avoid contradiction.
             del prefs[tag_name]
 
         return dict(prefs), limits
+
 
     def _generate_policy_requirements(self, professionalism: int) -> Dict[str, List[str]]:
         """Generates policy requirements based on professionalism."""
@@ -264,12 +273,21 @@ class TalentGenerator:
         gender = self._generate_gender()
         alias = self._generate_alias(gender, ethnicity)
         
-        # Archetype and Orientation
+        # Archetype and Personality
         archetype_data = self._assign_archetype()
         orientation_score = self._generate_orientation_score()
+        disposition_score = self._generate_disposition_score()
         
-        # Generate preferences based on archetype and orientation
-        tag_preferences, hard_limits = self._generate_preferences_and_limits(gender, orientation_score, archetype_data)
+        # Generate preferences based on archetype and personality
+        tag_preferences, hard_limits = self._generate_preferences_and_limits(
+            gender, orientation_score, disposition_score, archetype_data
+        )
+
+        # Partner Limits from Archetype
+        max_scene_partners = archetype_data.get("max_scene_partners", 10)
+        # Add a small variance for personality
+        max_scene_partners = max(1, max_scene_partners + random.randint(-2, 2))
+        concurrency_limits = archetype_data.get("concurrency_limits", {}).copy()
 
         # Skills
         performance = self._generate_skill()
@@ -317,11 +335,14 @@ class TalentGenerator:
             ambition=ambition,
             professionalism=professionalism,
             orientation_score=orientation_score,
+            disposition_score=disposition_score,
             boob_cup=boob_cup,
             dick_size=dick_size,
             tag_affinities=tag_affinities,
             tag_preferences=tag_preferences,
             hard_limits=hard_limits,
+            max_scene_partners=max_scene_partners,
+            concurrency_limits=concurrency_limits,
             policy_requirements=policy_requirements
         )
 

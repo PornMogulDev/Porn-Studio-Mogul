@@ -1,5 +1,7 @@
 import random
 from PyQt6.QtCore import Qt, QAbstractListModel, QModelIndex, pyqtSignal, QPoint
+from typing import Dict
+from PyQt6.QtCore import Qt, QAbstractListModel, QModelIndex, pyqtSignal
 from PyQt6.QtGui import QAction, QColor
 from PyQt6.QtWidgets import (
 QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
@@ -77,14 +79,31 @@ class TalentDetailView(QWidget):
         scroll_area.setWidget(self.affinities_content_widget); affinities_group_layout.addWidget(scroll_area); main_layout.addWidget(affinities_group)
 
         bottom_container = QWidget(); bottom_layout = QHBoxLayout(bottom_container); bottom_layout.setContentsMargins(0,0,0,0)
-        prefs_limits_group = QGroupBox("Preferences & Limits"); prefs_grid_layout = QGridLayout(prefs_limits_group)
-        prefs_grid_layout.addWidget(QLabel("<b>Likes</b> (Reduces Hire Cost):"), 0, 0); prefs_grid_layout.addWidget(QLabel("<b>Dislikes</b> (Increases Hire Cost):"), 0, 1)
+        
+        # --- Preferences and Limits Section ---
+        prefs_limits_group = QGroupBox("Preferences & Limits"); prefs_v_layout = QVBoxLayout(prefs_limits_group)
+        prefs_grid_layout = QGridLayout()
+        prefs_grid_layout.addWidget(QLabel("<b>Likes</b>:"), 0, 0); prefs_grid_layout.addWidget(QLabel("<b>Dislikes</b>:"), 0, 1)
         self.likes_list = QListWidget(); self.dislikes_list = QListWidget()
         prefs_grid_layout.addWidget(self.likes_list, 1, 0); prefs_grid_layout.addWidget(self.dislikes_list, 1, 1)
-        prefs_grid_layout.addWidget(QLabel("<b>Hard Limits</b> (Will Refuse Roles):"), 2, 0, 1, 2)
-        self.limits_list = QListWidget(); prefs_grid_layout.addWidget(self.limits_list, 3, 0, 1, 2)
+        prefs_v_layout.addLayout(prefs_grid_layout)
+        
+        # New Partner Limits Area
+        partner_limits_group = QGroupBox("Partner Limits")
+        partner_limits_layout = QGridLayout(partner_limits_group)
+        self.max_partners_label = QLabel("<b>Max Scene Partners:</b> N/A")
+        self.concurrency_limits_label = QLabel("<b>Concurrency Limits:</b> N/A")
+        self.concurrency_limits_label.setWordWrap(True)
+        partner_limits_layout.addWidget(self.max_partners_label, 0, 0)
+        partner_limits_layout.addWidget(self.concurrency_limits_label, 1, 0)
+        partner_limits_layout.setRowStretch(2, 1)
+        prefs_v_layout.addWidget(partner_limits_group)
+        
+        prefs_v_layout.addWidget(QLabel("<b>Hard Limits</b> (Will Refuse Roles):"))
+        self.limits_list = QListWidget(); prefs_v_layout.addWidget(self.limits_list)
         bottom_layout.addWidget(prefs_limits_group)
 
+        # --- Policy Section ---
         policy_group = QGroupBox("Contract Requirements"); policy_layout = QVBoxLayout(policy_group)
         policy_layout.addWidget(QLabel("<b>Requires Policies:</b>")); self.requires_policies_list = QListWidget()
         policy_layout.addWidget(self.requires_policies_list); policy_layout.addWidget(QLabel("<b>Refuses Policies:</b>"))
@@ -124,48 +143,61 @@ class TalentDetailView(QWidget):
         return "Unknown"
 
     def _populate_preferences_lists(self, talent: Talent, tag_definitions: dict):
-        avg_prefs_by_tag = {tag: sum(roles.values()) / len(roles) for tag, roles in talent.tag_preferences.items() if roles}
-        prefs_by_orientation = defaultdict(dict); prefs_by_concept = defaultdict(dict)
-        
-        for tag, avg_score in avg_prefs_by_tag.items():
-            tag_def = tag_definitions.get(tag)
-            if not tag_def: continue
-            if orientation := tag_def.get('orientation'): prefs_by_orientation[orientation][tag] = avg_score
-            if concept := tag_def.get('concept'): prefs_by_concept[concept][tag] = avg_score
+        self.likes_list.clear()
+        self.dislikes_list.clear()
 
-        likes, dislikes, processed_tags = [], [], set()
-        DISLIKE_THRESHOLD, LIKE_THRESHOLD, EXCEPTION_DEVIATION = 0.8, 1.2, 0.2
+        likes, dislikes = [], []
+        LIKE_THRESHOLD, DISLIKE_THRESHOLD = 1.2, 0.8
 
-        for orientation, tags_with_scores in prefs_by_orientation.items():
-            scores = list(tags_with_scores.values())
-            if scores and all(score < DISLIKE_THRESHOLD for score in scores):
-                dislikes.append(f"{orientation} scenes"); processed_tags.update(tags_with_scores.keys())
+        # Create a helper to format role preferences for display
+        def format_roles(roles_dict: Dict[str, float]) -> str:
+            # Abbreviate roles for concise display, e.g., (G: 1.5, R: 0.5)
+            return f"({', '.join([f'{r[0]}: {p:.2f}' for r, p in sorted(roles_dict.items())])})"
 
-        for concept, tags_with_scores in prefs_by_concept.items():
-            unprocessed = {tag: score for tag, score in tags_with_scores.items() if tag not in processed_tags}
-            if not unprocessed: continue
+        # Group preferences by concept for summarization
+        prefs_by_concept = defaultdict(list)
+        for tag_name, roles_prefs in talent.tag_preferences.items():
+            if not (concept := tag_definitions.get(tag_name, {}).get('concept')):
+                concept = tag_name # Fallback for tags without a concept
+            prefs_by_concept[concept].append((tag_name, roles_prefs))
+
+        # Process each concept
+        for concept, tags_in_concept in sorted(prefs_by_concept.items()):
+            # Calculate average Giver/Receiver scores across the concept
+            g_scores, r_scores, all_scores = [], [], []
+            for _, roles in tags_in_concept:
+                if 'Giver' in roles: g_scores.append(roles['Giver'])
+                if 'Receiver' in roles: r_scores.append(roles['Receiver'])
+                all_scores.extend(roles.values())
             
-            scores = list(unprocessed.values()); avg_score = sum(scores) / len(scores)
-            is_like, is_dislike = avg_score >= LIKE_THRESHOLD, avg_score <= DISLIKE_THRESHOLD
-            
-            if is_like or is_dislike:
-                summary = f"{concept} scenes (~{avg_score:.2f})"; (likes if is_like else dislikes).append(summary)
-                for tag, score in unprocessed.items():
-                    if abs(score - avg_score) > EXCEPTION_DEVIATION:
-                        roles = ", ".join([f"{r}: {p:.2f}" for r, p in sorted(talent.tag_preferences[tag].items())])
-                        exception = f"  • Except: {tag} ({roles})"; (likes if score > avg_score else dislikes).append(exception)
-                processed_tags.update(unprocessed.keys())
+            if not all_scores: continue
+            avg_score = sum(all_scores) / len(all_scores)
 
-        for tag, avg_score in avg_prefs_by_tag.items():
-            if tag in processed_tags: continue
             if avg_score >= LIKE_THRESHOLD or avg_score <= DISLIKE_THRESHOLD:
-                roles = ", ".join([f"{r}: {p:.2f}" for r, p in sorted(talent.tag_preferences[tag].items())])
-                display = f"{tag} ({roles})"; (likes if avg_score >= LIKE_THRESHOLD else dislikes).append(display)
+                # Create a summary line for the concept with role averages
+                summary_parts = [concept]
+                if g_scores: summary_parts.append(f"G: ~{sum(g_scores)/len(g_scores):.2f}")
+                if r_scores: summary_parts.append(f"R: ~{sum(r_scores)/len(r_scores):.2f}")
+                summary_line = " ".join(summary_parts)
+                
+                if avg_score >= LIKE_THRESHOLD:
+                    likes.append(summary_line)
+                else:
+                    dislikes.append(summary_line)
+            else:
+                # If the concept isn't a strong like/dislike, check individual tags
+                for tag_name, roles in tags_in_concept:
+                    tag_avg = sum(roles.values()) / len(roles) if roles else 0
+                    if tag_avg >= LIKE_THRESHOLD:
+                        likes.append(f"{tag_name} {format_roles(roles)}")
+                    elif tag_avg <= DISLIKE_THRESHOLD:
+                        dislikes.append(f"{tag_name} {format_roles(roles)}")
 
-        self.likes_list.clear(); self.dislikes_list.clear()
-        if likes: self.likes_list.addItems(sorted(likes));_ = likes
+
+        if likes: self.likes_list.addItems(sorted(likes))
         else: self.likes_list.addItem("None")
-        if dislikes: self.dislikes_list.addItems(sorted(dislikes));_ = dislikes
+
+        if dislikes: self.dislikes_list.addItems(sorted(dislikes))
         else: self.dislikes_list.addItem("None")
 
     def display_talent(self, talent: Talent, available_roles: list, tag_defs: dict, policy_defs: dict, unit_system: str):
@@ -192,6 +224,13 @@ class TalentDetailView(QWidget):
 
         self._populate_preferences_lists(talent, tag_defs)
         
+        self.max_partners_label.setText(f"<b>Max Scene Partners:</b> {talent.max_scene_partners}")
+        if talent.concurrency_limits:
+            concurrency_text = ", ".join(f"{k}: {v}" for k, v in sorted(talent.concurrency_limits.items()))
+            self.concurrency_limits_label.setText(f"<b>Concurrency Limits:</b> {concurrency_text}")
+        else:
+            self.concurrency_limits_label.setText("<b>Concurrency Limits:</b> None")
+
         self.limits_list.clear()
         if talent.hard_limits:
             for limit in sorted(talent.hard_limits):
@@ -237,6 +276,8 @@ class TalentDetailView(QWidget):
         self.stamina_label.setText("<b>Stamina:</b> N/A"); self.popularity_label.setText("<b>Popularity:</b> N/A"); self._clear_layout(self.affinities_layout); self.contract_container.setEnabled(False)
         self.available_roles_list.clear(); self.likes_list.clear(); self.dislikes_list.clear(); self.limits_list.clear()
         self.requires_policies_list.clear(); self.refuses_policies_list.clear()
+        self.max_partners_label.setText("<b>Max Scene Partners:</b> N/A")
+        self.concurrency_limits_label.setText("<b>Concurrency Limits:</b> N/A")
 
     def confirm_hire(self):
         if not self._selected_talent: QMessageBox.warning(self, "Error", "No talent selected."); return

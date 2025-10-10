@@ -46,8 +46,6 @@ def create_tables(cursor):
     )
     """)
 
-    # REMOVED: boob_size_affinities and dick_size_affinities tables are no longer needed.
-
     # market
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS viewer_groups (
@@ -101,7 +99,7 @@ def create_tables(cursor):
     )
     """)
 
-    # NEW: post_production_settings
+    # post_production_settings
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS post_production_definitions (
         id TEXT PRIMARY KEY,
@@ -139,16 +137,18 @@ def create_tables(cursor):
     )
     """)
     
-    # talent_archetypes
+    # --- MODIFIED: talent_archetypes table updated for the new preference system ---
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS talent_archetypes (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
         weight INTEGER NOT NULL,
-        preferences_json TEXT,
+        conceptual_preferences_json TEXT,
         hard_limits_json TEXT,
-        stat_modifiers_json TEXT
+        stat_modifiers_json TEXT,
+        max_scene_partners INTEGER NOT NULL DEFAULT 10,
+        concurrency_limits_json TEXT
     )
     """)
     
@@ -362,68 +362,68 @@ def migrate_talent_archetypes(cursor, data):
     print("Migrating talent archetypes.json...")
     count = 0
     for archetype in data:
+        # --- MODIFIED: Handles new archetype format with fallback for old format ---
+        # Prioritize 'conceptual_preferences', but fall back to 'preferences' if it exists.
+        preferences_data = archetype.get('conceptual_preferences') or archetype.get('preferences', {})
+        
         cursor.execute("""
             INSERT OR REPLACE INTO talent_archetypes (
-                id, name, description, weight, preferences_json,
-                hard_limits_json, stat_modifiers_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                id, name, description, weight, conceptual_preferences_json,
+                hard_limits_json, stat_modifiers_json, max_scene_partners,
+                concurrency_limits_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             archetype.get('id'),
             archetype.get('name'),
             archetype.get('description'),
             archetype.get('weight'),
-            json.dumps(archetype.get('preferences', {})),
+            json.dumps(preferences_data),
             json.dumps(archetype.get('hard_limits', [])),
-            json.dumps(archetype.get('stat_modifiers', {}))
+            json.dumps(archetype.get('stat_modifiers', {})),
+            archetype.get('max_scene_partners', 10), # Default if missing
+            json.dumps(archetype.get('concurrency_limits', {})) # Default if missing
         ))
         count += 1
     print(f"{count} talent archetype entries migrated.")
 
 def main():
+    # Correctly locate the database in a 'data' subdirectory
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+    db_path = os.path.join(data_dir, "game_data.sqlite")
 
-    if os.path.exists(DB_FILE):
-        print(f"'{DB_FILE}' already exists. Deleting to start fresh.")
-        os.remove(DB_FILE)
+    if os.path.exists(db_path):
+        print(f"'{db_path}' already exists. Deleting to start fresh.")
+        os.remove(db_path)
 
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
     create_tables(cursor)
+    
+    # Base directory for JSON files, assuming they are in the same folder as the script
+    json_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Helper function to load JSON files safely
+    def load_json(filename):
+        path = os.path.join(json_dir, filename)
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
 
     # Load JSON files and run migrations
     try:
-        with open("game_config.json", "r") as f:
-            migrate_config(cursor, json.load(f))
-
-        with open("talent_generation_data.json", "r") as f:
-            migrate_talent_generation(cursor, json.load(f))
-
-        with open("aliases_structured.json", "r") as f:
-            migrate_aliases(cursor, json.load(f))
-
-        with open("talent_affinity_data.json", "r") as f:
-            migrate_talent_affinities(cursor, json.load(f))
-
-        with open("market.json", "r") as f:
-            migrate_market(cursor, json.load(f))
-
-        with open("scene_tags.json", "r") as f:
-            migrate_scene_tags(cursor, json.load(f))
-
-        with open("production_settings.json", "r") as f:
-            migrate_production_settings(cursor, json.load(f))
-
-        with open("post_production_settings.json", "r") as f:
-            migrate_post_production_settings(cursor, json.load(f))
-
-        with open("on_set_policies.json", "r") as f:
-            migrate_on_set_policies(cursor, json.load(f))
-
-        with open("scene_events.json", "r") as f:
-            migrate_scene_events(cursor, json.load(f))
-
-        with open("talent_archetypes.json", "r") as f:
-            migrate_talent_archetypes(cursor, json.load(f))
+        migrate_config(cursor, load_json("game_config.json"))
+        migrate_talent_generation(cursor, load_json("talent_generation_data.json"))
+        migrate_aliases(cursor, load_json("aliases_structured.json"))
+        migrate_talent_affinities(cursor, load_json("talent_affinity_data.json"))
+        migrate_market(cursor, load_json("market.json"))
+        migrate_scene_tags(cursor, load_json("scene_tags.json"))
+        migrate_production_settings(cursor, load_json("production_settings.json"))
+        migrate_post_production_settings(cursor, load_json("post_production_settings.json"))
+        migrate_on_set_policies(cursor, load_json("on_set_policies.json"))
+        migrate_scene_events(cursor, load_json("scene_events.json"))
+        migrate_talent_archetypes(cursor, load_json("talent_archetypes.json"))
 
     except FileNotFoundError as e:
         print(f"ERROR: Missing data file '{e.filename}'. Cannot continue migration.")
@@ -432,11 +432,13 @@ def main():
         print(f"An error occurred: {e}")
         conn.rollback()
     else:
-        print(f"\nMigration completed successfully! Database created at '{DB_FILE}'.")
+        print(f"\nMigration completed successfully! Database created at '{db_path}'.")
         conn.commit()
     finally:
         conn.close()
 
 
 if __name__ == "__main__":
+    # Correctly set working directory to script's location for robust execution
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
     main()
