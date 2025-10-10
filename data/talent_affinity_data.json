@@ -48,11 +48,13 @@
     "default": {"Small Boobs": 33, "Medium Boobs": 34, "Big Boobs": 33, "Huge Boobs": 0}
   },
   "DickSize": {
-    "size_points": [2, 5, 6, 8, 9, 12],
+    "size_points": [1, 5, 6, 8, 9, 12],
     "tags": {
-      "Small Dick":  [100, 100, 50, 0, 0, 0],
-      "Medium Dick": [0, 0, 50, 100, 50, 0],
-      "Big Dick":    [0, 0, 0, 0, 50, 100]
+      "Micropenis": [100, 0, 0, 0, 0, 0],
+      "Small Dick":  [0, 100, 50, 0, 0, 0],
+      "Medium Dick": [0, 0, 50, 75, 50, 0],
+      "Big Dick":    [0, 0, 0, 25, 100, 0],
+      "Huge Dick": [0, 0, 0, 0, 0, 100]
     }
   }
 }
