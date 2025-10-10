@@ -14,13 +14,17 @@ def resource_path(relative_path):
 
 # Base directories
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # project root
-DATA_DIR = resource_path("data")
 ASSETS_DIR = resource_path("assets")
-SAVE_DIR = os.path.join(BASE_DIR, "saves")  # We want saves next to the .exe, not in temp
+DATA_DIR = resource_path("data")
+LOG_DIR = resource_path("logs")
+SAVE_DIR = os.path.join(BASE_DIR, "saves") 
 
 # Data files
 GAME_DATA = os.path.join(DATA_DIR, "game_data.sqlite")
 HELP_FILE = os.path.join(DATA_DIR, "help_topics.json")
+
+# Logs files
+LOG_FILE = os.path.join(LOG_DIR, "app.log")
 
 # Asset sub-directories
 IMG_DIR = os.path.join(ASSETS_DIR, "images")
@@ -31,7 +35,6 @@ DISCORD_LOGO = os.path.join(IMG_DIR, "discord_icon.svg")
 REDDIT_LOGO = os.path.join(IMG_DIR, "reddit_icon.svg")
 GITHUB_LOGO = os.path.join(IMG_DIR, "github_icon.svg")
 
-# Example data paths (uncomment as needed)
 """
 GAME_CONSTANTS = os.path.join(DATA_DIR, "game_config.json")
 GENERATOR_DATA = os.path.join(DATA_DIR, "talent_generation_data.json")

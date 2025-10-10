@@ -1,9 +1,13 @@
 import sqlite3
 import json
+import logging
 from typing import Dict, Any, List
 from collections import defaultdict
 
 from utils.paths import GAME_DATA, HELP_FILE
+
+# Set up a logger for this module
+logger = logging.getLogger(__name__)
 
 class DataManager:
     """
@@ -16,9 +20,10 @@ class DataManager:
         try:
             self.conn = sqlite3.connect(db_path)
             self.conn.row_factory = sqlite3.Row # Allows accessing columns by name
+            logger.info(f"Successfully connected to database: {db_path}")
         except sqlite3.OperationalError as e:
-            print(f"FATAL: Could not connect to database at '{db_path}'.")
-            print("Please ensure 'game_data.sqlite' exists in the 'data' folder and that the migration script has been run.")
+            logger.critical(f"FATAL: Could not connect to database at '{db_path}'.")
+            logger.critical("Please ensure 'game_data.sqlite' exists in the 'data' folder and that the migration script has been run.")
             raise e
 
         # Load all data into memory on initialization
@@ -33,6 +38,8 @@ class DataManager:
         self.scene_events = self._load_scene_events()
         self.talent_archetypes = self._load_talent_archetypes()
         self.help_topics = self._load_help_topics(help_file_path)
+        
+        logger.info("All game data loaded into memory.")
 
     def _rehydrate_json_fields(self, data_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -205,10 +212,10 @@ class DataManager:
             with open(file_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except FileNotFoundError:
-            print(f"WARNING: Help topics file not found at '{file_path}'. Help feature will be disabled.")
+            logger.warning(f"Help topics file not found at '{file_path}'. Help feature will fail when trying to access it.")
             return {}
         except json.JSONDecodeError:
-            print(f"WARNING: Failed to parse help topics file at '{file_path}'. It may be malformed.")
+            logger.warning(f"Failed to parse help topics file at '{file_path}'. It may be malformed.")
             return {}
 
     def close(self):
@@ -216,6 +223,7 @@ class DataManager:
         if self.conn:
             self.conn.close()
             self.conn = None
+            logger.info("Database connection closed.")
 
     def __del__(self):
         """Ensure the database connection is closed when the object is destroyed."""
