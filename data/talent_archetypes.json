@@ -48,7 +48,7 @@
     "name": "The Kink Explorer",
     "description": "Adventurous, open-minded, and always looking to push boundaries. Thrives in intense, unusual, or group-oriented scenes.",
     "weight": 15,
-    "preferences": {
+    "conceptual_preferences": {
       "Anal": { "Giver": 1.4, "Receiver": 1.4 },
       "Blowjob": { "Giver": 1.5, "Receiver": 1.5 },
       "Cunnilingus": { "Giver": 1.2, "Receiver": 1.2 },
@@ -70,7 +70,7 @@
     "name": "The Diva",
     "description": "Extremely talented but equally high-maintenance. They know their worth and won't do anything they consider messy, uncomfortable, or beneath them.",
     "weight": 8,
-    "preferences": {
+    "conceptual_preferences": {
       "Facial": { "Giver": 1, "Receiver": 0.5 },
       "Analingus": { "Giver": 0.4, "Receiver": 0.7 },
       "Anal": { "Giver": 0.8, "Receiver": 0.8 }

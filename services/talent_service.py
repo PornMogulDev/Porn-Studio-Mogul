@@ -152,9 +152,6 @@ class TalentService:
         if not vp: return []
 
         bloc_db = self.session.query(ShootingBlocDB).get(scene_db.bloc_id) if scene_db.bloc_id else None
-        active_policies = set(bloc_db.on_set_policies or []) if bloc_db else set()
-        
-        role_action_tags = self._get_action_tags_for_role(scene, vp_id)
         
         # --- Step B: Initial Database Query ---
         query = self.session.query(TalentDB)
@@ -171,45 +168,91 @@ class TalentService:
         for talent_db in potential_candidates_db:
             talent = talent_db.to_dataclass(Talent)
             
-            # Hard Limit Check
-            if any(tag in talent.hard_limits for tag in role_action_tags):
-                continue
-                
-            # Policy Compatibility Check
-            is_incompatible = False
-            if required := talent.policy_requirements.get('requires'):
-                if not set(required).issubset(active_policies): is_incompatible = True
-            if not is_incompatible and (refused := talent.policy_requirements.get('refuses')):
-                if any(policy in active_policies for policy in refused): is_incompatible = True
-            if is_incompatible: continue
-                
-            # Preference & Orientation Compatibility Check
-            refusal_threshold = self.data_manager.game_config.get("talent_refusal_threshold", 0.2)
-            roles_by_tag = self._get_roles_by_tag_for_vp(scene, vp.id)
-            is_refused = False
-            for tag_name, roles_in_tag in roles_by_tag.items():
-                for role in roles_in_tag:
-                    if talent.tag_preferences.get(tag_name, {}).get(role, 1.0) < refusal_threshold:
-                        is_refused = True; break
-                if is_refused: break
-            if is_refused: continue
+            # Use the detailed check from find_available_roles_for_talent
+            # We don't need the full role_info dict here, just the availability
+            is_available, _ = self._check_talent_availability_for_role(talent, scene, vp.id, scene_db, bloc_db)
 
-            # Production Snobbery Check
-            if bloc_db:
-                pop_scalar = self.data_manager.game_config.get("pickiness_popularity_scalar", 0.4)
-                amb_scalar = self.data_manager.game_config.get("pickiness_ambition_scalar", 2.5)
-                pickiness_score = (sum(talent.popularity.values()) * pop_scalar) + (talent.ambition * amb_scalar)
-                
-                is_snob = False
-                for category, tier_name in (bloc_db.production_settings or {}).items():
-                    tier_data = next((t for t in self.data_manager.production_settings_data.get(category, []) if t['tier_name'] == tier_name), None)
-                    if tier_data and tier_data.get('is_low_tier', False) and random.random() * 100 < pickiness_score:
-                        is_snob = True; break
-                if is_snob: continue
-
-            eligible_talents.append(talent)
+            if is_available:
+                eligible_talents.append(talent)
             
         return sorted(eligible_talents, key=lambda t: t.alias)
+
+    def _check_talent_availability_for_role(self, talent: Talent, scene: Scene, vp_id: int, scene_db: SceneDB, bloc_db: Optional[ShootingBlocDB]) -> tuple[bool, Optional[str]]:
+        """
+        A centralized checker for a talent's availability for a specific role.
+        Returns (is_available, refusal_reason).
+        """
+        # Check 1: Max Scene Partners
+        num_performers = len(scene.virtual_performers)
+        if num_performers > 1 and (num_performers - 1) > talent.max_scene_partners:
+            return False, f"Refuses scenes with more than {talent.max_scene_partners} partners."
+
+        # Check 2: Hard Limits
+        role_action_tags = self._get_action_tags_for_role(scene, vp_id)
+        for tag_name in role_action_tags:
+            if tag_name in talent.hard_limits:
+                return False, f"Talent has a hard limit against '{tag_name}'."
+        
+        # Check 3: Concurrency Limits
+        expanded_segments = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
+        roles_by_tag = self._get_roles_by_tag_for_vp(scene, vp_id)
+        
+        for segment in expanded_segments:
+            # Check if the current vp is even in this segment
+            if not any(a.virtual_performer_id == vp_id for a in segment.slot_assignments):
+                continue
+            
+            tag_def = self.data_manager.tag_definitions.get(segment.tag_name)
+            if not tag_def or not (concept := tag_def.get('concept')):
+                continue
+
+            # This check is primarily for receptive roles (Receiver)
+            if 'Receiver' in roles_by_tag.get(segment.tag_name, set()):
+                num_givers = sum(1 for a in segment.slot_assignments if '_Giver_' in a.slot_id)
+                limit = talent.concurrency_limits.get(concept, 99)
+                if num_givers > limit:
+                    return False, f"Concurrency limit for '{concept}' exceeded (Max: {limit}, Scene has: {num_givers})."
+
+        # Check 4: Preference & Orientation Compatibility
+        refusal_threshold = self.data_manager.game_config.get("talent_refusal_threshold", 0.2)
+        for tag_name, roles_in_tag in roles_by_tag.items():
+            for role in roles_in_tag:
+                preference = talent.tag_preferences.get(tag_name, {}).get(role, 1.0)
+                if preference < refusal_threshold:
+                    if preference < 0.1: # Extremely low score implies orientation conflict
+                        reason = f"Role involves '{tag_name}', which conflicts with their sexual orientation."
+                    else:
+                        reason = f"Strongly dislikes performing the '{role}' role in '{tag_name}'."
+                    return False, reason
+
+        # Check 5: Policy & Production (requires bloc)
+        if bloc_db:
+            active_policies = set(bloc_db.on_set_policies or [])
+            policy_names = {p['id']: p['name'] for p in self.data_manager.on_set_policies_data.values()}
+
+            if required_policies := talent.policy_requirements.get('requires'):
+                for policy_id in required_policies:
+                    if policy_id not in active_policies:
+                        policy_name = policy_names.get(policy_id, policy_id)
+                        return False, f"Requires the '{policy_name}' policy to be active."
+
+            if refused_policies := talent.policy_requirements.get('refuses'):
+                for policy_id in refused_policies:
+                    if policy_id in active_policies:
+                        policy_name = policy_names.get(policy_id, policy_id)
+                        return False, f"Refuses to work with the '{policy_name}' policy."
+        
+            pop_scalar = self.data_manager.game_config.get("pickiness_popularity_scalar", 0.4)
+            amb_scalar = self.data_manager.game_config.get("pickiness_ambition_scalar", 2.5)
+            total_popularity = sum(talent.popularity.values())
+            pickiness_score = (total_popularity * pop_scalar) + (talent.ambition * amb_scalar)
+            
+            for category, tier_name in (bloc_db.production_settings or {}).items():
+                tier_data = next((t for t in self.data_manager.production_settings_data.get(category, []) if t['tier_name'] == tier_name), None)
+                if tier_data and tier_data.get('is_low_tier', False) and random.random() * 100 < pickiness_score:
+                    return False, f"Considers the '{tier_name}' {category} setting beneath them."
+
+        return True, None # If all checks pass
 
     def find_available_roles_for_talent(self, talent_id: int) -> List[Dict]:
         """
@@ -242,83 +285,19 @@ class TalentService:
             for vp_db in scene_db.virtual_performers:
                 if vp_db.id not in uncast_vp_ids: continue
                 if not (vp_db.gender == talent.gender and (vp_db.ethnicity == "Any" or vp_db.ethnicity == talent.ethnicity)): continue
+                
+                bloc_db = blocs_by_id.get(scene.bloc_id) if scene.bloc_id else None
+                is_available, refusal_reason = self._check_talent_availability_for_role(
+                    talent, scene, vp_db.id, scene_db, bloc_db
+                )
 
                 role_info = {
                     'scene_id': scene_db.id, 'scene_title': scene_db.title, 'virtual_performer_id': vp_db.id,
                     'vp_name': vp_db.name, 'cost': self.calculate_talent_demand(talent.id, scene_db.id, vp_db.id),
                     'tags': self._get_role_tags_for_display(scene, vp_db.id),
-                    'is_available': True, 'refusal_reason': None
+                    'is_available': is_available, 'refusal_reason': refusal_reason
                 }
                 
-                # Check 1: Preference & Orientation Compatibility
-                refusal_threshold = self.data_manager.game_config.get("talent_refusal_threshold", 0.2)
-                roles_by_tag = self._get_roles_by_tag_for_vp(scene, vp_db.id)
-                is_refused = False
-                for tag_name, roles_in_tag in roles_by_tag.items():
-                    for role in roles_in_tag:
-                        preference = talent.tag_preferences.get(tag_name, {}).get(role, 1.0)
-                        if preference < refusal_threshold:
-                            role_info['is_available'] = False
-                            if preference < 0.1: # Extremely low score implies orientation conflict
-                                reason = f"Role involves '{tag_name}', which conflicts with their sexual orientation."
-                            else:
-                                reason = f"Strongly dislikes performing the '{role}' role in '{tag_name}'."
-                            role_info['refusal_reason'] = reason
-                            is_refused = True
-                            break
-                    if is_refused: break
-                
-                if is_refused:
-                    available_roles.append(role_info)
-                    continue
-
-                # Check 2: Hard Limits
-                role_action_tags = self._get_action_tags_for_role(scene, vp_db.id)
-                for tag_name in role_action_tags:
-                    if tag_name in talent.hard_limits:
-                        role_info['is_available'] = False; role_info['refusal_reason'] = f"Talent has a hard limit against '{tag_name}'."
-                        available_roles.append(role_info); break
-                if not role_info['is_available']: continue
-
-                # Check 3: Policy Compatibility & Production Snobbery (bloc-dependent checks)
-                if scene.bloc_id and (bloc_db := blocs_by_id.get(scene.bloc_id)):
-                    active_policies = set(bloc_db.on_set_policies or [])
-                    policy_names = {p['id']: p['name'] for p in self.data_manager.on_set_policies_data.values()}
-
-                    # Check for required policies
-                    if required_policies := talent.policy_requirements.get('requires'):
-                        for policy_id in required_policies:
-                            if policy_id not in active_policies:
-                                policy_name = policy_names.get(policy_id, policy_id)
-                                role_info['is_available'] = False
-                                role_info['refusal_reason'] = f"Requires the '{policy_name}' policy to be active."
-                                available_roles.append(role_info); break
-                    if not role_info['is_available']: continue
-
-                    # Check for refused policies
-                    if refused_policies := talent.policy_requirements.get('refuses'):
-                        for policy_id in refused_policies:
-                            if policy_id in active_policies:
-                                policy_name = policy_names.get(policy_id, policy_id)
-                                role_info['is_available'] = False
-                                role_info['refusal_reason'] = f"Refuses to work with the '{policy_name}' policy."
-                                available_roles.append(role_info); break
-                    if not role_info['is_available']: continue
-                
-                    # Check for "Production Snobbery"
-                    pop_scalar = self.data_manager.game_config.get("pickiness_popularity_scalar", 0.4)
-                    amb_scalar = self.data_manager.game_config.get("pickiness_ambition_scalar", 2.5)
-                    total_popularity = sum(talent.popularity.values())
-                    pickiness_score = (total_popularity * pop_scalar) + (talent.ambition * amb_scalar)
-                    
-                    for category, tier_name in (bloc_db.production_settings or {}).items():
-                        tier_data = next((t for t in self.data_manager.production_settings_data.get(category, []) if t['tier_name'] == tier_name), None)
-                        if tier_data and tier_data.get('is_low_tier', False) and random.random() * 100 < pickiness_score:
-                            role_info['is_available'] = False
-                            role_info['refusal_reason'] = f"Considers the '{tier_name}' {category} setting beneath them."
-                            available_roles.append(role_info); break
-                    if not role_info['is_available']: continue
-
                 available_roles.append(role_info)
         return available_roles
 
