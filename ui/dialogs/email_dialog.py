@@ -1,11 +1,14 @@
 from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
-    QTextEdit, QLabel, QPushButton, QDialogButtonBox, QMessageBox
+    QTextEdit, QLabel, QPushButton, QDialogButtonBox, QMessageBox,
+    QStyle
 )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
+from ui.widgets.help_button import HelpButton
+from ui.widgets.revert_geometry_button import RestoreGeometryButton
 
 class EmailDialog(GeometryManagerMixin, QDialog):
     def __init__(self, controller, parent=None):
@@ -24,10 +27,18 @@ class EmailDialog(GeometryManagerMixin, QDialog):
 
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
-        
+
         # --- Left Panel (Email List) ---
         left_panel = QVBoxLayout()
-        left_panel.addWidget(QLabel("Messages"))
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(QLabel("Messages"), 3)
+        top_layout.addStretch(3)
+        revert_btn = RestoreGeometryButton(parent=self)
+        top_layout.addWidget(revert_btn, 1)
+        help_btn = HelpButton("email_inbox", self.controller, self)
+        top_layout.addWidget(help_btn, 1)
+        left_panel.addLayout(top_layout)
+
         self.email_list_widget = QListWidget()
         self.email_list_widget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         left_panel.addWidget(self.email_list_widget)

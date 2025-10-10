@@ -27,7 +27,8 @@ class GameSignals(QObject):
     market_changed = pyqtSignal()
     favorites_changed = pyqtSignal()
     incomplete_scene_check_requested = pyqtSignal(list)
-
+    show_help_requested = pyqtSignal(str)
+    
 class IGameController(Protocol):
     """
     Defines the interface for the GameController that UI components

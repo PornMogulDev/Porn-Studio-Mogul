@@ -1,7 +1,7 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
-    QMessageBox, QPushButton, QSizePolicy, QSpacerItem,
+    QMessageBox, QPushButton, QSizePolicy, QSpacerItem, QStyle,
     QTabWidget, QWidget, QVBoxLayout,
 )
 
@@ -16,9 +16,11 @@ from ui.dialogs.email_dialog import EmailDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.incomplete_scheduled_scene import IncompleteCastingDialog
 from ui.dialogs.interactive_event_dialog import InteractiveEventDialog
+from ui.dialogs.help_dialog import HelpDialog
 from game_state import Scene
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.hire_talent_presenter import HireTalentPresenter
+from ui.widgets.help_button import HelpButton
 
 
 class GameMenuDialog(GeometryManagerMixin, QDialog):
@@ -91,6 +93,8 @@ class MainGameWindow(QWidget):
         self.controller = controller
         self.hire_presenter = None
         self.go_to_list_dialog = None
+        self.help_dialog = None
+        self.email_dialog = None
         self.setup_ui()
         self.notification_manager = NotificationManager(self)
 
@@ -102,6 +106,7 @@ class MainGameWindow(QWidget):
         self.controller.signals.market_changed.connect(self.market_tab.refresh_view)
         self.controller.signals.incomplete_scene_check_requested.connect(self.handle_incomplete_scenes)
         self.controller.signals.interactive_event_triggered.connect(self.show_interactive_event_dialog)
+        self.controller.signals.show_help_requested.connect(self.show_help_dialog)
 
 
     def setup_ui(self):
@@ -119,6 +124,10 @@ class MainGameWindow(QWidget):
         next_week_btn.setToolTip("Advance to the next week (Spacebar)")
         next_week_btn.clicked.connect(self.controller.advance_week)
         top_bar_layout.addWidget(next_week_btn)
+
+        top_bar_layout.addStretch()
+        help_btn = HelpButton("general_overview", self.controller, self)
+        top_bar_layout.addWidget(help_btn)
         
         top_bar_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         
@@ -223,8 +232,20 @@ class MainGameWindow(QWidget):
     
     def show_inbox(self):
         """Creates and shows the email inbox dialog."""
-        dialog = EmailDialog(self.controller, self)
-        dialog.exec()
+        if self.email_dialog is None:
+            self.email_dialog = EmailDialog(self.controller, self)
+
+        self.email_dialog.show()
+        self.email_dialog.raise_()
+        self.email_dialog.activateWindow()
+
+    def show_help_dialog(self, topic_key: str):
+        """Creates and shows the Help dialog, focusing on a specific topic."""
+        if self.help_dialog is None:
+            self.help_dialog = HelpDialog(self.controller, self)
+
+        # The show_topic method handles showing, raising, and activating the window
+        self.help_dialog.show_topic(topic_key)
 
     def handle_incomplete_scenes(self, scenes: list):
         all_resolved = True
