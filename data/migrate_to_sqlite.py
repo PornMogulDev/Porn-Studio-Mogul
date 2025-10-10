@@ -387,11 +387,8 @@ def migrate_talent_archetypes(cursor, data):
     print(f"{count} talent archetype entries migrated.")
 
 def main():
-    # Correctly locate the database in a 'data' subdirectory
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-    db_path = os.path.join(data_dir, "game_data.sqlite")
+    # Create the database in the current working directory
+    db_path = os.path.join(os.getcwd(), "game_data.sqlite")
 
     if os.path.exists(db_path):
         print(f"'{db_path}' already exists. Deleting to start fresh.")

@@ -24,6 +24,36 @@
         "stamina_modifier_scaling_per_peer": -0.1 }
     ]
   },
+  { "name": "Blowjob", "orientation": "Gay",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Blowjob",
+    "categories": ["Oral", "Group"],
+    "slots": [
+      { "role": "Receiver", "dynamic_role":"Neutral", "gender": "Male", "count": 1,
+        "demand_modifier": 1.1,
+        "stamina_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 1.2,
+        "demand_modifier": 1.2,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
+  { "name": "Blowjob", "orientation": "Bi",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Blowjob",
+    "categories": ["Oral", "Group"],
+    "slots": [
+      { "role": "Receiver", "dynamic_role":"Neutral", "gender": "Male", "count": 1,
+        "demand_modifier": 1.1,
+        "stamina_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Any", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 1.2,
+        "demand_modifier": 1.2,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
   { "name": "Blowjob Orgy", "orientation": "Straight",
     "type": "Action",
     "is_template": true,
@@ -53,6 +83,36 @@
         "stamina_modifier_scaling_per_peer": -0.1 }
     ]
   },
+  { "name": "Deepthroat", "orientation": "Gay",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Blowjob",
+    "dom_sub_multiplier": 1.2,
+    "categories": ["Oral", "Group"],
+    "slots": [
+      { "role": "Receiver", "dynamic_role": "Dominant", "gender": "Male", "count": 1, "stamina_modifier": 1.0,
+        "stamina_modifier_scaling_per_other": 0.08 },
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "demand_modifier": 1.1,
+        "stamina_modifier": 1.3,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
+  { "name": "Deepthroat", "orientation": "Bi",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Blowjob",
+    "dom_sub_multiplier": 1.2,
+    "categories": ["Oral", "Group"],
+    "slots": [
+      { "role": "Receiver", "dynamic_role": "Dominant", "gender": "Male", "count": 1, "stamina_modifier": 1.0,
+        "stamina_modifier_scaling_per_other": 0.08 },
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Any", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "demand_modifier": 1.1,
+        "stamina_modifier": 1.3,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
   { "name": "Facefuck", "orientation": "Straight",
     "type": "Action",
     "concept": "Blowjob",
@@ -60,6 +120,18 @@
     "categories": ["Oral"],
     "slots": [
       { "role": "Receiver", "dynamic_role": "Submissive", "gender": "Female", "count": 1, "demand_modifier": 1.3, "stamina_modifier": 1.3 },
+      { "role": "Giver", "dynamic_role": "Dominant", "gender": "Male", "count": 1,
+        "demand_modifier": 1.1,
+        "stamina_modifier": 1.3 }
+    ]
+  },
+  { "name": "Facefuck", "orientation": "Gay",
+    "type": "Action",
+    "concept": "Blowjob",
+    "dom_sub_multiplier": 1.5,
+    "categories": ["Oral"],
+    "slots": [
+      { "role": "Receiver", "dynamic_role": "Submissive", "gender": "Male", "count": 1, "demand_modifier": 1.3, "stamina_modifier": 1.3 },
       { "role": "Giver", "dynamic_role": "Dominant", "gender": "Male", "count": 1,
         "demand_modifier": 1.1,
         "stamina_modifier": 1.3 }
@@ -82,21 +154,6 @@
     ],
     "tooltip": "Blowjob + Deepthroat + Facefuck"
   },
-  { "name": "Blowjob", "orientation": "Gay",
-    "type": "Action",
-    "is_template": true,
-    "concept": "Blowjob",
-    "categories": ["Oral", "Group"],
-    "slots": [
-      { "role": "Receiver", "dynamic_role":"Neutral", "gender": "Male", "count": 1,
-        "demand_modifier": 1.1,
-        "stamina_modifier_scaling_per_other": 0.05 },
-      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
-        "stamina_modifier": 1.2,
-        "demand_modifier": 1.2,
-        "stamina_modifier_scaling_per_peer": -0.1 }
-    ]
-  },
   { "name": "Vaginal", "orientation": "Straight",
     "type": "Action",
     "is_template": true,
@@ -106,7 +163,7 @@
       { "role": "Receiver", "gender": "Female", "count": 1, "stamina_modifier": 1.3,
         "demand_modifier_scaling_per_other": 0.4,
         "stamina_modifier_scaling_per_other": 0.3 },
-      { "role": "Giver", "gender": "Any", "parameterized_by": "count", "min_count": 1, "max_count": 4, "stamina_modifier": 1.3,
+      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 4, "stamina_modifier": 1.3,
         "demand_modifier_scaling_per_peer": 0.05,
         "stamina_modifier_scaling_per_peer": 0.15 }
     ]
@@ -186,7 +243,7 @@
     ],
     "tooltip": "At the same time. So 2 'Givers' would mean a Double Anal, etc."
   },
-    {
+  {
     "name": "Anal", "orientation": "Gay",
     "type": "Action",
     "is_template": true,
@@ -302,6 +359,102 @@
         "stamina_modifier_scaling_per_peer": -0.1 }
     ]
   },
+  {
+    "name": "Facial", "orientation": "Gay",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Facial",
+    "categories": ["Climax", "Facial", "Group"],
+    "appeal_weight": 18.0,
+    "slots": [
+      { "role": "Receiver", "dynamic_role":"Submissive", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 0.7, "demand_modifier": 1.4,
+        "stamina_modifier_scaling_per_peer": -0.01,
+        "demand_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "dynamic_role": "Dominant", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.0,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
+  {
+    "name": "Facial", "orientation": "Bi",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Facial",
+    "categories": ["Climax", "Facial", "Group"],
+    "appeal_weight": 18.0,
+    "slots": [
+      { "role": "Receiver", "dynamic_role":"Submissive", "gender": "Any", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 0.7, "demand_modifier": 1.4,
+        "stamina_modifier_scaling_per_peer": -0.01,
+        "demand_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "dynamic_role": "Dominant", "gender": "Any", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.2,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
+  {
+    "name": "Vaginal Creampie", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Creampie",
+    "categories": ["Climax", "Creampie", "Vaginal", "Group"],
+    "appeal_weight": 18.0,
+    "slots": [
+      { "role": "Receiver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 0.8, "demand_modifier": 1.3,
+        "stamina_modifier_scaling_per_peer": -0.01,
+        "demand_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "dynamic_role": "Dominant", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.2,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
+  {
+    "name": "Anal Creampie", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Creampie",
+    "categories": ["Climax", "Creampie", "Anal", "Group"],
+    "appeal_weight": 18.0,
+    "slots": [
+      { "role": "Receiver", "dynamic_role": "Submissive", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 0.8, "demand_modifier": 1.3,
+        "stamina_modifier_scaling_per_peer": -0.01,
+        "demand_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "dynamic_role": "Dominant", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.2,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
+  {
+    "name": "Anal Creampie", "orientation": "Gay",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Creampie",
+    "categories": ["Climax", "Creampie", "Anal", "Group"],
+    "appeal_weight": 18.0,
+    "slots": [
+      { "role": "Receiver", "dynamic_role": "Submissive", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 0.8, "demand_modifier": 1.3,
+        "stamina_modifier_scaling_per_peer": -0.01,
+        "demand_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "dynamic_role": "Dominant", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.2,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
+  {
+    "name": "Anal Creampie", "orientation": "Bi",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Creampie",
+    "categories": ["Climax", "Creampie", "Anal", "Group"],
+    "appeal_weight": 18.0,
+    "slots": [
+      { "role": "Receiver", "dynamic_role": "Submissive", "gender": "Any", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 0.8, "demand_modifier": 1.3,
+        "stamina_modifier_scaling_per_peer": -0.01,
+        "demand_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "dynamic_role": "Dominant", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.2,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
+  },
   { "name": "Fingering", "orientation": "Straight",
     "type": "Action", "is_template": true, "concept": "Fingering", "categories": [],
     "slots": [
@@ -367,18 +520,34 @@
   { "name": "Rimjob", "orientation": "Straight",
     "type": "Action", "is_template": true, "concept": "Analingus", "categories": ["Oral"],
     "slots": [
-      { "role": "Receiver", "gender": "Male", "count": 1, "stamina_modifier": 0.9},
-      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Receiver", "dynamic_role": "Dominant", "gender": "Male", "count": 1, "stamina_modifier": 0.9},
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "demand_modifier": 1.3, "stamina_modifier": 1.1,
         "stamina_modifier_scaling_per_peer": -0.05 } ]
   },
   { "name": "Rimjob", "orientation": "Gay",
     "type": "Action", "is_template": true, "concept": "Analingus", "categories": ["Oral"],
     "slots": [
-      { "role": "Receiver", "gender": "Male", "count": 1, "demand_modifier": 1.1, "stamina_modifier": 0.9},
-      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Receiver", "dynamic_role": "Dominant", "gender": "Male", "count": 1, "demand_modifier": 1.1, "stamina_modifier": 0.9},
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "demand_modifier": 1.3, "stamina_modifier": 1.1,
         "stamina_modifier_scaling_per_peer": -0.05 } ]
+  },
+  {
+    "name": "Pee in Mouth", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Pee",
+    "categories": ["Pee", "Group"],
+    "appeal_weight": 25.0,
+    "slots": [
+      { "role": "Receiver", "dynamic_role": "Submissive", "gender": "Any", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 0.8, "demand_modifier": 2.0,
+        "stamina_modifier_scaling_per_peer": -0.01,
+        "demand_modifier_scaling_per_other": 0.05 },
+      { "role": "Giver", "dynamic_role": "Dominant", "gender": "Any", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.2,
+        "stamina_modifier_scaling_per_peer": -0.1 }
+    ]
   },
   { "name": "Complete Oral on Female", "orientation": "Straight",
     "type": "Action", "is_template": true, "concept": "Oral", "categories": ["Container", "Oral", "Anal"],
