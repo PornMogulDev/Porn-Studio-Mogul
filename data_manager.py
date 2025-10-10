@@ -1,21 +1,16 @@
 import sqlite3
 import json
 from typing import Dict, Any, List
-import os 
 from collections import defaultdict
 
-try:
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    DB_PATH = os.path.join(script_dir, "data", "game_data.sqlite")
-except NameError:
-    DB_PATH = os.path.join("data", "game_data.sqlite")
+from utils.paths import GAME_DATA, HELP_FILE
 
 class DataManager:
     """
     Handles loading all static game data from the SQLite database at startup.
     This class is instantiated once and passed to the controller.
     """
-    def __init__(self, db_path: str = DB_PATH):
+    def __init__(self, db_path: str = GAME_DATA, help_file_path: str = HELP_FILE):
         self.conn = None
         
         try:
@@ -37,6 +32,7 @@ class DataManager:
         self.on_set_policies_data = self._load_on_set_policies()
         self.scene_events = self._load_scene_events()
         self.talent_archetypes = self._load_talent_archetypes()
+        self.help_topics = self._load_help_topics(help_file_path)
 
     def _rehydrate_json_fields(self, data_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -107,7 +103,7 @@ class DataManager:
             name = row['name']
             data = json.loads(row['data_json']) if row['data_json'] else {}
             
-            # FIX: Handle the special structure of DickSize data.
+            # Handle the special structure of DickSize data.
             # Instead of nesting it under a 'default' key, assign it directly
             # to the 'DickSize' category key.
             if category == "DickSize":
@@ -121,7 +117,6 @@ class DataManager:
         cursor = self.conn.cursor()
         data = {}
         
-        # Load weights (this part is unchanged and correct)
         cursor.execute("SELECT category, name, weight FROM generation_weights")
         for row in cursor.fetchall():
             category = row['category']
@@ -129,15 +124,11 @@ class DataManager:
                 data[category] = []
             data[category].append({"name": row['name'], "weight": row['weight']})
         
-        # Load aliases from the new `talent_aliases` table
-        # We use defaultdict to make building the nested structure easier
         aliases = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         cursor.execute("SELECT ethnicity, gender, part, name FROM talent_aliases")
         for row in cursor.fetchall():
             aliases[row['ethnicity']][row['gender']][row['part']].append(row['name'])
             
-        # Convert the defaultdicts to regular dicts for a clean final object
-        # and assign it to the 'aliases' key in our main data dictionary.
         data['aliases'] = json.loads(json.dumps(aliases))
             
         return data
@@ -207,6 +198,18 @@ class DataManager:
             if archetype_id:
                 archetypes[archetype_id] = archetype_data
         return archetypes
+
+    def _load_help_topics(self, file_path: str) -> Dict[str, Any]:
+        """Loads help topic data from a JSON file."""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            print(f"WARNING: Help topics file not found at '{file_path}'. Help feature will be disabled.")
+            return {}
+        except json.JSONDecodeError:
+            print(f"WARNING: Failed to parse help topics file at '{file_path}'. It may be malformed.")
+            return {}
 
     def close(self):
         """Explicitly close the database connection."""

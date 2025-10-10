@@ -18,6 +18,10 @@ DATA_DIR = resource_path("data")
 ASSETS_DIR = resource_path("assets")
 SAVE_DIR = os.path.join(BASE_DIR, "saves")  # We want saves next to the .exe, not in temp
 
+# Data files
+GAME_DATA = os.path.join(DATA_DIR, "game_data.sqlite")
+HELP_FILE = os.path.join(DATA_DIR, "help_topics.json")
+
 # Asset sub-directories
 IMG_DIR = os.path.join(ASSETS_DIR, "images")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")

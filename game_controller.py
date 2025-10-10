@@ -1,3 +1,4 @@
+
 import copy
 import json
 from typing import List, Dict, Optional, Tuple, Set
@@ -41,6 +42,7 @@ class GameController(QObject):
         self.affinity_data = self.data_manager.affinity_data
         self.generator_data = self.data_manager.generator_data
         self.talent_archetypes = self.data_manager.talent_archetypes
+        self.help_topics = self.data_manager.help_topics
         
         self.talent_generator = TalentGenerator(self.game_constant, self.generator_data, self.affinity_data, self.tag_definitions, self.talent_archetypes)
 
@@ -48,7 +50,7 @@ class GameController(QObject):
         self.talent_service = None
         self.scene_service = None
         self.time_service = None
-        self.go_to_list_service = None # Add the new service attribute
+        self.go_to_list_service = None
         
         self._cached_style_tags_data = None
         self._cached_action_tags_data = None
