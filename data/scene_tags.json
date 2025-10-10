@@ -17,9 +17,9 @@
     "concept": "Blowjob",
     "categories": ["Oral", "Group"],
     "slots": [
-      { "role": "Receiver", "gender": "Male", "count": 1, "stamina_modifier": 0.9,
+      { "role": "Receiver", "dynamic_role": "Neutral", "gender": "Male", "count": 1, "stamina_modifier": 0.9,
         "stamina_modifier_scaling_per_other": 0.05 },
-      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "stamina_modifier": 1.2,
         "stamina_modifier_scaling_per_peer": -0.1 }
     ]
@@ -30,9 +30,9 @@
     "concept": "Blowjob",
     "categories": ["Oral", "Group"],
     "slots": [
-      { "role": "Receiver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Receiver", "dynamic_role": "Neutral", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "stamina_modifier": 0.9 },
-      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "stamina_modifier": 1.2,
         "demand_modifier_scaling_per_other":0.05,
         "demand_modifier_scaling_per_peer":-0.02 }
@@ -45,9 +45,9 @@
     "dom_sub_multiplier": 1.2,
     "categories": ["Oral", "Group"],
     "slots": [
-      { "role": "Receiver", "gender": "Male", "count": 1, "stamina_modifier": 1.0,
+      { "role": "Receiver", "dynamic_role": "Dominant", "gender": "Male", "count": 1, "stamina_modifier": 1.0,
         "stamina_modifier_scaling_per_other": 0.08 },
-      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "demand_modifier": 1.1,
         "stamina_modifier": 1.3,
         "stamina_modifier_scaling_per_peer": -0.1 }
@@ -59,8 +59,8 @@
     "dom_sub_multiplier": 1.5,
     "categories": ["Oral"],
     "slots": [
-      { "role": "Receiver", "gender": "Female", "count": 1, "demand_modifier": 1.3, "stamina_modifier": 1.3 },
-      { "role": "Giver", "gender": "Male", "count": 1,
+      { "role": "Receiver", "dynamic_role": "Submissive", "gender": "Female", "count": 1, "demand_modifier": 1.3, "stamina_modifier": 1.3 },
+      { "role": "Giver", "dynamic_role": "Dominant", "gender": "Male", "count": 1,
         "demand_modifier": 1.1,
         "stamina_modifier": 1.3 }
     ]
@@ -88,10 +88,10 @@
     "concept": "Blowjob",
     "categories": ["Oral", "Group"],
     "slots": [
-      { "role": "Receiver", "gender": "Male", "count": 1,
+      { "role": "Receiver", "dynamic_role":"Neutral", "gender": "Male", "count": 1,
         "demand_modifier": 1.1,
         "stamina_modifier_scaling_per_other": 0.05 },
-      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "stamina_modifier": 1.2,
         "demand_modifier": 1.2,
         "stamina_modifier_scaling_per_peer": -0.1 }
@@ -133,6 +133,7 @@
     "appeal_weight": 12.0,
     "slots": [
       { "role": "Receiver",
+      "dynamic_role": "Submissive",
       "gender": "Female",
       "count": 1,
       "stamina_modifier": 1.3,
@@ -140,7 +141,8 @@
       "stamina_modifier_scaling_per_other": 0.1
     },
       { "role": "Giver",
-        "gender": "Any",
+        "dynamic_role": "Dominant",
+        "gender": "Male",
         "parameterized_by": "count",
         "min_count": 2,
         "max_count": 20,
@@ -160,7 +162,8 @@
     "appeal_weight": 12.0,
     "slots": [
       { 
-        "role": "Receiver", 
+        "role": "Receiver",
+        "dynamic_role": "Submissive", 
         "gender": "Female", 
         "count": 1, 
         "demand_modifier": 1.3,
@@ -170,6 +173,7 @@
       },
       { 
         "role": "Giver", 
+        "dynamic_role": "Dominant",
         "gender": "Male", 
         "parameterized_by": "count", 
         "min_count": 1, 
@@ -192,6 +196,7 @@
     "slots": [
       { 
         "role": "Receiver", 
+        "dynamic_role": "Submissive",
         "gender": "Male", 
         "count": 1, 
         "demand_modifier": 1.3,
@@ -201,6 +206,7 @@
       },
       { 
         "role": "Giver", 
+        "dynamic_role": "Dominant",
         "gender": "Male", 
         "parameterized_by": "count", 
         "min_count": 1, 
@@ -224,6 +230,7 @@
     "slots": [
       { 
         "role": "Receiver", 
+        "dynamic_role": "Submissive",
         "gender": "Male", 
         "count": 1, 
         "demand_modifier": 1.3,
@@ -233,6 +240,7 @@
       },
       { 
         "role": "Giver", 
+        "dynamic_role": "Dominant",
         "gender": "Female", 
         "parameterized_by": "count", 
         "min_count": 1, 
@@ -254,7 +262,8 @@
     "appeal_weight": 12.0,
     "slots": [
       { 
-        "role": "Receiver", 
+        "role": "Receiver",
+        "dynamic_role": "Submissive", 
         "gender": "Female", 
         "count": 1, 
         "demand_modifier": 1.3,
@@ -264,6 +273,7 @@
       },
       { 
         "role": "Giver", 
+        "dynamic_role": "Dominant",
         "gender": "Female", 
         "parameterized_by": "count", 
         "min_count": 1, 
@@ -284,11 +294,11 @@
     "categories": ["Climax", "Facial", "Group"],
     "appeal_weight": 18.0,
     "slots": [
-      { "role": "Receiver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Receiver", "dynamic_role":"Submissive", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "stamina_modifier": 0.7, "demand_modifier": 1.4,
         "stamina_modifier_scaling_per_peer": -0.01,
         "demand_modifier_scaling_per_other": 0.05 },
-      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.0,
+      { "role": "Giver", "dynamic_role": "Dominant", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20, "stamina_modifier": 1.0,
         "stamina_modifier_scaling_per_peer": -0.1 }
     ]
   },
@@ -314,8 +324,8 @@
   { "name": "Cunnilingus", "orientation": "Straight",
     "type": "Action", "is_template": true, "concept": "Cunnilingus", "categories": ["Oral"],
     "slots": [
-      { "role": "Receiver", "gender": "Female", "count": 1, "stamina_modifier": 0.9},
-      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Receiver", "dynamic_role": "Neutral", "gender": "Female", "count": 1, "stamina_modifier": 0.9},
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "demand_modifier": 1.1, "stamina_modifier": 1.1,
         "demand_modifier_scaling_per_peer": 0.05,
         "stamina_modifier_scaling_per_peer": -0.05 } ]
@@ -332,24 +342,24 @@
   { "name": "Prostate Massage", "orientation": "Straight",
     "type": "Action", "is_template": true, "concept": "Fingering", "categories": ["Anal"],
     "slots": [
-      { "role": "Receiver", "gender": "Male", "count": 1, "demand_modifier": 1.1 },
-      { "role": "Giver", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Receiver", "dynamic_role":"Submissive", "gender": "Male", "count": 1, "demand_modifier": 1.1 },
+      { "role": "Giver", "dynamic_role":"Dominant", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "demand_modifier": 1.05, "stamina_modifier": 1.1,
         "stamina_modifier_scaling_per_peer": -0.05 } ]
   },
   { "name": "Prostate Massage", "orientation": "Gay",
     "type": "Action", "is_template": true, "concept": "Fingering", "categories": ["Anal"],
     "slots": [
-      { "role": "Receiver", "gender": "Male", "count": 1, "demand_modifier": 1.1 },
-      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Receiver", "dynamic_role": "Submissive", "gender": "Male", "count": 1, "demand_modifier": 1.1 },
+      { "role": "Giver", "dynamic_role": "Dominant", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "demand_modifier": 1.1, "stamina_modifier": 1.1,
         "stamina_modifier_scaling_per_peer": -0.05 } ]
   },
   { "name": "Analingus", "orientation": "Straight",
     "type": "Action", "is_template": true, "concept": "Analingus", "categories": ["Oral"],
     "slots": [
-      { "role": "Receiver", "gender": "Female", "count": 1, "stamina_modifier": 0.9},
-      { "role": "Giver", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+      { "role": "Receiver", "dynamic_role": "Dominant", "gender": "Female", "count": 1, "stamina_modifier": 0.9},
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
         "demand_modifier": 1.2, "stamina_modifier": 1.1,
         "demand_modifier_scaling_per_peer": 0.05,
         "stamina_modifier_scaling_per_peer": -0.05 } ]

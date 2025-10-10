@@ -42,7 +42,7 @@ class GameController(QObject):
         self.generator_data = self.data_manager.generator_data
         self.talent_archetypes = self.data_manager.talent_archetypes
         
-        self.talent_generator = TalentGenerator(self.generator_data, self.affinity_data, self.tag_definitions, self.talent_archetypes)
+        self.talent_generator = TalentGenerator(self.game_constant, self.generator_data, self.affinity_data, self.tag_definitions, self.talent_archetypes)
 
         self.market_service = None
         self.talent_service = None

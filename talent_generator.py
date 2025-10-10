@@ -6,7 +6,8 @@ from collections import defaultdict
 from game_state import Talent
 
 class TalentGenerator:
-    def __init__(self, generator_data: dict, affinity_data: dict, tag_definitions: dict, talent_archetypes: list):
+    def __init__(self, game_constant: dict, generator_data: dict, affinity_data: dict, tag_definitions: dict, talent_archetypes: list):
+        self.game_constant = game_constant
         self.genders_data = generator_data.get('genders', [])
         self.alias_data = generator_data.get('aliases', {})
         self.ethnicity_data = generator_data.get('ethnicities', [])
@@ -132,9 +133,8 @@ class TalentGenerator:
         prefs: Dict[str, Dict[str, float]] = defaultdict(dict)
         limits = archetype_data.get("hard_limits", []).copy()
         
-        # These should be moved to a game config file
-        preference_shift_intensity = 0.5 
-        hard_limit_threshold = 0.1
+        preference_shift_intensity = self.game_constant.get('preference_shift_intensity', 0.5)
+        hard_limit_threshold = self.game_constant.get('hard_limit_threshold', 0.1)
 
         # Calculate shifters once
         ds_balance = disposition_score / 100.0

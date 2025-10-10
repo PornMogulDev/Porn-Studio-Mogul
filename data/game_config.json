@@ -7,6 +7,8 @@
   "market_saturation_recovery_rate": 0.05,
   "saturation_spend_rate": 0.15,
   "base_talent_demand": 400,
+  "preference_shift_intensity": 0.5, 
+  "hard_limit_threshold": 0.1,
   "median_ambition": 5.5,
   "ambition_demand_divisor": 10.0,
   "popularity_demand_scalar": 0.01,
