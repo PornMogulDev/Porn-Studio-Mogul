@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import copy
 from collections import defaultdict
@@ -14,6 +15,8 @@ from services.talent_service import TalentService
 from services.market_service import MarketService
 from database.db_models import ( SceneDB, VirtualPerformerDB, ActionSegmentDB, SlotAssignmentDB,
                                 MarketGroupStateDB, TalentDB, GameInfoDB, SceneCastDB, ShootingBlocDB )
+
+logger = logging.getLogger(__name__)
 
 class SceneService:
     def __init__(self, db_session, signals, data_manager: DataManager, 
@@ -184,7 +187,7 @@ class SceneService:
             return bloc_db.id
         except Exception as e:
             # Proper logging should be added here in a real application
-            print(f"[ERROR] Failed to create shooting bloc in DB: {e}")
+            logger.error(f"[ERROR] Failed to create shooting bloc in DB: {e}")
             self.session.rollback()
             return None
 
@@ -412,7 +415,7 @@ class SceneService:
         ).get(scene_id)
         
         if not scene_db:
-            print(f"[ERROR] _continue_shoot_scene: Scene ID {scene_id} not found.")
+            logger.error(f"[ERROR] _continue_shoot_scene: Scene ID {scene_id} not found.")
             return
 
         self.calculation_service.calculate_shoot_results(scene_db, shoot_modifiers)

@@ -383,13 +383,13 @@ class GameController(QObject):
 
         event_data = self.data_manager.scene_events.get(event_id)
         if not event_data:
-            print(f"[ERROR] Could not find event data for id: {event_id}")
+            logger.error(f"[ERROR] Could not find event data for id: {event_id}")
             self.scene_service._continue_shoot_scene(scene_id, {}) # Continue shoot even if event is broken
             return
 
         choice_data = next((c for c in event_data.get('choices', []) if c.get('id') == choice_id), None)
         if not choice_data:
-            print(f"[ERROR] Could not find choice data for id: {choice_id} in event {event_id}")
+            logger.error(f"[ERROR] Could not find choice data for id: {choice_id} in event {event_id}")
             self.scene_service._continue_shoot_scene(scene_id, {})
             return
         
@@ -461,7 +461,7 @@ class GameController(QObject):
                         self.signals.interactive_event_triggered.emit(new_event_data, scene_id, talent_id)
                         return True # Stop processing, a new event is taking over
                     else:
-                        print(f"[ERROR] Chained event error: Could not find event with id '{new_event_id}'")
+                        logger.error(f"[ERROR] Chained event error: Could not find event with id '{new_event_id}'")
                 
                 # --- NEW LOGIC: Randomized Outcome ---
                 elif effect_type == 'random_outcome':

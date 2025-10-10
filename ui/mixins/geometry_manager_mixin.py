@@ -1,5 +1,8 @@
+import logging
 from PyQt6.QtWidgets import QApplication, QDialog
 from PyQt6.QtCore import QRect
+
+logger = logging.getLogger(__name__)
 
 class GeometryManagerMixin:
     """
@@ -22,7 +25,7 @@ class GeometryManagerMixin:
         monitor instead. This also connects to the settings changed signal.
         """
         if not hasattr(self, 'settings_manager'):
-            print(f"Warning: {self.__class__.__name__} uses GeometryManagerMixin but lacks a 'settings_manager' attribute.")
+            logger.warning(f"WARNING: {self.__class__.__name__} uses GeometryManagerMixin but lacks a 'settings_manager' attribute.")
             return
 
         self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)

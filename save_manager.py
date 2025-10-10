@@ -1,14 +1,18 @@
 import json
 import os
 import shutil
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
+
 from game_state import *
 from database.db_manager import DBManager
 from database.db_models import GameInfoDB
+from utils.paths import SAVE_DIR
 
-SAVES_DIR = "saves"
+logger = logging.getLogger(__name__)
+
 AUTOSAVE_NAME = "autosave"
 QUICKSAVE_NAME = "quicksave"
 EXITSAVE_NAME = "exitsave"
@@ -17,11 +21,11 @@ AUTOSAVE_COUNT = 4
 
 class SaveManager:
     def __init__(self):
-        Path(SAVES_DIR).mkdir(exist_ok=True)
+        Path(SAVE_DIR).mkdir(exist_ok=True)
         self.db_manager = DBManager()
 
     def get_save_path(self, save_name: str) -> Path:
-        return Path(SAVES_DIR) / f"{save_name}.sqlite"
+        return Path(SAVE_DIR) / f"{save_name}.sqlite"
 
     def create_new_save_db(self, save_name: str):
         """Creates a new, blank database file for a new game."""
@@ -32,13 +36,13 @@ class SaveManager:
     def copy_save(self, source_path: str, dest_save_name: str):
         """Copies the currently active DB file to a new named save."""
         if not source_path or not os.path.exists(source_path):
-            print(f"ERROR: Cannot copy save, source path '{source_path}' does not exist.")
+            logger.error(f"ERROR: Cannot copy save, source path '{source_path}' does not exist.")
             return
         dest_path = self.get_save_path(dest_save_name)
         try:
             shutil.copyfile(source_path, dest_path)
         except IOError as e:
-            print(f"Error copying save file: {e}")
+            logger.error(f"Error copying save file: {e}")
     
     def auto_save(self, session):
         """Manages rolling autosaves and commits the current session."""
@@ -60,7 +64,7 @@ class SaveManager:
 
     def _manage_rolling_autosaves(self):
         """Rotates existing autosave files."""
-        autosave_files = sorted(Path(SAVES_DIR).glob(f"{AUTOSAVE_NAME}_*.sqlite"), 
+        autosave_files = sorted(Path(SAVE_DIR).glob(f"{AUTOSAVE_NAME}_*.sqlite"), 
                                 key=lambda p: os.path.getmtime(p), reverse=True)
 
         # Rename older files
@@ -118,7 +122,7 @@ class SaveManager:
 
     def has_saves(self) -> bool:
         # Check for any save file that isn't the live session file
-        return any(p.stem != LIVE_SESSION_NAME for p in Path(SAVES_DIR).glob("*.sqlite"))
+        return any(p.stem != LIVE_SESSION_NAME for p in Path(SAVE_DIR).glob("*.sqlite"))
 
     def delete_save(self, save_name: str) -> bool:
         path = self.get_save_path(save_name)
@@ -127,13 +131,13 @@ class SaveManager:
                 path.unlink()
                 return True
             except OSError as e:
-                print(f"Error deleting save file {path}: {e}")
+                logger.error(f"Error deleting save file {path}: {e}")
                 return False
         return False
     
     def get_save_files(self) -> List[Dict]:
         saves = []
-        for file in Path(SAVES_DIR).glob("*.sqlite"):
+        for file in Path(SAVE_DIR).glob("*.sqlite"):
             # Do not show the internal session file to the player
             if file.stem == LIVE_SESSION_NAME:
                 continue

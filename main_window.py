@@ -1,3 +1,4 @@
+import logging
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
@@ -22,6 +23,7 @@ from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.hire_talent_presenter import HireTalentPresenter
 from ui.widgets.help_button import HelpButton
 
+logger = logging.getLogger(__name__)
 
 class GameMenuDialog(GeometryManagerMixin, QDialog):
     """A dialog that serves as the in-game menu."""
@@ -193,7 +195,7 @@ class MainGameWindow(QWidget):
         current_money = self.controller.game_state.money
 
         if not scene_data or not talent_data:
-            print(f"[UI ERROR] Could not fetch required data for event ID '{event_data.get('id')}'. Scene: {scene_data}, Talent: {talent_data}")
+            logger.error(f"[UI ERROR] Could not fetch required data for event ID '{event_data.get('id')}'. Scene: {scene_data}, Talent: {talent_data}")
             self.controller.resolve_interactive_event(event_data['id'], scene_id, talent_id, "error_fallback")
             return
 
@@ -213,7 +215,7 @@ class MainGameWindow(QWidget):
             if choice_id:
                 self.controller.resolve_interactive_event(event_id, scene_id, talent_id, choice_id)
             else:
-                print(f"[UI WARN] Event dialog for '{event_id}' was accepted but no choice ID was returned. Resuming.")
+                logger.error(f"[UI WARN] Event dialog for '{event_id}' was accepted but no choice ID was returned. Resuming.")
                 self.controller.resolve_interactive_event(event_id, scene_id, talent_id, "no_choice_fallback")
 
     def show_game_menu(self):

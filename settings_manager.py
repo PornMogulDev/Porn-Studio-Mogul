@@ -1,7 +1,10 @@
 import json
 import os
+import logging
 from typing import Optional
 from PyQt6.QtCore import QObject, pyqtSignal
+
+logger = logging.getLogger(__name__)
 
 class SettingsSignals(QObject):
     """Container for signals related to settings changes."""
@@ -48,7 +51,7 @@ class SettingsManager:
                 settings.update(loaded_settings)
                 return settings
             except json.JSONDecodeError:
-                print(f"Warning: Could not decode {self.SETTINGS_FILE}. Using default settings.")
+                logger.warning(f"Warning: Could not decode {self.SETTINGS_FILE}. Using default settings.")
                 return self._default_settings.copy()
         return self._default_settings.copy()
 
@@ -58,7 +61,7 @@ class SettingsManager:
             with open(self.SETTINGS_FILE, 'w') as f:
                 json.dump(self.settings, f, indent=4)
         except IOError as e:
-            print(f"Error: Could not save settings to {self.SETTINGS_FILE}: {e}")
+            logger.error(f"Error: Could not save settings to {self.SETTINGS_FILE}: {e}")
 
     def get_setting(self, key: str, default=None):
         """Retrieves a setting value by its key."""

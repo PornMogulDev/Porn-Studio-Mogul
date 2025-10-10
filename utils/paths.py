@@ -16,7 +16,7 @@ def resource_path(relative_path):
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # project root
 ASSETS_DIR = resource_path("assets")
 DATA_DIR = resource_path("data")
-LOG_DIR = resource_path("logs")
+LOG_DIR = os.path.join(BASE_DIR, "logs")
 SAVE_DIR = os.path.join(BASE_DIR, "saves") 
 
 # Data files

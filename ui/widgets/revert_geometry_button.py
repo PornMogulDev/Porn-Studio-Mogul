@@ -1,4 +1,7 @@
+import logging
 from PyQt6.QtWidgets import QPushButton, QStyle
+
+logger = logging.getLogger(__name__)
 
 class RestoreGeometryButton(QPushButton):
     """
@@ -33,6 +36,6 @@ class RestoreGeometryButton(QPushButton):
             self.clicked.connect(self.target_widget.revert_to_initial_geometry)
         else:
             # If the parent is missing the method, disable the button and warn the developer.
-            print(f"WARNING: RestoreGeometryButton's parent '{self.target_widget.__class__.__name__}'"
+            logger.warning(f"WARNING: RestoreGeometryButton's parent '{self.target_widget.__class__.__name__}'"
                   " does not have a 'revert_to_initial_geometry' method. The button will be disabled.")
             self.setEnabled(False)

@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import random
 from collections import defaultdict
@@ -12,6 +13,8 @@ from services.talent_service import TalentService
 from services.market_service import MarketService
 from database.db_models import ( SceneDB, MarketGroupStateDB, TalentDB, GameInfoDB, ShootingBlocDB,
                                 ScenePerformerContributionDB, SceneCastDB, TalentChemistryDB )
+
+logger = logging.getLogger(__name__)
 
 class SceneCalculationService:
     def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, market_service: MarketService):
@@ -201,10 +204,10 @@ class SceneCalculationService:
                 elif comparison == 'gt' and not cast_size > value: return False
                 elif comparison == 'lt' and not cast_size < value: return False
                 elif comparison not in ['gte', 'lte', 'eq', 'gt', 'lt']:
-                    print(f"[WARN] Unrecognized cast_size_is comparison: {comparison}")
+                    logger.warning(f"[WARNING] Unrecognized cast_size_is comparison: {comparison}")
                     return False
             else:
-                print(f"[WARN] Unrecognized event trigger condition type: {req_type}")
+                logger.warning(f"[WARNING] Unrecognized event trigger condition type: {req_type}")
                 return False # Fail safe on unknown conditions
         
         return True # All conditions passed
@@ -509,12 +512,12 @@ class SceneCalculationService:
                 try:
                     _ , slot_role, _ = assignment.slot_id.rsplit('_', 2)
                 except ValueError:
-                    print(f"[WARN] Could not parse role from slot_id: {assignment.slot_id}")
+                    logger.warning(f"[WARNING] Could not parse role from slot_id: {assignment.slot_id}")
                     continue
                 if slot_role == "Receiver": receivers.append(talent)
                 elif slot_role == "Giver": givers.append(talent)
                 elif slot_role == "Performer": performers.append(talent)
-                else: print(f"[WARN] Unrecognized slot role '{slot_role}' from slot_id: {assignment.slot_id}"); continue
+                else: logger.warning(f"[WARNING] Unrecognized slot role '{slot_role}' from slot_id: {assignment.slot_id}"); continue
                 slot_roles[talent.id] = slot_role
             
             
