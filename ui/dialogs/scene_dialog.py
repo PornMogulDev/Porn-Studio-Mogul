@@ -8,7 +8,6 @@ from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QMimeData, QPoint
 from PyQt6.QtGui import QDrag, QKeyEvent, QFont, QStandardItemModel, QStandardItem
 
 from game_state import Scene, VirtualPerformer, ActionSegment
-from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from ui.dialogs.incomplete_scheduled_scene import DeletionPenaltyDialog
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 

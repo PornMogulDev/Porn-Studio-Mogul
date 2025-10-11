@@ -68,7 +68,7 @@ class ScenesTab(QWidget):
             self.manage_scene_btn.setEnabled(False)
             self.manage_scene_btn.setText("Release Selected Scene")
 
-    def manage_scene(self): # Renamed from release_scene
+    def manage_scene(self): 
         selected_scene = self._get_selected_scene()
         if not selected_scene: return
         
