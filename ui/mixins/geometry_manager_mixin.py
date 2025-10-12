@@ -21,8 +21,9 @@ class GeometryManagerMixin:
     def _restore_geometry(self):
         """
         Loads the window's last known geometry from settings and applies it.
-        If the geometry is off-screen, it centers the window on the primary
-        monitor instead. This also connects to the settings changed signal.
+        If the geometry is off-screen or not found, it centers the window 
+        on its parent or the primary monitor. This also connects to the 
+        settings changed signal.
         """
         if not hasattr(self, 'settings_manager'):
             logger.warning(f"WARNING: {self.__class__.__name__} uses GeometryManagerMixin but lacks a 'settings_manager' attribute.")
@@ -53,14 +54,17 @@ class GeometryManagerMixin:
             if is_visible:
                 self.setGeometry(geom)
             else:
-                # If not visible (e.g., monitor disconnected), center it.
-                self._center_on_primary_screen()
+                # If not visible (e.g., monitor disconnected), apply default position.
+                self._apply_default_position()
         else:
-            # If no geometry is saved, center it as a default behavior.
-             self._center_on_primary_screen()
+            # If no geometry is saved, apply default position.
+             self._apply_default_position()
 
         # Capture the initial geometry after it's been set for the session.
         self._initial_geometry = self.geometry()
+
+        if not geometry_data:
+            self._needs_centering = True
 
     def _save_geometry(self):
         """Saves the window's current geometry to the settings file."""
@@ -100,13 +104,23 @@ class GeometryManagerMixin:
         if isinstance(self, QDialog):
             super().done(result)
 
-    def _center_on_primary_screen(self):
-        """Helper method to center the widget on the primary screen."""
-        if primary_screen := QApplication.primaryScreen():
-            # Use availableGeometry() to avoid overlapping with taskbars, etc.
-            screen_geom = primary_screen.availableGeometry()
-            # A simple move to the center of the screen, letting the widget keep its sizeHint.
-            self.move(screen_geom.center() - self.rect().center())
+    def _apply_default_position(self):
+        """
+        Centers the widget on its parent if available; otherwise, on the primary screen.
+        Uses global coordinates to ensure accurate positioning.
+        """
+        parent = self.parentWidget()
+        if parent:
+            parent_center = parent.mapToGlobal(parent.rect().center())
+            self_rect = self.frameGeometry()
+            self.move(parent_center.x() - self_rect.width() // 2,
+                    parent_center.y() - self_rect.height() // 2)
+        else:
+            # Fallback: Center on primary screen
+            if primary_screen := QApplication.primaryScreen():
+                screen_geom = primary_screen.availableGeometry()
+                self_rect = self.frameGeometry()
+                self.move(screen_geom.center() - self_rect.center())
 
     def _on_setting_changed(self, key: str):
         """

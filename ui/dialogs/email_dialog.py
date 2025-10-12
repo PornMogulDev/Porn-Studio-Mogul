@@ -25,6 +25,14 @@ class EmailDialog(GeometryManagerMixin, QDialog):
 
         self._restore_geometry()
 
+        # After the UI is built and populated, we can set the initial state.
+        # First, check if there are any items to prevent an error.
+        if self.email_list_widget.count() > 0:
+            # Programmatically select the first item in the list (index 0).
+            self.email_list_widget.setCurrentRow(0)
+            # Explicitly give the list widget keyboard focus.
+            self.email_list_widget.setFocus()
+
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
 
