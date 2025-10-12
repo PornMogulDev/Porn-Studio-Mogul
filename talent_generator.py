@@ -128,13 +128,14 @@ class TalentGenerator:
     def _generate_preferences_and_limits(self, gender: str, orientation_score: int, disposition_score: int, archetype_data: dict) -> tuple[Dict[str, Dict[str, float]], List[str]]:
         """
         Generates role-based tag preferences and hard limits based on an archetype,
-        orientation, and D/S disposition.
+        orientation, and D/S disposition, using a Specific > Base > Concept hierarchy.
         """
         prefs: Dict[str, Dict[str, float]] = defaultdict(dict)
         limits = archetype_data.get("hard_limits", []).copy()
         
         preference_shift_intensity = self.game_constant.get('preference_shift_intensity', 0.5)
         hard_limit_threshold = self.game_constant.get('hard_limit_threshold', 0.1)
+        archetype_action_prefs = archetype_data.get("action_preferences", {})
 
         # Calculate shifters once
         ds_balance = disposition_score / 100.0
@@ -162,19 +163,27 @@ class TalentGenerator:
                     continue
 
                 role = slot_def['role']
-                dynamic_role = slot_def.get('dynamic_role', 'Neutral') # Assume Neutral if not specified
-                concept = tag_def.get('concept')
-
-                # Determine base preference with precedence: Full Tag Name > Concept
-                base_pref = 1.0
-                archetype_prefs = archetype_data.get("conceptual_preferences", {})
+                dynamic_role = slot_def.get('dynamic_role', 'Neutral')
                 
-                # 1. Check for specific tag preference
-                if full_name in archetype_prefs and role in archetype_prefs[full_name]:
-                    base_pref = archetype_prefs[full_name][role]
-                # 2. Fall back to concept preference
-                elif concept in archetype_prefs and role in archetype_prefs[concept]:
-                    base_pref = archetype_prefs[concept][role]
+                # THREE-TIER HIERARCHICAL PREFERENCE LOOKUP
+                base_name = tag_def.get('name')
+                concept = tag_def.get('concept')
+                
+                # Start with a neutral default
+                base_pref = 1.0
+                
+                # 1. Check for Concept preference (most general)
+                if concept and concept in archetype_action_prefs and role in archetype_action_prefs[concept]:
+                    base_pref = archetype_action_prefs[concept][role]
+
+                # 2. Check for Base Name preference (overwrites concept)
+                if base_name and base_name in archetype_action_prefs and role in archetype_action_prefs[base_name]:
+                    base_pref = archetype_action_prefs[base_name][role]
+
+                # 3. Check for Full Name preference (most specific, overwrites all others)
+                if full_name in archetype_action_prefs and role in archetype_action_prefs[full_name]:
+                    base_pref = archetype_action_prefs[full_name][role]
+                # --- END NEW LOGIC ---
 
                 # Apply D/S disposition shifter based on the dynamic_role
                 adjusted_pref = base_pref

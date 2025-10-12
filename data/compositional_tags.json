@@ -1,0 +1,101 @@
+ [ 
+    {
+    "name": "Interracial (BM/WF)",
+    "concept": "Interracial",
+    "type": "Global",
+    "categories": ["Composition", "Interracial"],
+    "is_auto_taggable": true,
+    "validation_rule": {
+      "mode": "match_all",
+      "profiles": [
+        { "gender": "Male", "ethnicity": "Black" },
+        { "gender": "Female", "ethnicity": "White" }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "quality_blend": [
+        { "source": "static", "value": 75, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 20.0,      
+      "auto": 5.0          
+    }
+  },
+  {
+    "name": "Interracial (WM/AF)",
+    "concept": "Interracial",
+    "type": "Global",
+    "categories": ["Composition", "Interracial"],
+    "is_auto_taggable": true,
+    "validation_rule": {
+      "mode": "match_all",
+      "profiles": [
+        { "gender": "Male", "ethnicity": "White" },
+        { "gender": "Female", "ethnicity": "Asian" }
+      ]
+    },
+    "quality_source": { 
+      "scope": "matched",
+      "base": "acting",
+      "quality_blend": [
+        { "source": "static", "value": 75, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ] },
+      "revenue_weights": { 
+        "focused": 15.0, 
+        "auto": 2.0
+    }
+  },
+  {
+    "name": "Age Gap (MILF/Teen)",
+    "concept": "Age Gap",
+    "type": "Global",
+    "categories": ["Composition", "Age Gap"],
+    "is_auto_taggable": true,
+    "validation_rule": {
+      "mode": "match_all",
+      "min_gap_years": 15,
+      "profiles": [
+        { "role": "older", "gender": "Female", "min_age": 35, "max_age": 50 },
+        { "role": "younger", "gender": "Any", "min_age": 18, "max_age": 25 }
+      ]
+    },
+    "quality_source": { "scope": "matched", "base": "acting",
+  "quality_blend": [
+        { "source": "static", "value": 75, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ] 
+      },
+    "revenue_weights": { 
+      "focused": 10.0, 
+      "auto": 3.5
+    }
+  },
+  {
+    "name": "Age Gap (Mature/Young Adult)",
+    "concept": "Age Gap",
+    "type": "Global",
+    "categories": ["Composition", "Age Gap"],
+    "validation_rule": {
+      "mode": "match_all",
+      "min_gap_years": 10,
+      "profiles": [
+        { "role": "older", "gender": "Any", "min_age": 40, "max_age": 55 },
+        { "role": "younger", "gender": "Any", "min_age": 25, "max_age": 32 }
+      ]
+    },
+    "quality_source": { "scope": "matched", "base": "acting",
+  "quality_blend": [
+        { "source": "static", "value": 75, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ] 
+    },
+    "revenue_weights": { 
+      "focused": 7.0, 
+      "auto": 1.5
+    }
+  }
+]

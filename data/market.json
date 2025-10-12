@@ -19,27 +19,33 @@
           "Gay": 0.0,
           "Male": 0.0
         },
-        "concept_sentiments": {
-          "Big Boobs": 2.5,
+        "action_sentiments": {
           "Vaginal": 2.5,
           "Blowjob": 1.5,
-          "MILF": 2.0,
-          "Teen": 2.5,
-          "Masturbation": 0.0,
-          "Interracial": 2.1,
-          "Age Gap": 1.9
-        },
-        "tag_sentiments": {
-          "Interracial (BM/WF)": 1.9,
-          "Interracial (WM/AF)": 1.8,
-          "Interracial (WM/LF)": 2.0,
-          "Age Gap (Older Woman/Younger Man)": 1.9,
-          "Anal (Pegging)": 0.2
+          "Anal (Pegging)": 0.2,
+          "Masturbation": 0.8
         },
         "scaling_sentiments": {
           "Anal": { "based_on_role": "Giver", "applies_after": 1, "bonuses": [0.2, 0.15, 0.1] },
           "Vaginal": { "based_on_role": "Giver", "bonus_per_unit": 0.2, "applies_after": 1 },
           "Blowjob": { "based_on_role": "Giver", "applies_after": 1, "bonuses": [0.2, 0.1], "penalty_after": 7, "penalty_per_unit": -0.2 }
+        },
+        "thematic_sentiments": {
+          "Raceplay": 0.8,
+          "Ageplay": 0.6,
+          "Boobs Worship": 1.2
+        },
+        "physical_sentiments":
+        {
+          "Big Boobs": 2.5,
+          "Teen": 2.5,
+          "MILF": 2.0,
+          "Interracial": 2.1,
+          "Age Gap": 1.9,
+          "Interracial (BM/WF)": 1.9,
+          "Interracial (WM/AF)": 1.8,
+          "Interracial (WM/LF)": 2.0,
+          "Age Gap (Older Woman/Younger Man)": 1.9
         },
         "dom_sub_sentiments": {
           "0": 1.1,
@@ -60,14 +66,12 @@
         "Straight Women": 0.15
       },
       "preferences": {
-        "concept_sentiments": {
+        "action_sentiments": {
+          "Deepthroat (Straight)": 3.5,
+          "Facefuck (Straight)": 3.0,
           "Blowjob": 3.5,
           "Facial": 3.0,
           "Vaginal": 1.0
-        },
-        "tag_sentiments": {
-          "Deepthroat (Straight)": 3.5,
-          "Facefuck (Straight)": 3.0
         },
         "scaling_sentiments": {
           "Blowjob": {
@@ -99,7 +103,7 @@
           "Gay": 1.4,
           "Female": 0.5
         },
-        "concept_sentiments": {
+        "action_sentiments": {
           "Blowjob": 2.0,
           "Vaginal": 2.5,
           "Anal": 1.5,
@@ -130,11 +134,9 @@
           "Lesbian": 0.0,
           "Female": 0.0
         },
-        "concept_sentiments": {
+        "action_sentiments": {
           "Anal": 2.0,
-          "Blowjob": 2.0
-        },
-        "tag_sentiments": {
+          "Blowjob": 2.0,
           "Anal (Pegging)": 0.5
         },
         "scaling_sentiments": {

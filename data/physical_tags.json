@@ -1,0 +1,366 @@
+ [
+    {
+    "name": "Interracial (BM/WF)",
+    "concept": "Interracial",
+    "type": "Physical",
+    "categories": ["Interracial"],
+    "is_auto_taggable": true,
+    "validation_rule": {
+      "mode": "match_all",
+      "profiles": [
+        { "gender": "Male", "ethnicity": "Black" },
+        { "gender": "Female", "ethnicity": "White" }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "quality_blend": [
+        { "source": "static", "value": 100, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ]
+    },
+    "revenue_weights": {        
+      "auto": 5.0          
+    }
+  },
+  {
+    "name": "Interracial (WM/AF)",
+    "concept": "Interracial",
+    "type": "Physical",
+    "categories": ["Interracial"],
+    "is_auto_taggable": true,
+    "validation_rule": {
+      "mode": "match_all",
+      "profiles": [
+        { "gender": "Male", "ethnicity": "White" },
+        { "gender": "Female", "ethnicity": "Asian" }
+      ]
+    },
+    "quality_source": { 
+      "scope": "matched",
+      "base": "acting",
+      "quality_blend": [
+        { "source": "static", "value": 100, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ] },
+      "revenue_weights": { 
+        "focused": 15.0, 
+        "auto": 2.0
+    }
+  },
+  {
+    "name": "Age Gap (MILF/Teen)",
+    "concept": "Age Gap",
+    "type": "Physical",
+    "categories": ["Age Gap"],
+    "is_auto_taggable": true,
+    "validation_rule": {
+      "mode": "match_all",
+      "min_gap_years": 15,
+      "profiles": [
+        { "role": "older", "gender": "Female", "min_age": 35, "max_age": 50 },
+        { "role": "younger", "gender": "Any", "min_age": 18, "max_age": 25 }
+      ]
+    },
+    "quality_source": { "scope": "matched", "base": "acting",
+  "quality_blend": [
+        { "source": "static", "value": 100, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ] 
+      },
+    "revenue_weights": { 
+      "focused": 10.0, 
+      "auto": 3.5
+    }
+  },
+  {
+    "name": "Age Gap (Mature/Young Adult)",
+    "concept": "Age Gap",
+    "type": "Physical",
+    "categories": ["Age Gap"],
+    "validation_rule": {
+      "mode": "match_all",
+      "min_gap_years": 10,
+      "profiles": [
+        { "role": "older", "gender": "Any", "min_age": 40, "max_age": 55 },
+        { "role": "younger", "gender": "Any", "min_age": 25, "max_age": 32 }
+      ]
+    },
+    "quality_source": { "scope": "matched", "base": "acting",
+  "quality_blend": [
+        { "source": "static", "value": 100, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ] 
+    },
+    "revenue_weights": { 
+      "focused": 7.0, 
+      "auto": 1.5
+    }
+  },
+  { "name": "Small Dick", "type": "Physical",
+    "orientation": "Male",
+    "categories": "Dick",
+    "is_auto_taggable": true,
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "affinity", "key": "Small Dick", "comparison": "gte", "value": 70 }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Small Dick",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 15.0,      
+      "auto": 5.0          
+    }
+  },
+  { "name": "Medium Dick", "type": "Physical",
+    "orientation": "Male",
+    "categories": "Dick",
+    "is_auto_taggable": true,
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "affinity", "key": "Medium Dick", "comparison": "gte", "value": 70 }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Medium Dick",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 3.5,      
+      "auto": 1.5          
+    },
+    "tooltip": "It can talk to ghosts."
+  },
+  { "name": "Big Dick", "type": "Physical",
+    "orientation": "Male",
+    "gender": "Male",
+    "categories": "Dick",
+    "is_auto_taggable": true,
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "affinity", "key": "Big Dick", "comparison": "gte", "value": 70 }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Big Dick",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 10.0,      
+      "auto": 3.5          
+    }
+  },
+  { "name": "Teen", "type": "Physical",
+    "orientation": "Female",
+    "gender": "Female",
+    "categories": "Age",
+    "is_auto_taggable": true,
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "affinity", "key": "Teen", "comparison": "gte", "value": 70 }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Teen",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 8.0,      
+      "auto": 3.0          
+    }
+  },
+  { "name": "MILF",
+    "type": "Physical",
+    "categories": ["Age"],
+    "gender": "Female", 
+    "is_auto_taggable": true,
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "affinity", "key": "MILF", "comparison": "gte", "value": 70 }
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 8.0,      
+      "auto": 2.5          
+    }
+  },
+  { "name": "Granny", "type": "Physical", "categories": "Age",
+    "orientation": "Female",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "affinity", "key": "Granny", "comparison": "gte", "value": 70 }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Granny",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": {   
+      "focused": 25.0,      
+      "auto": 10.0          
+    } },
+  { "name": "Small Boobs",
+    "type": "Physical",
+    "categories": "Boobs",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "affinity", "key": "Small Boobs", "comparison": "gte", "value": 70 }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Small Boobs",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 5.0, 
+      "auto": 2.0
+    }
+  },
+  { "name": "Medium Boobs",
+    "type": "Physical",
+    "categories": "Boobs",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "affinity", "key": "Medium Boobs", "comparison": "gte", "value": 70 }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Medium Boobs",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 4.0, 
+      "auto": 1.0
+    },
+    "tooltip": "They can talk to ghosts."
+  },
+  { "name": "Big Boobs",
+    "type": "Physical",
+    "categories": "Boobs",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "affinity", "key": "Big Boobs", "comparison": "gte", "value": 70 }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "affinity": "Big Boobs",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 5.0, 
+      "auto": 2.5
+    }
+  },
+  { "name": "Ebony",
+    "type": "Physical",
+    "categories": "Race",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "affinity", "key": "Black", "comparison": "eq", "value": 100 }
+      ]
+    },
+    "ethnicity": "Black",
+    "quality_source": {
+      "base": "acting",
+      "quality_blend": [
+        { "source": "static", "value": 100, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 10.0, 
+      "auto": 2.5
+    }
+  },
+  { "name": "BBC",
+    "type": "Physical",
+    "categories": "Race",
+    "gender": "Male",
+    "is_auto_taggable": true,
+    "ethnicity": "Black",
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "Physical", "key": "dick_size", "comparison": "gte", "value": 9 }
+      ]
+    },
+    "quality_source": {
+      "base": "acting",
+      "quality_blend": [
+        { "source": "dick_size", "multiplier": 10, "weight": 0.9 }, 
+        { "source": "base", "weight": 0.1 }                
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 10.0, 
+      "auto": 5.0
+    }
+  },
+  { "name": "Latina",
+    "type": "Physical",
+    "categories": "Race",
+    "gender": "Female",
+    "is_auto_taggable": true,
+    "auto_detection_rule": {
+      "conditions": [
+        { "type": "affinity", "key": "Latin", "comparison": "eq", "value": 100 }
+      ]
+    },
+    "ethnicity": "Latin",
+    "quality_source": {
+      "base": "acting",
+      "quality_blend": [
+        { "source": "static", "value": 100, "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }                
+      ]
+    },
+    "revenue_weights": { 
+      "focused": 8.5, 
+      "auto": 2.5
+    }
+  }
+]

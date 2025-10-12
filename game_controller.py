@@ -1,5 +1,6 @@
 
 import copy
+import logging
 import json
 from typing import List, Dict, Optional, Tuple, Set
 from collections import defaultdict
@@ -23,6 +24,8 @@ from services.talent_service import TalentService
 from services.scene_service import SceneService
 from services.time_service import TimeService
 from services.go_to_list_service import GoToListService
+
+logger = logging.getLogger(__name__)
 
 class GameController(QObject):
     def __init__(self, settings_manager: SettingsManager, data_manager: DataManager):
@@ -52,7 +55,8 @@ class GameController(QObject):
         self.time_service = None
         self.go_to_list_service = None
         
-        self._cached_style_tags_data = None
+        self._cached_thematic_tags_data = None
+        self._cached_physical_tags_data = None
         self._cached_action_tags_data = None
         self._favorite_tags_cache = {}
 
@@ -344,18 +348,31 @@ class GameController(QObject):
         if scenes_affected:
             self.signals.scenes_changed.emit()
 
-    def get_style_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
-        if self._cached_style_tags_data: return self._cached_style_tags_data
-        style_tags, tag_categories, style_tag_orientations = [], set(), set()
+    def get_thematic_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
+        if self._cached_thematic_tags_data: return self._cached_thematic_tags_data
+        tags, categories, orientations = [], set(), set()
         for full_name, tag_data in self.tag_definitions.items():
-            if tag_data.get('type') in ['Global', 'Assigned']:
+            if tag_data.get('type') == 'Thematic':
                 cats_raw = tag_data.get('categories', []); cats = [cats_raw] if isinstance(cats_raw, str) else cats_raw
-                tag_categories.update(cats)
-                if orientation := tag_data.get('orientation'): style_tag_orientations.add(orientation)
+                categories.update(cats)
+                if orientation := tag_data.get('orientation'): orientations.add(orientation)
                 tag_data_with_name = tag_data.copy(); tag_data_with_name['full_name'] = full_name
-                style_tags.append(tag_data_with_name)
-        self._cached_style_tags_data = (style_tags, tag_categories, style_tag_orientations)
-        return self._cached_style_tags_data
+                tags.append(tag_data_with_name)
+        self._cached_thematic_tags_data = (tags, categories, orientations)
+        return self._cached_thematic_tags_data
+
+    def get_physical_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
+        if self._cached_physical_tags_data: return self._cached_physical_tags_data
+        tags, categories, orientations = [], set(), set()
+        for full_name, tag_data in self.tag_definitions.items():
+            if tag_data.get('type') == 'Physical':
+                cats_raw = tag_data.get('categories', []); cats = [cats_raw] if isinstance(cats_raw, str) else cats_raw
+                categories.update(cats)
+                if orientation := tag_data.get('orientation'): orientations.add(orientation)
+                tag_data_with_name = tag_data.copy(); tag_data_with_name['full_name'] = full_name
+                tags.append(tag_data_with_name)
+        self._cached_physical_tags_data = (tags, categories, orientations)
+        return self._cached_physical_tags_data
 
     def get_action_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
         if self._cached_action_tags_data: return self._cached_action_tags_data

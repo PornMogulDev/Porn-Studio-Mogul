@@ -36,7 +36,7 @@ def create_tables(cursor):
     )
     """)
     
-    # MODIFIED: talent_affinities is now a single, unified table
+    # talent_affinities
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS talent_affinities (
         category TEXT NOT NULL, -- e.g., 'Female', 'Male', 'BoobSize', 'DickSize'
@@ -76,6 +76,7 @@ def create_tables(cursor):
         validation_rule_json TEXT,
         quality_source_json TEXT,
         revenue_weights_json TEXT,
+        scene_wide_modifiers_json TEXT, -- NEW
         ethnicity TEXT,
         gender TEXT,
         tooltip TEXT,
@@ -137,14 +138,15 @@ def create_tables(cursor):
     )
     """)
     
-    # --- MODIFIED: talent_archetypes table updated for the new preference system ---
+    # talent_archetypes
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS talent_archetypes (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
         weight INTEGER NOT NULL,
-        conceptual_preferences_json TEXT,
+        action_preferences_json TEXT,
+        thematic_preferences_json TEXT,
         hard_limits_json TEXT,
         stat_modifiers_json TEXT,
         max_scene_partners INTEGER NOT NULL DEFAULT 10,
@@ -243,31 +245,33 @@ def migrate_market(cursor, data):
     print(f"{count} viewer groups migrated.")
 
 
-def migrate_scene_tags(cursor, data):
-    print("Migrating scene_tags.json...")
+def migrate_scene_tags(cursor, all_tags_data):
+    """Migrates thematic, physical, and action tags into the unified scene_tags table."""
+    print("Migrating all scene tags...")
     count = 0
-    for tag in data:
+    for tag in all_tags_data:
         is_template = 1 if tag.get('is_template', False) else 0
         is_auto_taggable = 1 if tag.get('is_auto_taggable', False) else 0
         appeal_weight = tag.get('appeal_weight') or 10.0
 
-        cursor.execute("""
-            INSERT OR REPLACE INTO scene_tags (
-                name, orientation, type, concept, is_template, is_auto_taggable, 
-                categories_json, slots_json, expands_to_json, validation_rule_json,
-                quality_source_json, revenue_weights_json, ethnicity,
-                gender, tooltip, appeal_weight
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            tag.get('name'), tag.get('orientation'), tag.get('type'), tag.get('concept'),
-            is_template, is_auto_taggable, json.dumps(tag.get('categories')), 
-            json.dumps(tag.get('slots')), json.dumps(tag.get('expands_to')), 
-            json.dumps(tag.get('validation_rule')), json.dumps(tag.get('quality_source')), 
-            json.dumps(tag.get('revenue_weights')), tag.get('ethnicity'), 
-            tag.get('gender'), tag.get('tooltip'), appeal_weight
-        ))
-        count += 1
-    print(f"{count} scene tags migrated.")
+    # Note: The `type` "Compositional" is stored directly as text.
+    cursor.execute("""
+        INSERT OR REPLACE INTO scene_tags (
+            name, orientation, type, concept, is_template, is_auto_taggable, 
+            categories_json, slots_json, expands_to_json, validation_rule_json,
+            quality_source_json, revenue_weights_json, scene_wide_modifiers_json, 
+            ethnicity, gender, tooltip, appeal_weight
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        tag.get('name'), tag.get('orientation'), tag.get('type'), tag.get('concept'),
+        is_template, is_auto_taggable, json.dumps(tag.get('categories')), 
+        json.dumps(tag.get('slots')), json.dumps(tag.get('expands_to')), 
+        json.dumps(tag.get('validation_rule')), json.dumps(tag.get('quality_source')), 
+        json.dumps(tag.get('revenue_weights')), json.dumps(tag.get('scene_wide_modifiers')),
+        tag.get('ethnicity'), tag.get('gender'), tag.get('tooltip'), appeal_weight
+    ))
+    count += 1
+    print(f"{count} total scene tags migrated.")
 
 def migrate_production_settings(cursor, data):
     """Migrates production settings from JSON to the database."""
@@ -359,29 +363,26 @@ def migrate_scene_events(cursor, data):
 
 def migrate_talent_archetypes(cursor, data):
     """Migrates talent archetypes from JSON to the database."""
-    print("Migrating talent archetypes.json...")
+    print("Migrating talent_archetypes.json...")
     count = 0
     for archetype in data:
-        # --- MODIFIED: Handles new archetype format with fallback for old format ---
-        # Prioritize 'conceptual_preferences', but fall back to 'preferences' if it exists.
-        preferences_data = archetype.get('conceptual_preferences') or archetype.get('preferences', {})
-        
         cursor.execute("""
-            INSERT OR REPLACE INTO talent_archetypes (
-                id, name, description, weight, conceptual_preferences_json,
-                hard_limits_json, stat_modifiers_json, max_scene_partners,
-                concurrency_limits_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO talent_archetypes (
+        id, name, description, weight, action_preferences_json,
+        thematic_preferences_json, hard_limits_json, stat_modifiers_json,
+        max_scene_partners, concurrency_limits_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            archetype.get('id'),
-            archetype.get('name'),
-            archetype.get('description'),
-            archetype.get('weight'),
-            json.dumps(preferences_data),
-            json.dumps(archetype.get('hard_limits', [])),
-            json.dumps(archetype.get('stat_modifiers', {})),
-            archetype.get('max_scene_partners', 10), # Default if missing
-            json.dumps(archetype.get('concurrency_limits', {})) # Default if missing
+        archetype.get('id'),
+        archetype.get('name'),
+        archetype.get('description'),
+        archetype.get('weight'),
+        json.dumps(archetype.get('action_preferences', {})),
+        json.dumps(archetype.get('thematic_preferences', {})),
+        json.dumps(archetype.get('hard_limits', [])),
+        json.dumps(archetype.get('stat_modifiers', {})),
+        archetype.get('max_scene_partners', 10),
+        json.dumps(archetype.get('concurrency_limits', {}))
         ))
         count += 1
     print(f"{count} talent archetype entries migrated.")
@@ -415,7 +416,12 @@ def main():
         migrate_aliases(cursor, load_json("aliases_structured.json"))
         migrate_talent_affinities(cursor, load_json("talent_affinity_data.json"))
         migrate_market(cursor, load_json("market.json"))
-        migrate_scene_tags(cursor, load_json("scene_tags.json"))
+        all_tags = (
+        load_json("action_tags.json") +
+        load_json("physical_tags.json") +
+        load_json("thematic_tags.json")
+        )
+        migrate_scene_tags(cursor, all_tags)
         migrate_production_settings(cursor, load_json("production_settings.json"))
         migrate_post_production_settings(cursor, load_json("post_production_settings.json"))
         migrate_on_set_policies(cursor, load_json("on_set_policies.json"))
