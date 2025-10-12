@@ -25,6 +25,7 @@ class GameSessionService:
         self.talent_generator = talent_generator
         self.game_constant = self.data_manager.game_config
         self.market_data = self.data_manager.market_data
+        
     def start_new_game(self) -> tuple[GameState, any, str]:
         """
         Creates a new game database, initializes it with starting data,
@@ -85,10 +86,14 @@ class GameSessionService:
         Loads a game from a save file by copying it to the live session.
         Returns the essential game state for the controller.
         """
-        if self.save_manager.db_manager.get_session():
-            self.save_manager.db_manager.disconnect()
-            
+        # Step 1: Disconnect any previously active session to ensure a clean slate.
+        self.save_manager.db_manager.disconnect()
+
+        # Step 2: This method copies the save file AND connects the DB manager to it.
+        # This is the crucial step that was out of order.
         game_state = self.save_manager.load_game(save_name)
+
+        # Step 3: Now that a connection is established, we can safely get the session.
         save_path = str(self.save_manager.get_save_path(LIVE_SESSION_NAME))
         db_session = self.save_manager.db_manager.get_session()
         

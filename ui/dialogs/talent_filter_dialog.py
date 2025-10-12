@@ -93,7 +93,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         
         self.cup_list = QListWidget()
         self.cup_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
-        for cup in sorted(self.all_boob_cups): self.cup_list.addItem(cup)
+        for cup in self.all_boob_cups: self.cup_list.addItem(cup)
         phys_layout.addRow("Cup Size:", self.cup_list)
         main_layout.addWidget(phys_group)
 

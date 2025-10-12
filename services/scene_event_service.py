@@ -26,7 +26,6 @@ class SceneEventService:
         self.signals = signals
         self.data_manager = data_manager
         self.talent_service = talent_service
-        self.scene_service: Optional['SceneService'] = None
 
     # --- Methods Moved from SceneCalculationService (Event Triggering) ---
 

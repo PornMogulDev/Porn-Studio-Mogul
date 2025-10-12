@@ -4,6 +4,8 @@ import logging
 from typing import Optional
 from PyQt6.QtCore import QObject, pyqtSignal
 
+from utils.paths import SETTINGS_FILE
+
 logger = logging.getLogger(__name__)
 
 class SettingsSignals(QObject):
@@ -17,7 +19,6 @@ class SettingsManager:
     This class is designed as a singleton pattern.
     """
     _instance = None
-    SETTINGS_FILE = "settings.json"
 
     def __new__(cls):
         if cls._instance is None:
@@ -41,9 +42,9 @@ class SettingsManager:
 
     def _load_settings(self) -> dict:
         """Loads settings from the JSON file, merging with defaults."""
-        if os.path.exists(self.SETTINGS_FILE):
+        if os.path.exists(SETTINGS_FILE):
             try:
-                with open(self.SETTINGS_FILE, 'r') as f:
+                with open(SETTINGS_FILE, 'r') as f:
                     loaded_settings = json.load(f)
                 # Merge loaded settings with defaults to ensure new settings are added
                 # and old settings are preserved.
@@ -51,17 +52,17 @@ class SettingsManager:
                 settings.update(loaded_settings)
                 return settings
             except json.JSONDecodeError:
-                logger.warning(f"Warning: Could not decode {self.SETTINGS_FILE}. Using default settings.")
+                logger.warning(f"Warning: Could not decode {SETTINGS_FILE}. Using default settings.")
                 return self._default_settings.copy()
         return self._default_settings.copy()
 
     def _save_settings(self):
         """Saves the current settings to the JSON file."""
         try:
-            with open(self.SETTINGS_FILE, 'w') as f:
+            with open(SETTINGS_FILE, 'w') as f:
                 json.dump(self.settings, f, indent=4)
         except IOError as e:
-            logger.error(f"Error: Could not save settings to {self.SETTINGS_FILE}: {e}")
+            logger.error(f"Error: Could not save settings to {SETTINGS_FILE}: {e}")
 
     def get_setting(self, key: str, default=None):
         """Retrieves a setting value by its key."""

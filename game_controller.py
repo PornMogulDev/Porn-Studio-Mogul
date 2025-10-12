@@ -30,6 +30,7 @@ from services.player_settings_service import PlayerSettingsService
 logger = logging.getLogger(__name__)
 
 class GameController(QObject):
+    # ... (no changes to __init__ or other methods until resolve_interactive_event) ...
     def __init__(self, settings_manager: SettingsManager, data_manager: DataManager):
         super().__init__()
         self.settings_manager = settings_manager
@@ -432,6 +433,7 @@ class GameController(QObject):
             return
         self.market_service = MarketService(self.db_session, self.data_manager)
         self.talent_service = TalentService(self.db_session, self.data_manager, self.market_service)
+        # Service initialization order matters now
         self.scene_event_service = SceneEventService(self.db_session, self.game_state, self.signals, self.data_manager, self.talent_service)
         self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, self.scene_event_service)
         self.time_service = TimeService(self.db_session, self.game_state, self.signals, self.scene_service, self.talent_service, self.market_service, self.data_manager)
