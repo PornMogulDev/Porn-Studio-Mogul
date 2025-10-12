@@ -2,6 +2,7 @@ import numpy as np
 import random
 from typing import Dict, Optional, List, Set
 from collections import defaultdict
+from itertools import combinations
 from sqlalchemy.orm import joinedload, selectinload
 
 from game_state import Talent, Scene, ActionSegment
@@ -345,6 +346,71 @@ class TalentService:
             return base_gain * (1.0 - (current_skill_level / cap))
             
         return get_final_gain(talent.performance), get_final_gain(talent.acting), get_final_gain(talent.stamina)
+
+    def calculate_ds_skill_gain(self, talent: Talent, scene: Scene, disposition: str) -> tuple[float, float]:
+        """Calculates Dom/Sub skill gains based on scene dynamic level and disposition."""
+        base_rate = self.data_manager.game_config.get("skill_gain_base_rate_per_minute", 0.02)
+        ambition_scalar = self.data_manager.game_config.get("skill_gain_ambition_scalar", 0.015)
+        cap = self.data_manager.game_config.get("skill_gain_diminishing_returns_cap", 100.0)
+        median_ambition = self.data_manager.game_config.get("median_ambition", 5.5)
+        ambition_modifier = 1.0 + ((talent.ambition - median_ambition) * ambition_scalar)
+        
+        # D/S skill gain is heavily influenced by the scene's dynamic level
+        ds_level_multiplier = scene.dom_sub_dynamic_level
+        base_gain = scene.total_runtime_minutes * base_rate * ambition_modifier * ds_level_multiplier
+
+        dom_bias, sub_bias = 0.25, 0.25 # Base gain for the off-disposition
+        if disposition == "Dom":
+            dom_bias = 1.0
+        elif disposition == "Sub":
+            sub_bias = 1.0
+        elif disposition == "Switch":
+            dom_bias, sub_bias = 0.75, 0.75
+
+        def get_final_gain(current_skill_level: float, bias: float) -> float:
+            if current_skill_level >= cap: return 0.0
+            return base_gain * bias * (1.0 - (current_skill_level / cap))
+
+        return get_final_gain(talent.dom_skill, dom_bias), get_final_gain(talent.sub_skill, sub_bias)
+
+    def discover_and_create_chemistry(self, scene: Scene, cast_talents: Dict[int, Talent]):
+        """
+        Finds pairs of talent who worked together in action segments and creates
+        a chemistry relationship if one doesn't already exist.
+        Updates the in-memory talent objects with the new chemistry.
+        """
+        action_segments_for_calc = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
+        
+        segment_pairs: Set[tuple[int, int]] = set()
+        for segment in action_segments_for_calc:
+            talent_in_segment = {scene.final_cast.get(str(sa.virtual_performer_id)) for sa in segment.slot_assignments}
+            talent_in_segment.discard(None)
+            
+            if len(talent_in_segment) >= 2:
+                for t1_id, t2_id in combinations(talent_in_segment, 2):
+                    pair = tuple(sorted((t1_id, t2_id)))
+                    segment_pairs.add(pair)
+        
+        if not segment_pairs:
+            return
+
+        existing_pairs_query = self.session.query(TalentChemistryDB.talent_a_id, TalentChemistryDB.talent_b_id)\
+            .filter(TalentChemistryDB.talent_a_id.in_({p[0] for p in segment_pairs}))\
+            .filter(TalentChemistryDB.talent_b_id.in_({p[1] for p in segment_pairs}))
+        
+        existing_pairs_db = {tuple(sorted((row.talent_a_id, row.talent_b_id))) for row in existing_pairs_query.all()}
+        new_pairs = segment_pairs - existing_pairs_db
+
+        if not new_pairs: return
+
+        config = self.data_manager.game_config.get("chemistry_discovery_weights", {})
+        outcomes = [int(k) for k in config.keys()]; weights = list(config.values())
+
+        for t1_id, t2_id in new_pairs:
+            score = random.choices(outcomes, weights=weights, k=1)[0]
+            self.session.add(TalentChemistryDB(talent_a_id=t1_id, talent_b_id=t2_id, chemistry_score=score))
+            if t1 := cast_talents.get(t1_id): t1.chemistry[t2_id] = score
+            if t2 := cast_talents.get(t2_id): t2.chemistry[t1_id] = score
 
     def get_talent_final_modifier(self, base_modifier_key: str, slot_def: dict, segment: ActionSegment, role: str) -> float:
         base_mod = slot_def.get(base_modifier_key, 1.0)

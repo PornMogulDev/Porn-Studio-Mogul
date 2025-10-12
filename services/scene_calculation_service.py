@@ -22,86 +22,6 @@ class SceneCalculationService:
         self.data_manager = data_manager
         self.talent_service = talent_service
         self.market_service = market_service
-
-    def _calculate_ds_skill_gain(self, talent: Talent, scene: Scene, disposition: str) -> tuple[float, float]:
-        """Calculates Dom/Sub skill gains based on scene dynamic level and disposition."""
-        base_rate = self.data_manager.game_config.get("skill_gain_base_rate_per_minute", 0.02)
-        ambition_scalar = self.data_manager.game_config.get("skill_gain_ambition_scalar", 0.015)
-        cap = self.data_manager.game_config.get("skill_gain_diminishing_returns_cap", 100.0)
-        median_ambition = self.data_manager.game_config.get("median_ambition", 5.5)
-        ambition_modifier = 1.0 + ((talent.ambition - median_ambition) * ambition_scalar)
-        
-        # D/S skill gain is heavily influenced by the scene's dynamic level
-        ds_level_multiplier = scene.dom_sub_dynamic_level
-        base_gain = scene.total_runtime_minutes * base_rate * ambition_modifier * ds_level_multiplier
-
-        dom_bias, sub_bias = 0.25, 0.25 # Base gain for the off-disposition
-        if disposition == "Dom":
-            dom_bias = 1.0
-        elif disposition == "Sub":
-            sub_bias = 1.0
-        elif disposition == "Switch":
-            dom_bias, sub_bias = 0.75, 0.75
-
-        def get_final_gain(current_skill_level: float, bias: float) -> float:
-            if current_skill_level >= cap: return 0.0
-            return base_gain * bias * (1.0 - (current_skill_level / cap))
-
-        return get_final_gain(talent.dom_skill, dom_bias), get_final_gain(talent.sub_skill, sub_bias)
-
-    
-    def _discover_and_create_chemistry(self, scene: Scene, action_segments_for_calc: List, talent_id_to_object: Dict[int, Talent]):
-        """
-        Finds pairs of talent who worked together in action segments and creates
-        a chemistry relationship if one doesn't already exist.
-        """
-        # 1. Find all pairs of talent who shared at least one action segment
-        segment_pairs: Set[Tuple[int, int]] = set()
-        for segment in action_segments_for_calc:
-            talent_in_segment = {scene.final_cast.get(str(sa.virtual_performer_id)) for sa in segment.slot_assignments}
-            talent_in_segment.discard(None) # Remove uncast slots
-            
-            if len(talent_in_segment) >= 2:
-                for t1_id, t2_id in combinations(talent_in_segment, 2):
-                    # Ensure consistent ordering for the pair tuple
-                    pair = tuple(sorted((t1_id, t2_id)))
-                    segment_pairs.add(pair)
-        
-        if not segment_pairs:
-            return
-
-        # 2. Check which of these pairs already have chemistry defined in the DB
-        existing_pairs_query = self.session.query(TalentChemistryDB.talent_a_id, TalentChemistryDB.talent_b_id)\
-            .filter(TalentChemistryDB.talent_a_id.in_({p[0] for p in segment_pairs}))\
-            .filter(TalentChemistryDB.talent_b_id.in_({p[1] for p in segment_pairs}))
-        
-        existing_pairs_db = {tuple(sorted((row.talent_a_id, row.talent_b_id))) for row in existing_pairs_query.all()}
-        
-        # 3. Find the new pairs that need chemistry to be created
-        new_pairs = segment_pairs - existing_pairs_db
-
-        if not new_pairs:
-            return
-
-        # 4. For new pairs, roll for chemistry and create DB entries
-        config = self.data_manager.game_config.get("chemistry_discovery_weights", {})
-        outcomes = [int(k) for k in config.keys()]
-        weights = list(config.values())
-
-        for t1_id, t2_id in new_pairs:
-            # Weighted random choice for the chemistry score
-            score = random.choices(outcomes, weights=weights, k=1)[0]
-            
-            new_chem = TalentChemistryDB(
-                talent_a_id=t1_id,
-                talent_b_id=t2_id,
-                chemistry_score=score
-            )
-            self.session.add(new_chem)
-            
-            # Also update the in-memory talent objects for the current session
-            if t1 := talent_id_to_object.get(t1_id): t1.chemistry[t2_id] = score
-            if t2 := talent_id_to_object.get(t2_id): t2.chemistry[t1_id] = score
     
     def calculate_shoot_results(self, scene_db: SceneDB, shoot_modifiers: Dict):
         total_salary_cost = sum(c.salary for c in scene_db.cast)
@@ -113,12 +33,11 @@ class SceneCalculationService:
             money_info.value = str(new_money)
 
         scene = scene_db.to_dataclass(Scene) 
-        scene_cast_by_id = {talent_id: self.talent_service.get_talent_by_id(talent_id) for talent_id in scene.final_cast.values()}
+        cast_talents = {talent_id: self.talent_service.get_talent_by_id(talent_id) for talent_id in scene.final_cast.values()}
         
+        self.talent_service.discover_and_create_chemistry(scene, cast_talents)
         talent_stamina_cost = defaultdict(float); action_segments_for_calc = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
-        
-        self._discover_and_create_chemistry(scene, action_segments_for_calc, scene_cast_by_id)
-        
+    
         for segment in action_segments_for_calc:
             segment_runtime = scene.total_runtime_minutes * (segment.runtime_percentage / 100.0); slots = scene._get_slots_for_segment(segment, self.data_manager.tag_definitions)
             for assignment in segment.slot_assignments:
@@ -165,7 +84,7 @@ class SceneCalculationService:
             # D/S Skill Progression
             vp_id = talent_id_to_vp.get(talent_db.id)
             if vp_id and (vp := vp_map.get(vp_id)):
-                dom_gain, sub_gain = self._calculate_ds_skill_gain(talent_obj, scene, vp.disposition)
+                dom_gain, sub_gain = self.talent_service.calculate_ds_skill_gain(talent_obj, scene, vp.disposition)
                 talent_db.dom_skill = min(max_skill, talent_db.dom_skill + dom_gain)
                 talent_db.sub_skill = min(max_skill, talent_db.sub_skill + sub_gain)
             
