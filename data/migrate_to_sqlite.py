@@ -74,9 +74,10 @@ def create_tables(cursor):
         expands_to_json TEXT,
         is_auto_taggable INTEGER DEFAULT 0,
         validation_rule_json TEXT,
+        auto_detection_rule_json TEXT,
         quality_source_json TEXT,
         revenue_weights_json TEXT,
-        scene_wide_modifiers_json TEXT, -- NEW
+        scene_wide_modifiers_json TEXT, 
         ethnicity TEXT,
         gender TEXT,
         tooltip TEXT,
@@ -258,14 +259,17 @@ def migrate_scene_tags(cursor, all_tags_data):
             INSERT OR REPLACE INTO scene_tags (
                 name, orientation, type, concept, is_template, is_auto_taggable, 
                 categories_json, slots_json, expands_to_json, validation_rule_json,
+                auto_detection_rule_json,
                 quality_source_json, revenue_weights_json, scene_wide_modifiers_json, 
                 ethnicity, gender, tooltip, appeal_weight
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) -- <<< ADD ONE '?'
         """, (
             tag.get('name'), tag.get('orientation'), tag.get('type'), tag.get('concept'),
             is_template, is_auto_taggable, json.dumps(tag.get('categories')), 
             json.dumps(tag.get('slots')), json.dumps(tag.get('expands_to')), 
-            json.dumps(tag.get('validation_rule')), json.dumps(tag.get('quality_source')), 
+            json.dumps(tag.get('validation_rule')), 
+            json.dumps(tag.get('auto_detection_rule')),
+            json.dumps(tag.get('quality_source')), 
             json.dumps(tag.get('revenue_weights')), json.dumps(tag.get('scene_wide_modifiers')),
             tag.get('ethnicity'), tag.get('gender'), tag.get('tooltip'), appeal_weight
         ))

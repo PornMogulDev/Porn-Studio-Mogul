@@ -1,123 +1,174 @@
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QScrollArea, QGroupBox, QFormLayout, QLabel, QHBoxLayout
+QWidget, QVBoxLayout, QScrollArea, QGroupBox, QFormLayout, QLabel, QHBoxLayout, QGridLayout, QComboBox
 )
 from PyQt6.QtCore import Qt
 
 class MarketTab(QWidget):
-    """A tab to display detailed information about market viewer groups."""
+    """A tab to display detailed information about market viewer groups using a dropdown."""
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
-        self.group_widgets = {} # To hold the widgets for each group for potential future updates
+        # Store data locally to repopulate view on selection change
+        self.market_groups_data = []
+        self.market_states_data = {}
+        self.current_group_widget = None
         self.setup_ui()
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        main_layout.addWidget(scroll_area)
+        # Dropdown to select the viewer group
+        self.group_selector = QComboBox()
+        self.group_selector.setPlaceholderText("Select a Viewer Group...")
+        self.group_selector.currentTextChanged.connect(self._on_group_selected)
+        main_layout.addWidget(self.group_selector)
 
-        # Container widget for the scroll area content
-        self.scroll_content_widget = QWidget()
-        scroll_area.setWidget(self.scroll_content_widget)
-
-        # Layout for the container widget
-        self.content_layout = QVBoxLayout(self.scroll_content_widget)
-        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        # Container for the selected group's details
+        # The QScrollArea ensures the content of a single large group is scrollable
+        self.details_scroll_area = QScrollArea()
+        self.details_scroll_area.setWidgetResizable(True)
+        self.details_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        main_layout.addWidget(self.details_scroll_area, 1) # Add stretch factor
 
     def refresh_view(self):
-        """Clears and rebuilds the entire market view from controller data."""
-        # Clear existing widgets
-        while self.content_layout.count():
-            child = self.content_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+        """Clears and rebuilds the combo box and shows the first group."""
+        # Clear previous state
+        if self.current_group_widget:
+            self.current_group_widget.deleteLater()
+            self.current_group_widget = None
         
-        self.group_widgets.clear()
+        self.group_selector.clear()
 
-        market_data = self.controller.market_data.get('viewer_groups', [])
-        market_states = self.controller.get_all_market_states()
+        # Store the latest data
+        self.market_groups_data = self.controller.market_data.get('viewer_groups', [])
+        self.market_states_data = self.controller.get_all_market_states()
 
-        for group_data in market_data:
-            group_name = group_data.get('name')
-            if not group_name:
-                continue
+        # Populate the combo box, blocking signals to prevent premature updates
+        self.group_selector.blockSignals(True)
+        group_names = [g.get('name') for g in self.market_groups_data if g.get('name')]
+        if not group_names:
+            self.group_selector.setPlaceholderText("No viewer groups found.")
+        else:
+            self.group_selector.addItems(group_names)
+        self.group_selector.blockSignals(False)
+        
+        # Trigger the view for the first item if it exists
+        if self.group_selector.count() > 0:
+            self.group_selector.setCurrentIndex(0)
+            self._on_group_selected(self.group_selector.itemText(0))
+        else: # Handle case where there are no groups
+            self._on_group_selected(None)
 
-            # Get the dynamic state for this group
-            dynamic_state = market_states.get(group_name)
-            
-            # Pass original data to check for 'inherits_from' key for display
-            group_box = self._create_group_widget(group_name, group_data, dynamic_state)
-            self.content_layout.addWidget(group_box)
-            self.group_widgets[group_name] = group_box
+
+    def _on_group_selected(self, group_name):
+        """Creates and displays the widget for the selected group."""
+        # Clear the previous widget from the scroll area
+        if self.current_group_widget:
+            self.current_group_widget.deleteLater()
+            self.current_group_widget = None
+        
+        if not group_name:
+            # If no group is selected or available, set a placeholder
+            placeholder = QLabel("No viewer group selected.")
+            placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.details_scroll_area.setWidget(placeholder)
+            return
+
+        group_data = next((g for g in self.market_groups_data if g.get('name') == group_name), None)
+        
+        if not group_data:
+            return
+
+        dynamic_state = self.market_states_data.get(group_name)
+        
+        # Create the new group widget and set it as the scroll area's content
+        self.current_group_widget = self._create_group_widget(group_name, group_data, dynamic_state)
+        self.details_scroll_area.setWidget(self.current_group_widget)
 
     def _create_group_widget(self, group_name, original_group_data, dynamic_state):
         """Creates a QGroupBox that displays all info for a single viewer group, resolving inheritance."""
         resolved_data = self.controller.get_resolved_group_data(group_name)
 
-        title = resolved_data.get('name', 'Unknown Group')
-        inherits_from = original_group_data.get('inherits_from')
-        if inherits_from:
-            title += f" (inherits from {inherits_from})"
-            
-        group_box = QGroupBox(title)
-        group_box.setStyleSheet("QGroupBox { font-weight: bold; } QGroupBox::title { subcontrol-origin: margin; left: 7px; padding: 0 5px 0 5px; }")
+        # The main container is now a QWidget instead of a QGroupBox,
+        # as the selection is handled by the combo box.
+        container_widget = QWidget()
+        main_vbox = QVBoxLayout(container_widget)
+
+        # --- Title Label ---
+        title_text = resolved_data.get('name', 'Unknown Group')
+        if inherits_from := original_group_data.get('inherits_from'):
+            title_text += f" (inherits from {inherits_from})"
+        title_label = QLabel(title_text)
+        title_label.setStyleSheet("font-size: 16pt; font-weight: bold; margin-bottom: 5px;")
+        main_vbox.addWidget(title_label)
         
-        main_vbox = QVBoxLayout(group_box)
-        
-        # --- General Attributes ---
+        # --- General Attributes (in columns) ---
         attr_box = QGroupBox("Attributes")
         attr_box.setStyleSheet("font-weight: normal;")
-        attr_layout = QFormLayout(attr_box)
-        attr_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+        attr_layout = QGridLayout(attr_box)
         
-        attr_layout.addRow("Market Share:", QLabel(f"{resolved_data.get('market_share_percent', 0):.1f}%"))
-        attr_layout.addRow("Spending Power:", QLabel(f"{resolved_data.get('spending_power', 1.0):.2f}x"))
-        attr_layout.addRow("Focus Bonus:", QLabel(f"{resolved_data.get('focus_bonus', 1.0):.2f}x"))
-        
+        attr_layout.addWidget(QLabel("Market Share:"), 0, 0)
+        attr_layout.addWidget(QLabel(f"{resolved_data.get('market_share_percent', 0):.1f}%"), 0, 1)
+        attr_layout.addWidget(QLabel("Spending Power:"), 0, 2)
+        attr_layout.addWidget(QLabel(f"{resolved_data.get('spending_power', 1.0):.2f}x"), 0, 3)
+        attr_layout.addWidget(QLabel("Focus Bonus:"), 1, 0)
+        attr_layout.addWidget(QLabel(f"{resolved_data.get('focus_bonus', 1.0):.2f}x"), 1, 1)
         if dynamic_state:
-            saturation_percent = dynamic_state.current_saturation * 100
-            attr_layout.addRow("Current Saturation:", QLabel(f"{saturation_percent:.2f}%"))
-        
+            attr_layout.addWidget(QLabel("Current Saturation:"), 1, 2)
+            attr_layout.addWidget(QLabel(f"{(dynamic_state.current_saturation * 100):.2f}%"), 1, 3)
         main_vbox.addWidget(attr_box)
 
         # --- Preferences ---
         prefs_data = resolved_data.get('preferences', {})
         
-        def create_sentiment_box(title, data_dict):
-            if not data_dict:
-                return None
+        def create_sentiment_box(title, data_dict, is_additive=False):
+            if not data_dict: return None
+            
             box = QGroupBox(title)
             box.setStyleSheet("font-weight: normal;")
-            layout = QFormLayout(box)
-            sorted_items = sorted(data_dict.items(), key=lambda item: item[1], reverse=True)
+            box_layout = QVBoxLayout(box)
+
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            scroll_area.setMinimumHeight(120)
+            scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            
+            scroll_content_widget = QWidget()
+            layout = QFormLayout(scroll_content_widget)
+
+            sorted_items = sorted(data_dict.items(), key=lambda item: item, reverse=True)
             for key, sentiment in sorted_items:
-                label = QLabel(f"{sentiment:+.2f}")
-                if sentiment > 1.0:
-                    label.setStyleSheet("color: #008000;") # Green for positive
-                elif sentiment < 1.0:
-                    label.setStyleSheet("color: #C00000;") # Red for negative
+                if is_additive:
+                    label = QLabel(f"{sentiment:+.2f}")
+                    if sentiment > 0: label.setStyleSheet("color: #008000;")
+                    elif sentiment < 0: label.setStyleSheet("color: #C00000;")
+                else:
+                    label = QLabel(f"{sentiment:.2f}x")
+                    if sentiment > 1.0: label.setStyleSheet("color: #008000;")
+                    elif sentiment < 1.0: label.setStyleSheet("color: #C00000;")
                 layout.addRow(f"{key}:", label)
+            
+            scroll_area.setWidget(scroll_content_widget)
+            box_layout.addWidget(scroll_area)
             return box
         
-        orient_sentiments = prefs_data.get('orientation_sentiments', {})
-        concept_sentiments = prefs_data.get('concept_sentiments', {})
-        tag_sentiments = prefs_data.get('tag_sentiments', {})
+        thematic_sentiments = prefs_data.get('thematic_sentiments', {})
+        physical_sentiments = prefs_data.get('physical_sentiments', {})
+        action_sentiments = prefs_data.get('action_sentiments', {})
 
-        if any([orient_sentiments, concept_sentiments, tag_sentiments]):
+        if any([thematic_sentiments, physical_sentiments, action_sentiments]):
             prefs_wrapper_box = QGroupBox("Sentiments")
             prefs_wrapper_box.setStyleSheet("font-weight: normal;")
             prefs_wrapper_layout = QHBoxLayout(prefs_wrapper_box)
             prefs_wrapper_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-            if box := create_sentiment_box("Orientation", orient_sentiments):
+            if box := create_sentiment_box("Thematic (Additive)", thematic_sentiments, is_additive=True):
                 prefs_wrapper_layout.addWidget(box, 1)
-            if box := create_sentiment_box("Concept", concept_sentiments):
+            if box := create_sentiment_box("Physical", physical_sentiments):
                 prefs_wrapper_layout.addWidget(box, 1)
-            if box := create_sentiment_box("Specific Tag", tag_sentiments):
+            if box := create_sentiment_box("Action", action_sentiments):
                 prefs_wrapper_layout.addWidget(box, 1)
 
             main_vbox.addWidget(prefs_wrapper_box)
@@ -127,7 +178,16 @@ class MarketTab(QWidget):
         if scaling_sentiments:
             scaling_box = QGroupBox("Scaling Sentiments")
             scaling_box.setStyleSheet("font-weight: normal;")
-            scaling_layout = QVBoxLayout(scaling_box)
+            box_layout = QVBoxLayout(scaling_box)
+            
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            scroll_area.setMinimumHeight(80)
+            scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            
+            scroll_widget = QWidget()
+            scaling_layout = QVBoxLayout(scroll_widget)
+            
             for tag, rules in scaling_sentiments.items():
                 rule_str = f"<b>{tag}:</b> "
                 details = []
@@ -139,6 +199,9 @@ class MarketTab(QWidget):
                 if 'penalty_per_unit' in rules: details.append(f"penalty/unit: {rules['penalty_per_unit']:.2f}")
                 rule_str += ", ".join(details)
                 scaling_layout.addWidget(QLabel(rule_str))
+                
+            scroll_area.setWidget(scroll_widget)
+            box_layout.addWidget(scroll_area)
             main_vbox.addWidget(scaling_box)
             
         # Popularity Spillover
@@ -146,9 +209,23 @@ class MarketTab(QWidget):
         if spillover_data:
             spillover_box = QGroupBox("Popularity Spillover")
             spillover_box.setStyleSheet("font-weight: normal;")
-            spillover_layout = QFormLayout(spillover_box)
+            box_layout = QVBoxLayout(spillover_box)
+            
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            scroll_area.setMinimumHeight(80)
+            scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            
+            scroll_widget = QWidget()
+            spillover_layout = QFormLayout(scroll_widget)
+            
             for target, rate in spillover_data.items():
                 spillover_layout.addRow(f"To {target}:", QLabel(f"{rate*100:.0f}%"))
+            
+            scroll_area.setWidget(scroll_widget)
+            box_layout.addWidget(scroll_area)
             main_vbox.addWidget(spillover_box)
+        
+        main_vbox.addStretch() # Pushes content to the top
 
-        return group_box
+        return container_widget

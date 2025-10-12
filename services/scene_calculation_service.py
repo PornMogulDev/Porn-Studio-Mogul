@@ -876,7 +876,6 @@ class SceneCalculationService:
         for full_name, tag_def in candidate_tags:
             if full_name in focused_tags or full_name in discovered_tags:
                 continue
-            
             # Case 1: Multi-performer compositional tag (e.g., Interracial, Age Gap)
             if validation_rule := tag_def.get('validation_rule'):
                 if self._validate_compositional_tag(cast_talents, validation_rule):
@@ -901,11 +900,12 @@ class SceneCalculationService:
                         
         return discovered_tags
 
+    
     def _check_performer_conditions(self, performer: Talent, rule: Dict) -> bool:
         """Helper function to check if a single performer meets all conditions in a rule."""
-        conditions = rule.get("conditions", [])
+        conditions = rule.get("conditions", []) 
         if not conditions:
-            return False # A rule with no conditions is invalid
+            return False
 
         for cond in conditions:
             cond_type = (cond.get('type') or '').lower()
@@ -918,13 +918,11 @@ class SceneCalculationService:
                 actual_value = getattr(performer, key, None)
             elif cond_type == 'affinity':
                 actual_value = performer.tag_affinities.get(key)
-            elif cond_type == 'physical': # This now correctly matches 'Physical' from the JSON
+            elif cond_type == 'physical':
                 actual_value = getattr(performer, key, None)
-            
             if actual_value is None:
-                return False # Performer doesn't have the required attribute
+                return False
 
-            # Perform the comparison
             is_met = False
             if comparison == 'gte' and actual_value >= value: is_met = True
             elif comparison == 'lte' and actual_value <= value: is_met = True
@@ -932,9 +930,8 @@ class SceneCalculationService:
             elif comparison == 'in' and actual_value in value: is_met = True
             
             if not is_met:
-                return False # Performer failed one condition, so they fail the whole rule
-
-        return True # Performer passed all conditions
+                return False
+        return True
 
     def _validate_compositional_tag(self, cast: List[Talent], rule: Dict) -> Optional[List[Talent]]:
         profiles = rule.get("profiles", [])
