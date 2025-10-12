@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Set
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog, QMessageBox, QListWidgetItem
 
@@ -254,6 +254,9 @@ class ScenePlannerPresenter:
         return f"Scheduled for Week {self.working_scene.scheduled_week}, {self.working_scene.scheduled_year} (Legacy)"
 
     def get_talent_by_id(self, talent_id: int) -> Optional[Talent]:
+        if talent_id is None:
+            return None
+        
         if talent_id in self._talent_cache: return self._talent_cache[talent_id]
         talent = self.controller.talent_service.get_talent_by_id(talent_id)
         if talent: self._talent_cache[talent_id] = talent

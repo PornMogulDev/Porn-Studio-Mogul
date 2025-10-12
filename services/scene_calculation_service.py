@@ -908,18 +908,17 @@ class SceneCalculationService:
             return False # A rule with no conditions is invalid
 
         for cond in conditions:
-            cond_type = cond.get('type')
+            cond_type = (cond.get('type') or '').lower()
             key = cond.get('key')
             comparison = cond.get('comparison')
             value = cond.get('value')
             
-            # Get the actual value from the performer object
             actual_value = None
             if cond_type == 'stat':
                 actual_value = getattr(performer, key, None)
             elif cond_type == 'affinity':
                 actual_value = performer.tag_affinities.get(key)
-            elif cond_type == 'physical':
+            elif cond_type == 'physical': # This now correctly matches 'Physical' from the JSON
                 actual_value = getattr(performer, key, None)
             
             if actual_value is None:

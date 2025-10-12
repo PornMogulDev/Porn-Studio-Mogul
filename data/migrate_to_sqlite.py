@@ -254,23 +254,22 @@ def migrate_scene_tags(cursor, all_tags_data):
         is_auto_taggable = 1 if tag.get('is_auto_taggable', False) else 0
         appeal_weight = tag.get('appeal_weight') or 10.0
 
-    # Note: The `type` "Compositional" is stored directly as text.
-    cursor.execute("""
-        INSERT OR REPLACE INTO scene_tags (
-            name, orientation, type, concept, is_template, is_auto_taggable, 
-            categories_json, slots_json, expands_to_json, validation_rule_json,
-            quality_source_json, revenue_weights_json, scene_wide_modifiers_json, 
-            ethnicity, gender, tooltip, appeal_weight
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        tag.get('name'), tag.get('orientation'), tag.get('type'), tag.get('concept'),
-        is_template, is_auto_taggable, json.dumps(tag.get('categories')), 
-        json.dumps(tag.get('slots')), json.dumps(tag.get('expands_to')), 
-        json.dumps(tag.get('validation_rule')), json.dumps(tag.get('quality_source')), 
-        json.dumps(tag.get('revenue_weights')), json.dumps(tag.get('scene_wide_modifiers')),
-        tag.get('ethnicity'), tag.get('gender'), tag.get('tooltip'), appeal_weight
-    ))
-    count += 1
+        cursor.execute("""
+            INSERT OR REPLACE INTO scene_tags (
+                name, orientation, type, concept, is_template, is_auto_taggable, 
+                categories_json, slots_json, expands_to_json, validation_rule_json,
+                quality_source_json, revenue_weights_json, scene_wide_modifiers_json, 
+                ethnicity, gender, tooltip, appeal_weight
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            tag.get('name'), tag.get('orientation'), tag.get('type'), tag.get('concept'),
+            is_template, is_auto_taggable, json.dumps(tag.get('categories')), 
+            json.dumps(tag.get('slots')), json.dumps(tag.get('expands_to')), 
+            json.dumps(tag.get('validation_rule')), json.dumps(tag.get('quality_source')), 
+            json.dumps(tag.get('revenue_weights')), json.dumps(tag.get('scene_wide_modifiers')),
+            tag.get('ethnicity'), tag.get('gender'), tag.get('tooltip'), appeal_weight
+        ))
+        count += 1
     print(f"{count} total scene tags migrated.")
 
 def migrate_production_settings(cursor, data):

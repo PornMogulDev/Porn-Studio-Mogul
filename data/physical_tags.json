@@ -198,6 +198,14 @@
         { "type": "affinity", "key": "MILF", "comparison": "gte", "value": 70 }
       ]
     },
+    "quality_source": {
+      "base": "acting",
+      "affinity": "MILF",
+      "quality_blend": [
+        { "source": "affinity", "weight": 0.7 }, 
+        { "source": "base", "weight": 0.3 }     
+      ]
+    },
     "revenue_weights": {   
       "focused": 8.0,      
       "auto": 2.5          
@@ -325,7 +333,7 @@
     "ethnicity": "Black",
     "auto_detection_rule": {
       "conditions": [
-        { "type": "Physical", "key": "dick_size", "comparison": "gte", "value": 9 }
+        { "type": "physical", "key": "dick_size", "comparison": "gte", "value": 9 }
       ]
     },
     "quality_source": {

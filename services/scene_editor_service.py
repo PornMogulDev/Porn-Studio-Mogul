@@ -1,9 +1,12 @@
 
 import copy
+import logging
 from typing import Optional, List, Dict, Tuple
 
 from game_state import Scene, VirtualPerformer, ActionSegment, Talent, ShootingBloc, SlotAssignment
 from data_manager import DataManager
+
+logger = logging.getLogger(__name__)
 
 class SceneEditorService:
     def __init__(self, scene_to_edit: Scene, data_manager: DataManager):
@@ -60,9 +63,20 @@ class SceneEditorService:
     def add_style_tag(self, tag_name: str):
         tag_data = self.data_manager.tag_definitions.get(tag_name)
         if not tag_data: return
-        if tag_data.get('type') == 'Global':
-            if tag_name not in self.working_scene.global_tags: self.working_scene.global_tags.append(tag_name)
-        else: self.working_scene.assigned_tags.setdefault(tag_name, [])
+
+        tag_type = tag_data.get('type')
+
+        if tag_type == 'Thematic':
+            if tag_name not in self.working_scene.global_tags: 
+                self.working_scene.global_tags.append(tag_name)
+        elif tag_type == 'Physical':
+             self.working_scene.assigned_tags.setdefault(tag_name, [])
+        else:
+            # Fallback for old style tags if any exist, or for action tags being added incorrectly
+            # This part can be adjusted based on how you handle other tag types
+            logger.warning(f"[Warning] add_style_tag called with unhandled tag type: {tag_type} for '{tag_name}'")
+            # For now, let's assume non-thematic/physical tags might be assigned.
+            self.working_scene.assigned_tags.setdefault(tag_name, [])
 
     def remove_style_tag(self, tag_name: str):
         tag_data = self.data_manager.tag_definitions.get(tag_name)
