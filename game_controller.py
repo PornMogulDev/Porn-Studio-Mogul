@@ -25,6 +25,7 @@ from services.scene_service import SceneService
 from services.time_service import TimeService
 from services.go_to_list_service import GoToListService
 from services.game_session_service import GameSessionService
+from services.player_settings_service import PlayerSettingsService
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,6 @@ class GameController(QObject):
         
         self.talent_generator = TalentGenerator(self.game_constant, self.generator_data, self.affinity_data, self.tag_definitions, self.talent_archetypes)
         
-        # Instantiate the new service
         self.game_session_service = GameSessionService(self.save_manager, self.data_manager, self.signals, self.talent_generator)
 
         self.market_service = None
@@ -59,11 +59,11 @@ class GameController(QObject):
         self.time_service = None
         self.go_to_list_service = None
         self.scene_event_service = None
+        self.player_settings_service = None # Add the new service
         
         self._cached_thematic_tags_data = None
         self._cached_physical_tags_data = None
         self._cached_action_tags_data = None
-        self._favorite_tags_cache = {}
 
         self._available_ethnicities = None
         self.game_over = False
@@ -428,7 +428,6 @@ class GameController(QObject):
         self.advance_week()
 
     def _reinitialize_services(self):
-        self._favorite_tags_cache = {}
         if not self.db_session:
             return
         self.market_service = MarketService(self.db_session, self.data_manager)
@@ -436,14 +435,14 @@ class GameController(QObject):
         self.scene_event_service = SceneEventService(self.db_session, self.game_state, self.signals, self.data_manager, self.talent_service)
         self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, self.scene_event_service)
         self.time_service = TimeService(self.db_session, self.game_state, self.signals, self.scene_service, self.talent_service, self.market_service, self.data_manager)
-        self.go_to_list_service = GoToListService(self.db_session, self.signals) # Instantiate the new service
+        self.go_to_list_service = GoToListService(self.db_session, self.signals)
+        self.player_settings_service = PlayerSettingsService(self.db_session, self.signals) # Instantiate the new service
 
     # --- Game Session Management (Delegated to GameSessionService) ---
 
     def new_game_started(self):
         """Initializes a new game session."""
         self.game_state, self.db_session, self.current_save_path = self.game_session_service.start_new_game()
-        self._favorite_tags_cache = {}
         self._reinitialize_services()
         
         # Emit signals to update UI
@@ -456,7 +455,6 @@ class GameController(QObject):
     def load_game(self, save_name):
         """Loads a game session from a file."""
         self.game_state, self.db_session, self.current_save_path = self.game_session_service.load_game(save_name)
-        self._favorite_tags_cache = {}
         self._reinitialize_services()
         
         # Emit signals to update UI
@@ -477,7 +475,6 @@ class GameController(QObject):
         result = self.game_session_service.continue_game()
         if result:
             self.game_state, self.db_session, self.current_save_path = result
-            self._favorite_tags_cache = {}
             self._reinitialize_services()
             
             self.signals.money_changed.emit(self.game_state.money)
@@ -595,7 +592,6 @@ class GameController(QObject):
         else:
             self.db_session.rollback()
 
-    # --- NEW METHOD ---
     def add_talents_to_go_to_category(self, talent_ids: list[int], category_id: int):
         if not self.go_to_list_service: return
         num_added = self.go_to_list_service.add_talents_to_category(talent_ids, category_id)
@@ -624,52 +620,19 @@ class GameController(QObject):
             # Rollback even if 0 were deleted in case of other session changes
             self.db_session.rollback()
 
-    # --- Tag Favorites System ---
-    def _get_favorites(self, tag_type: str) -> List[str]:
-        key = f"favorite_{tag_type}_tags"
-        if key in self._favorite_tags_cache:
-            return self._favorite_tags_cache[key]
-        
-        if not self.db_session: return []
-        fav_info = self.db_session.query(GameInfoDB).filter_by(key=key).first()
-        if fav_info and fav_info.value:
-            try:
-                favs = json.loads(fav_info.value)
-                self._favorite_tags_cache[key] = favs
-                return favs
-            except (json.JSONDecodeError, TypeError):
-                pass
-        
-        self._favorite_tags_cache[key] = []
-        return []
-
-    def _set_favorites(self, tag_type: str, favs_list: List[str]):
-        key = f"favorite_{tag_type}_tags"
-        if not self.db_session: return
-
-        fav_info = self.db_session.query(GameInfoDB).filter_by(key=key).first()
-        json_val = json.dumps(sorted(favs_list))
-
-        if not fav_info:
-            fav_info = GameInfoDB(key=key, value=json_val)
-            self.db_session.add(fav_info)
-        else:
-            fav_info.value = json_val
-        
-        self._favorite_tags_cache[key] = sorted(favs_list)
-        self.db_session.commit()
-        self.signals.favorites_changed.emit()
-
+    # --- Tag Favorites System (Delegated to PlayerSettingsService) ---
     def get_favorite_tags(self, tag_type: str) -> List[str]:
-        return self._get_favorites(tag_type)
+        if not self.player_settings_service: return []
+        return self.player_settings_service.get_favorite_tags(tag_type)
 
     def toggle_favorite_tag(self, tag_name: str, tag_type: str):
-        current_favs = self._get_favorites(tag_type).copy()
-        if tag_name in current_favs:
-            current_favs.remove(tag_name)
-        else:
-            current_favs.append(tag_name)
-        self._set_favorites(tag_type, current_favs)
+        if not self.player_settings_service: return
+        self.player_settings_service.toggle_favorite_tag(tag_name, tag_type)
+        # The service does not commit, so we do it here.
+        self.db_session.commit()
 
     def reset_favorite_tags(self, tag_type: str):
-        self._set_favorites(tag_type, [])
+        if not self.player_settings_service: return
+        self.player_settings_service.reset_favorite_tags(tag_type)
+        # The service does not commit, so we do it here.
+        self.db_session.commit()
