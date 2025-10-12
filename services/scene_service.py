@@ -11,6 +11,7 @@ from sqlalchemy import JSON
 from game_state import Scene, Talent, VirtualPerformer, ActionSegment, SlotAssignment, ShootingBloc
 from data_manager import DataManager
 from services.scene_calculation_service import SceneCalculationService 
+from services.scene_event_service import SceneEventService
 from services.talent_service import TalentService
 from services.market_service import MarketService
 from database.db_models import ( SceneDB, VirtualPerformerDB, ActionSegmentDB, SlotAssignmentDB,
@@ -20,12 +21,14 @@ logger = logging.getLogger(__name__)
 
 class SceneService:
     def __init__(self, db_session, signals, data_manager: DataManager, 
-                 talent_service: TalentService, market_service: MarketService):
+                 talent_service: TalentService, market_service: MarketService,
+                 event_service: SceneEventService):
         self.session = db_session
         self.signals = signals
         self.data_manager = data_manager
         self.talent_service = talent_service
         self.market_service = market_service
+        self.event_service = event_service
         self.calculation_service = SceneCalculationService(db_session, data_manager, talent_service, market_service)
 
     # --- UI Query Methods ---
@@ -390,7 +393,7 @@ class SceneService:
             selectinload(SceneDB.cast)
         ).get(scene_db.id).to_dataclass(Scene)
         
-        event_payload = self.calculation_service.check_for_interactive_event(scene)
+        event_payload = self.event_service.check_for_shoot_event(scene)
 
         if event_payload:
             # An event occurred. Emit signal and stop. Controller will resume.

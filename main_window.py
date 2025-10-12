@@ -123,7 +123,7 @@ class MainGameWindow(QWidget):
         top_bar_layout.addWidget(menu_btn)
 
         next_week_btn = QPushButton("Next Week ►")
-        next_week_btn.setToolTip("Advance to the next week (Spacebar)")
+        next_week_btn.setToolTip("Advance to the next week")
         next_week_btn.clicked.connect(self.controller.advance_week)
         top_bar_layout.addWidget(next_week_btn)
 

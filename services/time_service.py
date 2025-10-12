@@ -78,10 +78,11 @@ class TimeService:
         if self.game_state.week > 52:
             self.game_state.week = 1
             self.game_state.year += 1
-            for talent in talents_to_update: # Reuse the query from earlier
+            for talent in talents_to_update:
                 talent.age += 1
-                talent_obj = talent.to_dataclass(Talent)
-                new_affinities = self.talent_service.recalculate_talent_age_affinities(talent_obj)
+                # Create a new dataclass instance reflecting the updated age
+                updated_talent_obj = talent.to_dataclass(Talent) 
+                new_affinities = self.talent_service.recalculate_talent_age_affinities(updated_talent_obj)
                 talent.tag_affinities = new_affinities
             changes["talent_pool"] = True
         

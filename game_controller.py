@@ -1,4 +1,3 @@
-
 import copy
 import logging
 import json
@@ -16,14 +15,16 @@ from game_state import *
 from save_manager import SaveManager, QUICKSAVE_NAME, EXITSAVE_NAME
 from talent_generator import TalentGenerator
 from data_manager import DataManager
-from settings_manager import SettingsManager 
+from settings_manager import SettingsManager
 from database.db_models import *
 
 from services.market_service import MarketService
 from services.talent_service import TalentService
+from services.scene_event_service import SceneEventService
 from services.scene_service import SceneService
 from services.time_service import TimeService
 from services.go_to_list_service import GoToListService
+from services.game_session_service import GameSessionService
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class GameController(QObject):
         super().__init__()
         self.settings_manager = settings_manager
         self.data_manager = data_manager
-        self.game_state = GameState() 
+        self.game_state = GameState()
         self.save_manager = SaveManager()
         self.signals = GameSignals()
         
@@ -48,12 +49,16 @@ class GameController(QObject):
         self.help_topics = self.data_manager.help_topics
         
         self.talent_generator = TalentGenerator(self.game_constant, self.generator_data, self.affinity_data, self.tag_definitions, self.talent_archetypes)
+        
+        # Instantiate the new service
+        self.game_session_service = GameSessionService(self.save_manager, self.data_manager, self.signals, self.talent_generator)
 
         self.market_service = None
         self.talent_service = None
         self.scene_service = None
         self.time_service = None
         self.go_to_list_service = None
+        self.scene_event_service = None
         
         self._cached_thematic_tags_data = None
         self._cached_physical_tags_data = None
@@ -75,7 +80,7 @@ class GameController(QObject):
     def get_filtered_talents(self, filters: dict) -> List[Talent]:
         if not self.talent_service: return []
         return self.talent_service.get_filtered_talents(filters)
-    
+
     def get_blocs_for_schedule_view(self, year: int) -> List[ShootingBloc]:
         if not self.scene_service: return []
         return self.scene_service.get_blocs_for_schedule_view(year)
@@ -121,7 +126,7 @@ class GameController(QObject):
         talent_ids = [item[0] for item in talent_ids_tuples]
         talents_db = self.db_session.query(TalentDB).filter(TalentDB.id.in_(talent_ids)).order_by(TalentDB.alias).all()
         return [t.to_dataclass(Talent) for t in talents_db]
-    
+
     def get_go_to_list_categories(self) -> List[Dict]:
         if not self.go_to_list_service: return []
         return self.go_to_list_service.get_all_categories()
@@ -190,7 +195,7 @@ class GameController(QObject):
     def release_scene(self, scene_id: int):
         self.scene_service.release_scene(scene_id)
         self.db_session.commit()
-    
+
     def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str]) -> bool:
         """
         Calculates the cost authoritatively and creates a shooting bloc.
@@ -282,7 +287,7 @@ class GameController(QObject):
             if commit_session:
                 self.db_session.commit()
             if not silent:
-                 self.signals.notification_posted.emit(f"Scene '{deleted_title}' has been deleted.")
+                self.signals.notification_posted.emit(f"Scene '{deleted_title}' has been deleted.")
             self.signals.scenes_changed.emit()
         return deleted_title
 
@@ -304,7 +309,7 @@ class GameController(QObject):
             if result['complete_message']: self.signals.notification_posted.emit(result['complete_message'])
             self.signals.scenes_changed.emit()
         else: # Revert if something went wrong
-             self.db_session.rollback()
+            self.db_session.rollback()
 
     def cast_talent_for_multiple_roles(self, talent_id: int, roles: List[Dict]):
         """Casts a single talent into multiple roles across different scenes."""
@@ -390,113 +395,32 @@ class GameController(QObject):
         return self._cached_action_tags_data
 
     def get_resolved_group_data(self, group_name: str) -> Dict: return self.market_service.get_resolved_group_data(group_name)
-    
-    def resolve_interactive_event(self, event_id: str, scene_id: int, talent_id: int, choice_id: str):
+
+    def resolve_interactive_event(self, event_id: str, scene_id: int, talent_id: int, choice_id: str) -> None:
         """
         Applies the effects of a player's choice from an interactive event
         and resumes the scene shooting process.
         """
-        if not self.scene_service: return
-
-        event_data = self.data_manager.scene_events.get(event_id)
-        if not event_data:
-            logger.error(f"[ERROR] Could not find event data for id: {event_id}")
-            self.scene_service._continue_shoot_scene(scene_id, {}) # Continue shoot even if event is broken
-            return
-
-        choice_data = next((c for c in event_data.get('choices', []) if c.get('id') == choice_id), None)
-        if not choice_data:
-            logger.error(f"[ERROR] Could not find choice data for id: {choice_id} in event {event_id}")
-            self.scene_service._continue_shoot_scene(scene_id, {})
-            return
+        if not self.scene_event_service or not self.scene_service:
+             return
         
-        shoot_modifiers = defaultdict(lambda: defaultdict(dict))
-        scene_was_cancelled = False
-        other_talent_id = None
-        other_talent_name = None
-        
-        effects = choice_data.get('effects', []) or [] # Ensure it's a list
-        talent = self.talent_service.get_talent_by_id(talent_id)
-        scene_db = self.db_session.query(SceneDB).options(joinedload(SceneDB.cast)).get(scene_id)
+        # Delegate the complex resolution logic to the service
+        outcome = self.scene_event_service.resolve_interactive_event(event_id, scene_id, talent_id, choice_id)
 
-        # Pre-process effects to find and resolve special targets like 'other_talent_in_scene'
-        needs_other_talent = any(eff.get('target') == 'other_talent_in_scene' for eff in effects)
-        if needs_other_talent and scene_db:
-            cast_ids = [c.talent_id for c in scene_db.cast if c.talent_id != talent_id]
-            if cast_ids:
-                other_talent_id = random.choice(cast_ids)
-                other_talent_db = self.db_session.query(TalentDB.alias).filter_by(id=other_talent_id).one_or_none()
-                if other_talent_db:
-                    other_talent_name = other_talent_db.alias
-        
-        # --- NEW: Helper function to apply a list of effects ---
-        def apply_effects(effects_list: List[Dict], current_modifiers: Dict) -> bool:
-            nonlocal scene_was_cancelled # Allow modification of the outer scope variable
-            for effect in effects_list:
-                effect_type = effect.get('type')
-                if effect_type == 'add_cost':
-                    cost = effect.get('amount', 0)
-                    if self.game_state.money >= cost:
-                        money_info = self.db_session.query(GameInfoDB).filter_by(key='money').one()
-                        self.game_state.money -= cost
-                        money_info.value = str(int(self.game_state.money))
-                        self.signals.money_changed.emit(self.game_state.money)
-                elif effect_type == 'notification':
-                    message = effect.get('message', '...')
-                    if talent: message = message.replace('{talent_name}', talent.alias)
-                    if other_talent_name: message = message.replace('{other_talent_name}', other_talent_name)
-                    if scene_db: message = message.replace('{scene_title}', scene_db.title)
-                    self.signals.notification_posted.emit(message)
-                elif effect_type == 'cancel_scene':
-                    if not scene_db: continue
-                    total_salary_cost = sum(c.salary for c in scene_db.cast)
-                    money_info = self.db_session.query(GameInfoDB).filter_by(key='money').one()
-                    self.game_state.money -= total_salary_cost
-                    money_info.value = str(int(self.game_state.money))
-                    self.signals.money_changed.emit(self.game_state.money)
-                    deleted_title = self.delete_scene(scene_id, silent=True, commit_session=False)
-                    if deleted_title:
-                        scene_was_cancelled = True
-                        reason = effect.get('reason', 'Event')
-                        self.signals.notification_posted.emit(f"Scene '{deleted_title}' cancelled ({reason}). Lost salary costs of ${total_salary_cost:,}.")
-                elif effect_type in ('modify_performer_contribution', 'modify_performer_contribution_random'):
-                    target_talent_id = talent_id if effect.get('target') == 'triggering_talent' else other_talent_id
-                    if target_talent_id:
-                        reason = effect.get('reason', 'Event')
-                        if effect_type == 'modify_performer_contribution':
-                            current_modifiers['performer_mods'][target_talent_id] = {'modifier': effect.get('modifier', 1.0), 'reason': reason}
-                        else:
-                            current_modifiers['performer_mods'][target_talent_id] = {'min_mod': effect.get('min_mod', 1.0), 'max_mod': effect.get('max_mod', 1.0), 'reason': reason}
-                elif effect_type == 'modify_scene_quality':
-                    current_modifiers['quality_mods']['overall'] = {'modifier': effect.get('modifier', 1.0), 'reason': effect.get('reason', 'Event')}
-                
-                # --- NEW LOGIC: Chained Event ---
-                elif effect_type == 'trigger_event':
-                    new_event_id = effect.get('event_id')
-                    new_event_data = self.data_manager.scene_events.get(new_event_id)
-                    if new_event_data:
-                        self.signals.interactive_event_triggered.emit(new_event_data, scene_id, talent_id)
-                        return True # Stop processing, a new event is taking over
-                    else:
-                        logger.error(f"[ERROR] Chained event error: Could not find event with id '{new_event_id}'")
-                
-                # --- NEW LOGIC: Randomized Outcome ---
-                elif effect_type == 'random_outcome':
-                    outcomes = effect.get('outcomes', [])
-                    if outcomes:
-                        weights = [o.get('chance', 1.0) for o in outcomes]
-                        chosen_outcome = random.choices(outcomes, weights=weights, k=1)[0]
-                        if apply_effects(chosen_outcome.get('effects', []), current_modifiers):
-                             return True # Propagate the stop signal
-            return False # Continue processing
-
-        if apply_effects(effects, shoot_modifiers):
+        # If a new event was chained, stop here. The service already emitted the signal.
+        if outcome.get("chained_event_triggered"):
             self.db_session.commit()
-            return # A chained event was triggered, so we stop here.
+            return
 
-        # --- Original logic to continue the shoot ---
-        if not scene_was_cancelled:
-            self.scene_service._continue_shoot_scene(scene_id, shoot_modifiers)
+        # If the scene was cancelled, the controller now handles calling the deletion service.
+        if outcome.get("scene_was_cancelled"):
+            # The notification about cost was already sent by the event service.
+            # We call delete_scene silently to avoid duplicate messages.
+            # We also tell it not to commit, as we'll do that at the end of this method.
+            self.delete_scene(scene_id, silent=True, commit_session=False)
+        else:
+            # If the scene was NOT cancelled, continue the shoot.
+            self.scene_service._continue_shoot_scene(scene_id, outcome.get("modifiers", {}))
 
         self.db_session.commit()
         
@@ -509,103 +433,83 @@ class GameController(QObject):
             return
         self.market_service = MarketService(self.db_session, self.data_manager)
         self.talent_service = TalentService(self.db_session, self.data_manager, self.market_service)
-        self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service)
+        self.scene_event_service = SceneEventService(self.db_session, self.game_state, self.signals, self.data_manager, self.talent_service)
+        self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, self.scene_event_service)
         self.time_service = TimeService(self.db_session, self.game_state, self.signals, self.scene_service, self.talent_service, self.market_service, self.data_manager)
         self.go_to_list_service = GoToListService(self.db_session, self.signals) # Instantiate the new service
 
+    # --- Game Session Management (Delegated to GameSessionService) ---
+
     def new_game_started(self):
-        if self.db_session:
-            self.db_session.close()
-            self.db_session = None
-        self.save_manager.db_manager.disconnect()
+        """Initializes a new game session."""
+        self.game_state, self.db_session, self.current_save_path = self.game_session_service.start_new_game()
         self._favorite_tags_cache = {}
-
-        from save_manager import LIVE_SESSION_NAME
-        self.current_save_path = self.save_manager.create_new_save_db(LIVE_SESSION_NAME)
-        
-        self.db_session = self.save_manager.db_manager.get_session()
-
-        self.game_state = GameState(week=1, year=self.game_constant["starting_year"], money=self.game_constant["initial_money"])
-        game_info_data = [
-            GameInfoDB(key='week', value=str(self.game_state.week)),
-            GameInfoDB(key='year', value=str(self.game_state.year)),
-            GameInfoDB(key='money', value=str(self.game_state.money))
-        ]
-        self.db_session.add_all(game_info_data)
-
-        all_group_names = [g['name'] for g in self.market_data.get('viewer_groups', [])]
-        for group in self.market_data.get('viewer_groups', []):
-            if name := group.get('name'):
-                market_state = MarketGroupState(name=name)
-                self.db_session.add(MarketGroupStateDB.from_dataclass(market_state))
-        
-        initial_talents = self.talent_generator.generate_multiple_talents(100, start_id=1)
-        for talent in initial_talents:
-            for name in all_group_names: talent.popularity[name] = 0.0
-            self.db_session.add(TalentDB.from_dataclass(talent))
-
-        # Create the default, non-deletable "General" Go-To List category
-        general_category = GoToListCategoryDB(name="General", is_deletable=False)
-        self.db_session.add(general_category)
-
-        self.db_session.commit()
-
         self._reinitialize_services()
-        self.create_email("Welcome to the Studio!", "Welcome to your new studio! Your goal is to become a successful producer.\n\nDesign scenes, cast talent, and make a profit!\n\nGood luck!")
+        
+        # Emit signals to update UI
         self.signals.money_changed.emit(self.game_state.money)
         self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
         self.signals.talent_pool_changed.emit()
         self.signals.new_game_started.emit()
         self.signals.show_main_window_requested.emit()
         
-    def handle_game_over(self): self.game_over = True; self.signals.show_start_screen_requested.emit()
-    def save_game(self, save_name='autosave'):
-        if self.db_session and self.current_save_path:
-            self.db_session.commit() 
-            self.save_manager.copy_save(self.current_save_path, save_name)
-            self.signals.saves_changed.emit() # Notify UI that the list of saves has changed
-
     def load_game(self, save_name):
-        from save_manager import LIVE_SESSION_NAME
-        if self.db_session: self.db_session.close()
+        """Loads a game session from a file."""
+        self.game_state, self.db_session, self.current_save_path = self.game_session_service.load_game(save_name)
         self._favorite_tags_cache = {}
-        
-        # load_game now copies the save to the live session file and connects to it.
-        # It returns a GameState with only week, year, money.
-        self.game_state = self.save_manager.load_game(save_name)
-        
-        # The current path is now always the live session path.
-        self.current_save_path = str(self.save_manager.get_save_path(LIVE_SESSION_NAME))
-        self.db_session = self.save_manager.db_manager.get_session()
-        
         self._reinitialize_services()
+        
+        # Emit signals to update UI
         self.signals.money_changed.emit(self.game_state.money)
         self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
-        self.signals.scenes_changed.emit(); self.signals.talent_pool_changed.emit(); self.signals.emails_changed.emit()
+        self.signals.scenes_changed.emit()
+        self.signals.talent_pool_changed.emit()
+        self.signals.emails_changed.emit()
         self.signals.show_main_window_requested.emit()
 
+    def save_game(self, save_name='autosave'):
+        self.game_session_service.save_game(save_name, self.db_session, self.current_save_path)
+
     def delete_save_file(self, save_name: str) -> bool:
-        if self.save_manager.delete_save(save_name): 
-            self.signals.saves_changed.emit(); return True
-        return False
+        return self.game_session_service.delete_save(save_name)
 
-    def continue_game(self): self.load_game(self.save_manager.load_latest_save())
-    def quick_save(self): self.save_game(QUICKSAVE_NAME); self.signals.notification_posted.emit("Game quick saved!")
+    def continue_game(self):
+        result = self.game_session_service.continue_game()
+        if result:
+            self.game_state, self.db_session, self.current_save_path = result
+            self._favorite_tags_cache = {}
+            self._reinitialize_services()
+            
+            self.signals.money_changed.emit(self.game_state.money)
+            self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
+            self.signals.scenes_changed.emit()
+            self.signals.talent_pool_changed.emit()
+            self.signals.emails_changed.emit()
+            self.signals.show_main_window_requested.emit()
+
+    def quick_save(self):
+        self.game_session_service.quick_save(self.db_session, self.current_save_path)
+
     def quick_load(self):
-        if self.save_manager.quick_load_exists(): self.load_game(QUICKSAVE_NAME); self.signals.notification_posted.emit("Game quick loaded!")
-        else: self.signals.notification_posted.emit("No quick save found!")
+        result = self.game_session_service.quick_load()
+        if result:
+            self.load_game(QUICKSAVE_NAME) # quick_load returns None if no save exists
 
-    def check_for_saves(self) -> bool: return self.save_manager.has_saves()
     def return_to_main_menu(self, exit_save):
-        if self.game_over: self.signals.show_start_screen_requested.emit(); return
-        if exit_save: self.save_game(EXITSAVE_NAME)
-        if self.db_session: self.db_session.close(); self.db_session = None
-        self.save_manager.db_manager.disconnect() # Fully disconnect engine
-        self.signals.show_start_screen_requested.emit()
+        self.game_session_service.return_to_main_menu(exit_save, self.db_session, self.current_save_path, self.game_over)
+        self.db_session = None # Clear session after returning to menu
 
     def quit_game(self, exit_save=False):
-        if exit_save: self.save_game(EXITSAVE_NAME)
-        self.signals.quit_game_requested.emit()
+        self.game_session_service.quit_game(exit_save, self.db_session, self.current_save_path)
+
+    def handle_game_over(self):
+        self.game_over = True
+        self.signals.show_start_screen_requested.emit()
+
+    def check_for_saves(self) -> bool:
+        return self.save_manager.has_saves()
+        
+    # --- Other Methods ---
 
     def create_email(self, subject: str, body: str):
         new_email = EmailMessageDB(subject=subject, body=body, week=self.game_state.week, year=self.game_state.year, is_read=False)
@@ -629,7 +533,7 @@ class GameController(QObject):
         self.db_session.query(EmailMessageDB).filter(EmailMessageDB.id.in_(email_ids)).delete(synchronize_session=False)
         self.db_session.commit()
         self.signals.emails_changed.emit()
-    
+
     # --- Go-To List Actions (Proxy Methods) ---
     def add_talent_to_go_to_list(self, talent_id: int):
         """Adds a talent to the default 'General' Go-To List category."""
@@ -719,7 +623,7 @@ class GameController(QObject):
         else:
             # Rollback even if 0 were deleted in case of other session changes
             self.db_session.rollback()
-    
+
     # --- Tag Favorites System ---
     def _get_favorites(self, tag_type: str) -> List[str]:
         key = f"favorite_{tag_type}_tags"

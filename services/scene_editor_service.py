@@ -81,8 +81,8 @@ class SceneEditorService:
     def remove_style_tag(self, tag_name: str):
         tag_data = self.data_manager.tag_definitions.get(tag_name)
         if not tag_data: return
-        if tag_data.get('type') == 'Global' and tag_name in self.working_scene.global_tags: self.working_scene.global_tags.remove(tag_name)
-        elif tag_data.get('type') == 'Assigned' and tag_name in self.working_scene.assigned_tags: del self.working_scene.assigned_tags[tag_name]
+        if tag_data.get('type') == 'Thematic' and tag_name in self.working_scene.global_tags: self.working_scene.global_tags.remove(tag_name)
+        elif tag_data.get('type') == 'Physical' and tag_name in self.working_scene.assigned_tags: del self.working_scene.assigned_tags[tag_name]
 
     def update_style_tag_assignment(self, tag_name: str, vp_id: int, is_assigned: bool):
         current_list = self.working_scene.assigned_tags.setdefault(tag_name, [])
