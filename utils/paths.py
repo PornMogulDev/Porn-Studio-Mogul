@@ -25,6 +25,7 @@ SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 # Data files
 GAME_DATA = os.path.join(DATA_DIR, "game_data.sqlite")
 HELP_FILE = os.path.join(DATA_DIR, "help_topics.json")
+ACKNOWLEDGEMENTS_TXT = os.path.join(DATA_DIR, "acknowledgements.txt")
 
 # Logs files
 LOG_FILE = os.path.join(LOG_DIR, "app.log")

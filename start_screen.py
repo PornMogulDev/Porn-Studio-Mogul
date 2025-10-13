@@ -1,12 +1,16 @@
 import sys
+import logging
 from PyQt6.QtCore import QSize, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import ( QHBoxLayout, QLabel, QPushButton, QSizePolicy, 
+                             QVBoxLayout, QWidget, QMessageBox )
 from PyQt6.QtSvgWidgets import QSvgWidget
 from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
-from utils.paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO
+from utils.paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO, ACKNOWLEDGEMENTS_TXT
 from game_strings import version
+
+logger = logging.getLogger(__name__)
 
 class MenuButton(QPushButton):
     def __init__(self, text):
@@ -114,14 +118,15 @@ class MenuScreen(QWidget):
         editor_btn = MenuButton("Editor")
         editor_btn.setEnabled(False)
         acknowledge_btn = MenuButton("Acknowledgements")
-        acknowledge_btn.setEnabled(False)
+        acknowledge_btn.clicked.connect(self.show_acknowledgements_dialog)
 
-        left_layout.addStretch(3)
+        left_layout.addStretch(1)
         left_layout.addWidget(settings_btn, 2)
         left_layout.addStretch(1)
         left_layout.addWidget(editor_btn, 2)
         left_layout.addStretch(1)
         left_layout.addWidget(acknowledge_btn, 2)
+        left_layout.addStretch(1)
 
         # --- Middle Buttons ---
         middle_layout = QVBoxLayout(middle_buttons_container)
@@ -151,7 +156,7 @@ class MenuScreen(QWidget):
         links_layout = QVBoxLayout(right_links_container)
         
         discord_link = ClickableSvgWidget(DISCORD_LOGO, "https://discord.com/")
-        github_link = ClickableSvgWidget(GITHUB_LOGO, "https://github.com/")
+        github_link = ClickableSvgWidget(GITHUB_LOGO, "https://github.com/PornMogulDev/Porn-Studio-Mogul")
         reddit_link = ClickableSvgWidget(REDDIT_LOGO, "https://reddit.com/")
 
         links_layout.addWidget(discord_link, 3)
@@ -178,3 +183,22 @@ class MenuScreen(QWidget):
         """Creates and shows the settings dialog."""
         dialog = SettingsDialog(self.controller, self)
         dialog.exec()
+
+    def show_acknowledgements_dialog(self):
+        """Creates and shows the acknowledgements dialog."""
+        try:
+            with open(ACKNOWLEDGEMENTS_TXT, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Wrap paragraphs in <p> tags for better formatting
+            paragraphs = content.split('\n\n')
+            html_content = "".join(f"<p>{p.replace('\n', '<br>')}</p>" for p in paragraphs)
+
+            message = QMessageBox(self)
+            message.setWindowTitle("Acknowledgements")
+            message.setTextFormat(Qt.TextFormat.RichText)
+            message.setText(html_content)
+            message.setStandardButtons(QMessageBox.StandardButton.Ok)
+            message.exec()
+        except FileNotFoundError:
+            logger.error(f"The acknowledgements file could not be found at:<br>{ACKNOWLEDGEMENTS_TXT}")
