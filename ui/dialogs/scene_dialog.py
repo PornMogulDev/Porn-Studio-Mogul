@@ -8,7 +8,6 @@ from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QMimeData, QPoint
 from PyQt6.QtGui import QDrag, QKeyEvent, QFont
 
 from game_state import Scene, ActionSegment
-from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 
 class DraggableListWidget(QListWidget):
@@ -155,6 +154,8 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         self.status_combo.addItems(["Design", "Casting", "Scheduled"])
         item = self.status_combo.model().item(self.status_combo.findText("Scheduled"))
         if item: item.setEnabled(False)
+        self.total_runtime_spinbox = QSpinBox(); self.total_runtime_spinbox.setRange(1, 240); self.total_runtime_spinbox.setSuffix(" min")
+        bottom_layout.addWidget(QLabel("Total Runtime:")); bottom_layout.addWidget(self.total_runtime_spinbox)
         bottom_layout.addWidget(QLabel("Status:"))
         bottom_layout.addWidget(self.status_combo)
         self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -189,20 +190,14 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         return self.composition_group
 
     def _create_content_design_group(self):
-        group = QGroupBox("Content Design"); main_layout = QVBoxLayout(group)
-        top_bar = QHBoxLayout()
-        top_bar.addStretch(3)
-        self.total_runtime_spinbox = QSpinBox(); self.total_runtime_spinbox.setRange(1, 240); self.total_runtime_spinbox.setSuffix(" min")
-        top_bar.addWidget(QLabel("Total Runtime:")); top_bar.addWidget(self.total_runtime_spinbox)
-        top_bar.addStretch(4)
-        main_layout.addLayout(top_bar)
+        tags_widget = QWidget(); main_layout = QVBoxLayout(tags_widget)
         
         self.content_tabs = QTabWidget()
         self.content_tabs.addTab(self._create_thematic_panel(), "Thematic Tags")
         self.content_tabs.addTab(self._create_physical_panel(), "Physical Tags")
         self.content_tabs.addTab(self._create_action_panel(), "Action Segments")
         main_layout.addWidget(self.content_tabs)
-        return group
+        return tags_widget
 
     def _create_thematic_panel(self) -> QWidget:
         panel = QWidget(); layout = QHBoxLayout(panel)
@@ -236,7 +231,8 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         selected_col = QVBoxLayout(); selected_col.addWidget(QLabel("<h3>Selected Tags</h3>"))
         self.selected_physical_list = DropEnabledListWidget(); selected_col.addWidget(self.selected_physical_list)
         # Assignment
-        assignment_col_layout = QVBoxLayout(); self.physical_assignment_group = QGroupBox("Assign to Performer(s)")
+        assignment_col_layout = QVBoxLayout(); assignment_col_layout.addWidget(QLabel("<h3>Assignments</h3>"))
+        self.physical_assignment_group = QGroupBox("Assign to Performer(s)")
         self.physical_assignment_layout = QVBoxLayout(self.physical_assignment_group); self.physical_assignment_group.setVisible(False)
         assignment_col_layout.addWidget(self.physical_assignment_group); assignment_col_layout.addStretch()
         layout.addLayout(available_col, 3); layout.addLayout(add_remove_col, 1); layout.addLayout(selected_col, 3); layout.addLayout(assignment_col_layout, 4)
@@ -374,10 +370,19 @@ class SceneDialog(GeometryManagerMixin, QDialog):
 
         self.physical_assignment_group.setVisible(True)
         tag_name = tag_data['full_name']
+        eligible_performers = []
         for p_data in performers_with_talent:
-            gender_ok = not (req := tag_data.get('gender')) or req == "Any" or p_data['gender'] == req
-            ethnicity_ok = not (req := tag_data.get('ethnicity')) or req == "Any" or p_data['ethnicity'] == req
-            if gender_ok and ethnicity_ok:
+             gender_ok = not (req := tag_data.get('gender')) or req == "Any" or p_data['gender'] == req
+             ethnicity_ok = not (req := tag_data.get('ethnicity')) or req == "Any" or p_data['ethnicity'] == req
+             if gender_ok and ethnicity_ok:
+                eligible_performers.append(p_data)
+
+        if not eligible_performers:
+            label = QLabel("No performer fulfills the requirements for the selected tag.")
+            label.setWordWrap(True)
+            self.physical_assignment_layout.addWidget(label)
+        else:
+            for p_data in eligible_performers:
                 checkbox = QCheckBox(p_data['display_name'])
                 checkbox.setChecked(p_data['vp_id'] in assigned_vp_ids)
                 checkbox.setEnabled(is_editable)
