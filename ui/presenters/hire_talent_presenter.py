@@ -17,15 +17,11 @@ class HireTalentPresenter(QObject):
         self._connect_signals()
         self.view.initial_load_requested.emit()
     def _connect_signals(self):
-        # --- Model Signals ---
         self.controller.signals.scenes_changed.connect(self.on_global_scenes_changed)
         self.controller.signals.talent_pool_changed.connect(self.view.refresh_from_state)
         self.controller.settings_manager.signals.setting_changed.connect(self.view.talent_detail_view.on_setting_changed)
-        # Listen for category changes to potentially update context menus in the future
         self.controller.signals.go_to_categories_changed.connect(self.view.refresh_from_state)
 
-
-        # --- View Signals ---
         self.view.initial_load_requested.connect(self.on_initial_load)
         self.view.scene_filter_selected.connect(self.on_scene_selected_for_filter)
         self.view.role_filter_applied.connect(self.on_role_filter_applied)
@@ -40,13 +36,11 @@ class HireTalentPresenter(QObject):
         self.view.open_scene_dialog_requested.connect(self.on_open_scene_dialog)
         self.view.hire_requested.connect(self.on_hire_requested)
 
-    # --- Slots for Model Signals ---
     @pyqtSlot()
     def on_global_scenes_changed(self):
         castable_scenes = self.controller.get_castable_scenes()
         self.view.update_scene_dropdown(castable_scenes)
 
-    # --- Slots for View Signals ---
     @pyqtSlot()
     def on_initial_load(self):
         self.on_global_scenes_changed()
@@ -78,13 +72,11 @@ class HireTalentPresenter(QObject):
         available_roles = self.controller.talent_service.find_available_roles_for_talent(talent.id)
         tag_defs = self.controller.data_manager.tag_definitions
         policy_defs = self.controller.data_manager.on_set_policies_data
-        unit_system = self.controller.settings_manager.get_setting("unit_system", "imperial")
-        self.view.talent_detail_view.display_talent(talent, available_roles, tag_defs, policy_defs, unit_system)
+        self.view.talent_detail_view.display_talent(talent, available_roles, tag_defs, policy_defs)
 
     @pyqtSlot(int, list)
     def on_hire_requested(self, talent_id: int, roles: list):
         self.controller.cast_talent_for_multiple_roles(talent_id, roles)
-        # After hiring, the list of castable scenes/roles may have changed
         self.on_global_scenes_changed()
     
     @pyqtSlot(object, QPoint)
@@ -120,14 +112,11 @@ class HireTalentPresenter(QObject):
 
     @pyqtSlot(int)
     def on_open_scene_dialog(self, scene_id: int):
-        # We create the view, then the presenter which takes control of it.
         dialog = SceneDialog(self.controller, parent=self.view.window())
-        # This import is here to avoid a circular dependency at the top level
         from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
         presenter = ScenePlannerPresenter(self.controller, scene_id, dialog)
         dialog.exec()
         
-        # After dialog closes, the selected talent's roles might have changed
         current_selection = self.view.talent_list_view.selectionModel().currentIndex()
         if current_selection.isValid():
             talent = current_selection.data(Qt.ItemDataRole.UserRole)

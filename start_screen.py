@@ -3,7 +3,7 @@ import logging
 from PyQt6.QtCore import QSize, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import ( QHBoxLayout, QLabel, QPushButton, QSizePolicy, 
-                             QVBoxLayout, QWidget, QMessageBox )
+                             QVBoxLayout, QWidget, QMessageBox, QGridLayout )
 from PyQt6.QtSvgWidgets import QSvgWidget
 from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
@@ -36,11 +36,11 @@ class ClickableSvgWidget(QSvgWidget):
         # Let the layout manager control our size. We are happy to expand.
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         # But don't let us get too big.
-        self.setMinimumSize(80,45)
-        self.setMaximumSize(320,180)
+        self.setMinimumSize(50,35)
+        self.setMaximumSize(280,150)
 
     def sizeHint(self):
-        return QSize(240, 135)
+        return QSize(150, 75)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -88,30 +88,13 @@ class MenuScreen(QWidget):
         top_layout.addWidget(version_label, 1) # Give it 1 share of space
     
         # --- Menu Section ---
-        menu_layout = QHBoxLayout(menu_container)
-
-        left_buttons_container = QWidget()
-        middle_buttons_container = QWidget()
-        right_links_container = QWidget()
-
-        #Bottom margins. No need to do anything because they are blank
-        left_margin_container = QWidget()
-        one_inside_container = QWidget()
-        two_inside_container = QWidget()
-        right_margin_container = QWidget()
-
-        # Add containers with stretch factors to maintain horizontal proportions
-        menu_layout.addWidget(left_margin_container, 1)
-        menu_layout.addWidget(left_buttons_container, 3)   # 20%
-        menu_layout.addWidget(one_inside_container, 1)
-        menu_layout.addWidget(middle_buttons_container, 7) # 60%
-        menu_layout.addWidget(two_inside_container, 1)
-        menu_layout.addWidget(right_links_container, 2)  # 20%
-        menu_layout.addWidget(right_margin_container, 1)
+        menu_layout = QGridLayout(menu_container)
+        menu_layout.setColumnStretch(0, 3)  # first column stretch factor
+        menu_layout.setColumnStretch(1, 7)
+        menu_layout.setColumnStretch(2, 2)
+        menu_layout.setHorizontalSpacing(100)
 
         # --- Left Buttons ---
-        left_layout = QVBoxLayout(left_buttons_container)
-        left_layout.setContentsMargins(0, 0, 0, 0)
         
         settings_btn = MenuButton("Settings")
         settings_btn.clicked.connect(self.show_settings_dialog) 
@@ -120,17 +103,7 @@ class MenuScreen(QWidget):
         acknowledge_btn = MenuButton("Acknowledgements")
         acknowledge_btn.clicked.connect(self.show_acknowledgements_dialog)
 
-        left_layout.addStretch(1)
-        left_layout.addWidget(settings_btn, 2)
-        left_layout.addStretch(1)
-        left_layout.addWidget(editor_btn, 2)
-        left_layout.addStretch(1)
-        left_layout.addWidget(acknowledge_btn, 2)
-        left_layout.addStretch(1)
-
         # --- Middle Buttons ---
-        middle_layout = QVBoxLayout(middle_buttons_container)
-        middle_layout.setContentsMargins(50, 0, 50, 0) # Less margin needed now
         
         self.continue_game_btn = MenuButton("Continue")
         self.continue_game_btn.setEnabled(False)
@@ -143,28 +116,23 @@ class MenuScreen(QWidget):
         quit_game_btn = MenuButton("Quit Game")
         quit_game_btn.clicked.connect(self.controller.quit_game)
 
-        middle_layout.addWidget(self.continue_game_btn, 2)
-        middle_layout.addStretch(1)
-        middle_layout.addWidget(self.load_game_btn, 2)
-        middle_layout.addStretch(1)
-        middle_layout.addWidget(new_game_btn, 2)
-        middle_layout.addStretch(1)
-        middle_layout.addWidget(quit_game_btn, 2)
-        middle_layout.addStretch(2) # Balances the stretch above
-
         # --- Right Links ---
-        links_layout = QVBoxLayout(right_links_container)
-        
         discord_link = ClickableSvgWidget(DISCORD_LOGO, "https://discord.com/")
         github_link = ClickableSvgWidget(GITHUB_LOGO, "https://github.com/PornMogulDev/Porn-Studio-Mogul")
         reddit_link = ClickableSvgWidget(REDDIT_LOGO, "https://reddit.com/")
 
-        links_layout.addWidget(discord_link, 3)
-        links_layout.addStretch(1)
-        links_layout.addWidget(github_link, 3)
-        links_layout.addStretch(1)
-        links_layout.addWidget(reddit_link, 3)
-        links_layout.addStretch(7)
+        menu_layout.addWidget(settings_btn, 1, 0)
+        menu_layout.addWidget(editor_btn, 2, 0)
+        menu_layout.addWidget(acknowledge_btn, 3, 0)
+
+        menu_layout.addWidget(self.continue_game_btn, 0, 1)
+        menu_layout.addWidget(self.load_game_btn, 1, 1)
+        menu_layout.addWidget(new_game_btn, 2, 1)
+        menu_layout.addWidget(quit_game_btn, 3, 1)
+
+        menu_layout.addWidget(discord_link, 0, 2)
+        menu_layout.addWidget(github_link, 1, 2)
+        menu_layout.addWidget(reddit_link, 2, 2)
 
         self.refresh_button_states()
 

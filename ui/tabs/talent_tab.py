@@ -13,6 +13,7 @@ from collections import defaultdict
 
 from game_state import Talent, Scene
 from ui.dialogs.scene_dialog import SceneDialog
+from utils.formatters import format_orientation, format_physical_attribute
 
 class TalentListModel(QAbstractListModel):
     def __init__(self, talents: list = None, parent=None): super().__init__(parent); self.talents = talents or []
@@ -33,7 +34,6 @@ class TalentDetailView(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # The view no longer holds a reference to the controller.
         self._selected_talent = None
         self.setup_ui()
         self.clear_display()
@@ -56,18 +56,22 @@ class TalentDetailView(QWidget):
         self.age_label = QLabel("<b>Age:</b> N/A")
         self.ethnicity_label = QLabel("<b>Ethnicity:</b> N/A")
         self.orientation_label = QLabel("<b>Orientation:</b> N/A")
-        self.boob_cup_label = QLabel("<b>Cup Size:</b> N/A")
-        self.dick_size_label = QLabel("<b>Dick Size:</b> N/A")
+        self.physical_label = QLabel("<b>Physical:</b> N/A")
         self.performance_label = QLabel("<b>Performance:</b> N/A")
         self.acting_label = QLabel("<b>Acting:</b> N/A")
         self.stamina_label = QLabel("<b>Stamina:</b> N/A")
         self.popularity_label = QLabel("<b>Popularity:</b> N/A")
         
-        talent_info_layout.addWidget(self.alias_label, 0, 0); talent_info_layout.addWidget(self.age_label, 1, 0)
-        talent_info_layout.addWidget(self.ethnicity_label, 2, 0); talent_info_layout.addWidget(self.orientation_label, 3, 0)
-        talent_info_layout.addWidget(self.popularity_label, 4, 0); talent_info_layout.addWidget(self.boob_cup_label, 0, 1)
-        talent_info_layout.addWidget(self.dick_size_label, 1, 1); talent_info_layout.addWidget(self.performance_label, 2, 1)
-        talent_info_layout.addWidget(self.acting_label, 3, 1); talent_info_layout.addWidget(self.stamina_label, 4, 1)
+        talent_info_layout.addWidget(self.alias_label, 0, 0)
+        talent_info_layout.addWidget(self.age_label, 1, 0)
+        talent_info_layout.addWidget(self.ethnicity_label, 2, 0)
+        talent_info_layout.addWidget(self.orientation_label, 3, 0)
+        talent_info_layout.addWidget(self.popularity_label, 4, 0)
+        
+        talent_info_layout.addWidget(self.physical_label, 0, 1)
+        talent_info_layout.addWidget(self.performance_label, 1, 1)
+        talent_info_layout.addWidget(self.acting_label, 2, 1)
+        talent_info_layout.addWidget(self.stamina_label, 3, 1)
 
         main_layout.addWidget(talent_info_group)
         
@@ -130,16 +134,6 @@ class TalentDetailView(QWidget):
             child = layout.takeAt(0)
             if child.widget(): child.widget().deleteLater()
 
-    def _format_orientation(self, score: int, gender: str) -> str:
-        if -100 <= score <= -81: return "Straight"
-        if -80 <= score <= -30: return "Mostly Straight"
-        if -29 <= score <= 29: return "Bisexual"
-        if 30 <= score <= 79:
-            return "Mostly Lesbian" if gender == "Female" else "Mostly Gay"
-        if 80 <= score <= 100:
-            return "Lesbian" if gender == "Female" else "Gay"
-        return "Unknown"
-
     def _populate_preferences_lists(self, talent: Talent, tag_definitions: dict):
         self.likes_list.clear()
         self.dislikes_list.clear()
@@ -147,21 +141,16 @@ class TalentDetailView(QWidget):
         likes, dislikes = [], []
         LIKE_THRESHOLD, DISLIKE_THRESHOLD = 1.2, 0.8
 
-        # Create a helper to format role preferences for display
         def format_roles(roles_dict: Dict[str, float]) -> str:
-            # Abbreviate roles for concise display, e.g., (G: 1.5, R: 0.5)
             return f"({', '.join([f'{r[0]}: {p:.2f}' for r, p in sorted(roles_dict.items())])})"
 
-        # Group preferences by concept for summarization
         prefs_by_concept = defaultdict(list)
         for tag_name, roles_prefs in talent.tag_preferences.items():
             if not (concept := tag_definitions.get(tag_name, {}).get('concept')):
-                concept = tag_name # Fallback for tags without a concept
+                concept = tag_name
             prefs_by_concept[concept].append((tag_name, roles_prefs))
 
-        # Process each concept
         for concept, tags_in_concept in sorted(prefs_by_concept.items()):
-            # Calculate average Giver/Receiver scores across the concept
             g_scores, r_scores, all_scores = [], [], []
             for _, roles in tags_in_concept:
                 if 'Giver' in roles: g_scores.append(roles['Giver'])
@@ -172,7 +161,6 @@ class TalentDetailView(QWidget):
             avg_score = sum(all_scores) / len(all_scores)
 
             if avg_score >= LIKE_THRESHOLD or avg_score <= DISLIKE_THRESHOLD:
-                # Create a summary line for the concept with role averages
                 summary_parts = [concept]
                 if g_scores: summary_parts.append(f"G: ~{sum(g_scores)/len(g_scores):.2f}")
                 if r_scores: summary_parts.append(f"R: ~{sum(r_scores)/len(r_scores):.2f}")
@@ -183,7 +171,6 @@ class TalentDetailView(QWidget):
                 else:
                     dislikes.append(summary_line)
             else:
-                # If the concept isn't a strong like/dislike, check individual tags
                 for tag_name, roles in tags_in_concept:
                     tag_avg = sum(roles.values()) / len(roles) if roles else 0
                     if tag_avg >= LIKE_THRESHOLD:
@@ -198,19 +185,18 @@ class TalentDetailView(QWidget):
         if dislikes: self.dislikes_list.addItems(sorted(dislikes))
         else: self.dislikes_list.addItem("None")
 
-    def display_talent(self, talent: Talent, available_roles: list, tag_defs: dict, policy_defs: dict, unit_system: str):
+    def display_talent(self, talent: Talent, available_roles: list, tag_defs: dict, policy_defs: dict):
         if not talent or not hasattr(talent, 'alias') or talent.alias is None: self.clear_display(); return
         self._selected_talent = talent
-        self.alias_label.setText(f"<b>Alias:</b> {talent.alias}"); self.age_label.setText(f"<b>Age:</b> {talent.age}")
+        self.alias_label.setText(f"<b>Alias:</b> {talent.alias}")
+        self.age_label.setText(f"<b>Age:</b> {talent.age}")
         self.ethnicity_label.setText(f"<b>Ethnicity:</b> {talent.ethnicity}")
-        self.orientation_label.setText(f"<b>Orientation:</b> {self._format_orientation(talent.orientation_score, talent.gender)}")
-        self.boob_cup_label.setVisible(talent.boob_cup is not None)
-        if talent.boob_cup: self.boob_cup_label.setText(f"<b>Cup Size:</b> {talent.boob_cup}")
+        self.orientation_label.setText(f"<b>Orientation:</b> {format_orientation(talent.orientation_score, talent.gender)}")
         
-        self.dick_size_label.setVisible(talent.dick_size is not None)
-        if talent.dick_size is not None:
-            display_text = f"<b>Dick Size:</b> {talent.dick_size * 2.54:.1f} cm" if unit_system == 'metric' else f"<b>Dick Size:</b> {talent.dick_size} in."
-            self.dick_size_label.setText(display_text)
+        is_visible, physical_text = format_physical_attribute(talent)
+        self.physical_label.setVisible(is_visible)
+        if is_visible:
+            self.physical_label.setText(f"<b>Physical:</b> {physical_text}")
             
         self.performance_label.setText(f"<b>Performance:</b> {talent.performance:.2f}")
         self.acting_label.setText(f"<b>Acting:</b> {talent.acting:.2f}")
@@ -268,8 +254,7 @@ class TalentDetailView(QWidget):
         self._selected_talent = None; self.alias_label.setText("<b>Select a talent from the list</b>")
         self.age_label.setText("<b>Age:</b> N/A"); self.ethnicity_label.setText("<b>Ethnicity:</b> N/A");
         self.orientation_label.setText("<b>Orientation:</b> N/A")
-        self.boob_cup_label.setText("<b>Cup Size:</b> N/A"); self.boob_cup_label.setVisible(True)
-        self.dick_size_label.setText("<b>Dick Size:</b> N/A"); self.dick_size_label.setVisible(True)
+        self.physical_label.setText("<b>Physical:</b> N/A"); self.physical_label.setVisible(True)
         self.performance_label.setText("<b>Performance:</b> N/A"); self.acting_label.setText("<b>Acting:</b> N/A")
         self.stamina_label.setText("<b>Stamina:</b> N/A"); self.popularity_label.setText("<b>Popularity:</b> N/A"); self._clear_layout(self.affinities_layout); self.contract_container.setEnabled(False)
         self.available_roles_list.clear(); self.likes_list.clear(); self.dislikes_list.clear(); self.limits_list.clear()
@@ -293,16 +278,15 @@ class TalentDetailView(QWidget):
         self.clear_display() 
 
 class HireWindow(QWidget):
-    # Signals emitted by the view for the presenter to handle
     standard_filters_changed = pyqtSignal(dict)
-    role_filter_applied = pyqtSignal(int, int) # scene_id, vp_id
+    role_filter_applied = pyqtSignal(int, int)
     role_filter_cleared = pyqtSignal()
-    scene_filter_selected = pyqtSignal(int) # scene_id
-    context_menu_requested = pyqtSignal(object, QPoint) # talent, global pos
-    add_talent_to_category_requested = pyqtSignal(int, int) # talent_id, category_id
-    remove_talent_from_category_requested = pyqtSignal(int, int) # talent_id, category_id
-    open_advanced_filters_requested = pyqtSignal(dict) # current_filters
-    talent_selected = pyqtSignal(object) # talent object
+    scene_filter_selected = pyqtSignal(int)
+    context_menu_requested = pyqtSignal(object, QPoint)
+    add_talent_to_category_requested = pyqtSignal(int, int)
+    remove_talent_from_category_requested = pyqtSignal(int, int)
+    open_advanced_filters_requested = pyqtSignal(dict)
+    talent_selected = pyqtSignal(object)
     hire_requested = pyqtSignal(int, list)
     open_scene_dialog_requested = pyqtSignal(int)
     open_talent_profile_requested = pyqtSignal(object)
@@ -310,7 +294,6 @@ class HireWindow(QWidget):
 
     def __init__(self):
         super().__init__()
-        # The view no longer takes the controller
         self.talent_model = TalentListModel()
         self.advanced_filters = {}
         self.setup_ui()
@@ -320,7 +303,6 @@ class HireWindow(QWidget):
         main_layout = QHBoxLayout(self)
         left_panel = QWidget(); left_layout = QVBoxLayout(left_panel)
         
-        # --- NEW: Role Filter UI ---
         role_filter_group = QGroupBox("Filter for Role"); role_filter_layout = QGridLayout(role_filter_group)
         role_filter_layout.addWidget(QLabel("Scene:"), 0, 0); role_filter_layout.addWidget(QLabel("Role:"), 1, 0)
         self.scene_filter_combo = QComboBox(); self.role_filter_combo = QComboBox()
@@ -339,7 +321,6 @@ class HireWindow(QWidget):
         self.talent_detail_view = TalentDetailView()
         main_layout.addWidget(left_panel, 3); main_layout.addWidget(self.talent_detail_view, 7)
 
-        # --- Connections from UI elements to signal emissions ---
         self.talent_list_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.talent_list_view.customContextMenuRequested.connect(self.show_talent_list_context_menu)
         self.talent_list_view.doubleClicked.connect(self.show_talent_profile)
@@ -352,12 +333,10 @@ class HireWindow(QWidget):
         self.apply_role_filter_btn.clicked.connect(self.on_apply_role_filter)
         self.clear_role_filter_btn.clicked.connect(self.on_clear_role_filter)
 
-        # Connect signals from child view to this view's signals
         self.talent_detail_view.hire_requested.connect(self.hire_requested)
         self.talent_detail_view.open_scene_dialog_requested.connect(self.open_scene_dialog_requested)
         self.talent_detail_view.settings_changed.connect(self.refresh_from_state)
 
-    # --- UI Update Methods (called by Presenter) ---
     def update_talent_list(self, talents: list):
         self.talent_model.update_data(talents)
         if not self.talent_list_view.selectionModel().hasSelection():
@@ -371,7 +350,7 @@ class HireWindow(QWidget):
         
         idx = self.scene_filter_combo.findData(current_id)
         if idx != -1: self.scene_filter_combo.setCurrentIndex(idx)
-        else: self.update_role_dropdown([]) # Clear roles if scene is gone
+        else: self.update_role_dropdown([])
         
         self.scene_filter_combo.blockSignals(False)
 
@@ -390,7 +369,6 @@ class HireWindow(QWidget):
         self.apply_role_filter_btn.setEnabled(enabled)
         self.role_filter_combo.setEnabled(enabled)
     
-    # --- Local UI Logic and Signal Emitting ---
     def show_talent_profile(self, index: QModelIndex):
         if talent := self.talent_model.data(index, Qt.ItemDataRole.UserRole):
             self.open_talent_profile_requested.emit(talent)
@@ -409,7 +387,6 @@ class HireWindow(QWidget):
     def display_talent_context_menu(self, talent: Talent, all_categories: list, talent_categories: list, pos: QPoint):
         menu = QMenu(self)
 
-        # --- "Add to..." Sub-menu ---
         add_menu = menu.addMenu("Add to Go-To Category...")
         if all_categories:
             for category in sorted(all_categories, key=lambda c: c['name']):
@@ -422,7 +399,6 @@ class HireWindow(QWidget):
         else:
             add_menu.setEnabled(False)
 
-        # --- "Remove from..." Sub-menu ---
         remove_menu = menu.addMenu("Remove from Go-To Category...")
         if talent_categories:
             for category in sorted(talent_categories, key=lambda c: c['name']):

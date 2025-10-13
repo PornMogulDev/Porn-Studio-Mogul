@@ -10,15 +10,7 @@ from collections import defaultdict
 from game_state import Talent
 from game_controller import GameController
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
-
-#Helper dictionary to map chemistry scores to display text and color
-CHEMISTRY_MAP = {
-2: ("Great", QColor("darkGreen")),
-1: ("Good", QColor("green")),
-0: ("Neutral", QColor("gray")),
--1: ("Bad", QColor("#FF8C00")), # Dark Orange
--2: ("Terrible", QColor("red")),
-}
+from utils.formatters import format_orientation, format_physical_attribute, CHEMISTRY_MAP
 
 class TalentProfileDialog(GeometryManagerMixin, QDialog):
     def __init__(self, talent: Talent, controller: GameController, parent=None):
@@ -39,32 +31,21 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         if key == "unit_system":
             self.populate_physical_label()
 
-    def _format_orientation(self, score: int) -> str:
-        """Converts an orientation score (-100 to 100) into a display string."""
-        if -100 <= score <= -81: return "Straight"
-        if -80 <= score <= -30: return "Mostly Straight"
-        if -29 <= score <= 29: return "Bisexual"
-        if 30 <= score <= 79: return "Mostly Gay/Lesbian"
-        if 80 <= score <= 100: return "Gay/Lesbian"
-        return "Unknown"
-
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # --- Left Panel (General Info) ---
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Details
         details_group = QGroupBox("Details")
         details_layout = QFormLayout(details_group)
         self.age_label = QLabel()
         self.ethnicity_label = QLabel()
         self.gender_label = QLabel()
         self.orientation_label = QLabel()
-        self.physical_label = QLabel() # For boobs/dick
+        self.physical_label = QLabel()
         details_layout.addRow("<b>Age:</b>", self.age_label)
         details_layout.addRow("<b>Gender:</b>", self.gender_label)
         details_layout.addRow("<b>Orientation:</b>", self.orientation_label)
@@ -72,7 +53,6 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         details_layout.addRow("<b>Physical:</b>", self.physical_label)
         left_layout.addWidget(details_group)
 
-        # Skills
         skills_group = QGroupBox("Skills & Attributes")
         skills_layout = QFormLayout(skills_group)
         self.performance_label = QLabel()
@@ -87,7 +67,6 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         skills_layout.addRow("<b>Professionalism:</b>", self.professionalism_label)
         left_layout.addWidget(skills_group)
 
-        # Affinities
         affinities_group = QGroupBox("Tag Affinities")
         affinities_layout = QVBoxLayout(affinities_group)
         scroll_area = QScrollArea()
@@ -97,14 +76,12 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         self.affinities_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         scroll_area.setWidget(self.affinities_content_widget)
         affinities_layout.addWidget(scroll_area)
-        left_layout.addWidget(affinities_group, 1) # Give it stretch factor
+        left_layout.addWidget(affinities_group, 1)
 
-        # --- Right Panel (Tabs for History and Chemistry) ---
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         self.right_tabs = QTabWidget()
         
-        # --- History Tab ---
         history_tab = QWidget()
         history_tab_layout = QVBoxLayout(history_tab)
         history_group = QGroupBox("Scene History")
@@ -118,7 +95,6 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         history_tab_layout.addWidget(history_group)
         self.right_tabs.addTab(history_tab, "Scene History")
 
-        # --- Chemistry Tab ---
         chemistry_tab = QWidget()
         chemistry_tab_layout = QVBoxLayout(chemistry_tab)
         chemistry_group = QGroupBox("Chemistry")
@@ -134,7 +110,6 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         chemistry_tab_layout.addWidget(chemistry_group)
         self.right_tabs.addTab(chemistry_tab, "Chemistry")
         
-        # --- Preferences & Requirements Tab ---
         prefs_tab = QWidget()
         prefs_tab_layout = QHBoxLayout(prefs_tab)
         
@@ -166,32 +141,21 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         splitter.addWidget(left_panel)
         splitter.addWidget(right_panel)
         splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 2) # Give more space to history
+        splitter.setStretchFactor(1, 2)
         main_layout.addWidget(splitter)
 
-        # --- Close Button ---
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         button_box.rejected.connect(self.reject)
         main_layout.addWidget(button_box)
 
     def populate_physical_label(self):
-        physical_text = "N/A"
-        if self.talent.gender == "Female" and self.talent.boob_cup:
-            physical_text = f"{self.talent.boob_cup} Cup Size"
-        elif self.talent.gender == "Male" and self.talent.dick_size:
-            unit_system = self.controller.settings_manager.get_setting("unit_system")
-            if unit_system == 'metric':
-                cm_value = self.talent.dick_size * 2.54
-                physical_text = f"{cm_value:.1f} cm Dick"
-            else:
-                physical_text = f"{self.talent.dick_size}\" Dick"
-        self.physical_label.setText(physical_text)
+        is_visible, physical_text = format_physical_attribute(self.talent)
+        self.physical_label.setText(physical_text if is_visible else "N/A")
 
     def populate_data(self):
-        # --- General Info ---
         self.age_label.setText(str(self.talent.age))
         self.gender_label.setText(self.talent.gender)
-        self.orientation_label.setText(self._format_orientation(self.talent.orientation_score))
+        self.orientation_label.setText(format_orientation(self.talent.orientation_score, self.talent.gender))
         self.ethnicity_label.setText(self.talent.ethnicity)
         self.populate_physical_label()
 
@@ -205,7 +169,6 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
             if affinity > 0:
                 self.affinities_layout.addWidget(QLabel(f"{tag}: {affinity}"))
 
-        # --- Populate Tabs ---
         self.populate_scene_history()
         self.populate_chemistry()
         self.populate_preferences()
