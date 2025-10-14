@@ -36,7 +36,8 @@ class SettingsManager:
             "save_on_exit": True,
             "unit_system": "imperial",  # 'imperial' or 'metric'
             "window_geometries": {},
-            "theme": "system"  #'dark', 'light', or 'system'
+            "theme": "system",  #'dark', 'light', or 'system'
+            "talent_profile_dialog_behavior": "singleton" # 'singleton' or 'multiple'
         }
         self.settings = self._load_settings()
 

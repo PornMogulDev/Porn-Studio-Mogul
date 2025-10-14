@@ -9,11 +9,13 @@ from game_state import Talent
 from ui.dialogs.talent_profile_dialog import TalentProfileDialog
 from ui.dialogs.scene_dialog import SceneDialog
 
-class HireTalentPresenter(QObject):
+class TalentTabPresenter(QObject):
     def __init__(self, controller: IGameController, view: HireWindow):
         super().__init__()
         self.controller = controller
         self.view = view
+        self._talent_profile_dialog_singleton = None
+        self._open_profile_dialogs_multi = {} 
         self._connect_signals()
         self.view.initial_load_requested.emit()
     def _connect_signals(self):
@@ -101,14 +103,53 @@ class HireTalentPresenter(QObject):
         )
         dialog.filters_applied.connect(self.view.on_filters_applied)
         dialog.exec()
-
+    
     @pyqtSlot(object)
     def on_open_talent_profile(self, talent: Talent):
-        dialog = self.view.findChild(TalentProfileDialog)
-        if dialog: dialog.raise_(); dialog.activateWindow(); return
+        behavior = self.controller.settings_manager.get_setting("talent_profile_dialog_behavior")
         
-        dialog = TalentProfileDialog(talent, self.controller, self.view)
-        dialog.exec()
+        if behavior == 'singleton':
+            # --- Singleton Logic ---
+            if self._talent_profile_dialog_singleton is None:
+                # Create dialog if it doesn't exist
+                dialog = TalentProfileDialog(talent, self.controller, self.view)
+                dialog.destroyed.connect(self._on_singleton_profile_closed)
+                self._talent_profile_dialog_singleton = dialog
+                dialog.show()
+            else:
+                # Update existing dialog
+                self._talent_profile_dialog_singleton.update_with_talent(talent)
+                self._talent_profile_dialog_singleton.raise_()
+                self._talent_profile_dialog_singleton.activateWindow()
+        else:
+            # --- Multi-instance Logic (Default) ---
+            talent_id = talent.id
+            if talent_id in self._open_profile_dialogs_multi:
+                # Focus existing dialog
+                dialog = self._open_profile_dialogs_multi[talent_id]
+                dialog.raise_()
+                dialog.activateWindow()
+            else:
+                # Create new dialog
+                dialog = TalentProfileDialog(talent, self.controller, self.view)
+                # Use a lambda to pass the talent_id for cleanup
+                dialog.destroyed.connect(
+                    lambda obj=None, t_id=talent_id: self._on_multi_profile_closed(t_id)
+                )
+                self._open_profile_dialogs_multi[talent_id] = dialog
+                dialog.show()
+
+    # Cleanup slots for modeless dialogs
+    @pyqtSlot()
+    def _on_singleton_profile_closed(self):
+        """Clear the reference when the singleton dialog is closed."""
+        self._talent_profile_dialog_singleton = None
+
+    @pyqtSlot(int)
+    def _on_multi_profile_closed(self, talent_id: int):
+        """Remove the specific dialog from the dict when it's closed."""
+        if talent_id in self._open_profile_dialogs_multi:
+            del self._open_profile_dialogs_multi[talent_id]
 
     @pyqtSlot(int)
     def on_open_scene_dialog(self, scene_id: int):

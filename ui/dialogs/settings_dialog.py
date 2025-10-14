@@ -47,7 +47,17 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         self.theme_combo.addItem("System", "system")
         theme_layout.addWidget(theme_label)
         theme_layout.addWidget(self.theme_combo)
-        display_v_layout.addLayout(theme_layout) 
+        display_v_layout.addLayout(theme_layout)
+
+         # Talent Profile Dialog Behavior Layout
+        behavior_layout = QHBoxLayout()
+        behavior_label = QLabel("Talent Profile Window:")
+        self.behavior_combo = QComboBox()
+        self.behavior_combo.addItem("Multiple windows (for comparison)", "multiple")
+        self.behavior_combo.addItem("Single window (updates on selection)", "singleton")
+        behavior_layout.addWidget(behavior_label)
+        behavior_layout.addWidget(self.behavior_combo)
+        display_v_layout.addLayout(behavior_layout)
         
         main_layout.addWidget(display_group)
         
@@ -97,6 +107,12 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         if theme_index != -1:
             self.theme_combo.setCurrentIndex(theme_index)
 
+        # Load dialog behavior setting
+        current_behavior = self.settings_manager.get_setting("talent_profile_dialog_behavior")
+        behavior_index = self.behavior_combo.findData(current_behavior)
+        if behavior_index != -1:
+            self.behavior_combo.setCurrentIndex(behavior_index)
+
     def _confirm_and_reset_geometries(self):
         """Shows a confirmation dialog and resets window geometries if confirmed."""
         reply = QMessageBox.question(self, "Confirm Reset",
@@ -115,8 +131,9 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         selected_unit = self.unit_combo.currentData()
         self.settings_manager.set_setting("unit_system", selected_unit)
         
-        # --- MODIFIED: Theme is already set by the preview, so no action is needed ---
-        # The last previewed theme is now the final one.
+        # Save talent profile dialog behaviour
+        selected_behavior = self.behavior_combo.currentData()
+        self.settings_manager.set_setting("talent_profile_dialog_behavior", selected_behavior)
 
         super().accept()
 

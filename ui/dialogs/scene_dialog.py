@@ -133,6 +133,14 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         
         self.setWindowTitle("Scene Planner")
         self.setMinimumSize(1366, 768)
+
+        # Makes the dialog's window work with the snap layout features
+        # and gives it maximize and minimize buttons
+        self.setWindowFlags(
+            Qt.WindowType.Window | 
+            Qt.WindowType.WindowMinMaxButtonsHint | 
+            Qt.WindowType.WindowCloseButtonHint
+        )
         self.setup_ui()
         self._connect_signals()
         self._restore_geometry()

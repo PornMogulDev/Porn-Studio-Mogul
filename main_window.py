@@ -20,7 +20,7 @@ from ui.dialogs.interactive_event_dialog import InteractiveEventDialog
 from ui.dialogs.help_dialog import HelpDialog
 from game_state import Scene
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
-from ui.presenters.hire_talent_presenter import HireTalentPresenter
+from ui.presenters.talent_tab_presenter import TalentTabPresenter
 from ui.widgets.help_button import HelpButton
 
 logger = logging.getLogger(__name__)
@@ -148,7 +148,7 @@ class MainGameWindow(QWidget):
         tabs.setMovable(True)
         
         self.hire_tab = HireWindow()
-        self.hire_presenter = HireTalentPresenter(self.controller, self.hire_tab)
+        self.hire_presenter = TalentTabPresenter(self.controller, self.hire_tab)
 
         self.scenes_tab = ScenesTab(self.controller)
         self.schedule_tab = ScheduleTab(self.controller)

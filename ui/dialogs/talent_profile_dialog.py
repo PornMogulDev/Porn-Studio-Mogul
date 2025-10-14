@@ -148,6 +148,12 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         button_box.rejected.connect(self.reject)
         main_layout.addWidget(button_box)
 
+    def update_with_talent(self, talent: Talent):
+        """Clears and repopulates the entire dialog with data from a new talent."""
+        self.talent = talent
+        self.setWindowTitle(f"Talent Profile: {self.talent.alias}")
+        self.populate_data()
+        
     def populate_physical_label(self):
         is_visible, physical_text = format_physical_attribute(self.talent)
         self.physical_label.setText(physical_text if is_visible else "N/A")
