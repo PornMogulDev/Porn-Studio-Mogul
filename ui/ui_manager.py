@@ -1,0 +1,134 @@
+import logging
+
+from PyQt6.QtWidgets import QDialog
+
+from ui.dialogs.email_dialog import EmailDialog
+from ui.dialogs.go_to_list import GoToTalentDialog
+from ui.dialogs.help_dialog import HelpDialog
+from ui.dialogs.incomplete_scheduled_scene import IncompleteCastingDialog
+from ui.dialogs.interactive_event_dialog import InteractiveEventDialog
+from ui.dialogs.save_load_ui import SaveLoadDialog
+from ui.dialogs.settings_dialog import SettingsDialog
+from ui.dialogs.game_menu_dialog import GameMenuDialog, ExitDialog
+
+logger = logging.getLogger(__name__)
+
+
+class UIManager:
+    def __init__(self, controller, parent_widget=None):
+        self.controller = controller
+        self.parent_widget = parent_widget
+        self._dialog_instances = {}
+
+    def _get_dialog(self, dialog_class, *args, **kwargs):
+        dialog_name = dialog_class.__name__
+        if dialog_name not in self._dialog_instances:
+            self._dialog_instances[dialog_name] = dialog_class(
+                self.controller, *args, **kwargs, parent=self.parent_widget
+            )
+        return self._dialog_instances[dialog_name]
+
+    def show_game_menu(self):
+        dialog = self._get_dialog(GameMenuDialog)
+        dialog.exec()
+
+    def show_go_to_list(self):
+        dialog = self._get_dialog(GoToTalentDialog)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def show_inbox(self):
+        dialog = self._get_dialog(EmailDialog)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def show_help(self, topic_key: str):
+        dialog = self._get_dialog(HelpDialog)
+        dialog.show_topic(topic_key)
+
+    def show_save_load(self, mode: str):
+        dialog = SaveLoadDialog(self.controller, mode=mode, parent=self.parent_widget)
+        dialog.exec()
+
+    def show_settings(self):
+        dialog = self._get_dialog(SettingsDialog)
+        dialog.exec()
+
+    def show_exit_dialog(self):
+        dialog = ExitDialog(self.controller, parent=self.parent_widget)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            exit_save = dialog.get_data()
+            self.controller.return_to_main_menu(exit_save)
+
+    def show_quit_dialog(self):
+        dialog = ExitDialog(
+            self.controller,
+            text="Create 'Exit Save' before quitting?",
+            parent=self.parent_widget,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            exit_save = dialog.get_data()
+            self.controller.quit_game(exit_save)
+
+    def handle_incomplete_scenes(self, scenes: list):
+        all_resolved = True
+        for scene_data in scenes:
+            fresh_scene_data = self.controller.get_scene_for_planner(scene_data.id)
+            if not fresh_scene_data:
+                continue
+
+            dialog = IncompleteCastingDialog(
+                fresh_scene_data, self.controller, self.parent_widget
+            )
+            result = dialog.exec()
+
+            if result == QDialog.DialogCode.Rejected:
+                all_resolved = False
+                self.controller.signals.notification_posted.emit(
+                    "Week advancement cancelled."
+                )
+                break
+
+        if all_resolved:
+            self.controller.advance_week()
+
+    def show_interactive_event(self, event_data: dict, scene_id: int, talent_id: int):
+        scene_data = self.controller.get_scene_for_planner(scene_id)
+        talent_data = self.controller.talent_service.get_talent_by_id(talent_id)
+        current_money = self.controller.game_state.money
+
+        if not scene_data or not talent_data:
+            logger.error(
+                f"[UI ERROR] Could not fetch required data for event ID '{event_data.get('id')}'. Scene: {scene_data}, Talent: {talent_data}"
+            )
+            self.controller.resolve_interactive_event(
+                event_data["id"], scene_id, talent_id, "error_fallback"
+            )
+            return
+
+        dialog = InteractiveEventDialog(
+            event_data=event_data,
+            scene_data=scene_data,
+            talent_data=talent_data,
+            current_money=current_money,
+            controller=self.controller,
+            parent=self.parent_widget,
+        )
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            choice_id = dialog.selected_choice_id
+            event_id = event_data["id"]
+
+            if choice_id:
+                self.controller.resolve_interactive_event(
+                    event_id, scene_id, talent_id, choice_id
+                )
+            else:
+                logger.error(
+                    f"[UI WARN] Event dialog for '{event_id}' was accepted but no choice ID was returned. Resuming."
+                )
+                self.controller.resolve_interactive_event(
+                    event_id, scene_id, talent_id, "no_choice_fallback"
+                )

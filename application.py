@@ -1,5 +1,4 @@
-import os, sys, logging
-from datetime import datetime
+import os, logging
 from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QMessageBox
 from PyQt6.QtCore import pyqtSlot
 import qdarktheme
@@ -9,7 +8,6 @@ from game_controller import GameController
 from start_screen import MenuScreen
 from main_window import MainGameWindow
 from settings_manager import SettingsManager 
-from game_strings import game_name
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from utils.logger_setup import setup_logging
 from utils.paths import LOG_DIR, LOG_FILE
@@ -70,7 +68,7 @@ def apply_theme(settings_manager: SettingsManager):
 class ApplicationWindow(QMainWindow, GeometryManagerMixin):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(game_name)
+        self.setWindowTitle("Porn Studio Mogul")
         self.setMinimumSize(1366, 768)
 
         self.settings_manager = SettingsManager()
@@ -114,18 +112,3 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         """
         if key == "theme":
             apply_theme(self.settings_manager)
-
-
-if __name__ == "__main__":
-    # Configure logging as the very first step
-    setup_logging()
-
-    sys.excepthook = handle_exception
-    app = QApplication(sys.argv)
-
-    settings = SettingsManager()
-    apply_theme(settings)
-    
-    window = ApplicationWindow()
-    window.show()
-    sys.exit(app.exec())

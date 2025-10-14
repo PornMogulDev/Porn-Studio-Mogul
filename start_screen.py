@@ -8,7 +8,6 @@ from PyQt6.QtSvgWidgets import QSvgWidget
 from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from utils.paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO, ACKNOWLEDGEMENTS_TXT
-from game_strings import version
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +80,7 @@ class MenuScreen(QWidget):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("font-size: 32px; font-weight: bold;") # Override for title
         
-        version_label = QLabel(version)
+        version_label = QLabel("0.5.0")
         version_label.setAlignment(Qt.AlignmentFlag.AlignAbsolute | Qt.AlignmentFlag.AlignBottom)
 
         top_layout.addWidget(title_label, 9)   # Give the title 9 shares of space

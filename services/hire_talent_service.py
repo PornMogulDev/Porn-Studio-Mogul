@@ -18,6 +18,7 @@ class HireTalentService:
     def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, role_perf_service: RolePerformanceService):
         self.session = db_session
         self.data_manager = data_manager
+        self.talent_service = talent_service
         self.role_performance_service = role_perf_service
 
     def _get_roles_by_tag_for_vp(self, scene: Scene, vp_id: int) -> Dict[str, Set[str]]:

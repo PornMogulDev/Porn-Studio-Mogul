@@ -23,6 +23,7 @@ class TalentTabPresenter(QObject):
         self.controller.signals.talent_pool_changed.connect(self.view.refresh_from_state)
         self.controller.settings_manager.signals.setting_changed.connect(self.view.talent_detail_view.on_setting_changed)
         self.controller.signals.go_to_categories_changed.connect(self.view.refresh_from_state)
+        self.controller.signals.go_to_list_changed.connect(self.view.refresh_from_state)
 
         self.view.initial_load_requested.connect(self.on_initial_load)
         self.view.scene_filter_selected.connect(self.on_scene_selected_for_filter)
