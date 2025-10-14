@@ -9,7 +9,6 @@ from start_screen import MenuScreen
 from main_window import MainGameWindow
 from settings_manager import SettingsManager 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
-from utils.logger_setup import setup_logging
 from utils.paths import LOG_DIR, LOG_FILE
 
 # Set up a logger for this module
