@@ -1,26 +1,26 @@
 {
-  "general_overview": {
+  "overview": {
     "title": "Game Overview",
-    "content": "Welcome to the game! Your goal is to manage a production studio, create content, and become a successful producer.\n\nThe main game loop consists of planning scenes, hiring talent, scheduling shoots, and releasing your finished content to the market.\n\nKeep a close eye on your finances, as running out of money will lead to a game over. Good luck!"
+    "content_file": "overview.md"
   },
-  "email_inbox": {
-    "title": "Using the Inbox",
-    "content": "The Inbox is where you receive important messages, event notifications, and weekly reports.\n\n- Unread messages are shown in bold text in the list.\n- Selecting a message will display its content and automatically mark it as read.\n- You can delete messages by selecting one or more from the list and clicking the 'Delete Selected' button."
-  },
-  "hiring_talent": {
-    "title": "Hiring Talent",
-    "content": "The 'Hire Talent' tab is where you find new performers for your scenes. You can use the filters on the left to narrow down the talent pool.\n\nWhen you find a talent you want to cast, you can select them and use the casting panel on the right to assign them to an available role in one of your planned scenes.\n\nThe cost to hire a talent for a scene is based on their popularity and other factors."
+  "market_tab" : {
+    "title":"The Market",
+    "content_file": "market.md"
   },
   "scene_planner": {
-    "title": "Scene Planner",
-    "content": "The Scene Planner is where you design the content you will shoot. Give your scene a title and select 'Style' and 'Action' tags that define it.\n\nEach 'Action' tag requires a certain number of participants. You must create virtual performer slots to match this requirement.\n\nThe combination of tags you choose will determine the scene's appeal to different market groups."
+    "title": "Planning Scenes",
+    "content_file": "scene_planner.md"
   },
-  "schedule_tab": {
-    "title": "Schedule",
-    "content": "The Schedule tab provides an overview of your planned shooting blocs for the year.\n\nA shooting bloc is a container for one or more scenes that will be shot in a specific week. When you plan a bloc, you set the production quality settings for all scenes within it.\n\nFrom here, you can create new blocs or click on an existing bloc to view and edit the scenes it contains."
+  "talent": {
+    "title": "The Talent",
+    "content_file": "talent.md"
   },
-  "market_tab": {
-    "title": "Market",
-    "content": "The Market tab shows you the different viewer groups that make up your audience. Each group has specific preferences for scene tags.\n\nWhen you release content, its quality and tag combination will affect its performance with each group, influencing your income and talent popularity.\n\nMarket preferences can shift over time, so check back regularly to stay on top of trends."
+  "scene_events": {
+    "title": "Scene Events",
+    "content_file": "scene_events.md"
+  },
+  "email": {
+    "title": "The Inbox",
+    "content_file": "email_inbox.md"
   }
 }

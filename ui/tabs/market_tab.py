@@ -116,7 +116,7 @@ class MarketTab(QWidget):
         attr_layout.addWidget(QLabel("Focus Bonus:"), 1, 0)
         attr_layout.addWidget(QLabel(f"{resolved_data.get('focus_bonus', 1.0):.2f}x"), 1, 1)
         if dynamic_state:
-            attr_layout.addWidget(QLabel("Current Saturation:"), 1, 2)
+            attr_layout.addWidget(QLabel("Spending Willingness:"), 1, 2)
             attr_layout.addWidget(QLabel(f"{(dynamic_state.current_saturation * 100):.2f}%"), 1, 3)
         main_vbox.addWidget(attr_box)
 
@@ -159,7 +159,7 @@ class MarketTab(QWidget):
         action_sentiments = prefs_data.get('action_sentiments', {})
 
         if any([thematic_sentiments, physical_sentiments, action_sentiments]):
-            prefs_wrapper_box = QGroupBox("Sentiments")
+            prefs_wrapper_box = QGroupBox("Tag Sentiments")
             prefs_wrapper_box.setStyleSheet("font-weight: normal;")
             prefs_wrapper_layout = QHBoxLayout(prefs_wrapper_box)
             prefs_wrapper_layout.setAlignment(Qt.AlignmentFlag.AlignTop)

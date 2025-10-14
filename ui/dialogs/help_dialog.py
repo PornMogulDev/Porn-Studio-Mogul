@@ -1,9 +1,11 @@
+import os
 from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
     QTextEdit, QLabel, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt
 
+from utils.paths import HELP_DIR
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 
 class HelpDialog(GeometryManagerMixin, QDialog):
@@ -78,9 +80,21 @@ class HelpDialog(GeometryManagerMixin, QDialog):
         
         if topic_data:
             self.title_label.setText(topic_data.get('title', ''))
-            self.content_text.setPlainText(topic_data.get('content', 'No content available.'))
-        else:
-            self.clear_details()
+            content_path = topic_data.get('content_file')
+
+            if content_path:
+                # content_path is relative to the DATA_DIR
+                full_path = os.path.join(HELP_DIR, content_path)
+                try:
+                    with open(full_path, 'r', encoding='utf-8') as f:
+                        markdown_content = f.read()
+                    self.content_text.setMarkdown(markdown_content)
+                except FileNotFoundError:
+                    self.content_text.setPlainText(f"Error: Help file not found.\n\nPath: {full_path}")
+                except Exception as e:
+                    self.content_text.setPlainText(f"Error: Could not read help file.\n\nDetails: {e}")
+            else:
+                self.content_text.setPlainText("No content file specified for this topic.")
 
     def show_topic(self, topic_key: str):
         """Finds and selects a specific topic in the list."""

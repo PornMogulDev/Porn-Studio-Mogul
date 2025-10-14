@@ -22,6 +22,9 @@ SAVE_DIR = os.path.join(BASE_DIR, "saves")
 # Settings file
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 
+# Data sub-directories
+HELP_DIR = os.path.join(DATA_DIR, "help_content")
+
 # Data files
 GAME_DATA = os.path.join(DATA_DIR, "game_data.sqlite")
 HELP_FILE = os.path.join(DATA_DIR, "help_topics.json")
