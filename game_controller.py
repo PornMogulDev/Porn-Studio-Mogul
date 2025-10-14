@@ -20,6 +20,8 @@ from database.db_models import *
 
 from services.market_service import MarketService
 from services.talent_service import TalentService
+from services.hire_talent_service import HireTalentService
+from services.role_performance_service import RolePerformanceService
 from services.scene_event_service import SceneEventService
 from services.scene_service import SceneService
 from services.time_service import TimeService
@@ -56,6 +58,8 @@ class GameController(QObject):
 
         self.market_service = None
         self.talent_service = None
+        self.hire_talent_service = None
+        self.role_performance_service = None
         self.scene_service = None
         self.time_service = None
         self.go_to_list_service = None
@@ -298,7 +302,7 @@ class GameController(QObject):
         self.db_session.commit()
 
     def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int) -> int:
-        return self.talent_service.calculate_talent_demand(talent_id, scene_id, vp_id)
+        return self.hire_talent_service.calculate_talent_demand(talent_id, scene_id, vp_id)
 
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int):
         result = self.scene_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
@@ -432,10 +436,11 @@ class GameController(QObject):
         if not self.db_session:
             return
         self.market_service = MarketService(self.db_session, self.data_manager)
+        self.role_performance_service = RolePerformanceService(self.data_manager)
         self.talent_service = TalentService(self.db_session, self.data_manager, self.market_service)
-        # Service initialization order matters now
+        self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.role_performance_service)
         self.scene_event_service = SceneEventService(self.db_session, self.game_state, self.signals, self.data_manager, self.talent_service)
-        self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, self.scene_event_service)
+        self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, self.role_performance_service, self.scene_event_service)
         self.time_service = TimeService(self.db_session, self.game_state, self.signals, self.scene_service, self.talent_service, self.market_service, self.data_manager)
         self.go_to_list_service = GoToListService(self.db_session, self.signals)
         self.player_settings_service = PlayerSettingsService(self.db_session, self.signals) # Instantiate the new service

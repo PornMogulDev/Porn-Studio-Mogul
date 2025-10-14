@@ -55,7 +55,7 @@ class TalentTabPresenter(QObject):
 
     @pyqtSlot(int, int)
     def on_role_filter_applied(self, scene_id: int, vp_id: int):
-        eligible_talent = self.controller.talent_service.get_eligible_talent_for_role(scene_id, vp_id)
+        eligible_talent = self.controller.hire_talent_service.get_eligible_talent_for_role(scene_id, vp_id)
         self.view.update_talent_list(eligible_talent)
         self.view.set_standard_filters_enabled(False)
 
@@ -71,7 +71,7 @@ class TalentTabPresenter(QObject):
 
     @pyqtSlot(object)
     def on_talent_selected(self, talent: Talent):
-        available_roles = self.controller.talent_service.find_available_roles_for_talent(talent.id)
+        available_roles = self.controller.hire_talent_service.find_available_roles_for_talent(talent.id)
         tag_defs = self.controller.data_manager.tag_definitions
         policy_defs = self.controller.data_manager.on_set_policies_data
         self.view.talent_detail_view.display_talent(talent, available_roles, tag_defs, policy_defs)

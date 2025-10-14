@@ -10,6 +10,7 @@ from database.db_models import ShootingBlocDB
 from game_state import Scene, Talent
 from data_manager import DataManager
 from services.talent_service import TalentService
+from services.role_performance_service import RolePerformanceService
 from services.market_service import MarketService
 from database.db_models import ( SceneDB, MarketGroupStateDB, TalentDB, GameInfoDB, ShootingBlocDB,
                                 ScenePerformerContributionDB, SceneCastDB, TalentChemistryDB )
@@ -17,11 +18,12 @@ from database.db_models import ( SceneDB, MarketGroupStateDB, TalentDB, GameInfo
 logger = logging.getLogger(__name__)
 
 class SceneCalculationService:
-    def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, market_service: MarketService):
+    def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, market_service: MarketService, role_perf_service: RolePerformanceService):
         self.session = db_session
         self.data_manager = data_manager
         self.talent_service = talent_service
         self.market_service = market_service
+        self.role_performance_service = role_perf_service
     
     def calculate_shoot_results(self, scene_db: SceneDB, shoot_modifiers: Dict):
         total_salary_cost = sum(c.salary for c in scene_db.cast)
@@ -47,7 +49,7 @@ class SceneCalculationService:
                 except ValueError: continue
                 slot_def = next((s for s in slots if s['role'] == role), None)
                 if not slot_def: continue
-                final_mod = self.talent_service.get_talent_final_modifier('stamina_modifier', slot_def, segment, role); cost = segment_runtime * final_mod
+                final_mod = self.role_performance_service.get_final_modifier('stamina_modifier', slot_def, segment, role); cost = segment_runtime * final_mod
                 talent_stamina_cost[talent_id] += cost
         
         scene.performer_stamina_costs = {str(tid): cost for tid, cost in talent_stamina_cost.items()}

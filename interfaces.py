@@ -3,6 +3,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from game_state import Scene, Talent, ShootingBloc
 from services.talent_service import TalentService
+from services.hire_talent_service import HireTalentService
 from data_manager import DataManager
 from settings_manager import SettingsManager
 
@@ -38,6 +39,9 @@ class IGameController(Protocol):
     # --- Properties presenters need ---
     @property
     def talent_service(self) -> TalentService: ...
+
+    @property
+    def hire_talent_service(self) -> HireTalentService: ...
 
     @property
     def tag_definitions(self) -> Dict: ...
