@@ -45,12 +45,6 @@ class SceneFilterDialog(GeometryManagerMixin, QDialog):
             item.setCheckState(Qt.CheckState.Unchecked)
             self.category_list.addItem(item)
         cat_layout.addWidget(self.category_list)
-        match_group = QGroupBox("Category Match Type")
-        match_layout = QVBoxLayout(match_group)
-        self.any_radio = QRadioButton("Match Any Category (OR)"); self.all_radio = QRadioButton("Match All Categories (AND)")
-        match_layout.addWidget(self.any_radio); match_layout.addWidget(self.all_radio)
-        cat_layout.addWidget(match_group)
-        main_layout.addWidget(cat_group)
         # --- Orientations ---
         if self.orientations:
             orient_group = QGroupBox("Filter by Orientation")
@@ -72,6 +66,13 @@ class SceneFilterDialog(GeometryManagerMixin, QDialog):
             parts_layout.addWidget(QLabel("Min:")); parts_layout.addWidget(self.min_spin)
             parts_layout.addStretch(); parts_layout.addWidget(QLabel("Max:")); parts_layout.addWidget(self.max_spin)
             main_layout.addWidget(parts_group)
+        # --- AND OR ---
+        match_group = QGroupBox("Category Match Type")
+        match_layout = QVBoxLayout(match_group)
+        self.any_radio = QRadioButton("Match Any Category (OR)"); self.all_radio = QRadioButton("Match All Categories (AND)")
+        match_layout.addWidget(self.any_radio); match_layout.addWidget(self.all_radio)
+        cat_layout.addWidget(match_group)
+        main_layout.addWidget(cat_group)
         # --- Buttons ---
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self._apply_filters); button_box.rejected.connect(self.reject)

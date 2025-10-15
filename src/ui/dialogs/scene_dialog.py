@@ -154,8 +154,8 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         font = self.bloc_info_label.font(); font.setItalic(True); self.bloc_info_label.setFont(font)
         main_layout.addWidget(self.bloc_info_label)
         main_layout.addWidget(self._create_overview_group(), 1)
-        main_layout.addWidget(self._create_composition_group(), 3)
-        main_layout.addWidget(self._create_content_design_group(), 5)
+        main_layout.addWidget(self._create_composition_group(), 5)
+        main_layout.addWidget(self._create_content_design_group(), 7)
         
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch(10)
@@ -173,16 +173,17 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         main_layout.addLayout(bottom_layout)
 
     def _create_overview_group(self):
-        group = QGroupBox("Scene Overview"); top_layout = QHBoxLayout(group)
-        details_layout = QFormLayout(); self.title_edit = QLineEdit(); 
+        container = QWidget(); top_layout = QHBoxLayout(container)
+        details_layout = QHBoxLayout(); self.title_edit = QLineEdit(); 
         self.focus_target_combo = QComboBox(); self.focus_target_combo.addItems(self.viewer_groups)
-        details_layout.addRow("Title:", self.title_edit); details_layout.addRow("Focus Target:", self.focus_target_combo)
+        details_layout.addWidget(QLabel("Title:")); details_layout.addWidget(self.title_edit)
+        details_layout.addWidget(QLabel("Focus Target:")); details_layout.addWidget(self.focus_target_combo)
         top_layout.addLayout(details_layout)
-        return group
+        return container
 
     def _create_composition_group(self):
-        self.composition_group = QGroupBox("Composition")
-        comp_layout = QVBoxLayout(self.composition_group)
+        self.composition_container = QWidget()
+        comp_layout = QVBoxLayout(self.composition_container)
         perf_layout = QHBoxLayout()
         perf_layout.addWidget(QLabel("Number of Performers:"))
         self.performer_count_spinbox = QSpinBox(); self.performer_count_spinbox.setRange(1, 40) 
@@ -191,12 +192,13 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         self.ds_level_spinbox = QSpinBox(); self.ds_level_spinbox.setRange(0, 3)
         perf_layout.addWidget(self.ds_level_spinbox)
         perf_layout.addStretch()
+        perf_layout.addWidget(QLabel("Protagonist"))
         comp_layout.addLayout(perf_layout)
         self.performer_editors_layout = QVBoxLayout(); self.performer_editors_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         scroll_content_widget = QWidget(); scroll_content_widget.setLayout(self.performer_editors_layout)
         scroll_area = QScrollArea(); scroll_area.setWidgetResizable(True); scroll_area.setWidget(scroll_content_widget)
         comp_layout.addWidget(scroll_area)
-        return self.composition_group
+        return self.composition_container
 
     def _create_content_design_group(self):
         tags_widget = QWidget(); main_layout = QVBoxLayout(tags_widget)
@@ -342,15 +344,15 @@ class SceneDialog(GeometryManagerMixin, QDialog):
             name_edit = QLineEdit(data['display_name']); gender_combo = QComboBox(); gender_combo.addItems(["Female", "Male"])
             ethnicity_combo = QComboBox(); ethnicity_combo.addItems(self.available_ethnicities)
             disposition_combo = QComboBox(); disposition_combo.addItems(["Switch", "Dom", "Sub"])
-            protagonist_checkbox = QCheckBox("Protagonist")
+            protagonist_checkbox = QCheckBox()
             gender_combo.setCurrentText(data['gender']); ethnicity_combo.setCurrentText(data['ethnicity']); disposition_combo.setCurrentText(data['disposition'])
             protagonist_checkbox.setChecked(data['vp_id'] in protagonist_ids)
             if data['is_cast']: name_edit.setToolTip(f"Playing the role of '{data['vp_name']}'")
             is_editable = not data['is_cast']
-            h_layout.addWidget(QLabel(f"{i+1}:")); h_layout.addWidget(name_edit, 2); h_layout.addWidget(QLabel("Gender:")); h_layout.addWidget(gender_combo, 1)
-            h_layout.addWidget(QLabel("Ethnicity:")); h_layout.addWidget(ethnicity_combo, 1)
-            h_layout.addWidget(QLabel("Disposition:")); h_layout.addWidget(disposition_combo, 1)
-            h_layout.addWidget(protagonist_checkbox)
+            h_layout.addWidget(QLabel(f"{i+1}:")); h_layout.addWidget(name_edit); h_layout.addWidget(QLabel("Gender:")); h_layout.addWidget(gender_combo)
+            h_layout.addWidget(QLabel("Ethnicity:")); h_layout.addWidget(ethnicity_combo)
+            h_layout.addWidget(QLabel("Disposition:")); h_layout.addWidget(disposition_combo)
+            h_layout.addStretch(); h_layout.addWidget(protagonist_checkbox)
             name_edit.setEnabled(is_editable); gender_combo.setEnabled(is_editable); ethnicity_combo.setEnabled(is_editable); disposition_combo.setEnabled(ds_level > 0 and is_editable); protagonist_checkbox.setEnabled(is_editable)
             protagonist_checkbox.toggled.connect(lambda checked, vid=data['vp_id']: self.protagonist_toggled.emit(vid, checked))
             for w in [name_edit, gender_combo, ethnicity_combo, disposition_combo]: w.installEventFilter(self); w.setProperty("editor_widget", True)
@@ -456,7 +458,7 @@ class SceneDialog(GeometryManagerMixin, QDialog):
     def set_ui_lock_state(self, is_editable: bool, is_cast_locked: bool):
         self.status_combo.setEnabled(not is_cast_locked)
         self.button_box.button(QDialogButtonBox.StandardButton.Ok).setText("Close" if is_cast_locked else "OK")
-        widgets_to_toggle = [self.title_edit, self.delete_button, self.composition_group, self.total_runtime_spinbox, 
+        widgets_to_toggle = [self.title_edit, self.delete_button, self.composition_container, self.total_runtime_spinbox, 
                              self.focus_target_combo, self.ds_level_spinbox, self.content_tabs, self.add_thematic_btn,
                              self.remove_thematic_btn, self.add_physical_btn, self.remove_physical_btn, 
                              self.add_action_btn, self.remove_action_btn]
