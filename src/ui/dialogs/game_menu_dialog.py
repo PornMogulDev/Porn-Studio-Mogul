@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QPushButton, QDialogButtonBox, QHBoxLayout, QLabel, QCheckBox
+    QDialog, QVBoxLayout, QPushButton, QDialogButtonBox, 
+    QHBoxLayout, QLabel, QCheckBox, QWidget
 )
 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin

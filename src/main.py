@@ -8,6 +8,15 @@ if __name__ == "__main__":
     # Configure logging as the very first step
     setup_logging()
 
+    # --- Debugger Setup ---
+    # Start the debugpy server to allow remote debugging.
+    import debugpy
+    debugpy.listen(5678)
+    print("⏳ Waiting for debugger to attach...")
+    debugpy.wait_for_client()
+    print("✅ Debugger attached.")
+    # --- End Debugger Setup ---
+
     sys.excepthook = handle_exception
     app = QApplication(sys.argv)
 

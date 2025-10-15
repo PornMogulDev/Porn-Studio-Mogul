@@ -246,10 +246,9 @@ class SceneService:
 
         # Update simple attributes
         # FIX: Removed 'assigned_tags' from this loop to handle it manually after ID mapping.
-        for key in ['title', 'status', 'focus_target', 'total_runtime_minutes', 'scheduled_week', 'scheduled_year', 'global_tags', 'is_locked', 'dom_sub_dynamic_level']:
+        for key in ['title', 'status', 'focus_target', 'total_runtime_minutes', 'scheduled_week', 'scheduled_year', 'global_tags', 'is_locked', 'dom_sub_dynamic_level', 'protagonist_vp_ids']:
              if hasattr(scene_data, key):
                  setattr(scene_db, key, getattr(scene_data, key))
-
 
         vp_id_map = {}
 

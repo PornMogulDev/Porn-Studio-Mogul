@@ -51,6 +51,7 @@ class ScenePlannerPresenter:
         self.view.ds_level_changed.connect(self.on_ds_level_changed)
         self.view.performer_count_changed.connect(self.on_performer_count_changed)
         self.view.composition_changed.connect(self.on_composition_changed)
+        self.view.protagonist_toggled.connect(self.on_protagonist_toggled)
         self.view.total_runtime_changed.connect(self.on_total_runtime_changed)
         self.view.toggle_favorite_requested.connect(self.on_toggle_favorite_requested)
         
@@ -106,7 +107,11 @@ class ScenePlannerPresenter:
                 'display_name': talent.alias if talent else vp.name, 'vp_name': vp.name, 'is_cast': talent is not None,
                 'gender': vp.gender, 'ethnicity': vp.ethnicity, 'disposition': vp.disposition, 'vp_id': vp.id
             })
-        self.view.update_performer_editors(performers_with_talent_data, self.working_scene.dom_sub_dynamic_level)
+        self.view.update_performer_editors(
+            performers_with_talent_data,
+            self.working_scene.dom_sub_dynamic_level,
+            self.working_scene.protagonist_vp_ids
+        )
 
     def _refresh_thematic_panel(self):
         available = self.get_filtered_available_thematic_tags()
@@ -154,6 +159,9 @@ class ScenePlannerPresenter:
         self.editor_service.update_composition(performers_data)
         self.on_selected_physical_tag_changed(self.view.selected_physical_list.currentItem()); self._refresh_action_segment_panel()
         
+    def on_protagonist_toggled(self, vp_id: int, is_protagonist: bool):
+        self.editor_service.set_protagonist_status(vp_id, is_protagonist)
+
     def on_thematic_search_changed(self, text: str): self.thematic_search_text = text.lower(); self._refresh_thematic_panel()
     def on_physical_search_changed(self, text: str): self.physical_search_text = text.lower(); self._refresh_physical_panel()
     def on_action_search_changed(self, text: str): self.action_search_text = text.lower(); self._refresh_action_segment_panel()

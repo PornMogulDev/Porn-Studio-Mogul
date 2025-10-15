@@ -97,6 +97,7 @@ class SceneDialog(GeometryManagerMixin, QDialog):
     ds_level_changed = pyqtSignal(int)
     performer_count_changed = pyqtSignal(int)
     composition_changed = pyqtSignal(list)
+    protagonist_toggled = pyqtSignal(int, bool)
     total_runtime_changed = pyqtSignal(int)
     toggle_favorite_requested = pyqtSignal(str, str) # tag_name, tag_type
     
@@ -328,10 +329,10 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         self.focus_target_combo.setCurrentText(focus_target)
         self.total_runtime_spinbox.setValue(runtime)
         self.ds_level_spinbox.setValue(ds_level)
-        self.bloc_info_label.setText(bloc_text)
+        self.bloc_info_label.setText(bloc_text if bloc_text else "")
         for w in [self.title_edit, self.status_combo, self.focus_target_combo, self.total_runtime_spinbox, self.ds_level_spinbox]: w.blockSignals(False)
 
-    def update_performer_editors(self, performers_with_talent: List[Dict], ds_level: int):
+    def update_performer_editors(self, performers_with_talent: List[Dict], ds_level: int, protagonist_ids: List[int]):
         self.performer_count_spinbox.blockSignals(True); self.performer_count_spinbox.setValue(len(performers_with_talent)); self.performer_count_spinbox.blockSignals(False)
         while self.performer_editors_layout.count():
             child = self.performer_editors_layout.takeAt(0)
@@ -341,11 +342,17 @@ class SceneDialog(GeometryManagerMixin, QDialog):
             name_edit = QLineEdit(data['display_name']); gender_combo = QComboBox(); gender_combo.addItems(["Female", "Male"])
             ethnicity_combo = QComboBox(); ethnicity_combo.addItems(self.available_ethnicities)
             disposition_combo = QComboBox(); disposition_combo.addItems(["Switch", "Dom", "Sub"])
+            protagonist_checkbox = QCheckBox("Protagonist")
             gender_combo.setCurrentText(data['gender']); ethnicity_combo.setCurrentText(data['ethnicity']); disposition_combo.setCurrentText(data['disposition'])
+            protagonist_checkbox.setChecked(data['vp_id'] in protagonist_ids)
             if data['is_cast']: name_edit.setToolTip(f"Playing the role of '{data['vp_name']}'")
+            is_editable = not data['is_cast']
             h_layout.addWidget(QLabel(f"{i+1}:")); h_layout.addWidget(name_edit, 2); h_layout.addWidget(QLabel("Gender:")); h_layout.addWidget(gender_combo, 1)
-            h_layout.addWidget(QLabel("Ethnicity:")); h_layout.addWidget(ethnicity_combo, 1); h_layout.addWidget(QLabel("Disposition:")); h_layout.addWidget(disposition_combo, 1)
-            name_edit.setEnabled(not data['is_cast']); gender_combo.setEnabled(not data['is_cast']); ethnicity_combo.setEnabled(not data['is_cast']); disposition_combo.setEnabled(ds_level > 0)
+            h_layout.addWidget(QLabel("Ethnicity:")); h_layout.addWidget(ethnicity_combo, 1)
+            h_layout.addWidget(QLabel("Disposition:")); h_layout.addWidget(disposition_combo, 1)
+            h_layout.addWidget(protagonist_checkbox)
+            name_edit.setEnabled(is_editable); gender_combo.setEnabled(is_editable); ethnicity_combo.setEnabled(is_editable); disposition_combo.setEnabled(ds_level > 0 and is_editable); protagonist_checkbox.setEnabled(is_editable)
+            protagonist_checkbox.toggled.connect(lambda checked, vid=data['vp_id']: self.protagonist_toggled.emit(vid, checked))
             for w in [name_edit, gender_combo, ethnicity_combo, disposition_combo]: w.installEventFilter(self); w.setProperty("editor_widget", True)
             self.performer_editors_layout.addWidget(row_widget)
 

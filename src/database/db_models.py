@@ -163,6 +163,7 @@ class SceneDB(Base, DataclassMapper):
     scheduled_week = Column(Integer)
     scheduled_year = Column(Integer)
     dom_sub_dynamic_level = Column(Integer, default=0)
+    protagonist_vp_ids = Column(JSON, default=list)
     scene_type = Column(String, nullable=True)
     is_locked = Column(Boolean, default=False)
     total_runtime_minutes = Column(Integer, default=10)

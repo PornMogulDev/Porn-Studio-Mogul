@@ -78,6 +78,7 @@ class Scene:
     scheduled_week: int; scheduled_year: int
     bloc_id: Optional[int] = None
     dom_sub_dynamic_level: int = 0
+    protagonist_vp_ids: List[int] = field(default_factory=list)
     scene_type: Optional[str] = None
     is_locked: bool = False
     total_runtime_minutes: int = 10

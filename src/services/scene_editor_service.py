@@ -118,6 +118,15 @@ class SceneEditorService:
                 if vp_id is not None:
                     s.slot_assignments.append(SlotAssignment(slot_id=slot_id, virtual_performer_id=vp_id))
                 break
+    
+    def set_protagonist_status(self, vp_id: int, is_protagonist: bool):
+        """Updates the protagonist status for a given virtual performer."""
+        current_protagonists = set(self.working_scene.protagonist_vp_ids)
+        if is_protagonist:
+            current_protagonists.add(vp_id)
+        else:
+            current_protagonists.discard(vp_id)
+        self.working_scene.protagonist_vp_ids = sorted(list(current_protagonists))
 
     def validate_and_set_status(self, new_status: str) -> Tuple[bool, str]:
         new_status_lower = new_status.lower()

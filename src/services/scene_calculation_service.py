@@ -122,7 +122,7 @@ class SceneCalculationService:
         scene_mods = {
             'prod_setting_amplifiers': defaultdict(lambda: 1.0),
             'chemistry_amplifier': 1.0,
-            'acting_weight': 0.5, # Default 50/50 blend
+            'acting_weight': 0.3, 
             'ds_amplifier': 1.0,
         }
         all_scene_tags = set(scene.global_tags) | set(scene.assigned_tags.keys()) | set(scene.auto_tags)
@@ -180,6 +180,8 @@ class SceneCalculationService:
 
         if not final_cast_talents:
             return performer_contributions_data, tag_qualities
+        
+        protagonist_weight = self.data_manager.game_config.get("protagonist_contribution_weight", 1.25)
             
         # Use pre-calculated chemistry amplifier
         base_chemistry_scalar = self.data_manager.game_config.get("chemistry_performance_scalar", 0.125)
@@ -256,9 +258,10 @@ class SceneCalculationService:
                     elif vp.disposition == "Sub": ds_skill_value = talent.sub_skill
                     blended_score = (base_score * (1 - effective_ds_weight)) + (ds_skill_value * effective_ds_weight)
 
-                weight = 1.2 if slot_roles[talent.id] == "Receiver" else 1.0
-                final_score = blended_score * weight
-                
+                final_score = blended_score
+                if vp_id_str and int(vp_id_str) in scene.protagonist_vp_ids:
+                    final_score *= protagonist_weight
+
                 context_str = "/".join([f"{c}R" for c in [intended_receivers] if c] + [f"{c}G" for c in [intended_givers] if c] + [f"{c}P" for c in [intended_performers] if c])
                 contribution_key = f"{segment.tag_name} ({slot_roles[talent.id]}, {context_str})"
 
