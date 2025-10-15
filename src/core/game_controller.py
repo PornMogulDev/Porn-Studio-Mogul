@@ -1,18 +1,14 @@
 import copy
 import logging
-import json
 from typing import List, Dict, Optional, Tuple, Set
 from collections import defaultdict
-from PyQt6.QtCore import QObject, pyqtSignal
-from PyQt6.QtWidgets import QDialog
+from PyQt6.QtCore import QObject
 import random
-from sqlalchemy.orm import joinedload
 from sqlalchemy import func
 
 from core.interfaces import IGameController, GameSignals
-from typing import runtime_checkable
 from data.game_state import *
-from data.save_manager import SaveManager, QUICKSAVE_NAME, EXITSAVE_NAME
+from data.save_manager import SaveManager, QUICKSAVE_NAME
 from core.talent_generator import TalentGenerator
 from data.data_manager import DataManager
 from data.settings_manager import SettingsManager
@@ -32,7 +28,6 @@ from services.player_settings_service import PlayerSettingsService
 logger = logging.getLogger(__name__)
 
 class GameController(QObject):
-    # ... (no changes to __init__ or other methods until resolve_interactive_event) ...
     def __init__(self, settings_manager: SettingsManager, data_manager: DataManager):
         super().__init__()
         self.settings_manager = settings_manager
@@ -159,33 +154,45 @@ class GameController(QObject):
         )
         if incomplete_scenes:
             self.signals.incomplete_scene_check_requested.emit(incomplete_scenes)
-            return # Stop here, wait for UI to handle and possibly recall this method
+            return  # Stop here, wait for UI to handle and possibly recall this method
 
-        self.save_manager.auto_save(self.db_session)
-        # After auto_save, the session is rebound, so we need to get it again
-        self.db_session = self.save_manager.db_manager.get_session()
-        self._reinitialize_services() # Re-init services with the new session
-
+        # --- 1. PROCESS WEEK ADVANCEMENT ---
+        # All game logic for the week happens here, before saving.
         changes = self.time_service.process_week_advancement()
         
-        # Update GameState money from DB before emitting signals
+        # Update GameState money from DB before committing and saving
         money_info = self.db_session.query(GameInfoDB).filter_by(key='money').one()
-        # --- FIX: Robust parsing of money value ---
         self.game_state.money = int(float(money_info.value))
 
+        # Commit all changes from the week advancement to the database
         self.db_session.commit()
 
-        if changes.get("paused"): # If the week was paused by an event, don't emit final signals yet
-            if changes["scenes"]: self.signals.scenes_changed.emit()
+        # --- 2. AUTOSAVE AFTER ALL CHANGES ARE COMMITTED ---
+        # The autosave will now contain the state of the *new* week.
+        self.save_manager.auto_save(self.db_session)
+        
+        # After auto_save, the session is rebound. We need to get the new session
+        # and re-initialize services with it for the next player action.
+        self.db_session = self.save_manager.db_manager.get_session()
+        self._reinitialize_services()
+
+        # --- 3. EMIT SIGNALS AND HANDLE PAUSES/GAME OVER ---
+        if changes.get("paused"):  # If the week was paused by an event...
+            if changes.get("scenes"): self.signals.scenes_changed.emit()
+            # ...stop here. Don't emit final time/money signals, as the week is not fully complete.
             return
 
-        if changes["scenes"]: self.signals.scenes_changed.emit()
-        if changes["market"]: self.signals.market_changed.emit()
-        if changes["talent_pool"]: self.signals.talent_pool_changed.emit()
+        # Emit signals for all changes that occurred during the week
+        if changes.get("scenes"): self.signals.scenes_changed.emit()
+        if changes.get("market"): self.signals.market_changed.emit()
+        if changes.get("talent_pool"): self.signals.talent_pool_changed.emit()
 
+        # Check for game over condition
         if self.game_state.money <= self.game_constant.get('game_over_threshold', -5000):
-            self.signals.game_over_triggered.emit("bankruptcy"); return
+            self.signals.game_over_triggered.emit("bankruptcy")
+            return
 
+        # Finally, signal that the time and money have officially changed for the new week
         self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
         self.signals.money_changed.emit(self.game_state.money)
 

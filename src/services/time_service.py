@@ -4,7 +4,7 @@ from data.data_manager import DataManager
 from services.scene_service import SceneService
 from services.talent_service import TalentService
 from services.market_service import MarketService
-from database.db_models import GameInfoDB, SceneDB, TalentDB
+from database.db_models import GameInfoDB, SceneDB, TalentDB, Talent
 
 class TimeService:
     def __init__(self, db_session, game_state: GameState, signals, scene_service: SceneService, 
@@ -23,7 +23,7 @@ class TimeService:
         Advances the game by one week by running a series of DB queries and updates.
         This process may be paused if an interactive event occurs during a scene shoot.
         """
-        changes = {"scenes": False, "market": False, "talent_pool": False}
+        changes = {"scenes": False, "market": False, "talent_pool": False, "paused": False}
         current_date_val = self.game_state.year * 52 + self.game_state.week
 
         # Decay talent popularity
@@ -62,6 +62,7 @@ class TimeService:
                 # An event has paused execution. Stop the entire week advancement.
                 # The controller will handle resuming the process.
                 changes["scenes"] = True # A scene was started, so changes occurred
+                changes["paused"] = True # *** FIX: Explicitly flag that the process was paused
                 return changes
             changes["scenes"] = True
 
