@@ -74,7 +74,7 @@ class ScenePerformerContribution:
 @dataclass_json
 @dataclass
 class Scene:
-    id: int; title: str; status: str; focus_target: str; product_type: str
+    id: int; title: str; status: str; focus_target: str
     scheduled_week: int; scheduled_year: int
     bloc_id: Optional[int] = None
     dom_sub_dynamic_level: int = 0
@@ -90,7 +90,6 @@ class Scene:
     final_cast: Dict[str, int] = field(default_factory=dict)
     pps_salaries: Dict[str, int] = field(default_factory=dict)
     weeks_remaining: int = 0
-    pic_set: bool = False
     tag_qualities: Dict[str, float] = field(default_factory=dict)
     performer_contributions: List[ScenePerformerContribution] = field(default_factory=list)
     revenue: int = 0

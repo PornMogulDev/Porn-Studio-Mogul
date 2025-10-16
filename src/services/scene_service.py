@@ -158,7 +158,7 @@ class SceneService:
         
         new_scene_db = SceneDB(
             title="Untitled Scene", status="design", focus_target=focus_target,
-            product_type="Standard", scheduled_week=bloc_db.scheduled_week, 
+            scheduled_week=bloc_db.scheduled_week, 
             scheduled_year=bloc_db.scheduled_year, bloc_id=bloc_db.id
         )
         
@@ -199,7 +199,7 @@ class SceneService:
         focus_target = self.data_manager.market_data.get('viewer_groups', [{}])[0].get('name', 'N/A')
         
         new_scene_db = SceneDB(title="Untitled Scene", status="design", focus_target=focus_target,
-                               product_type="Standard", scheduled_week=week, scheduled_year=year)
+                               scheduled_week=week, scheduled_year=year)
         
         default_vp_db = VirtualPerformerDB(name="Performer 1", gender="Female", ethnicity="Any")
         new_scene_db.virtual_performers.append(default_vp_db)

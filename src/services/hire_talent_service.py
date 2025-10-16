@@ -135,17 +135,20 @@ class HireTalentService:
             # This check is primarily for receptive roles (Receiver)
             if 'Receiver' in roles_by_tag.get(segment.tag_name, set()):
                 num_givers = sum(1 for a in segment.slot_assignments if '_Giver_' in a.slot_id)
-                limit = talent.concurrency_limits.get(concept, 99)
+                limit = talent.concurrency_limits.get(
+                    concept, self.data_manager.game_config.get("hiring_concurrency_default_limit", 99)
+                )
                 if num_givers > limit:
                     return False, f"Concurrency limit for '{concept}' exceeded (Max: {limit}, Scene has: {num_givers})."
 
         # Check 4: Preference & Orientation Compatibility
         refusal_threshold = self.data_manager.game_config.get("talent_refusal_threshold", 0.2)
+        orientation_threshold = self.data_manager.game_config.get("talent_orientation_refusal_threshold", 0.1)
         for tag_name, roles_in_tag in roles_by_tag.items():
             for role in roles_in_tag:
                 preference = talent.tag_preferences.get(tag_name, {}).get(role, 1.0)
                 if preference < refusal_threshold:
-                    if preference < 0.1: # Extremely low score implies orientation conflict
+                    if preference < orientation_threshold: # Extremely low score implies orientation conflict
                         reason = f"Role involves '{tag_name}', which conflicts with their sexual orientation."
                     else:
                         reason = f"Strongly dislikes performing the '{role}' role in '{tag_name}'."
@@ -238,8 +241,8 @@ class HireTalentService:
         if not talent or not scene_db: return 0
         scene = scene_db.to_dataclass(Scene)
 
-        base_demand = self.data_manager.game_config.get("base_talent_demand", 450)
-        performance_multiplier = 1 + (talent.performance / 200.0)
+        base_demand = self.data_manager.game_config.get("base_talent_demand", 400)
+        performance_multiplier = 1 + (talent.performance / self.data_manager.game_config.get("hiring_demand_perf_divisor", 200))
         median_ambition = self.data_manager.game_config.get("median_ambition", 5.5)
         ambition_demand_divisor = self.data_manager.game_config.get("ambition_demand_divisor", 10.0)
         ambition_multiplier = 1.0 + ((talent.ambition - median_ambition) / ambition_demand_divisor)

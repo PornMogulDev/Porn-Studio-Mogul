@@ -2,13 +2,19 @@
   "initial_money": 2000000,
   "starting_year": 2010,
   "game_over_threshold": -5000,
-  "weekly_event_chance_percent": 10,
-  "base_release_revenue": 2000,
+  "base_release_revenue": 5000,
   "market_saturation_recovery_rate": 0.05,
   "saturation_spend_rate": 0.15,
-  "base_talent_demand": 400,
+  "base_talent_demand": 300,
   "preference_shift_intensity": 0.5, 
   "hard_limit_threshold": 0.1,
+  "talent_refusal_threshold": 0.2,
+  "talent_orientation_refusal_threshold": 0.1,
+  "hiring_concurrency_default_limit": 10,
+  "hiring_demand_perf_divisor": 200.0,
+  "pickiness_popularity_scalar": 0.4,
+  "pickiness_ambition_scalar": 2.5,
+  "max_attribute_level": 10,
   "median_ambition": 5.5,
   "ambition_demand_divisor": 10.0,
   "popularity_demand_scalar": 0.01,
@@ -19,12 +25,8 @@
   "maximum_skill_level": 100.0,
   "base_bad_event_chance_per_category": 0.50,
   "base_good_event_chance_per_category": 0.50,
+  "base_policy_event_chance": 0.15,
   "protagonist_contribution_weight": 1.25,
-  "scene_quality_weights": {
-    "performance": 0.5,
-    "acting": 0.3,
-    "stamina": 0.2
-  },
   "chemistry_performance_scalar": 0.125,
   "chemistry_discovery_weights": {
     "2": 2,   
@@ -38,12 +40,24 @@
   "fatigue_penalty_scalar": 0.3,
   "base_fatigue_weeks": 0,
   "popularity_decay_rate_weekly": 0.995,
-  "default_style_tag_quality_weight": 5.0,
-  "action_tag_overall_weight_ratio": 0.7,
   "cast_appeal_scalar": 0.25,
   "quality_revenue_multiplier": 1,
-  "thematic_appeal_weight": 0.7,
-  "cast_appeal_weight": 0.3,
+  "scene_quality_base_acting_weight": 0.3,
+  "scene_quality_min_acting_weight": 0.1,
+  "scene_quality_max_acting_weight": 0.9,
+  "scene_quality_ds_weights": {
+    "0": 0.0,
+    "1": 0.2,
+    "2": 0.5,
+    "3": 0.8
+  },
+  "scene_quality_min_performance_modifier": 0.1,
+  "scene_quality_auto_tag_default_quality": 100.0,
+  "default_camera_setup_tier": "1",
+  "revenue_weight_focused_physical_tag": 5.0,
+  "revenue_weight_default_action_appeal": 10.0,
+  "revenue_weight_auto_tag": 1.5,
+  "star_power_revenue_scalar": 0.005,
   "revenue_penalties": {
     "short_scene": {
       "enabled": true,
@@ -65,5 +79,26 @@
       "max_penalty_multiplier": 0.65
     }
   },
-  "default_sentiment_multiplier": 1.0
+  "default_sentiment_multiplier": 1.0,
+   "talent_generation": {
+    "age": { "min": 18, "max": 61, "weight_start": 1.0, "weight_end": 0.1 },
+    "skill": { "min": 10.0, "max": 100.0, "mode": 65.0 },
+    "attribute": { "min": 1, "max": 10, "mode": 5 },
+    "alias_single_name_chance": 0.15,
+    "dick_size": { "min": 2, "max": 15, "mode": 8 },
+    "orientation_score": { "min": -100, "max": 100, "mode": 0 },
+    "disposition_score": { "min": -100, "max": 100, "mode": 0 },
+    "max_partners_variance": [-2, 2],
+    "orientation_multiplier_curve": {
+        "distance": [0, 150, 200],
+        "multiplier": [1.0, 0.4, 0.05]
+    },
+    "policy_rules": [
+        {"type": "requires", "policy_id": "policy_std_test_required", "pro_level": 8, "comparison": "gte", "chance": 0.25},
+        {"type": "requires", "policy_id": "policy_no_drugs_allowed", "pro_level": 6, "comparison": "gte", "chance": 0.15},
+        {"type": "refuses", "policy_id": "policy_condoms_mandatory", "pro_level": 3, "comparison": "lte", "chance": 0.20},
+        {"type": "refuses", "policy_id": "policy_std_test_required", "pro_level": 4, "comparison": "lte", "chance": 0.10}
+    ],
+    "ethnicity_self_affinity_score": 100
+  }
 }

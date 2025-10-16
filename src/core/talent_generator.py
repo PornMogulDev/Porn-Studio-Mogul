@@ -15,6 +15,7 @@ class TalentGenerator:
         self.affinity_data = affinity_data
         self.tag_definitions = tag_definitions
         self.talent_archetypes = talent_archetypes
+        self.gen_config = self.game_constant.get("talent_generation", {})
             
         # A common ethnicity to fall back on if a specific one has no names
         self.fallback_ethnicity = "White"
@@ -34,20 +35,23 @@ class TalentGenerator:
         return random.choices(choices, weights=weights, k=1)[0]
 
     def _generate_age(self) -> int:
-        ages = list(range(18, 61))
+        age_config = self.gen_config.get("age", {"min": 18, "max": 61, "weight_start": 1.0, "weight_end": 0.1})
+        ages = list(range(age_config['min'], age_config['max']))
         # Younger ages are more likely
-        weights = np.linspace(1.0, 0.1, len(ages))
+        weights = np.linspace(age_config['weight_start'], age_config['weight_end'], len(ages))
         weights /= weights.sum()
         return int(np.random.choice(ages, p=weights))
 
     def _generate_skill(self) -> int:
         """Generates a random skill value, weighted towards the middle."""
-        return random.triangular(10, 100, 65)
+        skill_config = self.gen_config.get("skill", {"min": 10.0, "max": 100.0, "mode": 65.0})
+        return random.triangular(skill_config['min'], skill_config['max'], skill_config['mode'])
 
     def _generate_attribute(self, archetype_mods: Optional[Dict] = None) -> int:
         if archetype_mods:
             return random.randint(archetype_mods['min'], archetype_mods['max'])
-        return int(random.triangular(1, 10, 5))
+        attr_config = self.gen_config.get("attribute", {"min": 1, "max": 10, "mode": 5})
+        return int(random.triangular(attr_config['min'], attr_config['max'], attr_config['mode']))
 
     def _generate_gender(self) -> str:
         """Generates a gender based on weighted choices from data."""
@@ -85,8 +89,9 @@ class TalentGenerator:
         Generates a gender and ethnicity-appropriate alias.
         Can be a single name or a first/last name combo.
         """
-        # 15% chance to generate a single-name alias
-        if random.random() < 0.15:
+        single_name_chance = self.gen_config.get("alias_single_name_chance", 0.15)
+        
+        if random.random() < single_name_chance:
             name_list = self._get_name_list(ethnicity, gender, 'single')
             return random.choice(name_list)
         
@@ -105,19 +110,19 @@ class TalentGenerator:
         return f"{first_name} {last_name}"
 
     def _generate_dick_size(self) -> int:
-        # ... (This method is unchanged)
         """Generates a dick size in inches, weighted towards 7-10."""
-        # Triangular distribution: min, max, mode
-        return int(round(random.triangular(2, 15, 8)))
+        dick_config = self.gen_config.get("dick_size", {"min": 2, "max": 15, "mode": 8})
+        return int(round(random.triangular(dick_config['min'], dick_config['max'], dick_config['mode'])))
 
     def _generate_orientation_score(self) -> int:
         """Generates an orientation score from -100 (straight) to 100 (gay/lesbian)."""
-        # A triangular distribution makes the extremes less common than values in the middle.
-        return int(round(random.triangular(-100, 100, 0)))
+        orient_config = self.gen_config.get("orientation_score", {"min": -100, "max": 100, "mode": 0})
+        return int(round(random.triangular(orient_config['min'], orient_config['max'], orient_config['mode'])))
 
     def _generate_disposition_score(self) -> int:
         """Generates a disposition score from -100 (sub) to 100 (dom)."""
-        return int(round(random.triangular(-100, 100, 0)))
+        disp_config = self.gen_config.get("disposition_score", {"min": -100, "max": 100, "mode": 0})
+        return int(round(random.triangular(disp_config['min'], disp_config['max'], disp_config['mode'])))
 
     def _assign_archetype(self) -> dict:
         """Performs a weighted random choice to assign a talent archetype."""
@@ -151,11 +156,12 @@ class TalentGenerator:
             # Calculate orientation multiplier for the tag
             orientation_targets = {"Straight": -100, "Gay": 100, "Lesbian": 100}
             tag_orientation = tag_def.get('orientation')
+            curve_config = self.gen_config.get("orientation_multiplier_curve", {"distance": [0, 150, 200], "multiplier": [1.0, 0.4, 0.05]})
             orientation_multiplier = 1.0
             if tag_orientation and tag_orientation in orientation_targets:
                 target_score = orientation_targets[tag_orientation]
                 distance = abs(orientation_score - target_score)
-                orientation_multiplier = np.interp(distance, [0, 150, 200], [1.0, 0.4, 0.05])
+                orientation_multiplier = np.interp(distance, curve_config['distance'], curve_config['multiplier'])
 
             # Iterate through each specific role (slot) in the tag
             for slot_def in slots:
@@ -212,19 +218,21 @@ class TalentGenerator:
 
     def _generate_policy_requirements(self, professionalism: int) -> Dict[str, List[str]]:
         """Generates policy requirements based on professionalism."""
+        policy_rules = self.gen_config.get("policy_rules", [])
         reqs = {"requires": [], "refuses": []}
 
-        # High professionalism may require stricter policies
-        if professionalism >= 8 and random.random() < 0.25:
-            reqs["requires"].append("policy_std_test_required")
-        if professionalism >= 6 and random.random() < 0.15:
-            reqs["requires"].append("policy_no_drugs_allowed")
-        
-        # Low professionalism may refuse certain safety/professional policies
-        if professionalism <= 3 and random.random() < 0.20:
-            reqs["refuses"].append("policy_condoms_mandatory")
-        if professionalism <= 4 and random.random() < 0.10:
-            reqs["refuses"].append("policy_std_test_required")
+        for rule in policy_rules:
+            is_met = False
+            comparison = rule.get("comparison", "gte")
+            if comparison == "gte" and professionalism >= rule.get("pro_level", 99):
+                is_met = True
+            elif comparison == "lte" and professionalism <= rule.get("pro_level", -1):
+                is_met = True
+            
+            if is_met and random.random() < rule.get("chance", 0.0):
+                req_type = rule.get("type") # 'requires' or 'refuses'
+                if req_type and req_type in reqs:
+                    reqs[req_type].append(rule.get("policy_id"))
 
         return reqs
 
@@ -294,8 +302,9 @@ class TalentGenerator:
 
         # Partner Limits from Archetype
         max_scene_partners = archetype_data.get("max_scene_partners", 10)
+        variance = self.gen_config.get("max_partners_variance", [-2, 2])
         # Add a small variance for personality
-        max_scene_partners = max(1, max_scene_partners + random.randint(-2, 2))
+        max_scene_partners = max(1, max_scene_partners + random.randint(variance[0], variance[1]))
         concurrency_limits = archetype_data.get("concurrency_limits", {}).copy()
 
         # Skills
@@ -328,7 +337,8 @@ class TalentGenerator:
 
         # Common affinities
         if ethnicity and ethnicity != "N/A":
-            tag_affinities[ethnicity] = 100
+            affinity_score = self.gen_config.get("ethnicity_self_affinity_score", 100)
+            tag_affinities[ethnicity] = affinity_score
             
         return Talent(
             id=talent_id,

@@ -95,7 +95,7 @@ class SceneCalculationService:
         
         performer_mods = shoot_modifiers.get('performer_mods', {})
         quality_mods = shoot_modifiers.get('quality_mods', {})
-        new_contributions, scene_tag_qualities = self.calculate_scene_quality(scene, performer_mods, quality_mods)
+        new_contributions, scene_tag_qualities = self.calculate_scene_quality(scene, performer_mods, quality_mods, stamina_multiplier)
         
         # Clear any old contributions before adding new ones
         scene_db.performer_contributions_rel.clear() 
@@ -117,12 +117,12 @@ class SceneCalculationService:
         scene_db.status = 'shot' 
         scene_db.weeks_remaining = 0 
 
-    def calculate_scene_quality(self, scene: Scene, performer_mods: Dict, quality_mods: Dict):
+    def calculate_scene_quality(self, scene: Scene, performer_mods: Dict, quality_mods: Dict, stamina_multiplier: int):
         # Pre-calculate all scene-wide modifiers from Thematic tags
         scene_mods = {
             'prod_setting_amplifiers': defaultdict(lambda: 1.0),
             'chemistry_amplifier': 1.0,
-            'acting_weight': 0.3, 
+            'acting_weight': self.data_manager.game_config.get("scene_quality_base_acting_weight", 0.3), 
             'ds_amplifier': 1.0,
         }
         all_scene_tags = set(scene.global_tags) | set(scene.assigned_tags.keys()) | set(scene.auto_tags)
@@ -150,8 +150,10 @@ class SceneCalculationService:
                              multiplier = rule.get('multiplier', 1.0)
                              scene_mods['ds_amplifier'] = max(scene_mods['ds_amplifier'], multiplier)
         
-        # Clamp acting weight between reasonable values (e.g., 20% to 80%)
-        scene_mods['acting_weight'] = np.clip(scene_mods['acting_weight'], 0.2, 0.8)
+        # Clamp acting weight between configured values
+        min_weight = self.data_manager.game_config.get("scene_quality_min_acting_weight", 0.2)
+        max_weight = self.data_manager.game_config.get("scene_quality_max_acting_weight", 0.8)
+        scene_mods['acting_weight'] = np.clip(scene_mods['acting_weight'], min_weight, max_weight)
 
 
         # Use pre-calculated amplifiers for production settings
@@ -196,11 +198,12 @@ class SceneCalculationService:
                 net_chemistry_modifiers[t2.id] += score
             
         action_instance_qualities = defaultdict(list)
-        stamina_multiplier = self.data_manager.game_config.get("stamina_to_pool_multiplier", 1)
         in_scene_penalty_scalar = self.data_manager.game_config.get("in_scene_penalty_scalar", 0.4); fatigue_penalty_scalar = self.data_manager.game_config.get("fatigue_penalty_scalar", 0.3)
         temp_contributions = defaultdict(list)
         vp_map = {vp.id: vp for vp in scene.virtual_performers}
-        DS_WEIGHTS = {0: 0.0, 1: 0.2, 2: 0.4, 3: 0.7}
+        default_ds_weights = {0: 0.0, 1: 0.2, 2: 0.4, 3: 0.7}
+        ds_weights_from_config = self.data_manager.game_config.get("scene_quality_ds_weights", {str(k): v for k, v in default_ds_weights.items()})
+        DS_WEIGHTS = {int(k): v for k, v in ds_weights_from_config.items()}
         base_ds_weight = DS_WEIGHTS.get(scene.dom_sub_dynamic_level, 0.0)
 
         action_segments_for_calc = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
@@ -222,6 +225,7 @@ class SceneCalculationService:
             intended_givers = segment.parameters.get('Giver', 0)
             intended_performers = segment.parameters.get('Performer', 0)
 
+            min_perf_mod = self.data_manager.game_config.get("scene_quality_min_performance_modifier", 0.1)
             for talent in receivers + givers + performers:
                 vp_id_str = next((k for k, v in scene.final_cast.items() if v == talent.id), None)
                 vp = vp_map.get(int(vp_id_str)) if vp_id_str else None
@@ -238,8 +242,8 @@ class SceneCalculationService:
                     if 'min_mod' in performer_mod and 'max_mod' in performer_mod: performance_modifier *= random.uniform(performer_mod['min_mod'], performer_mod['max_mod'])
                     else: performance_modifier *= performer_mod.get('modifier', 1.0)
 
-                effective_performance = talent.performance * max(0.1, performance_modifier)
-                effective_acting = talent.acting * max(0.1, performance_modifier)
+                effective_performance = talent.performance * max(min_perf_mod, performance_modifier)
+                effective_acting = talent.acting * max(min_perf_mod, performance_modifier)
                 
                 # Use pre-calculated acting weight for a weighted blend
                 acting_weight = scene_mods['acting_weight']
@@ -258,21 +262,26 @@ class SceneCalculationService:
                     elif vp.disposition == "Sub": ds_skill_value = talent.sub_skill
                     blended_score = (base_score * (1 - effective_ds_weight)) + (ds_skill_value * effective_ds_weight)
 
-                final_score = blended_score
+                performer_weight = 1.0
                 if vp_id_str and int(vp_id_str) in scene.protagonist_vp_ids:
-                    final_score *= protagonist_weight
+                    performer_weight = protagonist_weight
 
                 context_str = "/".join([f"{c}R" for c in [intended_receivers] if c] + [f"{c}G" for c in [intended_givers] if c] + [f"{c}P" for c in [intended_performers] if c])
                 contribution_key = f"{segment.tag_name} ({slot_roles[talent.id]}, {context_str})"
 
-                temp_contributions[(talent.id, contribution_key)].append(final_score)
-                action_instance_qualities[segment.tag_name].append(final_score)
+                temp_contributions[(talent.id, contribution_key)].append(blended_score)
+                action_instance_qualities[segment.tag_name].append((blended_score, performer_weight))
         
         for (talent_id, key), scores in temp_contributions.items():
             performer_contributions_data.append({"talent_id": talent_id, "key": key, "score": round(np.mean(scores), 2)})
         
-        for tag_name, quality_list in action_instance_qualities.items():
-            tag_qualities[tag_name] = round(np.mean(quality_list), 2)
+        for tag_name, quality_data_list in action_instance_qualities.items():
+            total_weighted_score = sum(score * weight for score, weight in quality_data_list)
+            total_weight = sum(weight for _, weight in quality_data_list)
+            if total_weight > 0:
+                tag_qualities[tag_name] = round(total_weighted_score / total_weight, 2)
+            else:
+                tag_qualities[tag_name] = 0.0 # Default if no performers contributed
         
         # --- REFACTOR: PHYSICAL TAG QUALITY CALCULATION ---
         all_cast = list(final_cast_talents.values())
@@ -293,7 +302,8 @@ class SceneCalculationService:
                     continue
 
                 if source := tag_def.get('quality_source', {}):
-                    final_scores = []
+                    quality_data_list = []
+                    talent_id_to_vp_id = {v: k for k, v in scene.final_cast.items()}
                     for t in performers_for_quality:
                         score = 0
                         if not (blend_rules := source.get('quality_blend')):
@@ -305,12 +315,22 @@ class SceneCalculationService:
                                 elif rule_source == 'affinity': score += t.tag_affinities.get(source.get('affinity', tag_def.get('name')), 0) * weight
                                 elif rule_source == 'base': score += getattr(t, source.get('base', 'acting'), 0) * weight
                                 elif rule_source == 'dick_size': score += (getattr(t, 'dick_size', 0) or 0) * rule.get('multiplier', 1.0) * weight
-                        final_scores.append(score)
-                    tag_qualities[tag_name] = round(np.mean(final_scores), 2) if final_scores else 0.0
+                        vp_id_str = talent_id_to_vp_id.get(t.id)
+                        performer_weight = 1.0
+                        if vp_id_str and int(vp_id_str) in scene.protagonist_vp_ids:
+                            performer_weight = protagonist_weight
+                        
+                        quality_data_list.append((score, performer_weight))
+
+                    # Calculate the weighted average for the tag's quality
+                    total_weighted_score = sum(score * weight for score, weight in quality_data_list)
+                    total_weight = sum(weight for _, weight in quality_data_list)
+                    tag_qualities[tag_name] = round(total_weighted_score / total_weight, 2) if total_weight > 0 else 0.0
             
             else:
-                # --- AUTO behavior: Quality defaults to 100 ---
-                tag_qualities[tag_name] = 100.0
+                # --- AUTO behavior: Quality defaults to value from config ---
+                default_quality = self.data_manager.game_config.get("scene_quality_auto_tag_default_quality", 100.0)
+                tag_qualities[tag_name] = default_quality
         
         # Apply the final production quality modifier to all scores
         if total_prod_quality_modifier != 1.0:
@@ -341,9 +361,10 @@ class SceneCalculationService:
             return
             
         final_modifier = tier_data.get('base_quality_modifier', 1.0)
-        camera_setup_tier = "1"
+        default_camera_tier = self.data_manager.game_config.get("default_camera_setup_tier", "1")
+        camera_setup_tier = default_camera_tier
         if bloc_db and bloc_db.production_settings:
-            camera_setup_tier = bloc_db.production_settings.get('Camera Setup', '1')
+            camera_setup_tier = bloc_db.production_settings.get('Camera Setup', default_camera_tier)
 
         synergy_mod = tier_data.get('synergy_mods', {}).get(camera_setup_tier, 0.0)
         final_modifier += synergy_mod
@@ -373,23 +394,26 @@ class SceneCalculationService:
 
         # --- Calculate Tag Weights ---
         all_tags_with_weights = {}
+        focused_weight = self.data_manager.game_config.get("revenue_weight_focused_physical_tag", 5.0)
         # Physical tags (player-assigned)
         for tag_name in scene.assigned_tags:
             tag_def = self.data_manager.tag_definitions.get(tag_name, {})
-            all_tags_with_weights[tag_name] = tag_def.get('revenue_weights', {}).get('focused', 5.0)
+            all_tags_with_weights[tag_name] = tag_def.get('revenue_weights', {}).get('focused', focused_weight)
         # Action tags
+        default_action_weight = self.data_manager.game_config.get("revenue_weight_default_action_appeal", 10.0)
         action_segments_for_calc = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
         for segment in action_segments_for_calc:
             unique_key = f"{segment.tag_name}_{segment.id}"
             tag_def = self.data_manager.tag_definitions.get(segment.tag_name, {})
-            appeal_weight = tag_def.get('appeal_weight') or 10.0
+            appeal_weight = tag_def.get('appeal_weight') or default_action_weight
             all_tags_with_weights[unique_key] = (segment.runtime_percentage / 100.0) * appeal_weight
         # Auto tags
+        auto_weight = self.data_manager.game_config.get("revenue_weight_auto_tag", 1.5)
         focused_tags = set(scene.global_tags) | set(scene.assigned_tags.keys())
         for tag_name in scene.auto_tags:
             if tag_name not in focused_tags:
                 tag_def = self.data_manager.tag_definitions.get(tag_name, {})
-                all_tags_with_weights[tag_name] = tag_def.get('revenue_weights', {}).get('auto', 1.5)
+                all_tags_with_weights[tag_name] = tag_def.get('revenue_weights', {}).get('auto', auto_weight)
 
         if total_weight := sum(all_tags_with_weights.values()):
             all_tags_with_weights = {k: v / total_weight for k, v in all_tags_with_weights.items()}
