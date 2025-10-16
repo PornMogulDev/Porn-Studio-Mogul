@@ -1,8 +1,9 @@
 from typing import Optional, List, Dict
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox, QListWidget, QListWidgetItem,
-    QPushButton, QLabel, QDialogButtonBox, QSpinBox, QGroupBox, QWidget,
-    QScrollArea, QFormLayout, QStackedWidget, QCheckBox, QMessageBox, QMenu, QTabWidget
+    QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox,
+    QListWidget, QListWidgetItem, QPushButton, QLabel, QDialogButtonBox,
+    QSpinBox, QGroupBox, QWidget, QScrollArea, QStackedWidget,
+    QCheckBox, QMessageBox, QMenu, QTabWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QMimeData, QPoint
 from PyQt6.QtGui import QDrag, QKeyEvent, QFont

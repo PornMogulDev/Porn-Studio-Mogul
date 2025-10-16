@@ -306,6 +306,9 @@ class TalentGenerator:
         # Add a small variance for personality
         max_scene_partners = max(1, max_scene_partners + random.randint(variance[0], variance[1]))
         concurrency_limits = archetype_data.get("concurrency_limits", {}).copy()
+        for limit_type, base_value in concurrency_limits.items():
+            variation = random.randint(-1, 1)
+            concurrency_limits[limit_type] = max(1, base_value + variation)
 
         # Skills
         performance = self._generate_skill()

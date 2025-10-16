@@ -11,6 +11,7 @@ from ui.tabs.schedule_tab import ScheduleTab
 from core.notifications import NotificationManager
 from ui.tabs.market_tab import MarketTab
 from ui.presenters.talent_tab_presenter import TalentTabPresenter
+from ui.widgets.detachable_tab_widget import DetachableTabWidget
 from ui.widgets.top_bar_widget import TopBarWidget
 from ui.widgets.bottom_bar_widget import BottomBarWidget
 from ui.ui_manager import UIManager
@@ -44,8 +45,7 @@ class MainGameWindow(QWidget):
         layout.addWidget(self.top_bar)
 
         # --- Tabs ---
-        tabs = QTabWidget()
-        tabs.setMovable(True)
+        tabs = DetachableTabWidget(self.controller.settings_manager)
         
         self.hire_tab = HireWindow()
         self.hire_presenter = TalentTabPresenter(self.controller, self.hire_tab)

@@ -18,6 +18,13 @@ class GeometryManagerMixin:
     """
     _initial_geometry: QRect | None = None
 
+    def _get_window_name(self) -> str:
+        """
+        Returns the key used to store the window's geometry.
+        Defaults to the class name. Override for multiple instances of the same class.
+        """
+        return self.__class__.__name__
+
     def _restore_geometry(self):
         """
         Loads the window's last known geometry from settings and applies it.
@@ -31,9 +38,8 @@ class GeometryManagerMixin:
 
         self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
 
-        window_name = self.__class__.__name__
+        window_name = self._get_window_name()
         geometry_data = self.settings_manager.get_window_geometry(window_name)
-
         if geometry_data:
             geom = QRect(
                 geometry_data.get('x', 100),
@@ -76,7 +82,7 @@ class GeometryManagerMixin:
         if self.isMinimized() or self.isMaximized():
             return
 
-        window_name = self.__class__.__name__
+        window_name = self._get_window_name()
         geom = self.geometry()
 
         geometry_data = {

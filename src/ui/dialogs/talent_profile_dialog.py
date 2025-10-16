@@ -19,6 +19,7 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
             
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowTitle(f"Talent Profile: {self.talent.alias}")
         self.setMinimumSize(800, 600)
 
