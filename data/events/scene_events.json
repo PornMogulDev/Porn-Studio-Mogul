@@ -29,12 +29,6 @@
         "id": "pay_fix",
         "text": "Rent industrial fans ($250).",
         "hint": "Solves the problem for a price.",
-        "requirements": [
-          {
-            "type": "has_money",
-            "amount": 250
-          }
-        ],
         "effects": [
           {
             "type": "add_cost",
@@ -78,17 +72,12 @@
       {
         "id": "wait",
         "text": "Wait until the noise subsides.",
-        "hint": "You will incur costs for the delay ($400).",
-        "requirements": [
-          {
-            "type": "has_money",
-            "amount": 400
-          }
-        ],
+        "hint": "You will incur costs for the delay (20% of scene budget).",
         "effects": [
           {
             "type": "add_cost",
-            "amount": 400,
+            "cost_type": "proportional",
+            "amount": 0.20,
             "reason": "Shooting Delays"
           },
           {
@@ -221,36 +210,27 @@
         "text": "Ignore them and keep shooting.",
         "hint": "They are probably just seeking attention.",
         "effects": [
-          {
-            "type": "modify_scene_quality",
+          { "type": "modify_scene_quality",
             "key": "overall",
             "modifier": 0.5,
             "reason": "Pigeon Issues"
           },
-          {
-            "type": "notification",
+          { "type": "notification",
             "message": "They keep up their shenanigans, annoying everyone on set and affecting the scene quality."
           }
         ]
       },
       {
-        "id": "deal",
+        "id": "bribe",
         "text": "Seek a truce with the pigeons.",
-        "hint": "You will incur costs for the delay ($400).",
-        "requirements": [
-          {
-            "type": "has_money",
-            "amount": 400
-          }
-        ],
+        "hint": "You will incur costs for the delay (15% of scene budget).",
         "effects": [
-          {
-            "type": "add_cost",
-            "amount": 400,
-            "reason": "Shooting Delays"
+          { "type": "add_cost",
+            "cost_type": "proportional",
+            "amount": 0.15,
+             "reason": "Shooting Delays"
           },
-          {
-            "type": "notification",
+          { "type": "notification",
             "message": "You wait for a while until the noise isn't as disruptive."
           }
         ]
@@ -259,21 +239,13 @@
         "id": "control",
         "text": "Contact a pest control company.",
         "hint": "Better to allow professionals to do their job ($500).",
-        "requirements": [
-          {
-            "type": "has_money",
-            "amount": 500
-          }
-        ],
         "effects": [
-          {
-            "type": "add_cost",
+          { "type": "add_cost",
             "amount": 500,
             "reason": "Pigeon Issues"
           },
-          {
-            "type": "notification",
-            "message": "You had to pay the pest control company and everyone on-set for the delay, but the scene proceeded without issues from there."
+          { "type": "notification",
+            "message": "You had to pay the pest control company and everyone on-set for the traumatic experience, but the scene proceeded without issues from there."
           }
         ]
       },
@@ -295,7 +267,10 @@
                 "chance": 0.4,
                 "effects": [
                   { "type": "notification", "message": "It's a disaster. The pigeons are surprisingly resilient and make a huge mess. The set is ruined for the day." },
-                  { "type": "cancel_scene", "reason": "Lost to Pigeons" }
+                  { "type": "cancel_scene",
+                    "reason": "Lost to Pigeons",
+                    "cost_multiplier": 1.0
+                  }
                 ]
               }
             ]
@@ -307,7 +282,10 @@
         "text": "Cancel the shot.",
         "hint": "It's not a good omen.",
         "effects": [
-          { "type": "cancel_scene", "reason": "Pigeon Issues" },
+          { "type": "cancel_scene",
+            "reason": "Pigeon Issues",
+            "cost_multiplier": 1.0
+          },
           { "type": "notification", "message": "You cancelled the shoot for the day to ensure the higher power didn't get upset, but the bloc's costs for the day are lost." }
         ]
       }
@@ -350,7 +328,7 @@
     "base_chance": 1.0,
     "triggering_conditions": [
       { "type": "policy_active", "id": "policy_condoms_mandatory" },
-      { "type": "cast_has_gender", "gender": "Male" }
+      { "type": "talent_physical_attribute", "key": "dick_size", "comparison": "gte", "value": 10 }
     ],
     "choices": [
       {
@@ -386,9 +364,12 @@
       {
         "id": "cancel_shoot",
         "text": "Cancel the scene for today.",
-        "hint": "You'll lose the salary costs for today's shoot.",
+        "hint": "You'll lose the full salary & production costs for today's shoot.",
         "effects": [
-          { "type": "cancel_scene", "reason": "Health Concern" },
+          { "type": "cancel_scene",
+            "reason": "Health Concern",
+            "cost_multiplier": 1.0
+          },
           { "type": "notification", "message": "You cancelled the shoot for the day to ensure everyone's safety. The bloc's costs for the day are lost." }
         ]
       }
@@ -442,9 +423,13 @@
       {
         "id": "send_home",
         "text": "Send them home immediately. No pay.",
-        "hint": "Enforces your rules strictly, but you'll have to cancel the scene and lose their salary.",
+        "hint": "Enforces your rules strictly, but you'll have to cancel the scene and lose the full cost.",
         "effects": [
-          { "type": "cancel_scene", "reason": "Policy Violation" },
+          {
+            "type": "cancel_scene",
+            "reason": "Policy Violation",
+            "cost_multiplier": 1.0
+          },
           { "type": "notification", "message": "You sent {talent_name} home without pay. Your authority is clear, but the scene is a wash for today." }
         ]
       },
@@ -468,17 +453,20 @@
     "base_chance": 1.0,
     "triggering_tiers": ["Shady Warehouse", "Rented Apartment"],
     "triggering_conditions": [
-      { "type": "talent_participates_in_concept", "concept": "Anal" },
+      { "type": "talent_participates_in_concept", "concept": "Anal", "roles": ["Receiver"] },
       { "type": "talent_professionalism_below", "value": 4 },
-      { "type": "has_production_tier", "category": "Catering", "tier_name": "None" }
+      { "type": "has_production_tier", "category": "Makeup", "tier_name": "None" }
     ],
     "choices": [
       {
         "id": "cancel_and_reschedule",
         "text": "Cancel the scene for today.",
-        "hint": "You'll lose the salary costs for today's shoot.",
+        "hint": "You'll lose the full salary & production costs for today's shoot.",
         "effects": [
-          { "type": "cancel_scene", "reason": "Hygiene Issue" },
+          { "type": "cancel_scene",
+            "reason": "Hygiene Issue",
+            "cost_multiplier": 1.0
+          },
           { "type": "notification", "message": "You cancel the shoot. It's a costly but necessary decision." }
         ]
       },
