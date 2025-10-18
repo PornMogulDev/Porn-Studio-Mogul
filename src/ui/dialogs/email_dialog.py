@@ -16,7 +16,7 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
         self.setWindowTitle("Inbox")
-        self.setMinimumSize(600, 600)
+        self.setMinimumSize(600, 500)
 
         self.setup_ui()
         self.connect_signals()

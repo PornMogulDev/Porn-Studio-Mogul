@@ -16,7 +16,7 @@ class ShootingBlocDialog(GeometryManagerMixin, QDialog):
         self.policies_data = self.controller.data_manager.on_set_policies_data
         
         self.setWindowTitle("Plan New Shooting Bloc")
-        self.setMinimumSize(300,800)
+        self.setMinimumSize(350,750)
         
         # UI element storage
         self.prod_setting_combos = {} # Key: category, Value: QComboBox

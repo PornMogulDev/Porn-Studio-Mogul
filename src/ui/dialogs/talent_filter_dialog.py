@@ -13,7 +13,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.setWindowTitle("Advanced Talent Filter")
-        self.setMinimumSize(300,500)
+        self.setMinimumSize(350,800)
         self.current_filters = current_filters.copy()
 
         # Data for populating lists

@@ -50,7 +50,6 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         
         self.setWindowTitle("Go-To Talent Categories")
         self.setMinimumSize(600, 500)
-        self.setModal(False)
         self.setup_ui()
         
         self.connect_signals()
