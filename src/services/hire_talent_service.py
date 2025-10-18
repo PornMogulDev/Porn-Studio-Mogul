@@ -115,9 +115,13 @@ class HireTalentService:
 
         # Check 2: Hard Limits
         role_action_tags = self._get_action_tags_for_role(scene, vp_id)
-        for tag_name in role_action_tags:
-            if tag_name in talent.hard_limits:
-                return False, f"Talent has a hard limit against '{tag_name}'."
+        for full_tag_name in role_action_tags:
+            tag_def = self.data_manager.tag_definitions.get(full_tag_name)
+            # Should always exist, but guard just in case
+            base_name = tag_def.get('name') if tag_def else full_tag_name
+
+            if full_tag_name in talent.hard_limits or (base_name and base_name in talent.hard_limits):
+                return False, f"Talent has a hard limit against '{base_name}'."
         
         # Check 3: Concurrency Limits
         expanded_segments = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
