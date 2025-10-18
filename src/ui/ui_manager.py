@@ -2,7 +2,9 @@ import logging
 
 from PyQt6.QtWidgets import QDialog
 
+from data.game_state import Talent
 from ui.dialogs.email_dialog import EmailDialog
+from ui.dialogs.talent_profile_dialog import TalentProfileDialog
 from ui.dialogs.go_to_list import GoToTalentDialog
 from ui.dialogs.help_dialog import HelpDialog
 from ui.dialogs.incomplete_scheduled_scene import IncompleteCastingDialog
@@ -19,6 +21,8 @@ class UIManager:
         self.controller = controller
         self.parent_widget = parent_widget
         self._dialog_instances = {}
+        self._talent_profile_dialog_singleton = None
+        self._open_profile_dialogs_multi = {}
 
     def _get_dialog(self, dialog_class, *args, **kwargs):
         dialog_name = dialog_class.__name__
@@ -33,7 +37,14 @@ class UIManager:
         dialog.exec()
 
     def show_go_to_list(self):
-        dialog = self._get_dialog(GoToTalentDialog)
+        dialog_name = GoToTalentDialog.__name__
+        if dialog_name not in self._dialog_instances:
+            # Pass self (the UIManager instance) to the dialog for profile handling
+            self._dialog_instances[dialog_name] = GoToTalentDialog(
+                self.controller, self, parent=self.parent_widget
+            )
+        
+        dialog = self._dialog_instances[dialog_name]
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
@@ -132,3 +143,48 @@ class UIManager:
                 self.controller.resolve_interactive_event(
                     event_id, scene_id, talent_id, "no_choice_fallback"
                 )
+                
+    def show_talent_profile(self, talent: Talent):
+        """
+        Shows a talent profile dialog, respecting the user's setting for
+        singleton or multiple dialog behavior.
+        """
+        behavior = self.controller.settings_manager.get_setting("talent_profile_dialog_behavior")
+        
+        if behavior == 'singleton':
+            if self._talent_profile_dialog_singleton is None:
+                dialog = TalentProfileDialog(talent, self.controller, self.parent_widget)
+                dialog.destroyed.connect(self._on_singleton_profile_closed)
+                self._talent_profile_dialog_singleton = dialog
+                dialog.show()
+            else:
+                self._talent_profile_dialog_singleton.update_with_talent(talent)
+                self._talent_profile_dialog_singleton.raise_()
+                self._talent_profile_dialog_singleton.activateWindow()
+        else: # 'multiple'
+            talent_id = talent.id
+            if talent_id in self._open_profile_dialogs_multi:
+                dialog = self._open_profile_dialogs_multi[talent_id]
+                dialog.raise_()
+                dialog.activateWindow()
+            else:
+                dialog = TalentProfileDialog(talent, self.controller, self.parent_widget)
+                dialog.destroyed.connect(
+                    lambda obj=None, t_id=talent_id: self._on_multi_profile_closed(t_id)
+                )
+                self._open_profile_dialogs_multi[talent_id] = dialog
+                dialog.show()
+
+    def _on_singleton_profile_closed(self):
+        """
+        Slot to clear the reference when the singleton talent profile dialog is closed.
+        """
+        self._talent_profile_dialog_singleton = None
+
+    def _on_multi_profile_closed(self, talent_id: int):
+        """
+        Slot to remove a specific multi-instance talent profile dialog from the
+        tracking dictionary when it's closed.
+        """
+        if talent_id in self._open_profile_dialogs_multi:
+            del self._open_profile_dialogs_multi[talent_id]

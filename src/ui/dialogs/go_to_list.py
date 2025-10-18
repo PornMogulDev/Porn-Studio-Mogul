@@ -42,9 +42,10 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
     """A dialog to view and manage Go-To talent list categories."""
     ALL_TALENTS_ID = -1 # Sentinel value for the "All Talents" view
 
-    def __init__(self, controller, parent=None):
+    def __init__(self, controller, ui_manager, parent=None):
         super().__init__(parent)
         self.controller = controller
+        self.ui_manager = ui_manager
         self.settings_manager = self.controller.settings_manager
         
         self.setWindowTitle("Go-To Talent Categories")
@@ -218,8 +219,7 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
     def show_talent_profile(self, index: QModelIndex):
         if not index.isValid(): return
         if talent := self.talent_model.data(index, Qt.ItemDataRole.UserRole):
-            dialog = TalentProfileDialog(talent, self.controller, self)
-            dialog.exec()
+            self.ui_manager.show_talent_profile(talent)
 
     # --- NEW METHOD ---
     def show_talent_list_context_menu(self, pos: QPoint):
