@@ -23,7 +23,11 @@ SAVE_DIR = os.path.join(BASE_DIR, "saves")
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 
 # Data sub-directories
+EVENT_DIR = os.path.join(DATA_DIR, "events")
 HELP_DIR = os.path.join(DATA_DIR, "help_content")
+SCENE_SETTINGS_DIR = os.path.join(DATA_DIR, "scene_settings")
+TAG_DIR = os.path.join(DATA_DIR, "tags")
+TALENT_GEN_DIR = os.path.join(DATA_DIR, "talent_generation")
 
 # Data files
 GAME_DATA = os.path.join(DATA_DIR, "game_data.sqlite")

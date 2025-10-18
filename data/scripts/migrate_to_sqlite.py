@@ -2,7 +2,8 @@ import sqlite3
 import json
 import os
 
-DB_FILE = os.path.join(os.getcwd(), "game_data.sqlite")
+# Database will be created in the project root (parent of scripts/)
+DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "game_data.sqlite")
 
 def create_tables(cursor):
     """Creates all the necessary tables in the database."""
@@ -262,7 +263,7 @@ def migrate_scene_tags(cursor, all_tags_data):
                 auto_detection_rule_json,
                 quality_source_json, revenue_weights_json, scene_wide_modifiers_json, 
                 ethnicity, gender, tooltip, appeal_weight
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) -- <<< ADD ONE '?'
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             tag.get('name'), tag.get('orientation'), tag.get('type'), tag.get('concept'),
             is_template, is_auto_taggable, json.dumps(tag.get('categories')), 
@@ -391,8 +392,10 @@ def migrate_talent_archetypes(cursor, data):
     print(f"{count} talent archetype entries migrated.")
 
 def main():
-    # Create the database in the current working directory
-    db_path = os.path.join(os.getcwd(), "game_data.sqlite")
+    # Get the project root directory (parent of scripts/)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    db_path = os.path.join(project_root, "game_data.sqlite")
 
     if os.path.exists(db_path):
         print(f"'{db_path}' already exists. Deleting to start fresh.")
@@ -402,34 +405,31 @@ def main():
     cursor = conn.cursor()
 
     create_tables(cursor)
-    
-    # Base directory for JSON files, assuming they are in the same folder as the script
-    json_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # Helper function to load JSON files safely
-    def load_json(filename):
-        path = os.path.join(json_dir, filename)
+    # Helper function to load JSON files from the new structure
+    def load_json(relative_path):
+        path = os.path.join(project_root, relative_path)
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    # Load JSON files and run migrations
+    # Load JSON files and run migrations with updated paths
     try:
         migrate_config(cursor, load_json("game_config.json"))
-        migrate_talent_generation(cursor, load_json("talent_generation_data.json"))
+        migrate_talent_generation(cursor, load_json("talent_generation/talent_generation_data.json"))
         migrate_aliases(cursor, load_json("aliases_structured.json"))
-        migrate_talent_affinities(cursor, load_json("talent_affinity_data.json"))
+        migrate_talent_affinities(cursor, load_json("talent_generation/talent_affinity_data.json"))
         migrate_market(cursor, load_json("market.json"))
         all_tags = (
-        load_json("action_tags.json") +
-        load_json("physical_tags.json") +
-        load_json("thematic_tags.json")
+            load_json("tags/action_tags.json") +
+            load_json("tags/physical_tags.json") +
+            load_json("tags/thematic_tags.json")
         )
         migrate_scene_tags(cursor, all_tags)
-        migrate_production_settings(cursor, load_json("production_settings.json"))
-        migrate_post_production_settings(cursor, load_json("post_production_settings.json"))
-        migrate_on_set_policies(cursor, load_json("on_set_policies.json"))
-        migrate_scene_events(cursor, load_json("scene_events.json"))
-        migrate_talent_archetypes(cursor, load_json("talent_archetypes.json"))
+        migrate_production_settings(cursor, load_json("scene_settings/production_settings.json"))
+        migrate_post_production_settings(cursor, load_json("scene_settings/post_production_settings.json"))
+        migrate_on_set_policies(cursor, load_json("scene_settings/on_set_policies.json"))
+        migrate_scene_events(cursor, load_json("events/scene_events.json"))
+        migrate_talent_archetypes(cursor, load_json("talent_generation/talent_archetypes.json"))
 
     except FileNotFoundError as e:
         print(f"ERROR: Missing data file '{e.filename}'. Cannot continue migration.")
@@ -445,6 +445,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # Correctly set working directory to script's location for robust execution
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
     main()
