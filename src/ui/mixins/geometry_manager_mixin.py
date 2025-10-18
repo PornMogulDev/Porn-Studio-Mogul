@@ -61,10 +61,10 @@ class GeometryManagerMixin:
                 self.setGeometry(geom)
             else:
                 # If not visible (e.g., monitor disconnected), apply default position.
-                self._apply_default_position()
+                self._apply_default_geometry()
         else:
             # If no geometry is saved, apply default position.
-             self._apply_default_position()
+             self._apply_default_geometry()
 
         # Capture the initial geometry after it's been set for the session.
         self._initial_geometry = self.geometry()
@@ -110,11 +110,17 @@ class GeometryManagerMixin:
         if isinstance(self, QDialog):
             super().done(result)
 
-    def _apply_default_position(self):
-        """
-        Centers the widget on its parent if available; otherwise, on the primary screen.
-        Uses global coordinates to ensure accurate positioning.
-        """
+    def _apply_default_geometry(self):
+        # Resize to a sensible default. Prioritize minimumSize as it's often
+        # explicitly set for main windows. Fall back to sizeHint for dialogs.
+        min_size = self.minimumSize()
+        if min_size.width() > 0 and min_size.height() > 0:
+            self.resize(min_size)
+        else:
+            size_hint = self.sizeHint()
+            if size_hint.isValid():
+                self.resize(size_hint)
+
         parent = self.parentWidget()
         if parent:
             parent_center = parent.mapToGlobal(parent.rect().center())
@@ -126,7 +132,8 @@ class GeometryManagerMixin:
             if primary_screen := QApplication.primaryScreen():
                 screen_geom = primary_screen.availableGeometry()
                 self_rect = self.frameGeometry()
-                self.move(screen_geom.center() - self_rect.center())
+                self.move(screen_geom.center().x() - self_rect.width() // 2,
+                          screen_geom.center().y() - self_rect.height() // 2)
 
     def _on_setting_changed(self, key: str):
         """

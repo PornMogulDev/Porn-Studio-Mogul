@@ -511,7 +511,9 @@ class GameController(QObject):
         self.db_session = None # Clear session after returning to menu
 
     def quit_game(self, exit_save=False):
-        self.game_session_service.quit_game(exit_save, self.db_session, self.current_save_path)
+        self.game_session_service.handle_exit_save(exit_save, self.db_session, self.current_save_path)
+        # Now, signal the main application window that it's time to close.
+        self.signals.quit_game_requested.emit()
 
     def handle_game_over(self):
         self.game_over = True

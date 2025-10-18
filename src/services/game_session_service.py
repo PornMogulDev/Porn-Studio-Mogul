@@ -144,7 +144,7 @@ class GameSessionService:
         self.save_manager.db_manager.disconnect()
         self.signals.show_start_screen_requested.emit()
 
-    def quit_game(self, exit_save: bool, db_session: any, current_save_path: str):
+    def handle_exit_save(self, exit_save: bool, db_session: any, current_save_path: str):
+        """Handles saving the game on exit if requested."""
         if exit_save:
-            self.save_game(EXITSAVE_NAME, db_session, current_save_path)
-        self.signals.quit_game_requested.emit()
+             self.save_game(EXITSAVE_NAME, db_session, current_save_path)
