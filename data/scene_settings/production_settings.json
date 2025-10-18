@@ -28,9 +28,18 @@
   ],
   "Camera Equipment": [
     {
+      "tier_name": "Phone",
+      "cost_per_scene": 0,
+      "quality_modifier": 0.92,
+      "description": "4K cameras, professional lighting rig.",
+      "bad_event_chance_modifier": 1.2,
+      "good_event_chance_modifier": 0.8,
+      "is_low_tier": true
+    },
+    {
       "tier_name": "Professional",
-      "cost_per_scene": 850,
-      "quality_modifier": 1.1,
+      "cost_per_scene": 1000,
+      "quality_modifier": 1.15,
       "description": "4K cameras, professional lighting rig.",
       "bad_event_chance_modifier": 0.8,
       "good_event_chance_modifier": 1.2
@@ -79,6 +88,14 @@
       "description": "A limited selection of generic outfits are available.",
       "bad_event_chance_modifier": 1.1,
       "good_event_chance_modifier": 1.0
+    },
+    {
+      "tier_name": "Custom",
+      "cost_per_scene": 500,
+      "quality_modifier": 1.1,
+      "description": "Professional tailors high-end pieces.",
+      "bad_event_chance_modifier": 0.2,
+      "good_event_chance_modifier": 2.0
     }
   ],
   "Makeup": [
@@ -86,9 +103,18 @@
       "tier_name": "None",
       "cost_per_scene": 0,
       "quality_modifier": 0.93,
-      "description": "Talent is requested to do their makeup by themselves.",
+      "description": "Talent is requested to do their makeup before arriving on-set.",
       "bad_event_chance_modifier": 1.7,
       "good_event_chance_modifier": 0.8,
+      "is_low_tier": true
+    },
+    {
+      "tier_name": "DIY",
+      "cost_per_scene": 50,
+      "quality_modifier": 0.96,
+      "description": "Kit provided to talent, who is requested to do their own makeup.",
+      "bad_event_chance_modifier": 1.5,
+      "good_event_chance_modifier": 1.0,
       "is_low_tier": true
     },
     {
@@ -98,6 +124,14 @@
       "description": "A dedicated makeup artist is on-site to ensure talent looks their best.",
       "bad_event_chance_modifier": 1.0,
       "good_event_chance_modifier": 1.0
+    },
+    {
+      "tier_name": "Premium",
+      "cost_per_scene": 500,
+      "quality_modifier": 1.2,
+      "description": "A professional stylist with high-quality tools that is able to create elaborate looks.",
+      "bad_event_chance_modifier": 0.5,
+      "good_event_chance_modifier": 2.0
     }
   ],
   "Catering": [
@@ -116,7 +150,16 @@
       "quality_modifier": 1.0,
       "description": "Pizza and cheap coffee.",
       "bad_event_chance_modifier": 1.2,
-      "good_event_chance_modifier": 1.0
+      "good_event_chance_modifier": 1.0,
+      "is_low_tier": true
+    },
+    {
+      "tier_name": "Standard",
+      "cost_per_scene": 125,
+      "quality_modifier": 1.0,
+      "description": "A decent selection of good quality food and beverages.",
+      "bad_event_chance_modifier": 0.5,
+      "good_event_chance_modifier": 1.5
     },
     {
       "tier_name": "Gourmet",

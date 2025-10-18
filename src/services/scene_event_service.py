@@ -2,13 +2,13 @@ import logging
 import random
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
 from services.talent_service import TalentService
 from core.interfaces import GameSignals
-from database.db_models import TalentDB, ShootingBlocDB, GameInfoDB, SceneDB, SceneCastDB
+from database.db_models import TalentDB, ShootingBlocDB, GameInfoDB, SceneDB
 
 if TYPE_CHECKING:
     from services.scene_service import SceneService
@@ -26,8 +26,6 @@ class SceneEventService:
         self.signals = signals
         self.data_manager = data_manager
         self.talent_service = talent_service
-
-    # --- Methods Moved from SceneCalculationService (Event Triggering) ---
 
     def check_for_shoot_event(self, scene: Scene) -> Optional[Dict]:
         """
@@ -76,34 +74,42 @@ class SceneEventService:
 
                 bad_mod = tier_data.get('bad_event_chance_modifier', 1.0)
                 if random.random() < (base_bad_chance * bad_mod):
-                    result = self._select_triggering_talent_weighted(cast_talent_ids, 'bad')
-                    if result:
-                        selected_id, selected_pro = result
-                        context = { 'scene': scene, 'tier_name': tier_name, 'all_production_tiers': all_production_tiers, 'active_policies': active_policies, 'cast_genders': cast_genders, 'cast_size': cast_size, 'scene_tag_concepts': scene_tag_concepts, 'triggering_talent_id': selected_id, 'triggering_talent_pro': selected_pro }
+                    triggering_talent = self._select_triggering_talent_weighted(cast_talent_ids, 'bad')
+                    if triggering_talent:
+                        context = {
+                            'scene': scene, 'tier_name': tier_name,
+                            'all_production_tiers': all_production_tiers,
+                            'active_policies': active_policies, 'cast_genders': cast_genders,
+                            'cast_size': cast_size, 'scene_tag_concepts': scene_tag_concepts,
+                            'triggering_talent': triggering_talent,
+                            'triggering_talent_id': triggering_talent.id,
+                            'triggering_talent_pro': triggering_talent.professionalism
+                        }
                         event_to_trigger = self._select_event_from_pool(category, 'bad', context)
-                        if event_to_trigger: triggering_talent_id = selected_id; break
+                        
+                        if event_to_trigger:
+                            triggering_talent_id = triggering_talent.id
+                            break
                 
                 good_mod = tier_data.get('good_event_chance_modifier', 1.0)
                 if random.random() < (base_good_chance * good_mod):
-                    result = self._select_triggering_talent_weighted(cast_talent_ids, 'good')
-                    if result:
-                        selected_id, selected_pro = result
-                        context = { 'scene': scene, 'tier_name': tier_name, 'all_production_tiers': all_production_tiers, 'active_policies': active_policies, 'cast_genders': cast_genders, 'cast_size': cast_size, 'scene_tag_concepts': scene_tag_concepts, 'triggering_talent_id': selected_id, 'triggering_talent_pro': selected_pro }
+                    triggering_talent = self._select_triggering_talent_weighted(cast_talent_ids, 'good')
+                    if triggering_talent:
+                        context = { 'scene': scene, 'tier_name': tier_name, 'all_production_tiers': all_production_tiers, 'active_policies': active_policies, 'cast_genders': cast_genders, 'cast_size': cast_size, 'scene_tag_concepts': scene_tag_concepts, 'triggering_talent': triggering_talent, 'triggering_talent_id': triggering_talent.id, 'triggering_talent_pro': triggering_talent.professionalism }
                         event_to_trigger = self._select_event_from_pool(category, 'good', context)
-                        if event_to_trigger: triggering_talent_id = selected_id; break
+                        if event_to_trigger: triggering_talent_id = triggering_talent.id; break
             
             if event_to_trigger:
-                return { 'event_data': event_to_trigger, 'scene_id': scene.id, 'talent_id': triggering_talent_id }
+                return { 'event_data': event_to_trigger, 'scene_id': scene.id, 'talent_id': triggering_talent.id }
 
         base_policy_chance = self.data_manager.game_config.get("base_policy_event_chance", 0.15)
         if random.random() < base_policy_chance:
-            result = self._select_triggering_talent_weighted(cast_talent_ids, 'bad')
-            if result:
-                selected_id, selected_pro = result
-                context = { 'scene': scene, 'all_production_tiers': all_production_tiers, 'active_policies': active_policies, 'cast_genders': cast_genders, 'cast_size': cast_size, 'scene_tag_concepts': scene_tag_concepts, 'triggering_talent_id': selected_id, 'triggering_talent_pro': selected_pro}
+            triggering_talent = self._select_triggering_talent_weighted(cast_talent_ids, 'bad')
+            if triggering_talent:
+                context = { 'scene': scene, 'all_production_tiers': all_production_tiers, 'active_policies': active_policies, 'cast_genders': cast_genders, 'cast_size': cast_size, 'scene_tag_concepts': scene_tag_concepts, 'triggering_talent': triggering_talent, 'triggering_talent_id': triggering_talent.id, 'triggering_talent_pro': triggering_talent.professionalism}
                 event_to_trigger = self._select_event_from_pool('Policy', 'bad', context)
                 if event_to_trigger:
-                    return { 'event_data': event_to_trigger, 'scene_id': scene.id, 'talent_id': selected_id }
+                    return { 'event_data': event_to_trigger, 'scene_id': scene.id, 'talent_id': triggering_talent.id }
         
         return None
 
@@ -111,6 +117,7 @@ class SceneEventService:
         if not conditions: return True
 
         scene = context.get('scene')
+        triggering_talent = context.get('triggering_talent')
         triggering_talent_id = context.get('triggering_talent_id')
         triggering_talent_pro = context.get('triggering_talent_pro')
         active_policies, cast_genders, cast_size = context.get('active_policies', set()), context.get('cast_genders', set()), context.get('cast_size', 0)
@@ -125,15 +132,38 @@ class SceneEventService:
             elif req_type == 'talent_professionalism_below' and (triggering_talent_pro is None or triggering_talent_pro >= req.get('value', 0)): return False
             elif req_type == 'talent_participates_in_concept':
                 required_concept = req.get('concept')
+                required_roles = req.get('roles')
                 if not scene or not triggering_talent_id or not required_concept: return False
                 talent_is_in_concept = False
                 for segment in scene.get_expanded_action_segments(self.data_manager.tag_definitions):
-                    if self.data_manager.tag_definitions.get(segment.tag_name, {}).get('concept') == required_concept:
+                    tag_def = self.data_manager.tag_definitions.get(segment.tag_name, {})
+                    if tag_def.get('concept') == required_concept:
                         for assignment in segment.slot_assignments:
                             if scene.final_cast.get(str(assignment.virtual_performer_id)) == triggering_talent_id:
-                                talent_is_in_concept = True; break
+                                # Talent found in the concept. Now check role if required.
+                                if not required_roles:
+                                    talent_is_in_concept = True
+                                    break
+                                
+                                try:
+                                    _, role, _ = assignment.slot_id.rsplit('_', 2)
+                                    if role in required_roles:
+                                        talent_is_in_concept = True
+                                        break
+                                except ValueError:
+                                    continue
                     if talent_is_in_concept: break
                 if not talent_is_in_concept: return False
+            elif req_type == 'talent_physical_attribute':
+                if not triggering_talent: return False
+                key, comparison, value = req.get('key'), req.get('comparison'), req.get('value')
+                actual_value = getattr(triggering_talent, key, None)
+                if actual_value is None: return False
+                is_met = False
+                if comparison == 'gte' and actual_value >= value: is_met = True
+                elif comparison == 'lte' and actual_value <= value: is_met = True
+                elif comparison == 'eq' and actual_value == value: is_met = True
+                if not is_met: return False
             elif req_type == 'scene_has_tag_concept' and req.get('concept') not in scene_tag_concepts: return False
             elif req_type == 'has_production_tier' and all_production_tiers.get(req.get('category')) != req.get('tier_name'): return False
             elif req_type == 'cast_size_is':
@@ -157,12 +187,13 @@ class SceneEventService:
         weights = [e.get('base_chance', 1.0) for e in possible_events]
         return random.choices(possible_events, weights=weights, k=1)[0]
     
-    def _select_triggering_talent_weighted(self, cast_talent_ids: List[int], event_type: str) -> Optional[Tuple[int, int]]:
-        if not cast_talent_ids: return None
-        cast_pro_scores_db = self.session.query(TalentDB.id, TalentDB.professionalism).filter(TalentDB.id.in_(cast_talent_ids)).all()
-        if not cast_pro_scores_db: return None
-        talent_pro_map = {row.id: row.professionalism for row in cast_pro_scores_db}
-        talent_ids, professionalism_scores = list(talent_pro_map.keys()), list(talent_pro_map.values())
+    def _select_triggering_talent_weighted(self, cast_talent_ids: List[int], event_type: str) -> Optional[Talent]:
+        cast_talents_db = self.session.query(TalentDB).filter(TalentDB.id.in_(cast_talent_ids)).all()
+        if not cast_talents_db: return None
+
+        talent_map = {t.id: t for t in cast_talents_db}
+        talent_ids = list(talent_map.keys())
+        professionalism_scores = [talent_map[tid].professionalism for tid in talent_ids]
         if event_type == 'bad':
             max_pro = self.data_manager.game_config.get("max_attribute_level", 10)
             weights = [(max_pro + 1) - score for score in professionalism_scores]
@@ -170,14 +201,26 @@ class SceneEventService:
             weights = [score + 1 for score in professionalism_scores]
         else:
             selected_id = random.choice(talent_ids)
-            return (selected_id, talent_pro_map[selected_id])
+            return talent_map[selected_id].to_dataclass(Talent)
         if sum(weights) == 0:
             selected_id = random.choice(talent_ids)
-            return (selected_id, talent_pro_map[selected_id])
-        selected_id = random.choices(talent_ids, weights=weights, k=1)[0]
-        return (selected_id, talent_pro_map[selected_id])
+        else:
+            selected_id = random.choices(talent_ids, weights=weights, k=1)[0]
 
-    # --- Methods Moved from GameController (Event Resolution) ---
+        return talent_map[selected_id].to_dataclass(Talent)
+
+    def _calculate_proportional_cost(self, scene_db: SceneDB, multiplier: float) -> int:
+        """Calculates a cost based on the scene's total one-time budget."""
+        salary_cost = sum(c.salary for c in scene_db.cast)
+        prod_cost_per_scene = 0
+        if scene_db.bloc_id:
+            bloc_db = self.session.query(ShootingBlocDB).options(selectinload(ShootingBlocDB.scenes)).get(scene_db.bloc_id)
+            if bloc_db and bloc_db.scenes:
+                num_scenes_in_bloc = len(bloc_db.scenes)
+                if num_scenes_in_bloc > 0:
+                    prod_cost_per_scene = bloc_db.production_cost / num_scenes_in_bloc
+        total_scene_budget = salary_cost + prod_cost_per_scene
+        return int(total_scene_budget * multiplier)
 
     def resolve_interactive_event(self, event_id: str, scene_id: int, talent_id: int, choice_id: str) -> Dict:
         """
@@ -218,8 +261,12 @@ class SceneEventService:
             for effect in effects_list:
                 effect_type = effect.get('type')
                 if effect_type == 'add_cost':
-                    cost = effect.get('amount', 0)
-                    if self.game_state.money >= cost:
+                    cost = 0
+                    if effect.get('cost_type') == 'proportional':
+                        cost = self._calculate_proportional_cost(scene_db, effect.get('amount', 0.0))
+                    else:
+                        cost = effect.get('amount', 0)
+                    if cost > 0:
                         money_info = self.session.query(GameInfoDB).filter_by(key='money').one()
                         self.game_state.money -= cost
                         money_info.value = str(self.game_state.money)
@@ -231,30 +278,16 @@ class SceneEventService:
                     self.signals.notification_posted.emit(message)
                 elif effect_type == 'cancel_scene':
                     if not scene_db: continue
-                    total_salary_cost = sum(c.salary for c in scene_db.cast)
+                    cost_multiplier = effect.get('cost_multiplier', 1.0)
+                    cost_to_lose = self._calculate_proportional_cost(scene_db, cost_multiplier)
                     money_info = self.session.query(GameInfoDB).filter_by(key='money').one()
-                    self.game_state.money -= total_salary_cost
+                    self.game_state.money -= cost_to_lose
                     money_info.value = str(self.game_state.money)
                     self.signals.money_changed.emit(self.game_state.money)
                     
-                    # Instead of calling a service, modify the outcome dictionary
                     current_outcome["scene_was_cancelled"] = True
                     reason = effect.get('reason', 'Event')
-                    # We still post the notification here, as this service has the context
-                    self.signals.notification_posted.emit(f"Scene '{scene_db.title}' cancelled ({reason}). Lost salary costs of ${total_salary_cost:,}.")
-                elif effect_type == 'cancel_scene':
-                    if not scene_db or not self.scene_service: continue
-                    total_salary_cost = sum(c.salary for c in scene_db.cast)
-                    money_info = self.session.query(GameInfoDB).filter_by(key='money').one()
-                    self.game_state.money -= total_salary_cost
-                    money_info.value = str(self.game_state.money)
-                    self.signals.money_changed.emit(self.game_state.money)
-                    # Use the service to delete, but don't commit here. Controller handles commit.
-                    deleted_title = self.scene_service.delete_scene(scene_id, penalty_percentage=0.0)
-                    if deleted_title:
-                        current_outcome["scene_was_cancelled"] = True
-                        reason = effect.get('reason', 'Event')
-                        self.signals.notification_posted.emit(f"Scene '{deleted_title}' cancelled ({reason}). Lost salary costs of ${total_salary_cost:,}.")
+                    self.signals.notification_posted.emit(f"Scene '{scene_db.title}' cancelled ({reason}). Lost costs of ${cost_to_lose:,}.")
                 elif effect_type in ('modify_performer_contribution', 'modify_performer_contribution_random'):
                     target_id = talent_id if effect.get('target') == 'triggering_talent' else other_talent_id
                     if target_id:

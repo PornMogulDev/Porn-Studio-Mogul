@@ -534,5 +534,226 @@
         ]
       }
     ]
+  },
+  {
+    "id": "placeholder_camera_phone",
+    "name": "Placeholder Camera Event",
+    "description": "requirement: Camera Equipment is Phone",
+    "category": "Camera Equipment",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_tiers": ["Phone"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_camera_professional",
+    "name": "Placeholder Camera Event",
+    "description": "requirement: Camera Equipment is Professional",
+    "category": "Camera Equipment",
+    "type": "good",
+    "base_chance": 1.0,
+    "triggering_tiers": ["Professional"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_camerasetup_1",
+    "name": "Placeholder Camera Setup Event",
+    "description": "requirement: Camera Setup is 1",
+    "category": "Camera Setup",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_tiers": ["1"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_camerasetup_2",
+    "name": "Placeholder Camera Setup Event",
+    "description": "requirement: Camera Setup is 2",
+    "category": "Camera Setup",
+    "type": "good",
+    "base_chance": 1.0,
+    "triggering_tiers": ["2"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_camerasetup_3",
+    "name": "Placeholder Camera Setup Event",
+    "description": "requirement: Camera Setup is 3",
+    "category": "Camera Setup",
+    "type": "good",
+    "base_chance": 1.0,
+    "triggering_tiers": ["3"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_wardrobe_none",
+    "name": "Placeholder Wardrobe Event",
+    "description": "requirement: Wardrobe is None",
+    "category": "Wardrobe",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_tiers": ["None"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_wardrobe_basic",
+    "name": "Placeholder Wardrobe Event",
+    "description": "requirement: Wardrobe is Basic",
+    "category": "Wardrobe",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_tiers": ["Basic"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_wardrobe_custom",
+    "name": "Placeholder Wardrobe Event",
+    "description": "requirement: Wardrobe is Custom",
+    "category": "Wardrobe",
+    "type": "good",
+    "base_chance": 1.0,
+    "triggering_tiers": ["Custom"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_makeup_diy",
+    "name": "Placeholder Makeup Event",
+    "description": "requirement: Makeup is DIY",
+    "category": "Makeup",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_tiers": ["DIY"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_makeup_premium",
+    "name": "Placeholder Makeup Event",
+    "description": "requirement: Makeup is Premium",
+    "category": "Makeup",
+    "type": "good",
+    "base_chance": 1.0,
+    "triggering_tiers": ["Premium"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_catering_none",
+    "name": "Placeholder Catering Event",
+    "description": "requirement: Catering is None",
+    "category": "Catering",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_tiers": ["None"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_catering_basic",
+    "name": "Placeholder Catering Event",
+    "description": "requirement: Catering is Basic",
+    "category": "Catering",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_tiers": ["Basic"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
+  },
+  {
+    "id": "placeholder_catering_standard",
+    "name": "Placeholder Catering Event",
+    "description": "requirement: Catering is Standard",
+    "category": "Catering",
+    "type": "good",
+    "base_chance": 1.0,
+    "triggering_tiers": ["Standard"],
+    "choices": [
+      {
+        "id": "acknowledge",
+        "text": "Ok",
+        "hint": "No effect.",
+        "effects": []
+      }
+    ]
   }
 ]
