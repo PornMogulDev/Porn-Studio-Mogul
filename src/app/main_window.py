@@ -42,6 +42,7 @@ class MainGameWindow(QWidget):
         # --- Top bar ---
         self.top_bar = TopBarWidget(self.controller)
         self.top_bar.set_menu_callback(self.ui_manager.show_game_menu)
+        self.top_bar.help_requested.connect(self.ui_manager.show_help)
         layout.addWidget(self.top_bar)
 
         # --- Tabs ---

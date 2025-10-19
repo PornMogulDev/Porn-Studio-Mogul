@@ -12,6 +12,7 @@ QGridLayout
 from collections import defaultdict
 
 from data.game_state import Talent, Scene
+from ui.widgets.help_button import HelpButton
 from ui.dialogs.scene_dialog import SceneDialog
 from utils.formatters import format_orientation, format_physical_attribute
 
@@ -291,6 +292,7 @@ class HireWindow(QWidget):
     open_scene_dialog_requested = pyqtSignal(int)
     open_talent_profile_requested = pyqtSignal(object)
     initial_load_requested = pyqtSignal()
+    help_requested = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -302,7 +304,9 @@ class HireWindow(QWidget):
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
         left_panel = QWidget(); left_layout = QVBoxLayout(left_panel)
-        
+
+        help_btn = HelpButton("talent"); left_layout.addWidget(help_btn)
+
         role_filter_group = QGroupBox("Filter for Role"); role_filter_layout = QGridLayout(role_filter_group)
         role_filter_layout.addWidget(QLabel("Scene:"), 0, 0); role_filter_layout.addWidget(QLabel("Role:"), 1, 0)
         self.scene_filter_combo = QComboBox(); self.role_filter_combo = QComboBox()
@@ -336,6 +340,7 @@ class HireWindow(QWidget):
         self.talent_detail_view.hire_requested.connect(self.hire_requested)
         self.talent_detail_view.open_scene_dialog_requested.connect(self.open_scene_dialog_requested)
         self.talent_detail_view.settings_changed.connect(self.refresh_from_state)
+        help_btn.help_requested.connect(self.help_requested)
 
     def update_talent_list(self, talents: list):
         self.talent_model.update_data(talents)

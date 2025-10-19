@@ -3,6 +3,8 @@ QWidget, QVBoxLayout, QScrollArea, QGroupBox, QFormLayout, QLabel, QHBoxLayout, 
 )
 from PyQt6.QtCore import Qt
 
+from ui.widgets.help_button import HelpButton
+
 class MarketTab(QWidget):
     """A tab to display detailed information about market viewer groups using a dropdown."""
     def __init__(self, controller):
@@ -19,6 +21,9 @@ class MarketTab(QWidget):
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        help_btn = HelpButton("market", self)
+        help_btn.help_requested.connect(self.controller.signals.show_help_requested)
+        main_layout.addWidget(help_btn)
         # Dropdown to select the viewer group
         self.group_selector = QComboBox()
         self.group_selector.setPlaceholderText("Select a Viewer Group...")

@@ -1,12 +1,12 @@
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import ( QHBoxLayout, QLabel, QPushButton, QSizePolicy,
     QSpacerItem, QWidget,
 )
 
 from ui.widgets.help_button import HelpButton
 
-
 class TopBarWidget(QWidget):
+    help_requested = pyqtSignal(str)
     def __init__(self, controller, parent=None):
         super().__init__(parent)
         self.controller = controller
@@ -30,7 +30,8 @@ class TopBarWidget(QWidget):
         layout.addWidget(next_week_btn)
 
         layout.addStretch()
-        help_btn = HelpButton("general_overview", self.controller, self)
+        help_btn = HelpButton("overview", self)
+        help_btn.help_requested.connect(self.help_requested)
         layout.addWidget(help_btn)
 
         layout.addSpacerItem(

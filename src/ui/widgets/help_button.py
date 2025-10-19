@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QPushButton, QStyle
-from PyQt6.QtCore import pyqtSlot
+from PyQt6.QtCore import pyqtSlot, pyqtSignal
 
 class HelpButton(QPushButton):
     """
@@ -9,16 +9,16 @@ class HelpButton(QPushButton):
     the controller's global 'show_help_requested' signal with the topic key
     provided during instantiation.
     """
-    def __init__(self, topic_key: str, controller, parent=None):
+    help_requested = pyqtSignal(str)
+
+    def __init__(self, topic_key: str, parent=None):
         """
         Args:
             topic_key (str): The unique identifier for the help topic to show.
-            controller: The main game controller instance.
             parent: The parent widget.
         """
         super().__init__(parent)
         self.topic_key = topic_key
-        self.controller = controller
         self.setFixedSize(24,24)
         
         self._setup_ui()
@@ -36,5 +36,5 @@ class HelpButton(QPushButton):
 
     @pyqtSlot()
     def _emit_help_request(self):
-        """Emits the global signal to show the help dialog for this button's topic."""
-        self.controller.signals.show_help_requested.emit(self.topic_key)
+        """Emits a signal to request help for this button's topic."""
+        self.help_requested.emit(self.topic_key)

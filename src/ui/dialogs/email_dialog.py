@@ -43,8 +43,8 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         top_layout.addStretch(3)
         revert_btn = RestoreGeometryButton(parent=self)
         top_layout.addWidget(revert_btn, 1)
-        help_btn = HelpButton("email_inbox", self.controller, self)
-        top_layout.addWidget(help_btn, 1)
+        self.help_btn = HelpButton("email", self)
+        top_layout.addWidget(self.help_btn, 1)
         left_panel.addLayout(top_layout)
 
         self.email_list_widget = QListWidget()
@@ -86,6 +86,7 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         self.email_list_widget.selectionModel().selectionChanged.connect(self.update_button_state)
         self.controller.signals.emails_changed.connect(self.refresh_ui)
         self.delete_btn.clicked.connect(self.delete_selected_emails)
+        self.help_btn.help_requested.connect(self.controller.signals.show_help_requested)
 
     def refresh_ui(self):
         """Repopulates the list and maintains selection if possible."""

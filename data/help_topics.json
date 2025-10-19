@@ -3,7 +3,7 @@
     "title": "Game Overview",
     "content_file": "overview.md"
   },
-  "market_tab" : {
+  "market" : {
     "title":"The Market",
     "content_file": "market.md"
   },

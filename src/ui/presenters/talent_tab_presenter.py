@@ -40,6 +40,7 @@ class TalentTabPresenter(QObject):
         self.view.open_talent_profile_requested.connect(self.on_open_talent_profile)
         self.view.open_scene_dialog_requested.connect(self.on_open_scene_dialog)
         self.view.hire_requested.connect(self.on_hire_requested)
+        self.view.help_requested.connect(self.on_help_requested)
 
     @pyqtSlot()
     def on_global_scenes_changed(self):
@@ -123,3 +124,7 @@ class TalentTabPresenter(QObject):
         if current_selection.isValid():
             talent = current_selection.data(Qt.ItemDataRole.UserRole)
             self.on_talent_selected(talent)
+
+    @pyqtSlot(str)
+    def on_help_requested(self, topic_key: str):
+        self.ui_manager.show_help(topic_key)
