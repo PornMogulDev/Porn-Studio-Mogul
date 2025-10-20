@@ -3,21 +3,29 @@
     "title": "Game Overview",
     "content_file": "overview.md"
   },
-  "market" : {
-    "title":"The Market",
-    "content_file": "market.md"
+  "talent": {
+    "title": "The Talent",
+    "content_file": "talent.md"
+  },
+  "schedule": {
+    "title": "The Schedule",
+    "content_file": "schedule.md"
+  },
+  "shooting_bloc": {
+    "title": "The Shooting Bloc",
+    "content_file": "shooting_blocs.md"
   },
   "scene_planner": {
     "title": "Planning Scenes",
     "content_file": "scene_planner.md"
   },
-  "talent": {
-    "title": "The Talent",
-    "content_file": "talent.md"
-  },
   "scene_events": {
     "title": "Scene Events",
     "content_file": "scene_events.md"
+  },
+  "market" : {
+    "title":"The Market",
+    "content_file": "market.md"
   },
   "email": {
     "title": "The Inbox",

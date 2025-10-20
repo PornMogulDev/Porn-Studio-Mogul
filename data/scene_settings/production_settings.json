@@ -29,9 +29,9 @@
   "Camera Equipment": [
     {
       "tier_name": "Phone",
-      "cost_per_scene": 0,
+      "cost_per_scene": 100,
       "quality_modifier": 0.92,
-      "description": "4K cameras, professional lighting rig.",
+      "description": "A smartphone and a few lights.",
       "bad_event_chance_modifier": 1.2,
       "good_event_chance_modifier": 0.8,
       "is_low_tier": true

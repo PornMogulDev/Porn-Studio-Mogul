@@ -47,6 +47,11 @@ This aspect is determined by a couple of details at the moment: Personality Attr
 
 
 
-* Personality Attributes are characteristics that range 1-100 meant to shape a talent's behaviour and attitudes. At the moment, only Professionalism and Ambition exist. Professionalism affects how likely a talent is to be the trigger of bad events in an inverse correlation, while high Ambition will make a talent demand a higher salary and gain skills at a faster pace.  
+* Personality Attributes are characteristics that range 1-100 meant to shape a talent's behaviour and attitudes. At the moment, only Professionalism and Ambition exist. Professionalism affects how likely a talent is to be the trigger of bad events in an inverse correlation, while high Ambition will make a talent demand a higher salary and gain skills at a faster pace.
 * Both also have a hand in determining what Archetype a talent will be generated with. They set the talent's policy requirements and refusals, as well as, together with their Orientation and Disposition scores, their likes, dislikes, and limits; the Archetype will set if a talent likes or dislikes Anal, their Orientation score will determine with whom they like and dislike it more, and their Disposition what role they prefer to perform in it.
 * Disposition is similar to Orientation, goes from -100 (complete submissive), to 100 (complete dominant), and at the moment, is only used to determine role preferences as stated above. It has nothing to do with a talent's skill at playing a Dom or sub in a scene.
+
+
+
+Hard limits should also take into account the role, probably.
+

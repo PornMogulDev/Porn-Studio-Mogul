@@ -2,5 +2,5 @@ At some point, this will be a sort of game manual. Right now, while it will stil
 
 
 
-In several places around the interface, there are Help buttons like the one you've clicked to open this, with the appropriate topic highlighted. You can also navigate this menu, as there are some entries without their own button.
+For this update, I am feeling a bit down. I don't want to expand too much what is already in the game in case it will get changed soon, but also feels 
 

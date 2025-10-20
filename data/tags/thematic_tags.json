@@ -33,6 +33,17 @@
     "tooltip": "Focuses the scene on feet adoration, making D/S dynamics and acting more important."
     },
     {
+    "name": "Dick Humilliation",
+    "type": "Thematic",
+    "concept": "Humilliation",
+    "categories": ["Dick", "Humilliation"],
+    "scene_wide_modifiers": [
+        { "type": "shift_acting_weight", "acting_weight_shift": 0.1 },
+        { "type": "amplify_dom_sub_effect", "multiplier": 1.5 }
+    ],
+    "tooltip": "Focuses the scene on dick humilliation, making D/S dynamics and acting more important."
+    },
+    {
     "name": "Cosplay",
     "type": "Thematic",
     "concept": "Weeb",
@@ -41,6 +52,17 @@
         { "type": "amplify_production_setting", "category": "Wardrobe", "multiplier": 1.5 },
         { "type": "amplify_production_setting", "category": "Makeup", "multiplier": 1.5 },
         { "type": "shift_acting_weight", "acting_weight_shift": 0.1 }
+    ],
+    "tooltip": "Makes this scene's quality highly dependent on Wardrobe and Makeup. Also makes performer Acting skill more important."
+    },
+    {
+    "name": "Fishnets",
+    "type": "Thematic",
+    "concept": "Clothing",
+    "categories": "Wardrobe",
+    "scene_wide_modifiers": [
+        { "type": "amplify_production_setting", "category": "Wardrobe", "multiplier": 1.2 },
+        { "type": "shift_acting_weight", "acting_weight_shift": 0.05 }
     ],
     "tooltip": "Makes this scene's quality highly dependent on Wardrobe and Makeup. Also makes performer Acting skill more important."
     },
@@ -65,5 +87,16 @@
         { "type": "shift_acting_weight", "acting_weight_shift": 0.1 }
     ],
     "tooltip": "Makes the scene's theme about age dynamics, increasing the importance of chemistry and acting."
+    },
+    {
+    "name": "Step-cest",
+    "type": "Thematic",
+    "concept": "Incest",
+    "categories": ["Thematic", "Incest"],
+    "scene_wide_modifiers": [
+        { "type": "amplify_chemistry_effect", "multiplier": 1.2 },
+        { "type": "shift_acting_weight", "acting_weight_shift": 0.1 }
+    ],
+    "tooltip": "Makes the scene's theme about step-cest dynamics, increasing the importance of chemistry and acting."
     }
 ]
