@@ -10,6 +10,7 @@ from PyQt6.QtGui import QDrag, QKeyEvent, QFont
 
 from data.game_state import Scene, ActionSegment
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
+from ui.widgets.help_button import HelpButton
 
 class DraggableListWidget(QListWidget):
     def __init__(self, parent=None): super().__init__(parent); self.setDragEnabled(True)
@@ -151,9 +152,14 @@ class SceneDialog(GeometryManagerMixin, QDialog):
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
+        header_layout = QHBoxLayout()
+        help_btn = HelpButton("scene_planner", self)
+        help_btn.help_requested.connect(self.controller.signals.show_help_requested)
+        header_layout.addWidget(help_btn)
         self.bloc_info_label = QLabel()
         font = self.bloc_info_label.font(); font.setItalic(True); self.bloc_info_label.setFont(font)
-        main_layout.addWidget(self.bloc_info_label)
+        header_layout.addWidget(self.bloc_info_label)
+        main_layout.addLayout(header_layout)
         main_layout.addWidget(self._create_overview_group(), 1)
         main_layout.addWidget(self._create_composition_group(), 5)
         main_layout.addWidget(self._create_content_design_group(), 7)
@@ -273,7 +279,7 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         runtime_percent_layout.addWidget(self.runtime_percent_spinbox); runtime_percent_layout.addStretch(); segment_detail_layout.addLayout(runtime_percent_layout)
         scroll_area = QScrollArea(); scroll_area.setWidgetResizable(True); self.slots_widget = QWidget(); self.slots_layout = QVBoxLayout(self.slots_widget); self.slots_layout.setAlignment(Qt.AlignmentFlag.AlignTop); scroll_area.setWidget(self.slots_widget); segment_detail_layout.addWidget(scroll_area)
         self.segment_stack.addWidget(self.segment_detail_widget); details_col.addWidget(self.segment_stack)
-        layout.addLayout(available_actions_col, 3); layout.addLayout(add_remove_actions_col, 1); layout.addLayout(selected_actions_col, 3); layout.addLayout(details_col, 4)
+        layout.addLayout(available_actions_col, 5); layout.addLayout(add_remove_actions_col, 1); layout.addLayout(selected_actions_col, 10); layout.addLayout(details_col, 7)
         return panel
 
     def _connect_signals(self):

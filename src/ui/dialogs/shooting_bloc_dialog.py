@@ -6,6 +6,7 @@ from PyQt6.QtGui import QFont
 
 from data.settings_manager import SettingsManager
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
+from ui.widgets.help_button import HelpButton
 
 class ShootingBlocDialog(GeometryManagerMixin, QDialog):
     def __init__(self, controller, settings_manager: SettingsManager, parent: QWidget = None):
@@ -32,6 +33,8 @@ class ShootingBlocDialog(GeometryManagerMixin, QDialog):
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
+        self.help_btn = HelpButton("shooting_bloc", self)
+        main_layout.addWidget(self.help_btn)
 
         # --- Scheduling Group ---
         scheduling_group = QGroupBox("Scheduling & Details")
@@ -105,6 +108,7 @@ class ShootingBlocDialog(GeometryManagerMixin, QDialog):
         main_layout.addWidget(self.button_box)
 
     def _connect_signals(self):
+        self.help_btn.help_requested.connect(self.controller.signals.show_help_requested)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         

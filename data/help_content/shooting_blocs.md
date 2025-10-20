@@ -1,6 +1,6 @@
 The Shooting Bloc is meant to simulate the fact that studios usually hire a crew, a location, equipment, etc to shoot a bunch of scenes. Realistically, also performers, and this might be a thing once the 'based off location' system is implemented.
 
-Right now, there is no maximum number of shooting blocs that you can book for a week. There should probably be, once I figure out how the player avatar will function. I am leaning towards individual producer with some fatigue or stress system. Perhaps, once I implement an AI, it would also be possible to hire extra producers for the studio that can create scenes.
+Right now, there is no maximum number of shooting blocs that the player can book for any given week. There should probably be, once I figure out how the player avatar will function. I am leaning towards individual producer with some fatigue or stress system. Perhaps, once I implement an AI, it would also be possible to hire extra producers for the studio that can create scenes.
 
 
 
@@ -15,8 +15,4 @@ The implementation is shaky at the moment, as the cost of the settings is fixed 
 
 
 Something on even shakier ground right now are the on-set policies. Perhaps this shouldn't even be here and should be a global setting of the studio.
-
-
-
-
 

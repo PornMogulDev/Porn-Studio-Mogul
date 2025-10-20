@@ -109,23 +109,6 @@ class MarketTab(QWidget):
         title_label.setStyleSheet("font-size: 16pt; font-weight: bold; margin-bottom: 5px;")
         main_vbox.addWidget(title_label)
         
-        # --- General Attributes (in columns) ---
-        attr_box = QGroupBox("Attributes")
-        attr_box.setStyleSheet("font-weight: normal;")
-        attr_layout = QGridLayout(attr_box)
-        
-        attr_layout.addWidget(QLabel("Market Share:"), 0, 0)
-        attr_layout.addWidget(QLabel(f"{resolved_data.get('market_share_percent', 0):.1f}%"), 0, 1)
-        attr_layout.addWidget(QLabel("Spending Power:"), 0, 2)
-        attr_layout.addWidget(QLabel(f"{resolved_data.get('spending_power', 1.0):.2f}x"), 0, 3)
-        attr_layout.addWidget(QLabel("Focus Bonus:"), 1, 0)
-        attr_layout.addWidget(QLabel(f"{resolved_data.get('focus_bonus', 1.0):.2f}x"), 1, 1)
-        if dynamic_state:
-            attr_layout.addWidget(QLabel("Spending Willingness:"), 1, 2)
-            attr_layout.addWidget(QLabel(f"{(dynamic_state.current_saturation * 100):.2f}%"), 1, 3)
-        main_vbox.addWidget(attr_box)
-
-        # --- Preferences ---
         prefs_data = resolved_data.get('preferences', {})
         
         def create_sentiment_box(title, data_dict, is_additive=False):
@@ -143,7 +126,7 @@ class MarketTab(QWidget):
             scroll_content_widget = QWidget()
             layout = QFormLayout(scroll_content_widget)
 
-            sorted_items = sorted(data_dict.items(), key=lambda item: item, reverse=True)
+            sorted_items = sorted(data_dict.items(), key=lambda item: item[1], reverse=True)
             for key, sentiment in sorted_items:
                 if is_additive:
                     label = QLabel(f"{sentiment:+.2f}")
@@ -159,6 +142,33 @@ class MarketTab(QWidget):
             box_layout.addWidget(scroll_area)
             return box
         
+        # --- Top Section: Attributes & Orientation Sentiments ---
+        top_hbox_widget = QWidget()
+        top_hbox_layout = QHBoxLayout(top_hbox_widget)
+        top_hbox_layout.setContentsMargins(0,0,0,0)
+        top_hbox_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        
+        # --- Attributes (Left side) ---
+        attr_box = QGroupBox("Attributes")
+        attr_box.setStyleSheet("font-weight: normal;")
+        attr_layout = QVBoxLayout(attr_box)
+        
+        attr_layout.addWidget(QLabel(f"Market Share: {resolved_data.get('market_share_percent', 0):.1f}%"))
+        attr_layout.addWidget(QLabel(f"Spending Power: {resolved_data.get('spending_power', 1.0):.2f}x"))
+        attr_layout.addWidget(QLabel(f"Focus Bonus: {resolved_data.get('focus_bonus', 1.0):.2f}x"))
+        if dynamic_state:
+            attr_layout.addWidget(QLabel(f"Spending Willingness: {(dynamic_state.current_saturation * 100):.2f}%"))
+        attr_layout.addStretch()
+        top_hbox_layout.addWidget(attr_box, 1)
+        
+        # --- Orientation Sentiments (Right side) ---
+        orientation_sentiments = prefs_data.get('orientation_sentiments', {})
+        if box := create_sentiment_box("Orientation Sentiments", orientation_sentiments):
+            top_hbox_layout.addWidget(box, 1)
+        
+        main_vbox.addWidget(top_hbox_widget)
+        
+        # --- Tag Sentiments ---
         thematic_sentiments = prefs_data.get('thematic_sentiments', {})
         physical_sentiments = prefs_data.get('physical_sentiments', {})
         action_sentiments = prefs_data.get('action_sentiments', {})
@@ -176,7 +186,7 @@ class MarketTab(QWidget):
             if box := create_sentiment_box("Action", action_sentiments):
                 prefs_wrapper_layout.addWidget(box, 1)
 
-            main_vbox.addWidget(prefs_wrapper_box)
+            main_vbox.addWidget(prefs_wrapper_box, 1)
 
         # Scaling Sentiments
         scaling_sentiments = prefs_data.get('scaling_sentiments', {})

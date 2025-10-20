@@ -71,6 +71,26 @@
         "stamina_modifier_scaling_per_peer": -0.05 }
     ]
   },
+  { "name": "Blowjob (Strapon)", "orientation": "Straight",
+    "type": "Action",
+    "is_template": true,
+    "concept": "Blowjob",
+    "categories": ["Oral", "Group"],
+    "slots": [
+      { "role": "Receiver", "dynamic_role": "Dominant", "gender": "Female", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 1,
+        "demand_modifier_scaling_per_other":0.05,
+        "demand_modifier_scaling_per_peer":-0.02,
+        "stamina_modifier_scaling_per_other": 0.05,
+        "stamina_modifier_scaling_per_peer": -0.05 },
+      { "role": "Giver", "dynamic_role": "Submissive", "gender": "Male", "parameterized_by": "count", "min_count": 1, "max_count": 20,
+        "stamina_modifier": 1.2,
+        "demand_modifier_scaling_per_other":0.05,
+        "demand_modifier_scaling_per_peer":-0.02,
+        "stamina_modifier_scaling_per_other": 0.1,
+        "stamina_modifier_scaling_per_peer": -0.05 }
+    ]
+  },
   { "name": "Blowjob (Strapon)", "orientation": "Lesbian",
     "type": "Action",
     "is_template": true,

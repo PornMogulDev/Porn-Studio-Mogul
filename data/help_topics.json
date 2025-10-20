@@ -19,10 +19,6 @@
     "title": "Planning Scenes",
     "content_file": "scene_planner.md"
   },
-  "scene_events": {
-    "title": "Scene Events",
-    "content_file": "scene_events.md"
-  },
   "market" : {
     "title":"The Market",
     "content_file": "market.md"

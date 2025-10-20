@@ -17,7 +17,7 @@ class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
         self.settings_manager = self.controller.settings_manager
         
         self.setWindowTitle(f"Details: {self.scene.title}")
-        self.setMinimumSize(600, 700)
+        self.setMinimumSize(800, 700)
         
         # For post-production tab
         self.editing_option_group = QButtonGroup()

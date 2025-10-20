@@ -10,6 +10,7 @@ from ui.dialogs.scene_dialog import SceneDialog
 from ui.dialogs.shooting_bloc_dialog import ShootingBlocDialog
 from data.game_state import Scene, ShootingBloc
 from ui.presenters.scene_planner_presenter import ScenePlannerPresenter # Import the presenter
+from ui.widgets.help_button import HelpButton
 
 class ScheduleTab(QWidget):
     def __init__(self, controller):
@@ -20,6 +21,7 @@ class ScheduleTab(QWidget):
         # --- Connections ---
         self.controller.signals.scenes_changed.connect(self.refresh_schedule)
         self.controller.signals.time_changed.connect(self.update_year_selector)
+        self.help_btn.help_requested.connect(self.controller.signals.show_help_requested)
         self.year_spinbox.valueChanged.connect(self.refresh_schedule)
         self.plan_scene_btn.clicked.connect(self.plan_shooting_bloc)
         self.tree_view.doubleClicked.connect(self.handle_double_click)
@@ -31,6 +33,9 @@ class ScheduleTab(QWidget):
         main_layout = QVBoxLayout(self)
 
         # --- Top Control Bar ---
+        menu_bar = QVBoxLayout()
+        self.help_btn = HelpButton("schedule", self)
+        menu_bar.addWidget(self.help_btn)
         top_bar = QHBoxLayout()
         self.plan_scene_btn = QPushButton("Plan Shooting Bloc")
         top_bar.addWidget(self.plan_scene_btn)
@@ -38,7 +43,8 @@ class ScheduleTab(QWidget):
         top_bar.addWidget(QLabel("Viewing Year:"))
         self.year_spinbox = QSpinBox()
         top_bar.addWidget(self.year_spinbox)
-        main_layout.addLayout(top_bar)
+        menu_bar.addLayout(top_bar)
+        main_layout.addLayout(menu_bar)
 
         # --- Tree View ---
         self.tree_view = QTreeView()
