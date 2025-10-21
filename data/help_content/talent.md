@@ -2,7 +2,9 @@ The Talent is possibly the most central part of the game's design. They must fee
 
 At the moment, they don't fulfil either obligation very well. Their skills and attributes are quite limited to have much specialization, but I don't want to go overboard with adding more precise skills or physical attributes, and instead introduce them gradually, making sure that they all interact with the appropriate tags, events, etc, and have a distinct function in the game's loop.
 
-Still, the next implementations I am planning are both for them: relationships (between themselves and with studios), and an actual nationality system that interacts with the naming system and that allows for a deeper system when it comes to hiring thanks to a "based off location" feature, more on that in the hiring section of Help.
+Still, the next implementations I am planning are both for them: relationships (between themselves and with studios), and an actual nationality system that interacts with the naming system and that allows for a deeper system when it comes to hiring thanks to a 'based off location' feature, more on that in the hiring section of Help.
+
+At the moment, the talent generation only happens when a new game is started. This obviously shouldn't work like that, as the talent pool should be highly dynamic, with many of the characters having relatively short careers and new ones popping up all the time. I am thinking casting calls, 'talent hunters' and talent agencies for populating the pool with new talent, and some combination of deaths and retirements, stemming from the talent's success and personality, for the opposite.
 
 
 

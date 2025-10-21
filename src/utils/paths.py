@@ -28,7 +28,7 @@ HELP_DIR = os.path.join(DATA_DIR, "help_content")
 # Data files
 GAME_DATA = os.path.join(DATA_DIR, "game_data.sqlite")
 HELP_FILE = os.path.join(DATA_DIR, "help_topics.json")
-ACKNOWLEDGEMENTS_TXT = os.path.join(DATA_DIR, "acknowledgements.txt")
+ACKNOWLEDGEMENTS_FILE = os.path.join(DATA_DIR, "acknowledgements.md")
 
 # Log files
 LOG_FILE = os.path.join(LOG_DIR, "app.log")

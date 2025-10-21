@@ -1,13 +1,13 @@
-import sys
 import logging
 from PyQt6.QtCore import QSize, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import ( QHBoxLayout, QLabel, QPushButton, QSizePolicy, 
-                             QVBoxLayout, QWidget, QMessageBox, QGridLayout )
+from PyQt6.QtWidgets import ( QDialog, QLabel, QPushButton, QSizePolicy, 
+                             QVBoxLayout, QWidget, QTextEdit, QGridLayout,
+                              QDialogButtonBox )
 from PyQt6.QtSvgWidgets import QSvgWidget
 from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
-from utils.paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO, ACKNOWLEDGEMENTS_TXT
+from utils.paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO, ACKNOWLEDGEMENTS_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -153,19 +153,24 @@ class MenuScreen(QWidget):
 
     def show_acknowledgements_dialog(self):
         """Creates and shows the acknowledgements dialog."""
-        try:
-            with open(ACKNOWLEDGEMENTS_TXT, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # Wrap paragraphs in <p> tags for better formatting
-            paragraphs = content.split('\n\n')
-            html_content = "".join(f"<p>{p.replace('\n', '<br>')}</p>" for p in paragraphs)
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Acknowledgements")
+        dialog.setMinimumSize(600,400)
 
-            message = QMessageBox(self)
-            message.setWindowTitle("Acknowledgements")
-            message.setTextFormat(Qt.TextFormat.RichText)
-            message.setText(html_content)
-            message.setStandardButtons(QMessageBox.StandardButton.Ok)
-            message.exec()
+        layout = QVBoxLayout(dialog)
+        text_edit = QTextEdit(dialog)
+        text_edit.setReadOnly(True)
+        try:
+            with open(ACKNOWLEDGEMENTS_FILE, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            text_edit.setMarkdown(content)
+            layout.addWidget(text_edit)
+
+            button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+            button_box.accepted.connect(dialog.accept)
+            layout.addWidget(button_box)
+
+            dialog.exec()
         except FileNotFoundError:
-            logger.error(f"The acknowledgements file could not be found at:<br>{ACKNOWLEDGEMENTS_TXT}")
+            logger.error(f"The acknowledgements file could not be found at:<br>{ACKNOWLEDGEMENTS_FILE}")

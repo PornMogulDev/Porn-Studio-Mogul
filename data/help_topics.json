@@ -7,6 +7,10 @@
     "title": "The Talent",
     "content_file": "talent.md"
   },
+  "hiring_talent": {
+    "title": "Hiring Talent",
+    "content_file": "hiring_talent.md"
+  },
   "schedule": {
     "title": "The Schedule",
     "content_file": "schedule.md"
@@ -18,6 +22,10 @@
   "scene_planner": {
     "title": "Planning Scenes",
     "content_file": "scene_planner.md"
+  },
+  "scene_events": {
+    "title": "Scene Events",
+    "content_file": "scene_events.md"
   },
   "market" : {
     "title":"The Market",

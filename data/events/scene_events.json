@@ -5,7 +5,7 @@
     "description": "The cheap warehouse you rented for '{scene_title}' has no air conditioning, and it's boiling inside. {talent_name} is complaining that they can't work under these conditions.",
     "category": "Location",
     "type": "bad",
-    "base_chance": 0.7,
+    "base_chance": 1.0,
     "triggering_tiers": ["Shady Warehouse"],
     "choices": [
       {
@@ -49,7 +49,7 @@
     "description": "There is construction work going on near the shooting location of '{scene_title}' and the mics clearly pick it up.",
     "category": "Location",
     "type": "bad",
-    "base_chance": 0.5,
+    "base_chance": 1.0,
     "triggering_tiers": ["Shady Warehouse", "Rented Apartment"],
     "choices": [
       {
@@ -202,7 +202,7 @@
     "description": "A flock of pigeons seems to be carrying out a remarkably coordinated aerial attack on the set of '{scene_title}', causing all sorts of trouble to talent and crew.",
     "category": "Location",
     "type": "bad",
-    "base_chance": 0.05,
+    "base_chance": 1.0,
     "triggering_tiers": ["Luxury Villa"],
     "choices": [
       {
@@ -531,6 +531,56 @@
           { "type": "add_cost", "amount": 50, "reason": "Medical Supplies" },
           { "type": "modify_scene_quality", "key": "overall", "modifier": 0.95, "reason": "Delay (Allergic Reaction)" },
           { "type": "notification", "message": "The cream helps, and after a short delay, shooting resumes." }
+        ]
+      }
+    ]
+  },
+   {
+    "id": "food_quality_suspicion",
+    "name": "Food Quality Suspicion",
+    "description": "Despite you providing decent catering, {talent_name} is suspicious about the food quality, given you're shooting in a dump like this. '{scene_title}' is off to a rocky start.",
+    "category": "Catering",
+    "type": "bad",
+    "base_chance": 1.0,
+    "triggering_conditions": [
+      { "type": "has_production_tier", "category": "Location", "tier_name": "Shady Warehouse" },
+      { "type": "not_has_production_tier", "category": "Catering", "tier_name": "None" },
+      { "type": "not_has_production_tier", "category": "Catering", "tier_name": "Basic" },
+      { "type": "talent_professionalism_below", "value": 5 }
+    ],
+    "choices": [
+      {
+        "id": "reassure",
+        "text": "Reassure them it's from a clean place.",
+        "hint": "A small chance they won't believe you.",
+        "effects": [
+          {
+            "type": "random_outcome",
+            "outcomes": [
+              {
+                "chance": 0.8,
+                "effects": [
+                  { "type": "notification", "message": "{talent_name} seems to accept your explanation and eats the food." }
+                ]
+              },
+              {
+                "chance": 0.2,
+                "effects": [
+                  { "type": "notification", "message": "{talent_name} refuses to eat the 'rat poison'. Their performance suffers slightly from hunger." },
+                  { "type": "modify_performer_contribution", "target": "triggering_talent", "modifier": 0.95, "reason": "Hungry" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ignore",
+        "text": "Tell them not to eat if they don't want to.",
+        "hint": "Their performance will suffer.",
+        "effects": [
+          { "type": "modify_performer_contribution", "target": "triggering_talent", "modifier": 0.90, "reason": "Hungry and Annoyed" },
+          { "type": "notification", "message": "{talent_name} glares at you and refuses to eat. They work sullenly." }
         ]
       }
     ]

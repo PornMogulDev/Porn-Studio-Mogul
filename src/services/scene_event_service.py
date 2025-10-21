@@ -166,6 +166,7 @@ class SceneEventService:
                 if not is_met: return False
             elif req_type == 'scene_has_tag_concept' and req.get('concept') not in scene_tag_concepts: return False
             elif req_type == 'has_production_tier' and all_production_tiers.get(req.get('category')) != req.get('tier_name'): return False
+            elif req_type == 'not_has_production_tier' and all_production_tiers.get(req.get('category')) == req.get('tier_name'): return False
             elif req_type == 'cast_size_is':
                 comparison, value = req.get('comparison'), req.get('value')
                 if comparison == 'gte' and not cast_size >= value: return False

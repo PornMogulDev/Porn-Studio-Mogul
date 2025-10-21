@@ -1,5 +1,7 @@
 The Scene Planner is where the player designs the content they will shoot and the number of performers that will appear in a scene, as well as some of their attributes, which will determine their eligibility for Physical tags and Action Segments' roles. Their Disposition selection is only relevant (and available) when the scene has a Dom/sub dynamic at play, and will make the Talent's Dom (if in a Dominant disposition), Sub (if in a Submissive disposition), or both (if in a Switch disposition) skills contribute to the Action tags quality.
 
+'Performer 1', 2, etc, are the default, but they are customizable to make it easier to remember who is who and I guess for immersion's sake.
+
 The Protagonist thing has been a late addition. At the moment, it gives the performer a highest weight in the tag quality calculation relative to non-protagonist (so if everyone is a Protagonist, it will cancel out). I plan to expand this by potentially giving Protagonists a boost or penalty to their overall performance depending on their personality, to simulate some kind of 'spotlight pressure'. And also by adding extra related roles, like 'Filler'.
 
 

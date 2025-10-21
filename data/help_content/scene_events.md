@@ -1,0 +1,2 @@
+I think I added this way too soon. Without talent and studio relationships, the consequences that an event can have are quite limited, mainly coming down to economic penalties at this time. So now most are placeholders to check that the requirements are being checked properly.
+Only one event can trigger per scene, and every event's chance is the same, just for testing's sake. The base chance for an event triggering is also much higher than it should, for the same reason.
