@@ -1,10 +1,12 @@
 import logging
+from pathlib import Path
 from PyQt6.QtCore import QSize, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import ( QDialog, QLabel, QPushButton, QSizePolicy, 
                              QVBoxLayout, QWidget, QTextEdit, QGridLayout,
                               QDialogButtonBox )
 from PyQt6.QtSvgWidgets import QSvgWidget
+
 from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from utils.paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO, ACKNOWLEDGEMENTS_FILE
@@ -27,8 +29,13 @@ class MenuButton(QPushButton):
     
 class ClickableSvgWidget(QSvgWidget):
     """A simplified, layout-friendly SVG widget."""
-    def __init__(self, svg_file, url):
-        super().__init__(svg_file)
+    def __init__(self, svg_file: str | Path, url: str):
+        # The QSvgWidget constructor expects a string path, not a Path object.
+        # We handle the conversion here so the rest of the app doesn't have to.
+        if isinstance(svg_file, Path):
+            super().__init__(str(svg_file))
+        else:
+            super().__init__(svg_file)
         self.url = url
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         
