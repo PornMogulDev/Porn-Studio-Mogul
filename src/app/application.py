@@ -97,6 +97,8 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         self._restore_geometry()
 
     def show_start_screen(self):
+        if self.main_window and self.main_window.ui_manager:
+            self.main_window.ui_manager.close_all_dialogs()
         self.start_screen.refresh_button_states()
         self.stacked_widget.setCurrentWidget(self.start_screen)
 

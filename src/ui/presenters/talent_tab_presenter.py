@@ -93,19 +93,17 @@ class TalentTabPresenter(QObject):
 
     @pyqtSlot(dict)
     def on_open_advanced_filters(self, current_filters: dict):
-        dialog = self.view.findChild(TalentFilterDialog)
-        if dialog: dialog.raise_(); dialog.activateWindow(); return
-
-        categories = self.controller.get_go_to_list_categories()
         dialog = TalentFilterDialog(
             ethnicities=self.controller.get_available_ethnicities(),
             boob_cups=self.controller.get_available_boob_cups(),
-            go_to_categories=categories,
+            go_to_categories=self.controller.get_go_to_list_categories(),
             current_filters=current_filters,
             settings_manager=self.controller.settings_manager,
             parent=self.view
         )
         dialog.filters_applied.connect(self.view.on_filters_applied)
+        # Ensure the dialog is destroyed on close, preventing resource leaks.
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.exec()
     
     @pyqtSlot(object)

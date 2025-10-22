@@ -59,7 +59,7 @@ class GameSessionService:
                 db_session.add(MarketGroupStateDB.from_dataclass(market_state))
         
         # Generate initial talent pool
-        initial_talents = self.talent_generator.generate_multiple_talents(100, start_id=1)
+        initial_talents = self.talent_generator.generate_multiple_talents(150, start_id=1)
         for talent in initial_talents:
             for name in all_group_names: talent.popularity[name] = 0.0
             db_session.add(TalentDB.from_dataclass(talent))

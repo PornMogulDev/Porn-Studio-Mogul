@@ -1,5 +1,6 @@
 import logging
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog
 
 from data.game_state import Talent
@@ -82,6 +83,32 @@ class UIManager:
         if dialog.exec() == QDialog.DialogCode.Accepted:
             exit_save = dialog.get_data()
             self.controller.quit_game(exit_save)
+
+    def close_all_dialogs(self):
+        """
+        Closes and clears all managed dialog instances.
++        This should be called when returning to the main menu to prevent
+       orphaned windows.
+        """
+        dialog_list = []
+        dialog_list.extend(self._dialog_instances.values())
+        if self._talent_profile_dialog_singleton:
+            dialog_list.append(self._talent_profile_dialog_singleton)
+        dialog_list.extend(self._open_profile_dialogs_multi.values())
+
+        # We iterate through all known modeless dialogs, force them to delete
+        # on close, and then close them.
+        for dialog in dialog_list:
+            if dialog:
+                dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+                dialog.close()
+
+        # Clear all tracking dictionaries to ensure a clean state.
+        self._dialog_instances.clear()
+        self._talent_profile_dialog_singleton = None
+        self._open_profile_dialogs_multi.clear()
+
+        logger.info("All managed modeless dialogs have been closed and references cleared.")
 
     def handle_incomplete_scenes(self, scenes: list):
         all_resolved = True
