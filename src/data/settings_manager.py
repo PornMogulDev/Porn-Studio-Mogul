@@ -3,9 +3,9 @@ import os
 import logging
 from typing import Optional
 from PyQt6.QtCore import QObject, pyqtSignal
-from PyQt6.QtGui import QFont  
+from PyQt6.QtGui import QFont, QFontDatabase
 
-from utils.paths import SETTINGS_FILE
+from utils.paths import SETTINGS_FILE, FONTS_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +33,22 @@ class SettingsManager:
         self._initialized = True
         
         self.signals = SettingsSignals()
+        for font_file in [
+        "Roboto-VariableFont_wdth,wght.ttf",
+        "Roboto-Italic-VariableFont_wdth,wght.ttf"
+    ]:
+            font_path = os.path.join(FONTS_DIR, font_file)
+            font_id = QFontDatabase.addApplicationFont(font_path)
+            if font_id == -1:
+                logger.error(f"Failed to load {font_path}")
+
         self._default_settings = {
             "save_on_exit": True,
             "unit_system": "imperial",  # 'imperial' or 'metric'
             "window_geometries": {},
             "theme": "system",  # 'dark', 'light', or 'system'
             "font_family": "Roboto",
-            "font_size": 10,
+            "font_size": 12,
             "talent_profile_dialog_behavior": "singleton"  # 'singleton' or 'multiple'
         }
         self.settings = self._load_settings()

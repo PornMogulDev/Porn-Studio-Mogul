@@ -22,7 +22,7 @@ class ClickableSvgWidget(QSvgWidget):
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.setMinimumSize(50, int(50 * self.aspect_ratio))
-        self.setMaximumSize(280, int(280 * self.aspect_ratio))
+        self.setMaximumSize(200, int(200 * self.aspect_ratio))
 
     def hasHeightForWidth(self):
         return True
