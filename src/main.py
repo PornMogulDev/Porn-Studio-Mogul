@@ -10,10 +10,6 @@ if __name__ == "__main__":
 
     sys.excepthook = handle_exception
     app = QApplication(sys.argv)
-
-    settings = SettingsManager()
-    apply_theme(settings)
-    
-    window = ApplicationWindow()
-    window.show()
+    main_window = ApplicationWindow()
+    main_window.show()
     sys.exit(app.exec())

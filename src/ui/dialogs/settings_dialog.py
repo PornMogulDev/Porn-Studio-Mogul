@@ -1,8 +1,9 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QGroupBox, QHBoxLayout, QLabel, 
-    QComboBox, QDialogButtonBox, QPushButton, QMessageBox
+    QComboBox, QDialogButtonBox, QPushButton, QMessageBox, QFontComboBox, QSpinBox, QDoubleSpinBox
 )
 from PyQt6.QtCore import pyqtSlot
+from PyQt6.QtGui import QFont
 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 
@@ -14,6 +15,8 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
 
         # --- NEW: Store the initial theme to allow for cancellation ---
         self.initial_theme = self.settings_manager.get_setting("theme")
+        self.initial_font_family = self.settings_manager.font_family
+        self.initial_font_size = self.settings_manager.font_size
 
         self.setWindowTitle("Settings")
         self.setModal(True)
@@ -49,6 +52,24 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         theme_layout.addWidget(self.theme_combo)
         display_v_layout.addLayout(theme_layout)
 
+        # Font Family
+        font_layout = QHBoxLayout()
+        font_label = QLabel("Font:")
+        self.font_combo = QFontComboBox()
+        font_layout.addWidget(font_label)
+        font_layout.addWidget(self.font_combo)
+        display_v_layout.addLayout(font_layout)
+
+        # Font Size
+        font_size_layout = QHBoxLayout()
+        font_size_label = QLabel("Font Size:")
+        self.font_size_spinbox = QSpinBox()
+        self.font_size_spinbox.setRange(8, 24)
+        self.font_size_spinbox.setSuffix(" pt")
+        font_size_layout.addWidget(font_size_label)
+        font_size_layout.addWidget(self.font_size_spinbox)
+        display_v_layout.addLayout(font_size_layout)
+
          # Talent Profile Dialog Behavior Layout
         behavior_layout = QHBoxLayout()
         behavior_label = QLabel("Talent Profile Window:")
@@ -75,6 +96,8 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         layout_vbox.addWidget(info_label)
 
         main_layout.addWidget(layout_group)
+
+        main_layout.addStretch()
         
         # Dialog Buttons
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -86,6 +109,8 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
 
         # Connect the theme combo box to the preview slot ---
         self.theme_combo.currentTextChanged.connect(self._preview_theme)
+        self.font_combo.currentFontChanged.connect(self._preview_font_family)
+        self.font_size_spinbox.valueChanged.connect(self._preview_font_size)
 
     # Slot to handle live previewing of the theme 
     @pyqtSlot(str)
@@ -94,6 +119,16 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         # This works because set_setting emits a signal that the ApplicationWindow
         # is already listening to.
         self.settings_manager.set_setting("theme", theme_name.lower())
+
+    @pyqtSlot("QFont")
+    def _preview_font_family(self, font: "QFont"):
+        """Applies the selected font family as a preview."""
+        self.settings_manager.set_setting("font_family", font.family())
+
+    @pyqtSlot(int)
+    def _preview_font_size(self, size: int):
+        """Applies the selected font size as a preview."""
+        self.settings_manager.set_setting("font_size", size)
 
     def load_current_settings(self):
         """Sets the UI controls to reflect the current settings."""
@@ -108,6 +143,10 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         theme_index = self.theme_combo.findData(current_theme)
         if theme_index != -1:
             self.theme_combo.setCurrentIndex(theme_index)
+
+        # Load font settings
+        self.font_combo.setCurrentFont(QFont(self.initial_font_family))
+        self.font_size_spinbox.setValue(self.initial_font_size)
 
         # Load dialog behavior setting
         current_behavior = self.settings_manager.get_setting("talent_profile_dialog_behavior")
@@ -132,7 +171,11 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         # Save unit system
         selected_unit = self.unit_combo.currentData()
         self.settings_manager.set_setting("unit_system", selected_unit)
-        
+
+        # Save font and scale settings
+        self.settings_manager.set_setting("font_family", self.font_combo.currentFont().family())
+        self.settings_manager.set_setting("font_size", self.font_size_spinbox.value())
+
         # Save talent profile dialog behaviour
         selected_behavior = self.behavior_combo.currentData()
         self.settings_manager.set_setting("talent_profile_dialog_behavior", selected_behavior)
@@ -141,8 +184,15 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
 
     def reject(self):
         """Reverts the theme to its original state and closes the dialog."""
+        # Revert theme
         current_theme = self.settings_manager.get_setting("theme")
         if current_theme != self.initial_theme:
             self.settings_manager.set_setting("theme", self.initial_theme)
+
+        # Revert font
+        if self.settings_manager.font_family != self.initial_font_family:
+            self.settings_manager.set_setting("font_family", self.initial_font_family)
+        if self.settings_manager.font_size != self.initial_font_size:
+            self.settings_manager.set_setting("font_size", self.initial_font_size)
         
         super().reject()

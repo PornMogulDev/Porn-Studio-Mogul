@@ -1,5 +1,6 @@
 import os, logging
 from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QMessageBox
+from PyQt6.QtGui import QFont
 from PyQt6.QtCore import pyqtSlot
 import qdarktheme
 
@@ -47,19 +48,26 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     # The application will now exit after the dialog is closed.
 
 def apply_theme(settings_manager: SettingsManager):
-    """Reads the theme from settings and applies it to the application."""
+    """Reads theme and font settings and applies them to the application."""
     theme_name = settings_manager.get_setting("theme", "system")
+    font_family = settings_manager.font_family
+    font_size = settings_manager.font_size
+
     app = QApplication.instance()
     if not app:
         return
-        
+
+    # Apply font
+    font = QFont(font_family, font_size)
+    app.setFont(font)
+
+    # Apply theme
     if theme_name == "system":
         app.setStyleSheet("")
     else:
         try:
             app.setStyleSheet(qdarktheme.load_stylesheet(theme_name))
         except TypeError:
-            # Fallback if an invalid theme name is somehow in settings.json
             logger.warning(f"Invalid theme '{theme_name}' in settings. Reverting to system default.")
             app.setStyleSheet("")
 
@@ -68,9 +76,9 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Porn Studio Mogul")
-        self.setBaseSize(1920, 1080)
 
         self.settings_manager = SettingsManager()
+        apply_theme(self.settings_manager)
         self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
 
         self.data_manager = DataManager()
@@ -111,5 +119,5 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         """
         Listens for changes from the SettingsManager and applies them.
         """
-        if key == "theme":
+        if key in ("theme", "font_family", "font_size"):
             apply_theme(self.settings_manager)

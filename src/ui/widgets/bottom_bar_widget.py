@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QWidget
-
+from PyQt6.QtCore import pyqtSlot
 
 class BottomBarWidget(QWidget):
     def __init__(self, controller, parent=None):
@@ -10,6 +10,7 @@ class BottomBarWidget(QWidget):
         self.setup_ui()
 
         self.controller.signals.emails_changed.connect(self.update_inbox_button)
+        self.controller.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
 
     def setup_ui(self):
         layout = QHBoxLayout(self)
@@ -48,3 +49,12 @@ class BottomBarWidget(QWidget):
 
     def update_initial_state(self):
         self.update_inbox_button()
+
+    @pyqtSlot(str)
+    def _on_setting_changed(self, key: str):
+        if key in ("font_family", "font_size"):
+            self.update_font()
+
+    def update_font(self):
+        font = self.controller.settings_manager.get_app_font()
+        self.setFont(font)
