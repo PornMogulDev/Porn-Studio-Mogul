@@ -111,7 +111,7 @@ class TalentDetailView(QWidget):
         policy_layout.addWidget(QLabel("<b>Requires Policies:</b>")); self.requires_policies_list = QListWidget()
         policy_layout.addWidget(self.requires_policies_list); policy_layout.addWidget(QLabel("<b>Refuses Policies:</b>"))
         self.refuses_policies_list = QListWidget(); policy_layout.addWidget(self.refuses_policies_list)
-        bottom_layout.addWidget(policy_group); main_layout.addWidget(bottom_container, 1)
+        bottom_layout.addWidget(policy_group); main_layout.addWidget(bottom_container)
 
         self.contract_container = QGroupBox("Assign to Role"); contract_layout = QVBoxLayout(self.contract_container)
         self.roles_stack = QStackedWidget(); roles_list_widget = QWidget()
