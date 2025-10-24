@@ -9,7 +9,7 @@ from PyQt6.QtSvgWidgets import QSvgWidget
 
 from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
-from utils.paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO, ACKNOWLEDGEMENTS_FILE
+from utils.paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO, F95_LOGO, ACKNOWLEDGEMENTS_FILE
 from ui.widgets.clickable_svg_widget import ClickableSvgWidget
 
 logger = logging.getLogger(__name__)
@@ -121,6 +121,7 @@ class MenuScreen(QWidget):
         discord_link = ClickableSvgWidget(DISCORD_LOGO, "https://discord.com/")
         github_link = ClickableSvgWidget(GITHUB_LOGO, "https://github.com/PornMogulDev/Porn-Studio-Mogul")
         reddit_link = ClickableSvgWidget(REDDIT_LOGO, "https://reddit.com/")
+        f95_link = ClickableSvgWidget(F95_LOGO, "https://f95zone.to")
 
         menu_layout.addWidget(settings_btn, 1, 0)
         menu_layout.addWidget(editor_btn, 2, 0)
@@ -134,6 +135,7 @@ class MenuScreen(QWidget):
         menu_layout.addWidget(discord_link, 0, 2)
         menu_layout.addWidget(github_link, 1, 2)
         menu_layout.addWidget(reddit_link, 2, 2)
+        menu_layout.addWidget(f95_link, 3, 2)
 
         self.refresh_button_states()
 

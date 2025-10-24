@@ -73,5 +73,5 @@ FONTS_DIR = ASSETS_DIR / "fonts"
 DISCORD_LOGO = IMG_DIR / "discord_icon.svg"
 REDDIT_LOGO = IMG_DIR / "reddit_icon.svg"
 GITHUB_LOGO = IMG_DIR / "github_icon.svg"
-
+F95_LOGO = IMG_DIR / "f95_icon.svg"
   

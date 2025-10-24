@@ -76,6 +76,7 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Porn Studio Mogul")
+        self.setMinimumSize(1080, 1080)
 
         self.settings_manager = SettingsManager()
         apply_theme(self.settings_manager)
