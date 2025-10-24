@@ -1,10 +1,12 @@
 import logging
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QDialog
+from PyQt6.QtWidgets import QApplication, QDialog
 
 from data.game_state import Talent
 from ui.dialogs.email_dialog import EmailDialog
+from ui.dialogs.scene_dialog import SceneDialog
+from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
 from ui.dialogs.talent_profile_dialog import TalentProfileDialog
 from ui.dialogs.go_to_list import GoToTalentDialog
 from ui.dialogs.help_dialog import HelpDialog
@@ -22,6 +24,7 @@ class UIManager:
         self.controller = controller
         self.parent_widget = parent_widget
         self._dialog_instances = {}
+        self._open_scene_dialogs = {}
         self._talent_profile_dialog_singleton = None
         self._open_profile_dialogs_multi = {}
 
@@ -95,6 +98,7 @@ class UIManager:
         if self._talent_profile_dialog_singleton:
             dialog_list.append(self._talent_profile_dialog_singleton)
         dialog_list.extend(self._open_profile_dialogs_multi.values())
+        dialog_list.extend(self._open_scene_dialogs.values())
 
         # We iterate through all known modeless dialogs, force them to delete
         # on close, and then close them.
@@ -107,6 +111,7 @@ class UIManager:
         self._dialog_instances.clear()
         self._talent_profile_dialog_singleton = None
         self._open_profile_dialogs_multi.clear()
+        self._open_scene_dialogs.clear()
 
         logger.info("All managed modeless dialogs have been closed and references cleared.")
 
@@ -170,7 +175,35 @@ class UIManager:
                 self.controller.resolve_interactive_event(
                     event_id, scene_id, talent_id, "no_choice_fallback"
                 )
-                
+    def show_scene_planner(self, scene_id: int):
+        """
+        Shows a modeless Scene Planner dialog. If one for the given scene_id
+        is already open, it brings it to the front.
+        """
+        if scene_id in self._open_scene_dialogs:
+            dialog = self._open_scene_dialogs[scene_id]
+            dialog.raise_()
+            dialog.activateWindow()
+            # On some platforms, activateWindow is not enough
+            QApplication.setActiveWindow(dialog)
+        else:
+            dialog = SceneDialog(self.controller, parent=self.parent_widget)
+            # The presenter's lifecycle is tied to the dialog.
+            presenter = ScenePlannerPresenter(self.controller, scene_id, dialog)
+            dialog.presenter = presenter
+            
+            # Connect the destroyed signal to our cleanup slot.
+            # Use a lambda to capture the current scene_id for the connection.
+            dialog.destroyed.connect(lambda obj=None, s_id=scene_id: self._on_scene_dialog_closed(s_id))
+            
+            self._open_scene_dialogs[scene_id] = dialog
+            dialog.show()
+
+    def _on_scene_dialog_closed(self, scene_id: int):
+        if scene_id in self._open_scene_dialogs:
+            del self._open_scene_dialogs[scene_id]
+            logger.info(f"Closed and untracked Scene Planner for scene ID {scene_id}.")
+
     def show_talent_profile(self, talent: Talent):
         """
         Shows a talent profile dialog, respecting the user's setting for

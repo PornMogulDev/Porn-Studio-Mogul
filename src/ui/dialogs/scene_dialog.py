@@ -129,6 +129,8 @@ class SceneDialog(GeometryManagerMixin, QDialog):
 
     def __init__(self, controller, parent=None):
         super().__init__(parent)
+        self.presenter = None
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
         self.available_ethnicities = self.controller.get_available_ethnicities()

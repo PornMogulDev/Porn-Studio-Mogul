@@ -13,9 +13,10 @@ from ui.presenters.scene_planner_presenter import ScenePlannerPresenter # Import
 from ui.widgets.help_button import HelpButton
 
 class ScheduleTab(QWidget):
-    def __init__(self, controller):
+    def __init__(self, controller, ui_manager):
         super().__init__()
         self.controller = controller
+        self.ui_manager = ui_manager
         self.setup_ui()
     
         # --- Connections ---
@@ -120,10 +121,7 @@ class ScheduleTab(QWidget):
         if item_type == 'scene':
             scene = item_data.get('data')
             if isinstance(scene, Scene):
-                # MVP Refactoring: Create the View, then the Presenter which manages it.
-                dialog = SceneDialog(self.controller, parent=self.window())
-                presenter = ScenePlannerPresenter(self.controller, scene.id, dialog)
-                dialog.exec()
+                self.ui_manager.show_scene_planner(scene.id)
         
         elif item_type == 'week_header':
             week = item_data.get('week')

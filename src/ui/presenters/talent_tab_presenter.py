@@ -113,10 +113,7 @@ class TalentTabPresenter(QObject):
 
     @pyqtSlot(int)
     def on_open_scene_dialog(self, scene_id: int):
-        dialog = SceneDialog(self.controller, parent=self.view.window())
-        from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
-        presenter = ScenePlannerPresenter(self.controller, scene_id, dialog)
-        dialog.exec()
+        self.ui_manager.show_scene_planner(scene_id)
         
         current_selection = self.view.talent_list_view.selectionModel().currentIndex()
         if current_selection.isValid():
