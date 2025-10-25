@@ -102,6 +102,31 @@ class HireTalentService:
                 eligible_talents.append(talent)
             
         return sorted(eligible_talents, key=lambda t: t.alias)
+    
+    def filter_talents_by_availability(self, talents: List[Talent], scene_id: int, vp_id: int) -> List[Talent]:
+        """
+        Takes a pre-filtered list of Talent objects and further filters them to only
+        include those available for a specific role.
+        """
+        # --- Step A: Gather Context (once for all talents) ---
+        scene_db = self.session.query(SceneDB).options(
+            selectinload(SceneDB.virtual_performers),
+            selectinload(SceneDB.cast),
+            selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments)
+        ).get(scene_id)
+        if not scene_db: return []
+        scene = scene_db.to_dataclass(Scene)
+
+        bloc_db = self.session.query(ShootingBlocDB).get(scene_db.bloc_id) if scene_db.bloc_id else None
+
+        # --- Step B: In-Memory Python Filtering ---
+        available_talents = []
+        for talent in talents:
+            is_available, _ = self._check_talent_availability_for_role(talent, scene, vp_id, scene_db, bloc_db)
+            if is_available:
+                available_talents.append(talent)
+
+        return available_talents
 
     def _check_talent_availability_for_role(self, talent: Talent, scene: Scene, vp_id: int, scene_db: SceneDB, bloc_db: Optional[ShootingBlocDB]) -> tuple[bool, Optional[str]]:
         """

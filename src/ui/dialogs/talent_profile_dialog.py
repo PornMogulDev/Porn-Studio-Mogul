@@ -52,12 +52,13 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         self.gender_label = QLabel()
         self.orientation_label = QLabel()
         self.popularity_label = QLabel()
-        self.physical_label = QLabel()
+        self.physical_attr_name_label = QLabel()
+        self.physical_attr_value_label = QLabel()
         details_layout.addRow("<b>Age:</b>", self.age_label)
         details_layout.addRow("<b>Gender:</b>", self.gender_label)
         details_layout.addRow("<b>Orientation:</b>", self.orientation_label)
         details_layout.addRow("<b>Ethnicity:</b>", self.ethnicity_label)
-        details_layout.addRow("<b>Physical:</b>", self.physical_label)
+        details_layout.addRow(self.physical_attr_name_label, self.physical_attr_value_label)
         left_layout.addWidget(details_group)
         details_layout.addRow("<b>Popularity:</b>", self.popularity_label)
 
@@ -205,8 +206,17 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         self.populate_data()
         
     def populate_physical_label(self):
-        is_visible, physical_text = format_physical_attribute(self.talent)
-        self.physical_label.setText(physical_text if is_visible else "N/A")
+        unit_system = self.settings_manager.get_setting("unit_system", "imperial")
+        attr_name, attr_value = format_physical_attribute(self.talent, unit_system)
+        
+        if attr_name:
+            self.physical_attr_name_label.setText(f"<b>{attr_name}:</b>")
+            self.physical_attr_value_label.setText(attr_value)
+            self.physical_attr_name_label.setVisible(True)
+            self.physical_attr_value_label.setVisible(True)
+        else:
+            self.physical_attr_name_label.setVisible(False)
+            self.physical_attr_value_label.setVisible(False)
 
     def populate_data(self):
         self.age_label.setText(str(self.talent.age))

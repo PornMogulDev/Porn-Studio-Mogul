@@ -19,7 +19,7 @@ class TalentTabPresenter(QObject):
         self.view = view
         self.ui_manager = ui_manager
         self._connect_signals()
-        self.view.initial_load_requested.emit()
+        self.view.create_model_and_load(self.controller.settings_manager)
     def _connect_signals(self):
         self.controller.signals.scenes_changed.connect(self.on_global_scenes_changed)
         self.controller.signals.talent_pool_changed.connect(self.view.refresh_from_state)
@@ -67,22 +67,41 @@ class TalentTabPresenter(QObject):
         html += "</ul>"
         
         self.view.display_role_info(html)
-        self.view.set_standard_filters_enabled(False)
-        
-        # Filter the list to only show eligible talent
-        eligible_talent_list = self.controller.hire_talent_service.get_eligible_talent_for_role(scene_id, vp_id)
-        self.view.update_talent_list(eligible_talent_list)
+        self.view.filter_by_reqs_checkbox.setEnabled(True)
+        self.view.hide_refusals_checkbox.setEnabled(True)
+        self.view.filter_talent_list()
 
     @pyqtSlot()
     def on_clear_role_info(self):
         self.view.clear_role_info()
-        self.view.set_standard_filters_enabled(True)
         self.view.refresh_from_state()
 
     @pyqtSlot(dict)
     def on_standard_filters_changed(self, all_filters: dict):
+        role_filter = all_filters.get('role_filter', {'active': False})
+
+        # If filtering by requirements, fetch them and override standard filters
+        if role_filter.get('active') and role_filter.get('filter_by_reqs'):
+            role_details = self.controller.hire_talent_service.get_role_details_for_ui(
+                role_filter['scene_id'], role_filter['vp_id']
+            )
+            all_filters['gender'] = role_details.get('gender')
+            if ethnicity := role_details.get('ethnicity'):
+                if ethnicity != "Any":
+                    all_filters['ethnicities'] = [ethnicity]
+            self.view.set_standard_filters_enabled(False) # Disable advanced filter button
+        else:
+            self.view.set_standard_filters_enabled(True)
+
         filtered_talents = self.controller.get_filtered_talents(all_filters)
-        self.view.update_talent_list(filtered_talents)
+
+        
+        if role_filter.get('active') and role_filter.get('hide_refusals'):
+            final_talents = self.controller.hire_talent_service.filter_talents_by_availability(filtered_talents, role_filter['scene_id'], role_filter['vp_id'])
+        else:
+            final_talents = filtered_talents
+            
+        self.view.update_talent_list(final_talents)
     
     @pyqtSlot(object, QPoint)
     def on_context_menu_requested(self, talent: Talent, pos: QPoint):

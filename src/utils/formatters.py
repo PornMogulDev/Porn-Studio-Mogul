@@ -1,8 +1,7 @@
-from typing import Tuple
+from typing import Tuple, Optional
 from PyQt6.QtGui import QColor
 
 from data.game_state import Talent
-from data.settings_manager import SettingsManager
 
 #Helper dictionary to map chemistry scores to display text and color
 CHEMISTRY_MAP = {
@@ -23,24 +22,27 @@ def format_orientation(score: int, gender: str) -> str:
     if 80 <= score <= 100:
         return "Lesbian" if gender == "Female" else "Gay"
     return "Unknown"
+def format_dick_size(inches: float, unit_system: str) -> str:
+    """Formats a dick size in inches to the desired unit system's string representation."""
+    if unit_system == 'metric':
+        cm_value = inches * 2.54
+        return f"{cm_value:.1f} cm"
+    else:  # imperial
+        return f'{inches}"'
 
-def format_physical_attribute(talent: Talent) -> Tuple[bool, str]:
+def format_physical_attribute(talent: Talent, unit_system: str) -> Tuple[Optional[str], Optional[str]]:
     """
-    Formats the primary physical attribute (boob cup or dick size) for display.
-    Reads the unit system directly from the SettingsManager.
-    
-    Returns:
-        A tuple of (is_visible, display_text).
+    Determines the primary physical attribute and formats it for display.
+     
+     Returns:
+        A tuple of (attribute_name, formatted_value). E.g., ("Dick", '7.1"').
+        Returns (None, None) if no relevant attribute is present.
     """
-    settings = SettingsManager() # Get singleton instance
-    unit_system = settings.get_setting("unit_system", "imperial")
-
     if talent.gender == "Female" and talent.boob_cup:
-        return True, f"{talent.boob_cup} Cup Size"
+        # Assuming boob_size (e.g., 750) and boob_cup (e.g., 'D') are separate fields
+        # and we want to display them together if available.
+        size_str = f"{talent.boob_size}cc " if hasattr(talent, 'boob_size') and talent.boob_size else ""
+        return "Boobs", f"{size_str}({talent.boob_cup})"
     elif talent.gender == "Male" and talent.dick_size is not None:
-        if unit_system == 'metric':
-            cm_value = talent.dick_size * 2.54
-            return True, f"{cm_value:.1f} cm Dick"
-        else: # imperial
-            return True, f"{talent.dick_size}\" Dick"
-    return False, "N/A"
+        return "Dick", format_dick_size(talent.dick_size, unit_system)
+    return None, None

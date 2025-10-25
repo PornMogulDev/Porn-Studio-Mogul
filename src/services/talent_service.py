@@ -77,13 +77,14 @@ class TalentService:
         query = query.filter(TalentDB.age <= filters.get('age_max', 99))
         
         # Gender
-        if gender := filters.get('gender'):
-            if gender != "Any":
+        if (gender := filters.get('gender')) and gender != "Any":
                 query = query.filter(TalentDB.gender == gender)
+
         
         # Ethnicity
         if ethnicities := filters.get('ethnicities'):
-            query = query.filter(TalentDB.ethnicity.in_(ethnicities))
+            if "Any" not in ethnicities:
+                query = query.filter(TalentDB.ethnicity.in_(ethnicities))
         
         # Boob Cups
         if boob_cups := filters.get('boob_cups'):
