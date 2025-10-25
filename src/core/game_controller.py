@@ -303,10 +303,11 @@ class GameController(QObject):
             self.signals.scenes_changed.emit()
         return deleted_title
 
-    def update_scene_full(self, scene_data: Scene):
+    def update_scene_full(self, scene_data: Scene) -> Dict:
         """Receives a full Scene dataclass from the presenter and updates the database."""
-        self.scene_service.update_scene_full(scene_data)
+        id_map = self.scene_service.update_scene_full(scene_data)
         self.db_session.commit()
+        return id_map
 
     def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int) -> int:
         return self.hire_talent_service.calculate_talent_demand(talent_id, scene_id, vp_id)

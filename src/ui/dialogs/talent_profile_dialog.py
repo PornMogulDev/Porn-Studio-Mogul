@@ -4,7 +4,7 @@ QFormLayout, QTreeView, QWidget, QScrollArea, QTabWidget, QTableWidget, QTableWi
 QListWidget, QListWidgetItem, QGridLayout, QMessageBox, QStackedWidget, QPushButton
 )
 from PyQt6.QtGui import QStandardItemModel, QStandardItem, QColor
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from collections import defaultdict
 
 from data.game_state import Talent
@@ -27,7 +27,7 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
 
         self.setup_ui()
         self.populate_data()
-        self.controller.settings_manager.signals.setting_changed.connect(self.on_setting_changed)
+        self._connect_signals()
         self._restore_geometry()
 
     def on_setting_changed(self, key: str):
@@ -199,6 +199,10 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         button_box.rejected.connect(self.reject)
         main_layout.addWidget(button_box)
 
+    def _connect_signals(self):
+        self.controller.settings_manager.signals.setting_changed.connect(self.on_setting_changed)
+        self.controller.signals.scenes_changed.connect(self.refresh_available_roles)
+
     def update_with_talent(self, talent: Talent):
         """Clears and repopulates the entire dialog with data from a new talent."""
         self.talent = talent
@@ -241,7 +245,7 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         self.populate_scene_history()
         self.populate_chemistry()
         self.populate_preferences()
-        self.populate_hiring_tab()
+        self.refresh_available_roles()
 
     def _populate_preferences_lists(self):
         tag_definitions = self.controller.data_manager.tag_definitions
@@ -323,7 +327,12 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
             self.refuses_policies_list.addItems([policy_names.get(pid, pid) for pid in sorted(refused)])
         else: self.refuses_policies_list.addItem("None")
     
-    def populate_hiring_tab(self):
+    @pyqtSlot()
+    def refresh_available_roles(self):
+        """
+        Slot connected to the global scenes_changed signal. Re-fetches and
+        updates the list of available roles for the current talent.
+        """
         self.available_roles_list.clear()
         available_roles = self.controller.hire_talent_service.find_available_roles_for_talent(self.talent.id)
 

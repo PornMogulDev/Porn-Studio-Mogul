@@ -11,7 +11,17 @@ logger = logging.getLogger(__name__)
 class SceneEditorService:
     def __init__(self, scene_to_edit: Scene, data_manager: DataManager):
         self.working_scene = copy.deepcopy(scene_to_edit)
+        self.original_scene = scene_to_edit
         self.data_manager = data_manager
+        
+    def reset_with_scene(self, new_scene: Scene):
+        """
+        Resets the editor's state with a fresh Scene object from the database.
+        This is used to synchronize state after an external change, like casting.
+        """
+        # We use deepcopy to ensure our working copy is fully independent.
+        self.working_scene = copy.deepcopy(new_scene)
+        self.original_scene = new_scene
 
     def set_title(self, title: str):
         self.working_scene.title = title

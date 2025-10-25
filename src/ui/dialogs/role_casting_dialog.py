@@ -1,5 +1,8 @@
 from typing import List
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QTableView, QHeaderView, QLabel
+from PyQt6.QtWidgets import (
+    QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QTableView,
+    QHeaderView, QLabel, QGroupBox, QTextEdit
+)
 from PyQt6.QtCore import pyqtSignal, Qt, QModelIndex
 
 from data.game_state import Talent
@@ -16,6 +19,7 @@ class RoleCastingDialog(GeometryManagerMixin, QDialog):
         self.scene_id = scene_id
         self.vp_id = vp_id
 
+        self.settings_manager = self.controller.settings_manager
         self.talent_model = TalentTableModel(settings_manager=self.controller.settings_manager)
 
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -29,12 +33,20 @@ class RoleCastingDialog(GeometryManagerMixin, QDialog):
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
 
+        role_details_group = QGroupBox("Role Details")
+        role_details_layout = QVBoxLayout(role_details_group)
+        self.role_details_display = QTextEdit()
+        self.role_details_display.setReadOnly(True)
+        role_details_layout.addWidget(self.role_details_display)
+        main_layout.addWidget(role_details_group, 2)
+
         top_bar_layout = QHBoxLayout()
         top_bar_layout.addWidget(QLabel("Filter by name:"))
         self.name_filter_input = QLineEdit()
         top_bar_layout.addWidget(self.name_filter_input)
         main_layout.addLayout(top_bar_layout)
 
+        # --- Talent Table ---
         self.talent_table_view = QTableView()
         self.talent_table_view.setModel(self.talent_model)
         self.talent_table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
@@ -43,7 +55,7 @@ class RoleCastingDialog(GeometryManagerMixin, QDialog):
         self.talent_table_view.setSortingEnabled(True)
         self.talent_table_view.sortByColumn(0, Qt.SortOrder.AscendingOrder)
         self._configure_table_view_headers()
-        main_layout.addWidget(self.talent_table_view)
+        main_layout.addWidget(self.talent_table_view, 8)
 
     def _connect_signals(self):
         self.name_filter_input.textChanged.connect(self.name_filter_changed)
@@ -56,6 +68,9 @@ class RoleCastingDialog(GeometryManagerMixin, QDialog):
 
     def update_talent_table(self, talents: List[Talent]):
         self.talent_model.update_data(talents)
+
+    def update_role_details(self, html: str):
+        self.role_details_display.setHtml(html)
 
     def _on_talent_selected(self, index: QModelIndex):
         if talent := self.talent_model.data(index, Qt.ItemDataRole.UserRole):

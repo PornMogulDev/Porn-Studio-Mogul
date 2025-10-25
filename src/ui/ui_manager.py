@@ -29,7 +29,6 @@ class UIManager:
         self._open_scene_dialogs = {}
         self._talent_profile_dialog_singleton = None
         self._open_profile_dialogs_multi = {}
-        self._open_role_casting_dialogs = {}
 
     def _get_dialog(self, dialog_class, *args, **kwargs):
         dialog_name = dialog_class.__name__
@@ -102,7 +101,6 @@ class UIManager:
             dialog_list.append(self._talent_profile_dialog_singleton)
         dialog_list.extend(self._open_profile_dialogs_multi.values())
         dialog_list.extend(self._open_scene_dialogs.values())
-        dialog_list.extend(self._open_role_casting_dialogs.values())
 
         # We iterate through all known modeless dialogs, force them to delete
         # on close, and then close them.
@@ -116,7 +114,6 @@ class UIManager:
         self._talent_profile_dialog_singleton = None
         self._open_profile_dialogs_multi.clear()
         self._open_scene_dialogs.clear()
-        self._open_role_casting_dialogs.clear()
 
         logger.info("All managed modeless dialogs have been closed and references cleared.")
 
@@ -208,24 +205,17 @@ class UIManager:
             del self._open_scene_dialogs[scene_id]
             logger.info(f"Closed and untracked Scene Planner for scene ID {scene_id}.")
 
-    def show_role_casting_dialog(self, scene_id: int, vp_id: int):
-        key = (scene_id, vp_id)
-        if key in self._open_role_casting_dialogs:
-            dialog = self._open_role_casting_dialogs[key]
-            dialog.raise_()
-            dialog.activateWindow()
-        else:
-            dialog = RoleCastingDialog(self.controller, scene_id, vp_id, parent=self.parent_widget)
-            # Presenter lifecycle is tied to the dialog
-            _ = RoleCastingPresenter(self.controller, dialog, scene_id, vp_id)
-            dialog.destroyed.connect(lambda obj=None, k=key: self._on_role_casting_dialog_closed(k))
-            self._open_role_casting_dialogs[key] = dialog
-            dialog.show()
-
-    def _on_role_casting_dialog_closed(self, key: tuple):
-        if key in self._open_role_casting_dialogs:
-            del self._open_role_casting_dialogs[key]
-            logger.info(f"Closed and untracked Role Casting Dialog for scene/vp {key}.")
+    def show_role_casting_dialog(self, scene_id: int, vp_id: int) -> int:
+        """
+        Shows a modal Role Casting dialog and returns the result code.
+        """
+        dialog = RoleCastingDialog(self.controller, scene_id, vp_id, parent=self.parent_widget)
+        
+        # The presenter's lifecycle is tied to the dialog's lifecycle because
+        # we parent the presenter to the dialog.
+        _ = RoleCastingPresenter(self.controller, dialog, scene_id, vp_id)
+        
+        return dialog.exec()
 
     def show_talent_profile(self, talent: Talent):
         """

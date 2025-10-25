@@ -242,13 +242,7 @@ class SceneService:
             selectinload(SceneDB.virtual_performers),
             selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments)
         ).get(scene_data.id)
-        if not scene_db or scene_db.is_locked: return
-
-        # Update simple attributes
-        # FIX: Removed 'assigned_tags' from this loop to handle it manually after ID mapping.
-        for key in ['title', 'status', 'focus_target', 'total_runtime_minutes', 'scheduled_week', 'scheduled_year', 'global_tags', 'is_locked', 'dom_sub_dynamic_level', 'protagonist_vp_ids']:
-             if hasattr(scene_data, key):
-                 setattr(scene_db, key, getattr(scene_data, key))
+        if not scene_db or scene_db.is_locked: return {}
 
         vp_id_map = {}
 
@@ -261,33 +255,35 @@ class SceneService:
                 vp_db = existing_vps.pop(vp_data.id)
                 vp_db.name, vp_db.gender, vp_db.ethnicity, vp_db.disposition = vp_data.name, vp_data.gender, vp_data.ethnicity, vp_data.disposition
                 updated_vps.append(vp_db)
-            else: # This is a new VP, identified by a temporary negative ID
-                temp_id = vp_data.id # Store the temporary ID (e.g., -2)
+            else: 
+                temp_id = vp_data.id 
                 new_vp_db = VirtualPerformerDB.from_dataclass(vp_data)
-                new_vp_db.id = None # Let DB assign a real ID
+                new_vp_db.id = None 
                 updated_vps.append(new_vp_db)
-                # Store the temporary ID against the new DB object we are about to save.
                 if temp_id is not None:
                     new_vp_temp_objects[temp_id] = new_vp_db
         
         scene_db.virtual_performers = updated_vps
-        
-        # Flush the session to save the new VPs and get their permanent IDs assigned by the DB.
         self.session.flush()
 
-        # Now, create the map from the temporary ID to the new permanent ID.
         for temp_id, vp_db_object in new_vp_temp_objects.items():
-            if vp_db_object.id: # Ensure the ID was assigned
+            if vp_db_object.id:
                 vp_id_map[temp_id] = vp_db_object.id
 
-        # --- FIX: Remap assigned_tags with the new permanent IDs ---
+        # Update simple attributes, excluding those needing ID remapping
+        for key in ['title', 'status', 'focus_target', 'total_runtime_minutes', 'scheduled_week', 'scheduled_year', 'global_tags', 'is_locked', 'dom_sub_dynamic_level']:
+             if hasattr(scene_data, key):
+                 setattr(scene_db, key, getattr(scene_data, key))
+
+        # Manually remap protagonist IDs
+        scene_db.protagonist_vp_ids = [vp_id_map.get(pid, pid) for pid in scene_data.protagonist_vp_ids]
+
+        # Remap assigned_tags with the new permanent IDs
         corrected_assigned_tags = {}
         for tag_name, vp_ids in scene_data.assigned_tags.items():
             corrected_ids = [vp_id_map.get(vp_id, vp_id) for vp_id in vp_ids]
             corrected_assigned_tags[tag_name] = corrected_ids
         scene_db.assigned_tags = corrected_assigned_tags
-        # --- END FIX ---
-
 
         # Update Action Segments
         existing_segments = {seg.id: seg for seg in scene_db.action_segments}
@@ -300,7 +296,7 @@ class SceneService:
             else: # New Segment
                 seg_db = ActionSegmentDB.from_dataclass(seg_data)
                 seg_db.id = None
-                seg_db.slot_assignments = [] # Ensure it's a blank list for new segments
+                seg_db.slot_assignments = []
             
             existing_assignments = {sa.slot_id: sa for sa in seg_db.slot_assignments}
             updated_assignments = []
@@ -323,6 +319,7 @@ class SceneService:
         scene_db.action_segments = updated_segments
 
         self.signals.scenes_changed.emit()
+        return vp_id_map
 
     def start_editing_scene(self, scene_id: int, editing_tier_id: str) -> bool:
         """Begins the editing process for a shot scene."""

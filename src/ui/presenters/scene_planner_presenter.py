@@ -47,8 +47,8 @@ class ScenePlannerPresenter(QObject):
     def _connect_signals(self):
         # View signals
         self.view.view_loaded.connect(self.on_view_loaded)
-        self.view.save_requested.connect(self.on_save_requested)
-        self.view.cancel_requested.connect(self.view.reject)
+        self.view.button_box.accepted.connect(self.on_save_requested)
+        self.view.button_box.rejected.connect(self.on_cancel_requested)
         self.view.delete_requested.connect(self.on_delete_requested)
         self.view.title_changed.connect(self.on_title_changed)
         self.view.focus_target_changed.connect(self.on_focus_target_changed)
@@ -259,14 +259,49 @@ class ScenePlannerPresenter(QObject):
     def on_segment_parameter_changed(self, segment_id: int, role: str, value: int): self.editor_service.update_action_segment_parameter(segment_id, role, value); self._refresh_action_segment_panel()
     def on_slot_assignment_changed(self, segment_id: int, slot_id: str, vp_id: Optional[int]): self.editor_service.update_slot_assignment(segment_id, slot_id, vp_id); self.on_selected_action_segment_changed(self.view.selected_actions_list.currentItem())
 
-    def on_save_requested(self): self.controller.update_scene_full(self.editor_service.finalize_for_saving()); self.view.accept()
+    def on_save_requested(self):
+        self.controller.update_scene_full(self.editor_service.finalize_for_saving())
+        self.view.accept()
+
+    def on_cancel_requested(self):
+        """
+        Reverts any changes made during this editing session by saving the
+        original scene state back to the database.
+        """
+        self.controller.update_scene_full(self.editor_service.original_scene)
+        self.view.reject()
     def on_delete_requested(self, penalty_percentage: float): self.controller.delete_scene(self.working_scene.id, penalty_percentage=penalty_percentage); self.view.accept()
     def on_favorites_changed(self): self.update_favorites(); self._refresh_thematic_panel(); self._refresh_physical_panel(); self._refresh_action_segment_panel()
     def on_toggle_favorite_requested(self, tag_name: str, tag_type: str): self.toggle_favorite_tag(tag_name, tag_type)
 
     @pyqtSlot(int)
     def on_hire_for_role(self, vp_id: int):
-        self.ui_manager.show_role_casting_dialog(self.working_scene.id, vp_id)
+        # 1. Save the current in-memory state to the database. This returns
+        #    a map from any temporary negative IDs to their new permanent IDs.
+        id_map = self.controller.update_scene_full(self.working_scene)
+
+        # 2. Determine the correct, permanent ID for the virtual performer.
+        #    If vp_id was temporary (negative), get its new ID from the map.
+        #    If it was already permanent (positive), it remains unchanged.
+        new_vp_id = id_map.get(vp_id, vp_id)
+
+        # 3. Show the casting dialog using the correct, permanent ID.
+        result = self.ui_manager.show_role_casting_dialog(self.working_scene.id, new_vp_id)
+
+        if result == QDialog.DialogCode.Accepted:
+            # A hire was made. The database is updated, but our local 'working_scene'
+            # in the editor service is now stale. We need to refresh it.
+            fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
+            print("\n--- [DEBUG] Scene State After Hire ---")
+            if fresh_scene:
+                print(f"Fresh scene title: {fresh_scene.title}")
+                print(f"VPs in fresh scene: {len(fresh_scene.virtual_performers)}")
+                print(f"Cast in fresh scene: {fresh_scene.final_cast}")
+                self.editor_service.reset_with_scene(fresh_scene)
+                self._refresh_full_view()
+            else:
+                print("ERROR: fresh_scene is None!")
+            print("-------------------------------------\n")
 
     # --- Data Access & Helpers ---
     def _get_bloc_info_text(self) -> str:
