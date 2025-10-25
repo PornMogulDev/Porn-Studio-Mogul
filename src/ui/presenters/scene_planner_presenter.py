@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, List, Dict, Tuple, Set, TYPE_CHECKING
 from PyQt6.QtCore import Qt, pyqtSlot, QObject
 from PyQt6.QtWidgets import QDialog, QMessageBox, QListWidgetItem
@@ -10,6 +11,8 @@ from services.scene_editor_service import SceneEditorService
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
+
+logger = logging.getLogger(__name__)
 
 class ScenePlannerPresenter(QObject):
     def __init__(self, controller: IGameController, scene_id: int, view: SceneDialog, ui_manager: 'UIManager'):
@@ -86,6 +89,8 @@ class ScenePlannerPresenter(QObject):
 
         self.view.hire_for_role_requested.connect(self.on_hire_for_role)     
         self.controller.signals.favorites_changed.connect(self.on_favorites_changed)
+
+        self.controller.signals.scenes_changed.connect(self.on_external_scene_change)
 
     def on_view_loaded(self): self._refresh_full_view()
 
@@ -366,3 +371,27 @@ class ScenePlannerPresenter(QObject):
         is_valid, message = self.editor_service.validate_and_set_status(new_status_str)
         if is_valid: self._refresh_full_view()
         else: QMessageBox.warning(self.view, "Cannot Change Status", message); self._refresh_general_info()
+
+    @pyqtSlot()
+    def on_external_scene_change(self):
+        """
+        Slot to handle the global scenes_changed signal.
+        Refreshes the presenter's state and view if the underlying scene
+        has been modified by an external action (e.g., casting from a
+        different dialog).
+        """
+        logger.info(f"ScenePlanner (ID: {self.working_scene.id}) detected an external scene change.")
+        
+        # Re-fetch the scene data from the authoritative source
+        fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
+        
+        if not fresh_scene:
+            # The scene was likely deleted by another process. Close the dialog.
+            logger.info(f"Scene {self.working_scene.id} no longer exists. Closing planner.")
+            self.view.close()
+            return
+            
+        # The scene still exists. Reset our local state and refresh the entire view.
+        self.editor_service.reset_with_scene(fresh_scene)
+        self._refresh_full_view()
+        logger.info(f"ScenePlanner (ID: {self.working_scene.id}) refreshed with updated data.")
