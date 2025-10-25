@@ -23,23 +23,19 @@ class TalentTabPresenter(QObject):
     def _connect_signals(self):
         self.controller.signals.scenes_changed.connect(self.on_global_scenes_changed)
         self.controller.signals.talent_pool_changed.connect(self.view.refresh_from_state)
-        self.controller.settings_manager.signals.setting_changed.connect(self.view.talent_detail_view.on_setting_changed)
         self.controller.signals.go_to_categories_changed.connect(self.view.refresh_from_state)
         self.controller.signals.go_to_list_changed.connect(self.view.refresh_from_state)
 
         self.view.initial_load_requested.connect(self.on_initial_load)
         self.view.scene_filter_selected.connect(self.on_scene_selected_for_filter)
-        self.view.role_filter_applied.connect(self.on_role_filter_applied)
-        self.view.role_filter_cleared.connect(self.on_role_filter_cleared)
+        self.view.show_role_info_requested.connect(self.on_show_role_info)
+        self.view.clear_role_info_requested.connect(self.on_clear_role_info)
         self.view.standard_filters_changed.connect(self.on_standard_filters_changed)
-        self.view.talent_selected.connect(self.on_talent_selected)
         self.view.context_menu_requested.connect(self.on_context_menu_requested)
         self.view.add_talent_to_category_requested.connect(self.controller.add_talent_to_go_to_category)
         self.view.remove_talent_from_category_requested.connect(self.controller.remove_talent_from_go_to_category)
         self.view.open_advanced_filters_requested.connect(self.on_open_advanced_filters)
         self.view.open_talent_profile_requested.connect(self.on_open_talent_profile)
-        self.view.open_scene_dialog_requested.connect(self.on_open_scene_dialog)
-        self.view.hire_requested.connect(self.on_hire_requested)
         self.view.help_requested.connect(self.on_help_requested)
 
     @pyqtSlot()
@@ -58,13 +54,28 @@ class TalentTabPresenter(QObject):
         self.view.update_role_dropdown(roles)
 
     @pyqtSlot(int, int)
-    def on_role_filter_applied(self, scene_id: int, vp_id: int):
-        eligible_talent = self.controller.hire_talent_service.get_eligible_talent_for_role(scene_id, vp_id)
-        self.view.update_talent_list(eligible_talent)
+    def on_show_role_info(self, scene_id: int, vp_id: int):
+        role_details = self.controller.hire_talent_service.get_role_details_for_ui(scene_id, vp_id)
+        html = "<ul>"
+        html += f"<li><b>Gender:</b> {role_details.get('gender', 'N/A')}</li>"
+        html += f"<li><b>Ethnicity:</b> {role_details.get('ethnicity', 'N/A')}</li>"
+        if role_details.get('is_protagonist'): html += "<li><b>Protagonist Role</b></li>"
+        if role_details.get('disposition') != 'Switch': html += f"<li><b>Disposition:</b> {role_details.get('disposition', 'N/A')}</li>"
+
+        if physical_tags := role_details.get('physical_tags'): html += f"<br><li><b>Physical Tags:</b><br>{', '.join(physical_tags)}</li>"
+        if action_roles := role_details.get('action_roles'): html += f"<br><li><b>Action Roles:</b><br>{', '.join(action_roles)}</li>"
+        html += "</ul>"
+        
+        self.view.display_role_info(html)
         self.view.set_standard_filters_enabled(False)
+        
+        # Filter the list to only show eligible talent
+        eligible_talent_list = self.controller.hire_talent_service.get_eligible_talent_for_role(scene_id, vp_id)
+        self.view.update_talent_list(eligible_talent_list)
 
     @pyqtSlot()
-    def on_role_filter_cleared(self):
+    def on_clear_role_info(self):
+        self.view.clear_role_info()
         self.view.set_standard_filters_enabled(True)
         self.view.refresh_from_state()
 
@@ -72,18 +83,6 @@ class TalentTabPresenter(QObject):
     def on_standard_filters_changed(self, all_filters: dict):
         filtered_talents = self.controller.get_filtered_talents(all_filters)
         self.view.update_talent_list(filtered_talents)
-
-    @pyqtSlot(object)
-    def on_talent_selected(self, talent: Talent):
-        available_roles = self.controller.hire_talent_service.find_available_roles_for_talent(talent.id)
-        tag_defs = self.controller.data_manager.tag_definitions
-        policy_defs = self.controller.data_manager.on_set_policies_data
-        self.view.talent_detail_view.display_talent(talent, available_roles, tag_defs, policy_defs)
-
-    @pyqtSlot(int, list)
-    def on_hire_requested(self, talent_id: int, roles: list):
-        self.controller.cast_talent_for_multiple_roles(talent_id, roles)
-        self.on_global_scenes_changed()
     
     @pyqtSlot(object, QPoint)
     def on_context_menu_requested(self, talent: Talent, pos: QPoint):
@@ -110,15 +109,6 @@ class TalentTabPresenter(QObject):
     def on_open_talent_profile(self, talent: Talent):
         """Handles the request to open a talent's profile, delegating to the UIManager."""
         self.ui_manager.show_talent_profile(talent)
-
-    @pyqtSlot(int)
-    def on_open_scene_dialog(self, scene_id: int):
-        self.ui_manager.show_scene_planner(scene_id)
-        
-        current_selection = self.view.talent_list_view.selectionModel().currentIndex()
-        if current_selection.isValid():
-            talent = current_selection.data(Qt.ItemDataRole.UserRole)
-            self.on_talent_selected(talent)
 
     @pyqtSlot(str)
     def on_help_requested(self, topic_key: str):

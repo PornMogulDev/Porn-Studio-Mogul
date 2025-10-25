@@ -214,6 +214,8 @@ class UIManager:
         if behavior == 'singleton':
             if self._talent_profile_dialog_singleton is None:
                 dialog = TalentProfileDialog(talent, self.controller, self.parent_widget)
+                dialog.hire_requested.connect(self.controller.cast_talent_for_multiple_roles)
+                dialog.open_scene_dialog_requested.connect(self.show_scene_planner)
                 dialog.destroyed.connect(self._on_singleton_profile_closed)
                 self._talent_profile_dialog_singleton = dialog
                 dialog.show()
@@ -229,6 +231,8 @@ class UIManager:
                 dialog.activateWindow()
             else:
                 dialog = TalentProfileDialog(talent, self.controller, self.parent_widget)
+                dialog.hire_requested.connect(self.controller.cast_talent_for_multiple_roles)
+                dialog.open_scene_dialog_requested.connect(self.show_scene_planner)
                 dialog.destroyed.connect(
                     lambda obj=None, t_id=talent_id: self._on_multi_profile_closed(t_id)
                 )

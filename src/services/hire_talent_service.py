@@ -287,3 +287,31 @@ class HireTalentService:
             final_demand /= preference_multiplier
 
         return max(self.data_manager.game_config.get("minimum_talent_demand", 100), int(final_demand))
+    
+    def get_role_details_for_ui(self, scene_id: int, vp_id: int) -> Dict:
+        """
+        Fetches a comprehensive dictionary of a specific role's details for UI display.
+        """
+        scene_db = self.session.query(SceneDB).options(
+            selectinload(SceneDB.virtual_performers),
+            selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments)
+        ).get(scene_id)
+        if not scene_db:
+            return {}
+        
+        scene = scene_db.to_dataclass(Scene)
+        vp = next((v for v in scene.virtual_performers if v.id == vp_id), None)
+        if not vp:
+            return {}
+
+        physical_tags = [tag for tag, vps in scene.assigned_tags.items() if vp_id in vps]
+
+        details = {
+            'gender': vp.gender,
+            'ethnicity': vp.ethnicity,
+            'is_protagonist': vp_id in scene.protagonist_vp_ids,
+            'disposition': vp.disposition,
+            'physical_tags': sorted(physical_tags),
+            'action_roles': self._get_role_tags_for_display(scene, vp_id)
+        }
+        return details
