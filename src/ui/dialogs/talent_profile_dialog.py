@@ -131,7 +131,7 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         prefs_tab = QWidget()
         prefs_tab_layout = QHBoxLayout(prefs_tab)
         
-        prefs_limits_group = QGroupBox("Preferences \& Limits")
+        prefs_limits_group = QGroupBox("Preferences & Limits")
         prefs_grid_layout = QGridLayout(prefs_limits_group)
         prefs_grid_layout.addWidget(QLabel("<b>Likes</b> (Reduces Hire Cost):"), 0, 0)
         prefs_grid_layout.addWidget(QLabel("<b>Dislikes</b> (Increases Hire Cost):"), 0, 1)
@@ -189,7 +189,7 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         tab_widget = QTabWidget()
 
         tab_widget.addTab(self._create_profile_tab(), "Profile")
-        tab_widget.addTab(self._create_prefs_tab(), "Preferences \& Requirements")
+        tab_widget.addTab(self._create_prefs_tab(), "Preferences & Requirements")
         self._create_history_chem_tabs(tab_widget)
         tab_widget.addTab(self._create_hiring_tab(), "Hiring")
 

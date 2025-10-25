@@ -1,13 +1,15 @@
 import logging
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QDialog
+from PyQt6.QtWidgets import QApplication, QDialog, QWidget
 
 from data.game_state import Talent
 from ui.dialogs.email_dialog import EmailDialog
 from ui.dialogs.scene_dialog import SceneDialog
 from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
 from ui.dialogs.talent_profile_dialog import TalentProfileDialog
+from ui.dialogs.role_casting_dialog import RoleCastingDialog
+from ui.presenters.role_casting_presenter import RoleCastingPresenter
 from ui.dialogs.go_to_list import GoToTalentDialog
 from ui.dialogs.help_dialog import HelpDialog
 from ui.dialogs.incomplete_scheduled_scene import IncompleteCastingDialog
@@ -20,13 +22,14 @@ logger = logging.getLogger(__name__)
 
 
 class UIManager:
-    def __init__(self, controller, parent_widget=None):
+    def __init__(self, controller, parent_widget: QWidget = None):
         self.controller = controller
         self.parent_widget = parent_widget
         self._dialog_instances = {}
         self._open_scene_dialogs = {}
         self._talent_profile_dialog_singleton = None
         self._open_profile_dialogs_multi = {}
+        self._open_role_casting_dialogs = {}
 
     def _get_dialog(self, dialog_class, *args, **kwargs):
         dialog_name = dialog_class.__name__
@@ -99,6 +102,7 @@ class UIManager:
             dialog_list.append(self._talent_profile_dialog_singleton)
         dialog_list.extend(self._open_profile_dialogs_multi.values())
         dialog_list.extend(self._open_scene_dialogs.values())
+        dialog_list.extend(self._open_role_casting_dialogs.values())
 
         # We iterate through all known modeless dialogs, force them to delete
         # on close, and then close them.
@@ -112,6 +116,7 @@ class UIManager:
         self._talent_profile_dialog_singleton = None
         self._open_profile_dialogs_multi.clear()
         self._open_scene_dialogs.clear()
+        self._open_role_casting_dialogs.clear()
 
         logger.info("All managed modeless dialogs have been closed and references cleared.")
 
@@ -188,8 +193,7 @@ class UIManager:
             QApplication.setActiveWindow(dialog)
         else:
             dialog = SceneDialog(self.controller, parent=self.parent_widget)
-            # The presenter's lifecycle is tied to the dialog.
-            presenter = ScenePlannerPresenter(self.controller, scene_id, dialog)
+            presenter = ScenePlannerPresenter(self.controller, scene_id, dialog, self)
             dialog.presenter = presenter
             
             # Connect the destroyed signal to our cleanup slot.
@@ -203,6 +207,25 @@ class UIManager:
         if scene_id in self._open_scene_dialogs:
             del self._open_scene_dialogs[scene_id]
             logger.info(f"Closed and untracked Scene Planner for scene ID {scene_id}.")
+
+    def show_role_casting_dialog(self, scene_id: int, vp_id: int):
+        key = (scene_id, vp_id)
+        if key in self._open_role_casting_dialogs:
+            dialog = self._open_role_casting_dialogs[key]
+            dialog.raise_()
+            dialog.activateWindow()
+        else:
+            dialog = RoleCastingDialog(self.controller, scene_id, vp_id, parent=self.parent_widget)
+            # Presenter lifecycle is tied to the dialog
+            _ = RoleCastingPresenter(self.controller, dialog, scene_id, vp_id)
+            dialog.destroyed.connect(lambda obj=None, k=key: self._on_role_casting_dialog_closed(k))
+            self._open_role_casting_dialogs[key] = dialog
+            dialog.show()
+
+    def _on_role_casting_dialog_closed(self, key: tuple):
+        if key in self._open_role_casting_dialogs:
+            del self._open_role_casting_dialogs[key]
+            logger.info(f"Closed and untracked Role Casting Dialog for scene/vp {key}.")
 
     def show_talent_profile(self, talent: Talent):
         """

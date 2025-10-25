@@ -39,10 +39,7 @@ def format_physical_attribute(talent: Talent, unit_system: str) -> Tuple[Optiona
         Returns (None, None) if no relevant attribute is present.
     """
     if talent.gender == "Female" and talent.boob_cup:
-        # Assuming boob_size (e.g., 750) and boob_cup (e.g., 'D') are separate fields
-        # and we want to display them together if available.
-        size_str = f"{talent.boob_size}cc " if hasattr(talent, 'boob_size') and talent.boob_size else ""
-        return "Boobs", f"{size_str}({talent.boob_cup})"
+        return "Cup Size", f"{talent.boob_cup}"
     elif talent.gender == "Male" and talent.dick_size is not None:
-        return "Dick", format_dick_size(talent.dick_size, unit_system)
+        return "Dick Size", format_dick_size(talent.dick_size, unit_system)
     return None, None

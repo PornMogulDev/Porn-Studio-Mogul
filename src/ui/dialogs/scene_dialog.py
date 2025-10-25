@@ -126,6 +126,7 @@ class SceneDialog(GeometryManagerMixin, QDialog):
     segment_runtime_changed = pyqtSignal(int, int) # segment_id, new_value
     segment_parameter_changed = pyqtSignal(int, str, int) # segment_id, role, new_value
     slot_assignment_changed = pyqtSignal(int, str, object) # segment_id, slot_id, vp_id or None
+    hire_for_role_requested = pyqtSignal(int) # vp_id
 
     def __init__(self, controller, parent=None):
         super().__init__(parent)
@@ -342,7 +343,7 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         self.bloc_info_label.setText(bloc_text if bloc_text else "")
         for w in [self.title_edit, self.status_combo, self.focus_target_combo, self.total_runtime_spinbox, self.ds_level_spinbox]: w.blockSignals(False)
 
-    def update_performer_editors(self, performers_with_talent: List[Dict], ds_level: int, protagonist_ids: List[int]):
+    def update_performer_editors(self, performers_with_talent: List[Dict], ds_level: int, protagonist_ids: List[int], is_casting_enabled: bool, is_design_editable: bool):
         self.performer_count_spinbox.blockSignals(True); self.performer_count_spinbox.setValue(len(performers_with_talent)); self.performer_count_spinbox.blockSignals(False)
         while self.performer_editors_layout.count():
             child = self.performer_editors_layout.takeAt(0)
@@ -356,12 +357,16 @@ class SceneDialog(GeometryManagerMixin, QDialog):
             gender_combo.setCurrentText(data['gender']); ethnicity_combo.setCurrentText(data['ethnicity']); disposition_combo.setCurrentText(data['disposition'])
             protagonist_checkbox.setChecked(data['vp_id'] in protagonist_ids)
             if data['is_cast']: name_edit.setToolTip(f"Playing the role of '{data['vp_name']}'")
-            is_editable = not data['is_cast']
+            is_role_uncast = not data['is_cast']
+            is_role_editable = is_role_uncast and is_design_editable
+            hire_button = QPushButton("Hire")
+            hire_button.clicked.connect(lambda checked=False, vp_id=data['vp_id']: self.hire_for_role_requested.emit(vp_id))
+            hire_button.setEnabled(is_casting_enabled and is_role_uncast)
+            
             h_layout.addWidget(QLabel(f"{i+1}:")); h_layout.addWidget(name_edit); h_layout.addWidget(QLabel("Gender:")); h_layout.addWidget(gender_combo)
-            h_layout.addWidget(QLabel("Ethnicity:")); h_layout.addWidget(ethnicity_combo)
-            h_layout.addWidget(QLabel("Disposition:")); h_layout.addWidget(disposition_combo)
-            h_layout.addStretch(); h_layout.addWidget(protagonist_checkbox)
-            name_edit.setEnabled(is_editable); gender_combo.setEnabled(is_editable); ethnicity_combo.setEnabled(is_editable); disposition_combo.setEnabled(ds_level > 0 and is_editable); protagonist_checkbox.setEnabled(is_editable)
+            h_layout.addWidget(QLabel("Ethnicity:")); h_layout.addWidget(ethnicity_combo); h_layout.addWidget(QLabel("Disposition:")); h_layout.addWidget(disposition_combo)
+            h_layout.addWidget(protagonist_checkbox); h_layout.addStretch(); h_layout.addWidget(hire_button)
+            name_edit.setEnabled(is_role_editable); gender_combo.setEnabled(is_role_editable); ethnicity_combo.setEnabled(is_role_editable); disposition_combo.setEnabled(ds_level > 0 and is_role_editable); protagonist_checkbox.setEnabled(is_role_editable)
             protagonist_checkbox.toggled.connect(lambda checked, vid=data['vp_id']: self.protagonist_toggled.emit(vid, checked))
             for w in [name_edit, gender_combo, ethnicity_combo, disposition_combo]: w.installEventFilter(self); w.setProperty("editor_widget", True)
             self.performer_editors_layout.addWidget(row_widget)
@@ -466,8 +471,8 @@ class SceneDialog(GeometryManagerMixin, QDialog):
     def set_ui_lock_state(self, is_editable: bool, is_cast_locked: bool):
         self.status_combo.setEnabled(not is_cast_locked)
         self.button_box.button(QDialogButtonBox.StandardButton.Ok).setText("Close" if is_cast_locked else "OK")
-        widgets_to_toggle = [self.title_edit, self.delete_button, self.composition_container, self.total_runtime_spinbox, 
-                             self.focus_target_combo, self.ds_level_spinbox, self.content_tabs, self.add_thematic_btn,
+        widgets_to_toggle = [self.title_edit, self.delete_button, self.total_runtime_spinbox,
+                             self.focus_target_combo, self.performer_count_spinbox, self.ds_level_spinbox, self.content_tabs, self.add_thematic_btn,
                              self.remove_thematic_btn, self.add_physical_btn, self.remove_physical_btn, 
                              self.add_action_btn, self.remove_action_btn]
         for widget in widgets_to_toggle: widget.setEnabled(is_editable)

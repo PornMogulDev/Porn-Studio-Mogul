@@ -1,5 +1,5 @@
-from typing import Optional, List, Dict, Tuple, Set
-from PyQt6.QtCore import Qt
+from typing import Optional, List, Dict, Tuple, Set, TYPE_CHECKING
+from PyQt6.QtCore import Qt, pyqtSlot, QObject
 from PyQt6.QtWidgets import QDialog, QMessageBox, QListWidgetItem
 
 from core.interfaces import IGameController
@@ -8,10 +8,15 @@ from ui.dialogs.scene_dialog import SceneDialog
 from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from services.scene_editor_service import SceneEditorService
 
-class ScenePlannerPresenter:
-    def __init__(self, controller: IGameController, scene_id: int, view: SceneDialog):
+if TYPE_CHECKING:
+    from ui.ui_manager import UIManager
+
+class ScenePlannerPresenter(QObject):
+    def __init__(self, controller: IGameController, scene_id: int, view: SceneDialog, ui_manager: 'UIManager'):
+        super().__init__(view) # Parent the presenter to the view for lifecycle management
         self.controller = controller
         self.view = view
+        self.ui_manager = ui_manager
         
         original_scene = self.controller.get_scene_for_planner(scene_id)
         if not original_scene: raise ValueError(f"Scene with ID {scene_id} not found.")
@@ -78,7 +83,8 @@ class ScenePlannerPresenter:
         self.view.segment_runtime_changed.connect(self.on_segment_runtime_changed)
         self.view.segment_parameter_changed.connect(self.on_segment_parameter_changed)
         self.view.slot_assignment_changed.connect(self.on_slot_assignment_changed)
-        
+
+        self.view.hire_for_role_requested.connect(self.on_hire_for_role)     
         self.controller.signals.favorites_changed.connect(self.on_favorites_changed)
 
     def on_view_loaded(self): self._refresh_full_view()
@@ -110,7 +116,9 @@ class ScenePlannerPresenter:
         self.view.update_performer_editors(
             performers_with_talent_data,
             self.working_scene.dom_sub_dynamic_level,
-            self.working_scene.protagonist_vp_ids
+            self.working_scene.protagonist_vp_ids,
+            self.is_casting_enabled(),
+            self.is_design_editable()
         )
 
     def _refresh_thematic_panel(self):
@@ -256,6 +264,10 @@ class ScenePlannerPresenter:
     def on_favorites_changed(self): self.update_favorites(); self._refresh_thematic_panel(); self._refresh_physical_panel(); self._refresh_action_segment_panel()
     def on_toggle_favorite_requested(self, tag_name: str, tag_type: str): self.toggle_favorite_tag(tag_name, tag_type)
 
+    @pyqtSlot(int)
+    def on_hire_for_role(self, vp_id: int):
+        self.ui_manager.show_role_casting_dialog(self.working_scene.id, vp_id)
+
     # --- Data Access & Helpers ---
     def _get_bloc_info_text(self) -> str:
         if self.parent_bloc: return f"Part of '{self.parent_bloc.name}' shooting on Week {self.parent_bloc.scheduled_week}, {self.parent_bloc.scheduled_year}"
@@ -272,6 +284,7 @@ class ScenePlannerPresenter:
 
     def is_design_editable(self) -> bool: return not self.is_cast_locked() and self.working_scene.status.lower() == 'design'
     def is_cast_locked(self) -> bool: return len(self.working_scene.final_cast) > 0
+    def is_casting_enabled(self) -> bool: return self.working_scene.status.lower() == 'casting'
 
     def update_favorites(self):
         self.favorite_thematic_tags = set(self.controller.get_favorite_tags('thematic'))
