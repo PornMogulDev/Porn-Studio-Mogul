@@ -90,11 +90,11 @@ class HireWindow(QWidget):
 
         # --- Top Container for Filters and Role Info ---
         top_container = QWidget()
-        main_layout.addWidget(top_container)
+        main_layout.addWidget(top_container, 3)
         top_container_layout = QHBoxLayout(top_container)
 
         # --- Role Filter Group (Left side of top container) ---
-        role_filter_group = QGroupBox("Filter for Role"); role_filter_layout = QGridLayout(role_filter_group)
+        role_filter_group = QGroupBox("Role Info"); role_filter_layout = QGridLayout(role_filter_group)
         role_filter_layout.addWidget(QLabel("Scene:"), 0, 0); role_filter_layout.addWidget(QLabel("Role:"), 1, 0)
         self.scene_filter_combo = QComboBox(); self.role_filter_combo = QComboBox()
         role_filter_layout.addWidget(self.scene_filter_combo, 0, 1); role_filter_layout.addWidget(self.role_filter_combo, 1, 1)
@@ -105,21 +105,20 @@ class HireWindow(QWidget):
         self.hide_refusals_checkbox = QCheckBox("Hide refusals"); self.hide_refusals_checkbox.setEnabled(False)
         role_filter_layout.addWidget(self.filter_by_reqs_checkbox, 3, 0, 1, 2)
         role_filter_layout.addWidget(self.hide_refusals_checkbox, 4, 0, 1, 2)
-        top_container_layout.addWidget(role_filter_group, 1)
+        top_container_layout.addWidget(role_filter_group)
 
         # --- Role Info Group (Right side of top container) ---
         self.role_info_group = QGroupBox("Role Details")
-        self.role_info_group.setVisible(False)
         role_info_layout = QVBoxLayout(self.role_info_group)
         self.role_info_display = QTextEdit()
         self.role_info_display.setReadOnly(True)
         role_info_layout.addWidget(self.role_info_display)
-        top_container_layout.addWidget(self.role_info_group, 2)
+        top_container_layout.addWidget(self.role_info_group)
 
         # --- Talent List Container (Bottom part) ---
         talent_list_container = QWidget()
         talent_list_layout = QVBoxLayout(talent_list_container)
-        main_layout.addWidget(talent_list_container)
+        main_layout.addWidget(talent_list_container, 7)
 
         top_bar_layout = QHBoxLayout()
         help_btn = HelpButton("talent"); top_bar_layout.addWidget(help_btn)

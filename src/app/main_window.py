@@ -56,7 +56,7 @@ class MainGameWindow(QWidget):
         self.market_tab = MarketTab(self.controller)
 
         tabs.addTab(self.schedule_tab, "Schedule")
-        tabs.addTab(self.hire_tab, "Hire Talent")
+        tabs.addTab(self.hire_tab, "Talent")
         tabs.addTab(self.scenes_tab, "Scenes")
         tabs.addTab(self.market_tab, "Market")
         
