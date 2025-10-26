@@ -3,7 +3,7 @@ import logging
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QDialog, QWidget
 
-from data.game_state import Talent
+from data.game_state import Talent, Scene
 from ui.dialogs.email_dialog import EmailDialog
 from ui.dialogs.scene_dialog import SceneDialog
 from ui.presenters.talent_profile_presenter import TalentProfilePresenter
@@ -17,6 +17,7 @@ from ui.dialogs.incomplete_scheduled_scene import IncompleteCastingDialog
 from ui.dialogs.interactive_event_dialog import InteractiveEventDialog
 from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
+from ui.dialogs.shot_scene_details_dialog import ShotSceneDetailsDialog
 from ui.dialogs.game_menu_dialog import GameMenuDialog, ExitDialog
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class UIManager:
         self._dialog_instances = {}
         self._open_scene_dialogs = {}
         self._talent_profile_dialog_singleton = None
+        self._open_shot_scene_dialogs = {}
         self._open_profile_dialogs_multi = {}
 
     def _get_dialog(self, dialog_class, *args, **kwargs):
@@ -102,6 +104,7 @@ class UIManager:
             dialog_list.append(self._talent_profile_dialog_singleton)
         dialog_list.extend(self._open_profile_dialogs_multi.values())
         dialog_list.extend(self._open_scene_dialogs.values())
+        dialog_list.extend(self._open_shot_scene_dialogs.values())
 
         # We iterate through all known modeless dialogs, force them to delete
         # on close, and then close them.
@@ -204,7 +207,28 @@ class UIManager:
     def _on_scene_dialog_closed(self, scene_id: int):
         if scene_id in self._open_scene_dialogs:
             del self._open_scene_dialogs[scene_id]
-            logger.info(f"Closed and untracked Scene Planner for scene ID {scene_id}.")
+            logger.info(f"Closed and untracked Scene Planner for scene ID: {scene_id}.")
+
+    def show_shot_scene_details(self, scene: Scene):
+        """
+        Shows a modeless Shot Scene Details dialog. If one for the given
+        scene is already open, it brings it to the front.
+        """
+        scene_id = scene.id
+        if scene_id in self._open_shot_scene_dialogs:
+            dialog = self._open_shot_scene_dialogs[scene_id]
+            dialog.raise_()
+            dialog.activateWindow()
+        else:
+            dialog = ShotSceneDetailsDialog(scene, self.controller, self.parent_widget)
+            dialog.destroyed.connect(lambda obj=None, s_id=scene_id: self._on_shot_scene_dialog_closed(s_id))
+            self._open_shot_scene_dialogs[scene_id] = dialog
+            dialog.show()
+
+    def _on_shot_scene_dialog_closed(self, scene_id: int):
+        if scene_id in self._open_shot_scene_dialogs:
+            del self._open_shot_scene_dialogs[scene_id]
+            logger.info(f"Closed and untracked Shot Scene Details for scene ID: {scene_id}.")
 
     def show_role_casting_dialog(self, scene_id: int, vp_id: int) -> int:
         """

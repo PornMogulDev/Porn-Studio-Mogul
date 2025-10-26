@@ -7,6 +7,8 @@ from PyQt6.QtGui import QStandardItemModel, QStandardItem
 from PyQt6.QtCore import Qt, pyqtSignal
 from collections import defaultdict
 from data.game_state import Scene
+from utils.scene_summary_builder import prepare_summary_data
+from ui.widgets.scene_summary_widget import SceneSummaryWidget
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 
 class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
@@ -256,7 +258,13 @@ class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
             self.cast_model.appendRow(talent_item)
         self.cast_tree.expandAll()
 
-        # --- Populate Dynamic Action Tabs ---
+         # --- Populate Design Summary Tab ---
+        summary_widget = SceneSummaryWidget()
+        summary_data = prepare_summary_data(self.scene, self.controller)
+        summary_widget.update_summary(summary_data)
+        # Add it as the first tab for easy access
+        self.action_tabs.insertTab(0, summary_widget, "Design Summary")
+        self.action_tabs.setCurrentIndex(0)
         self.action_tabs.clear()
         
         if self.scene.status == 'shot':

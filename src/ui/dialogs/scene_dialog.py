@@ -8,6 +8,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QMimeData, QPoint
 from PyQt6.QtGui import QDrag, QKeyEvent, QFont
 
+from utils.scene_summary_builder import prepare_summary_data
+from ui.widgets.scene_summary_widget import SceneSummaryWidget
 from data.game_state import Scene, ActionSegment
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.help_button import HelpButton
@@ -158,14 +160,30 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         header_layout = QHBoxLayout()
         help_btn = HelpButton("scene_planner", self)
         help_btn.help_requested.connect(self.controller.signals.show_help_requested)
-        header_layout.addWidget(help_btn)
+        header_layout.addWidget(help_btn, 0)
         self.bloc_info_label = QLabel()
         font = self.bloc_info_label.font(); font.setItalic(True); self.bloc_info_label.setFont(font)
-        header_layout.addWidget(self.bloc_info_label)
+        header_layout.addWidget(self.bloc_info_label, 1)
+        header_layout.addStretch()
+        self.view_toggle_btn = QPushButton("View Summary")
+        header_layout.addWidget(self.view_toggle_btn, 0)
         main_layout.addLayout(header_layout)
-        main_layout.addWidget(self._create_overview_group(), 1)
-        main_layout.addWidget(self._create_composition_group(), 5)
-        main_layout.addWidget(self._create_content_design_group(), 7)
+
+        self.main_stack = QStackedWidget()
+        main_layout.addWidget(self.main_stack)
+        
+        # Page 0: Editor
+        editor_widget = QWidget()
+        editor_layout = QVBoxLayout(editor_widget)
+        editor_layout.setContentsMargins(0,0,0,0)
+        editor_layout.addWidget(self._create_overview_group(), 1)
+        editor_layout.addWidget(self._create_composition_group(), 5)
+        editor_layout.addWidget(self._create_content_design_group(), 7)
+        self.main_stack.addWidget(editor_widget)
+        
+        # Page 1: Summary
+        self.summary_widget = SceneSummaryWidget()
+        self.main_stack.addWidget(self.summary_widget)
         
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch(10)
@@ -293,6 +311,7 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         self.status_combo.currentTextChanged.connect(self.status_changed)
         self.ds_level_spinbox.valueChanged.connect(self.ds_level_changed)
         self.button_box.accepted.connect(self.save_requested); self.button_box.rejected.connect(self.cancel_requested)
+        self.view_toggle_btn.clicked.connect(self._toggle_view)
         self.delete_button.clicked.connect(self.handle_delete_scene)
         # Composition
         self.composition_update_timer = QTimer(self); self.composition_update_timer.setSingleShot(True); self.composition_update_timer.setInterval(300)
@@ -333,6 +352,9 @@ class SceneDialog(GeometryManagerMixin, QDialog):
             list_widget.customContextMenuRequested.connect(lambda pos, lw=list_widget, tt=tag_type: self._show_tag_context_menu(lw, pos, tt))
 
     # --- Public Update Methods ---
+    def update_summary_view(self, summary_data: dict):
+        """Passes summary data to the summary widget."""
+        self.summary_widget.update_summary(summary_data)
     def update_general_info(self, title: str, status: str, focus_target: str, runtime: int, ds_level: int, bloc_text: str):
         for w in [self.title_edit, self.status_combo, self.focus_target_combo, self.total_runtime_spinbox, self.ds_level_spinbox]: w.blockSignals(True)
         self.title_edit.setText(title)
@@ -472,9 +494,7 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         self.status_combo.setEnabled(not is_cast_locked)
         self.button_box.button(QDialogButtonBox.StandardButton.Ok).setText("Close" if is_cast_locked else "OK")
         widgets_to_toggle = [self.title_edit, self.delete_button, self.total_runtime_spinbox,
-                             self.focus_target_combo, self.performer_count_spinbox, self.ds_level_spinbox, self.content_tabs, self.add_thematic_btn,
-                             self.remove_thematic_btn, self.add_physical_btn, self.remove_physical_btn, 
-                             self.add_action_btn, self.remove_action_btn]
+                             self.focus_target_combo, self.performer_count_spinbox, self.ds_level_spinbox, self.content_tabs]
         for widget in widgets_to_toggle: widget.setEnabled(is_editable)
         self.runtime_percent_spinbox.setEnabled(is_editable)
         for i in range(self.slots_layout.count()):
@@ -492,7 +512,16 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         item = QListWidgetItem(tag_data['full_name']); item.setData(Qt.ItemDataRole.UserRole, tag_data)
         if tooltip := tag_data.get("tooltip"): item.setToolTip(tooltip)
         return item
-        
+
+    def _toggle_view(self):
+        current_index = self.main_stack.currentIndex()
+        if current_index == 0:
+            self.main_stack.setCurrentIndex(1)
+            self.view_toggle_btn.setText("Edit Scene")
+        else:
+            self.main_stack.setCurrentIndex(0)
+            self.view_toggle_btn.setText("View Summary")
+
     def _show_tag_context_menu(self, list_widget: QListWidget, pos: QPoint, tag_type: str):
         item = list_widget.itemAt(pos)
         if not item: return
