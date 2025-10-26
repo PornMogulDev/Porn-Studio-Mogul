@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QAbstractItemView, QDialogButtonBox, QInputDialog, QMessageBox, QWidget, QMenu
 )
 from data.game_state import Talent
-from ui.dialogs.talent_profile_dialog import TalentProfileDialog
+from ui.windows.talent_profile_window import TalentProfileWindow
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 
 class GoToTalentListModel(QAbstractListModel):

@@ -6,7 +6,7 @@ from core.interfaces import IGameController
 from ui.tabs.talent_tab import HireWindow
 from ui.dialogs.talent_filter_dialog import TalentFilterDialog
 from data.game_state import Talent
-from ui.dialogs.talent_profile_dialog import TalentProfileDialog
+from ui.windows.talent_profile_window import TalentProfileWindow
 from ui.dialogs.scene_dialog import SceneDialog
 
 if TYPE_CHECKING:

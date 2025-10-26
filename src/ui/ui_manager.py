@@ -8,7 +8,7 @@ from ui.dialogs.email_dialog import EmailDialog
 from ui.dialogs.scene_dialog import SceneDialog
 from ui.presenters.talent_profile_presenter import TalentProfilePresenter
 from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
-from ui.dialogs.talent_profile_dialog import TalentProfileDialog
+from ui.windows.talent_profile_window import TalentProfileWindow
 from ui.dialogs.role_casting_dialog import RoleCastingDialog
 from ui.presenters.role_casting_presenter import RoleCastingPresenter
 from ui.dialogs.go_to_list import GoToTalentDialog
@@ -29,9 +29,8 @@ class UIManager:
         self.parent_widget = parent_widget
         self._dialog_instances = {}
         self._open_scene_dialogs = {}
-        self._talent_profile_dialog_singleton = None
+        self._talent_profile_window_singleton = None
         self._open_shot_scene_dialogs = {}
-        self._open_profile_dialogs_multi = {}
 
     def _get_dialog(self, dialog_class, *args, **kwargs):
         dialog_name = dialog_class.__name__
@@ -100,9 +99,8 @@ class UIManager:
         """
         dialog_list = []
         dialog_list.extend(self._dialog_instances.values())
-        if self._talent_profile_dialog_singleton:
-            dialog_list.append(self._talent_profile_dialog_singleton)
-        dialog_list.extend(self._open_profile_dialogs_multi.values())
+        if self._talent_profile_window_singleton:
+            dialog_list.append(self._talent_profile_window_singleton)
         dialog_list.extend(self._open_scene_dialogs.values())
         dialog_list.extend(self._open_shot_scene_dialogs.values())
 
@@ -115,8 +113,7 @@ class UIManager:
 
         # Clear all tracking dictionaries to ensure a clean state.
         self._dialog_instances.clear()
-        self._talent_profile_dialog_singleton = None
-        self._open_profile_dialogs_multi.clear()
+        self._talent_profile_window_singleton = None
         self._open_scene_dialogs.clear()
 
         logger.info("All managed modeless dialogs have been closed and references cleared.")
@@ -244,41 +241,21 @@ class UIManager:
 
     def show_talent_profile(self, talent: Talent):
         """
-        Shows a talent profile dialog, respecting the user's setting for
-        singleton or multiple dialog behavior.
+        Shows a talent profile dialog
         """
-        behavior = self.controller.settings_manager.get_setting("talent_profile_dialog_behavior")
-        
-        if behavior == 'singleton':
-            if self._talent_profile_dialog_singleton is None:
-                dialog = TalentProfileDialog(self.controller.settings_manager, self.parent_widget)
-                presenter = TalentProfilePresenter(self.controller, dialog, self, talent, parent=dialog)
-                dialog.presenter = presenter
-                presenter.open_talent_profile_requested.connect(self.show_talent_profile_by_id)
-                dialog.destroyed.connect(self._on_singleton_profile_closed)
-                self._talent_profile_dialog_singleton = dialog
-                dialog.show()
-            else:
-                dialog = self._talent_profile_dialog_singleton
-                dialog.presenter.update_with_new_talent(talent)
-                dialog.raise_()
-                dialog.activateWindow()
-        else: # 'multiple'
-            talent_id = talent.id
-            if talent_id in self._open_profile_dialogs_multi:
-                dialog = self._open_profile_dialogs_multi[talent_id]
-                dialog.raise_()
-                dialog.activateWindow()
-            else:
-                dialog = TalentProfileDialog(self.controller.settings_manager, self.parent_widget)
-                presenter = TalentProfilePresenter(self.controller, dialog, self, talent, parent=dialog)
-                dialog.presenter = presenter
-                presenter.open_talent_profile_requested.connect(self.show_talent_profile_by_id)
-                dialog.destroyed.connect(
-                    lambda obj=None, t_id=talent_id: self._on_multi_profile_closed(t_id)
-                )
-                self._open_profile_dialogs_multi[talent_id] = dialog
-                dialog.show()
+        if self._talent_profile_window_singleton is None:
+            window = TalentProfileWindow(self.controller.settings_manager, self.parent_widget)
+            presenter = TalentProfilePresenter(self.controller, window, self, parent=window)
+            window.presenter = presenter
+            presenter.open_talent_profile_requested.connect(self.show_talent_profile_by_id)
+            window.destroyed.connect(self._on_singleton_profile_closed)
+            self._talent_profile_window_singleton = window
+            window.show()
+        else:
+            window = self._talent_profile_window_singleton
+        window.presenter.open_talent(talent)
+        window.raise_()
+        window.activateWindow()
     
     def show_talent_profile_by_id(self, talent_id: int):
         if talent := self.controller.talent_service.get_talent_by_id(talent_id):
@@ -288,12 +265,4 @@ class UIManager:
         """
         Slot to clear the reference when the singleton talent profile dialog is closed.
         """
-        self._talent_profile_dialog_singleton = None
-
-    def _on_multi_profile_closed(self, talent_id: int):
-        """
-        Slot to remove a specific multi-instance talent profile dialog from the
-        tracking dictionary when it's closed.
-        """
-        if talent_id in self._open_profile_dialogs_multi:
-            del self._open_profile_dialogs_multi[talent_id]
+        self._talent_profile_window_singleton = None

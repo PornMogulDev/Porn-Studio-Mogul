@@ -69,16 +69,6 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         font_size_layout.addWidget(font_size_label)
         font_size_layout.addWidget(self.font_size_spinbox)
         display_v_layout.addLayout(font_size_layout)
-
-         # Talent Profile Dialog Behavior Layout
-        behavior_layout = QHBoxLayout()
-        behavior_label = QLabel("Talent Profile Window:")
-        self.behavior_combo = QComboBox()
-        self.behavior_combo.addItem("Multiple windows (for comparison)", "multiple")
-        self.behavior_combo.addItem("Single window (updates on selection)", "singleton")
-        behavior_layout.addWidget(behavior_label)
-        behavior_layout.addWidget(self.behavior_combo)
-        display_v_layout.addLayout(behavior_layout)
         
         main_layout.addWidget(display_group)
         
@@ -148,12 +138,6 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         self.font_combo.setCurrentFont(QFont(self.initial_font_family))
         self.font_size_spinbox.setValue(self.initial_font_size)
 
-        # Load dialog behavior setting
-        current_behavior = self.settings_manager.get_setting("talent_profile_dialog_behavior")
-        behavior_index = self.behavior_combo.findData(current_behavior)
-        if behavior_index != -1:
-            self.behavior_combo.setCurrentIndex(behavior_index)
-
     def _confirm_and_reset_geometries(self):
         """Shows a confirmation dialog and resets window geometries if confirmed."""
         reply = QMessageBox.question(self, "Confirm Reset",
@@ -175,10 +159,6 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         # Save font and scale settings
         self.settings_manager.set_setting("font_family", self.font_combo.currentFont().family())
         self.settings_manager.set_setting("font_size", self.font_size_spinbox.value())
-
-        # Save talent profile dialog behaviour
-        selected_behavior = self.behavior_combo.currentData()
-        self.settings_manager.set_setting("talent_profile_dialog_behavior", selected_behavior)
 
         super().accept()
 

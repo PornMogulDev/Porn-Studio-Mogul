@@ -49,7 +49,6 @@ class SettingsManager:
             "theme": "system",  # 'dark', 'light', or 'system'
             "font_family": "Roboto",
             "font_size": 12,
-            "talent_profile_dialog_behavior": "singleton"  # 'singleton' or 'multiple'
         }
         self.settings = self._load_settings()
 
@@ -126,6 +125,27 @@ class SettingsManager:
             self.settings["window_geometries"] = {}
         self.settings["window_geometries"][window_name] = geometry
         self._save_settings()
+
+    def set_window_setting(self, window_name: str, key: str, value: any):
+        """
+        Sets a specific setting for a window, like layout state.
+        e.g., set_window_setting("TalentProfileWindow", "layout_state", "...")
+        """
+        if "window_geometries" not in self.settings:
+            self.settings["window_geometries"] = {}
+        if window_name not in self.settings["window_geometries"]:
+            self.settings["window_geometries"][window_name] = {}
+        
+        # Update the specific key within the window's settings dictionary
+        self.settings["window_geometries"][window_name][key] = value
+        self._save_settings()
+
+    def get_window_setting(self, window_name: str, key: str, default: any = None) -> any:
+        """
+        Gets a specific setting for a window.
+        e.g., get_window_setting("TalentProfileWindow", "layout_state")
+        """
+        return self.settings.get("window_geometries", {}).get(window_name, {}).get(key, default)
 
     def clear_all_window_geometries(self):
         """
