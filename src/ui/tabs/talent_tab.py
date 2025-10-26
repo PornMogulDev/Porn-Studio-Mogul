@@ -1,11 +1,10 @@
 from PyQt6.QtCore import Qt, QModelIndex, pyqtSignal, QPoint
-from typing import Dict, List
-from PyQt6.QtCore import Qt, QAbstractTableModel, QModelIndex, pyqtSignal, QPoint
+from typing import List
+from PyQt6.QtCore import Qt,  QModelIndex, pyqtSignal, QPoint
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
-    QGroupBox, QComboBox, QCheckBox, QMenu,
-    QGridLayout, QTableView, QTextEdit, QHeaderView
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QLineEdit, QMenu, QTableView, QHeaderView
  )
 
 from data.game_state import Talent, Scene
@@ -46,37 +45,10 @@ class HireWindow(QWidget):
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
 
-        # --- Top Container for Filters and Role Info ---
-        top_container = QWidget()
-        main_layout.addWidget(top_container, 3)
-        top_container_layout = QHBoxLayout(top_container)
-
-        # --- Role Filter Group (Left side of top container) ---
-        role_filter_group = QGroupBox("Role Info"); role_filter_layout = QGridLayout(role_filter_group)
-        role_filter_layout.addWidget(QLabel("Scene:"), 0, 0); role_filter_layout.addWidget(QLabel("Role:"), 1, 0)
-        self.scene_filter_combo = QComboBox(); self.role_filter_combo = QComboBox()
-        role_filter_layout.addWidget(self.scene_filter_combo, 0, 1); role_filter_layout.addWidget(self.role_filter_combo, 1, 1)
-
-        self.show_role_info_btn = QPushButton("Show Role Info"); self.clear_role_filter_btn = QPushButton("Clear")
-        role_filter_layout.addWidget(self.show_role_info_btn, 2, 1); role_filter_layout.addWidget(self.clear_role_filter_btn, 2, 0)
-        self.filter_by_reqs_checkbox = QCheckBox("Filter by requirements"); self.filter_by_reqs_checkbox.setEnabled(False)
-        self.hide_refusals_checkbox = QCheckBox("Hide refusals"); self.hide_refusals_checkbox.setEnabled(False)
-        role_filter_layout.addWidget(self.filter_by_reqs_checkbox, 3, 0, 1, 2)
-        role_filter_layout.addWidget(self.hide_refusals_checkbox, 4, 0, 1, 2)
-        top_container_layout.addWidget(role_filter_group)
-
-        # --- Role Info Group (Right side of top container) ---
-        self.role_info_group = QGroupBox("Role Details")
-        role_info_layout = QVBoxLayout(self.role_info_group)
-        self.role_info_display = QTextEdit()
-        self.role_info_display.setReadOnly(True)
-        role_info_layout.addWidget(self.role_info_display)
-        top_container_layout.addWidget(self.role_info_group)
-
         # --- Talent List Container (Bottom part) ---
         talent_list_container = QWidget()
         talent_list_layout = QVBoxLayout(talent_list_container)
-        main_layout.addWidget(talent_list_container, 7)
+        main_layout.addWidget(talent_list_container)
 
         top_bar_layout = QHBoxLayout()
         help_btn = HelpButton("talent"); top_bar_layout.addWidget(help_btn)
@@ -106,12 +78,6 @@ class HireWindow(QWidget):
         
         self.name_filter_input.textChanged.connect(self.filter_talent_list)
         self.advanced_filter_btn.clicked.connect(lambda: self.open_advanced_filters_requested.emit(self.advanced_filters))
-        
-        self.scene_filter_combo.currentIndexChanged.connect(self.on_scene_filter_selected)
-        self.show_role_info_btn.clicked.connect(self.on_show_role_info)
-        self.clear_role_filter_btn.clicked.connect(self.on_clear_role_filter)
-        self.filter_by_reqs_checkbox.toggled.connect(self.filter_talent_list)
-        self.hide_refusals_checkbox.toggled.connect(self.filter_talent_list)
 
         help_btn.help_requested.connect(self.help_requested)
 
@@ -122,41 +88,8 @@ class HireWindow(QWidget):
     def update_talent_list(self, talents: list):
         self.talent_model.update_data(talents)
 
-    def update_scene_dropdown(self, scenes: list):
-        self.scene_filter_combo.blockSignals(True)
-        current_id = self.scene_filter_combo.currentData()
-        self.scene_filter_combo.clear(); self.scene_filter_combo.addItem("-- Select a Scene --", -1)
-        for scene in scenes: self.scene_filter_combo.addItem(scene['title'], scene['id'])
-        
-        idx = self.scene_filter_combo.findData(current_id)
-        if idx != -1: self.scene_filter_combo.setCurrentIndex(idx)
-        else: self.update_role_dropdown([])
-        
-        self.scene_filter_combo.blockSignals(False)
-
-    def display_role_info(self, html: str):
-        self.role_info_display.setHtml(html)
-        self.role_info_group.setVisible(True)
-
-    def clear_role_info(self):
-        self.role_info_display.clear()
-        self.role_info_group.setVisible(False)
-        self.filter_by_reqs_checkbox.setEnabled(False); self.filter_by_reqs_checkbox.setChecked(False)
-        self.hide_refusals_checkbox.setEnabled(False); self.hide_refusals_checkbox.setChecked(False)
-
-    def update_role_dropdown(self, roles: list):
-        self.role_filter_combo.blockSignals(True)
-        self.role_filter_combo.clear(); self.role_filter_combo.addItem("-- Select a Role --", -1)
-        for role in roles: self.role_filter_combo.addItem(role['name'], role['id'])
-        self.role_filter_combo.blockSignals(False)
-        self.set_role_filter_enabled(len(roles) > 0)
-
     def set_standard_filters_enabled(self, enabled: bool):
         self.advanced_filter_btn.setEnabled(enabled)
-
-    def set_role_filter_enabled(self, enabled: bool):
-        self.show_role_info_btn.setEnabled(enabled)
-        self.role_filter_combo.setEnabled(enabled)
     
     def show_talent_profile(self, index: QModelIndex):
         if talent := self.talent_model.data(index, Qt.ItemDataRole.UserRole):
@@ -208,34 +141,5 @@ class HireWindow(QWidget):
     def filter_talent_list(self):
         all_filters = self.advanced_filters.copy()
         all_filters['text'] = self.name_filter_input.text()
-
-        if self.role_info_group.isVisible():
-            all_filters['role_filter'] = {
-                'active': True,
-                'scene_id': self.scene_filter_combo.currentData(),
-                'vp_id': self.role_filter_combo.currentData(),
-                'filter_by_reqs': self.filter_by_reqs_checkbox.isChecked(),
-                'hide_refusals': self.hide_refusals_checkbox.isChecked()
-            }
-        else:
-             all_filters['role_filter'] = {'active': False}
-
-        self.standard_filters_changed.emit(all_filters)
         
-    def on_scene_filter_selected(self, index: int):
-        scene_id = self.scene_filter_combo.itemData(index) or -1
-        self.scene_filter_selected.emit(scene_id)
-
-    def on_show_role_info(self):
-        scene_id = self.scene_filter_combo.currentData()
-        vp_id = self.role_filter_combo.currentData()
-        if scene_id > 0 and vp_id > 0:
-            self.show_role_info_requested.emit(scene_id, vp_id)
-
-    def on_clear_role_filter(self):
-        if self.scene_filter_combo.currentIndex() != 0:
-            self.scene_filter_combo.setCurrentIndex(0)
-        else:
-            # If it was already at index 0, the signal won't fire, so we manually clear.
-            self.update_role_dropdown([])
-        self.clear_role_info_requested.emit()
+        self.standard_filters_changed.emit(all_filters)

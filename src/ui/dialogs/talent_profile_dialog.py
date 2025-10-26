@@ -2,10 +2,10 @@ from PyQt6.QtWidgets import (
 QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QDialogButtonBox,
     QFormLayout, QTreeView, QWidget, QScrollArea, QTabWidget, QTableWidget,
     QTableWidgetItem, QAbstractItemView, QListWidget, QListWidgetItem, QGridLayout,
-    QMessageBox, QStackedWidget, QPushButton
+    QMessageBox, QStackedWidget, QPushButton, QMenu
 )
 from PyQt6.QtGui import QStandardItemModel, QStandardItem, QColor
-from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import Qt, pyqtSignal
 
 from data.game_state import Talent, Scene
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
@@ -163,6 +163,7 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         roles_list_layout.addWidget(QLabel("Available Roles (from scenes in 'casting'):"))
         self.available_roles_list = QListWidget()
         self.available_roles_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        self.available_roles_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.available_roles_list.itemDoubleClicked.connect(self._on_role_double_clicked)
         roles_list_layout.addWidget(self.available_roles_list)
         
@@ -197,7 +198,7 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         main_layout.addWidget(button_box)
 
     def _connect_signals(self):
-        pass
+        self.available_roles_list.customContextMenuRequested.connect(self._show_role_context_menu)
         
     def populate_physical_label(self, talent: Talent):
         unit_system = self.settings_manager.get_setting("unit_system", "imperial")
@@ -295,6 +296,23 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
     def _on_role_double_clicked(self, item: QListWidgetItem):
         if role_data := item.data(Qt.ItemDataRole.UserRole):
             self.open_scene_dialog_requested.emit(role_data['scene_id'])
+
+    def _show_role_context_menu(self, pos):
+        """Shows a context menu for a role item, allowing navigation even if disabled."""
+        item = self.available_roles_list.itemAt(pos)
+        if not item:
+            return
+
+        if role_data := item.data(Qt.ItemDataRole.UserRole):
+            menu = QMenu(self)
+            view_scene_action = menu.addAction("View Scene")
+            
+            # mapToGlobal is needed to position the menu correctly on the screen
+            global_pos = self.available_roles_list.viewport().mapToGlobal(pos)
+            
+            action = menu.exec(global_pos)
+            if action == view_scene_action:
+                self.open_scene_dialog_requested.emit(role_data['scene_id'])
 
     def _confirm_hire(self):
         selected_items = self.available_roles_list.selectedItems()

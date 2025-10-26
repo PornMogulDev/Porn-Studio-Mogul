@@ -42,7 +42,7 @@ class RoleCastingDialog(GeometryManagerMixin, QDialog):
         self.role_details_display = QTextEdit()
         self.role_details_display.setReadOnly(True)
         role_details_layout.addWidget(self.role_details_display)
-        main_layout.addWidget(role_details_group, 2)
+        main_layout.addWidget(role_details_group, 3)
 
         top_bar_layout = QHBoxLayout()
         top_bar_layout.addWidget(QLabel("Filter by name:"))
@@ -59,7 +59,7 @@ class RoleCastingDialog(GeometryManagerMixin, QDialog):
         self.talent_table_view.setSortingEnabled(True)
         self.talent_table_view.sortByColumn(0, Qt.SortOrder.AscendingOrder)
         self._configure_table_view_headers()
-        main_layout.addWidget(self.talent_table_view, 8)
+        main_layout.addWidget(self.talent_table_view, 7)
 
     def _connect_signals(self):
         self.name_filter_input.textChanged.connect(self.name_filter_changed)
