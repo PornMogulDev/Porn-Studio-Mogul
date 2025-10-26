@@ -90,6 +90,14 @@ class SettingsManager:
         except IOError as e:
             logger.error(f"Error: Could not save settings to {SETTINGS_FILE}: {e}")
 
+    def get_talent_profile_layouts(self) -> dict:
+        """Returns the dictionary of saved talent profile layouts."""
+        return self.get_setting('talent_profile_layouts', {})
+
+    def set_talent_profile_layouts(self, layouts: dict):
+        """Sets the dictionary of saved talent profile layouts."""
+        self.set_setting('talent_profile_layouts', layouts)
+
     def get_setting(self, key: str, default=None):
         """Retrieves a setting value by its key."""
         return self.settings.get(key, default)
