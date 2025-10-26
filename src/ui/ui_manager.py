@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QApplication, QDialog, QWidget
 from data.game_state import Talent
 from ui.dialogs.email_dialog import EmailDialog
 from ui.dialogs.scene_dialog import SceneDialog
+from ui.presenters.talent_profile_presenter import TalentProfilePresenter
 from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
 from ui.dialogs.talent_profile_dialog import TalentProfileDialog
 from ui.dialogs.role_casting_dialog import RoleCastingDialog
@@ -226,16 +227,18 @@ class UIManager:
         
         if behavior == 'singleton':
             if self._talent_profile_dialog_singleton is None:
-                dialog = TalentProfileDialog(talent, self.controller, self.parent_widget)
-                dialog.hire_requested.connect(self.controller.cast_talent_for_multiple_roles)
-                dialog.open_scene_dialog_requested.connect(self.show_scene_planner)
+                dialog = TalentProfileDialog(self.controller.settings_manager, self.parent_widget)
+                presenter = TalentProfilePresenter(self.controller, dialog, self, talent, parent=dialog)
+                dialog.presenter = presenter
+                presenter.open_talent_profile_requested.connect(self.show_talent_profile_by_id)
                 dialog.destroyed.connect(self._on_singleton_profile_closed)
                 self._talent_profile_dialog_singleton = dialog
                 dialog.show()
             else:
-                self._talent_profile_dialog_singleton.update_with_talent(talent)
-                self._talent_profile_dialog_singleton.raise_()
-                self._talent_profile_dialog_singleton.activateWindow()
+                dialog = self._talent_profile_dialog_singleton
+                dialog.presenter.update_with_new_talent(talent)
+                dialog.raise_()
+                dialog.activateWindow()
         else: # 'multiple'
             talent_id = talent.id
             if talent_id in self._open_profile_dialogs_multi:
@@ -243,14 +246,19 @@ class UIManager:
                 dialog.raise_()
                 dialog.activateWindow()
             else:
-                dialog = TalentProfileDialog(talent, self.controller, self.parent_widget)
-                dialog.hire_requested.connect(self.controller.cast_talent_for_multiple_roles)
-                dialog.open_scene_dialog_requested.connect(self.show_scene_planner)
+                dialog = TalentProfileDialog(self.controller.settings_manager, self.parent_widget)
+                presenter = TalentProfilePresenter(self.controller, dialog, self, talent, parent=dialog)
+                dialog.presenter = presenter
+                presenter.open_talent_profile_requested.connect(self.show_talent_profile_by_id)
                 dialog.destroyed.connect(
                     lambda obj=None, t_id=talent_id: self._on_multi_profile_closed(t_id)
                 )
                 self._open_profile_dialogs_multi[talent_id] = dialog
                 dialog.show()
+    
+    def show_talent_profile_by_id(self, talent_id: int):
+        if talent := self.controller.talent_service.get_talent_by_id(talent_id):
+            self.show_talent_profile(talent)
 
     def _on_singleton_profile_closed(self):
         """

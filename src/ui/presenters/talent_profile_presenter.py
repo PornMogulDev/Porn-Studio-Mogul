@@ -1,0 +1,167 @@
+import logging
+from typing import TYPE_CHECKING
+from collections import defaultdict
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+
+from data.game_state import Talent
+from core.interfaces import IGameController
+from ui.dialogs.talent_profile_dialog import TalentProfileDialog
+
+if TYPE_CHECKING:
+    from ui.ui_manager import UIManager
+
+logger = logging.getLogger(__name__)
+
+class TalentProfilePresenter(QObject):
+    """
+    Handles the logic for the TalentProfileDialog.
+    """
+    # Signal to request opening another talent's profile.
+    open_talent_profile_requested = pyqtSignal(int)
+
+    def __init__(self, controller: IGameController, view: TalentProfileDialog, uimanager: 'UIManager', talent: Talent, parent=None):
+        super().__init__(parent)
+        self.controller = controller
+        self.view = view
+        self.uimanager = uimanager
+        self.talent = talent
+
+        self._connect_signals()
+        self.load_all_data()
+
+    def _connect_signals(self):
+        """Connect signals from the view to slots in the presenter."""
+        self.view.hire_confirmed.connect(self._on_hire_confirmed)
+        self.view.talent_profile_requested.connect(self.open_talent_profile_requested)
+        self.view.open_scene_dialog_requested.connect(self.uimanager.show_scene_planner)
+        
+        # Connect to global signals to stay up-to-date
+        self.controller.signals.scenes_changed.connect(self.refresh_available_roles)
+        self.controller.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
+
+    def load_all_data(self):
+        """Loads all data for the current talent and updates the view."""
+        self.view.update_window_title(self.talent.alias)
+        
+        # Basic Info & Skills
+        self.view.display_basic_info({
+            'age': self.talent.age,
+            'gender': self.talent.gender,
+            'orientation': self.talent.orientation_score,
+            'ethnicity': self.talent.ethnicity,
+            'popularity': sum(self.talent.popularity.values()),
+        })
+        self.view.display_skills({
+            'performance': self.talent.performance,
+            'acting': self.talent.acting,
+            'stamina': self.talent.stamina,
+            'ambition': self.talent.ambition,
+            'professionalism': self.talent.professionalism
+        })
+        
+        # This needs to be called separately to handle unit system settings
+        self.view.populate_physical_label(self.talent)
+        
+        # Affinities
+        affinities = {tag: affinity for tag, affinity in self.talent.tag_affinities.items() if affinity > 0}
+        self.view.display_affinities(sorted(affinities.items()))
+        
+        # Preferences & Requirements
+        self._load_and_display_preferences()
+        
+        # Scene History & Chemistry
+        history = self.controller.get_scene_history_for_talent(self.talent.id)
+        self.view.display_scene_history(history)
+        
+        chemistry = self.controller.talent_service.get_talent_chemistry(self.talent.id)
+        self.view.display_chemistry(chemistry)
+
+        # Hiring Tab
+        self.refresh_available_roles()
+
+    def update_with_new_talent(self, talent: Talent):
+        """Updates the presenter and view with a new talent."""
+        self.talent = talent
+        self.load_all_data()
+
+    @pyqtSlot()
+    def refresh_available_roles(self):
+        """Fetches and updates the list of available roles for the current talent."""
+        available_roles = self.controller.hire_talent_service.find_available_roles_for_talent(self.talent.id)
+        self.view.update_available_roles(available_roles)
+
+    @pyqtSlot(list)
+    def _on_hire_confirmed(self, roles_to_cast: list):
+        """Handles the logic when the user confirms a hiring decision."""
+        # The view has already done the basic validation. We can proceed.
+        self.controller.cast_talent_for_multiple_roles(self.talent.id, roles_to_cast)
+
+    @pyqtSlot(str)
+    def _on_setting_changed(self, key: str):
+        if key == "unit_system":
+            self.view.populate_physical_label(self.talent)
+            
+    def _load_and_display_preferences(self):
+        """Processes and summarizes talent preferences for UI display."""
+        tag_definitions = self.controller.data_manager.tag_definitions
+        
+        avg_prefs_by_tag = {
+            tag: sum(roles.values()) / len(roles)
+            for tag, roles in self.talent.tag_preferences.items() if roles
+        }
+        
+        prefs_by_orientation = defaultdict(dict)
+        prefs_by_concept = defaultdict(dict)
+        
+        for tag, avg_score in avg_prefs_by_tag.items():
+            tag_def = tag_definitions.get(tag)
+            if not tag_def: continue
+            
+            if orientation := tag_def.get('orientation'):
+                prefs_by_orientation[orientation][tag] = avg_score
+            if concept := tag_def.get('concept'):
+                prefs_by_concept[concept][tag] = avg_score
+
+        likes, dislikes, processed_tags = [], [], set()
+        DISLIKE_THRESHOLD, LIKE_THRESHOLD, EXCEPTION_DEVIATION = 0.8, 1.2, 0.2
+
+        for orientation, tags_with_scores in prefs_by_orientation.items():
+            scores = list(tags_with_scores.values())
+            if scores and all(score < DISLIKE_THRESHOLD for score in scores):
+                dislikes.append(f"{orientation} scenes")
+                processed_tags.update(tags_with_scores.keys())
+
+        for concept, tags_with_scores in prefs_by_concept.items():
+            unprocessed = {tag: score for tag, score in tags_with_scores.items() if tag not in processed_tags}
+            if not unprocessed: continue
+            
+            scores = list(unprocessed.values())
+            avg_score = sum(scores) / len(scores)
+            is_like, is_dislike = avg_score >= LIKE_THRESHOLD, avg_score <= DISLIKE_THRESHOLD
+            
+            if is_like or is_dislike:
+                summary = f"{concept} scenes (~{avg_score:.2f})"; (likes if is_like else dislikes).append(summary)
+                for tag, score in unprocessed.items():
+                    if abs(score - avg_score) > EXCEPTION_DEVIATION:
+                        roles = ", ".join([f"{r}: {p:.2f}" for r, p in sorted(self.talent.tag_preferences[tag].items())])
+                        exception = f"  • Except: {tag} ({roles})"; (likes if score > avg_score else dislikes).append(exception)
+                processed_tags.update(unprocessed.keys())
+
+        for tag, avg_score in avg_prefs_by_tag.items():
+            if tag in processed_tags: continue
+            if avg_score >= LIKE_THRESHOLD or avg_score <= DISLIKE_THRESHOLD:
+                roles = ", ".join([f"{r}: {p:.2f}" for r, p in sorted(self.talent.tag_preferences[tag].items())])
+                display = f"{tag} ({roles})"; (likes if avg_score >= LIKE_THRESHOLD else dislikes).append(display)
+
+        # Policy requirements
+        policy_names = {p['id']: p['name'] for p in self.controller.data_manager.on_set_policies_data.values()}
+        required_policies = [policy_names.get(pid, pid) for pid in sorted(self.talent.policy_requirements.get('requires', []))]
+        refused_policies = [policy_names.get(pid, pid) for pid in sorted(self.talent.policy_requirements.get('refuses', []))]
+
+        self.view.display_preferences(
+            likes=sorted(likes),
+            dislikes=sorted(dislikes),
+            limits=sorted(self.talent.hard_limits),
+            required_policies=required_policies,
+            refused_policies=refused_policies
+        )

@@ -1,44 +1,40 @@
 from PyQt6.QtWidgets import (
 QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QDialogButtonBox,
-QFormLayout, QTreeView, QWidget, QScrollArea, QTabWidget, QTableWidget, QTableWidgetItem, QAbstractItemView,
-QListWidget, QListWidgetItem, QGridLayout, QMessageBox, QStackedWidget, QPushButton
+    QFormLayout, QTreeView, QWidget, QScrollArea, QTabWidget, QTableWidget,
+    QTableWidgetItem, QAbstractItemView, QListWidget, QListWidgetItem, QGridLayout,
+    QMessageBox, QStackedWidget, QPushButton
 )
 from PyQt6.QtGui import QStandardItemModel, QStandardItem, QColor
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
-from collections import defaultdict
 
-from data.game_state import Talent
-from core.game_controller import GameController
+from data.game_state import Talent, Scene
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from utils.formatters import format_orientation, format_physical_attribute, CHEMISTRY_MAP
 
 class TalentProfileDialog(GeometryManagerMixin, QDialog):
-    hire_requested = pyqtSignal(int, list) # talent_id, roles_to_cast
-    open_scene_dialog_requested = pyqtSignal(int) # scene_id
-    def __init__(self, talent: Talent, controller: GameController, parent=None):
+    # Signals for the Presenter
+    hire_confirmed = pyqtSignal(list)  # roles_to_cast
+    open_scene_dialog_requested = pyqtSignal(int)  # scene_id
+    talent_profile_requested = pyqtSignal(int)  # other_talent_id
+
+    def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
-        self.talent = talent
-        self.controller = controller
-        self.settings_manager = self.controller.settings_manager
+        self.settings_manager = settings_manager
+        self.presenter = None  # Will be set by UIManager
             
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setWindowTitle(f"Talent Profile: {self.talent.alias}")
         self.setMinimumSize(800, 600)
 
         self.setup_ui()
-        self.populate_data()
         self._connect_signals()
         self._restore_geometry()
 
-    def on_setting_changed(self, key: str):
-        if key == "unit_system":
-            self.populate_physical_label()
+    def update_window_title(self, alias: str):
+        self.setWindowTitle(f"Talent Profile: {alias}")
 
     def _create_profile_tab(self):
         profile_tab = QWidget()
         layout = QHBoxLayout(profile_tab)
-    
-        main_layout = QVBoxLayout(self)
             
         widget_for_layout = QWidget()
         left_layout = QVBoxLayout(widget_for_layout)
@@ -93,10 +89,6 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         return profile_tab
 
     def _create_history_chem_tabs(self, main_tab_widget: QTabWidget):
-
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-        self.right_tabs = QTabWidget()
         
         history_tab = QWidget()
         history_tab_layout = QVBoxLayout(history_tab)
@@ -107,9 +99,10 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         self.scene_history_tree.setModel(self.scene_history_model)
         self.scene_history_tree.setHeaderHidden(True)
         self.scene_history_tree.setEditTriggers(QTreeView.EditTrigger.NoEditTriggers)
+        self.scene_history_tree.doubleClicked.connect(self._on_role_double_clicked)
         history_layout.addWidget(self.scene_history_tree)
         history_tab_layout.addWidget(history_group)
-        main_tab_widget.addTab(history_tab, "Scene History")
+        history_tab.setLayout(history_tab_layout)
 
         chemistry_tab = QWidget()
         chemistry_tab_layout = QVBoxLayout(chemistry_tab)
@@ -122,8 +115,12 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         self.chemistry_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.chemistry_table.verticalHeader().setVisible(False)
         self.chemistry_table.horizontalHeader().setStretchLastSection(True)
+        self.chemistry_table.itemDoubleClicked.connect(self._on_chemistry_double_clicked)
         chemistry_layout.addWidget(self.chemistry_table)
         chemistry_tab_layout.addWidget(chemistry_group)
+        chemistry_tab.setLayout(chemistry_tab_layout)
+
+        main_tab_widget.addTab(history_tab, "Scene History")
         main_tab_widget.addTab(chemistry_tab, "Chemistry")
 
     def _create_prefs_tab(self):
@@ -177,7 +174,7 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         self.roles_stack.addWidget(roles_no_scenes_widget)
         contract_layout.addWidget(self.roles_stack)
         
-        self.hire_button = QPushButton("Assign to Selected Role(s)")
+        self.hire_button = QPushButton("Assign Talent to Selected Role(s)")
         self.hire_button.clicked.connect(self._confirm_hire)
         contract_layout.addWidget(self.hire_button)
         
@@ -200,18 +197,11 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         main_layout.addWidget(button_box)
 
     def _connect_signals(self):
-        self.controller.settings_manager.signals.setting_changed.connect(self.on_setting_changed)
-        self.controller.signals.scenes_changed.connect(self.refresh_available_roles)
-
-    def update_with_talent(self, talent: Talent):
-        """Clears and repopulates the entire dialog with data from a new talent."""
-        self.talent = talent
-        self.setWindowTitle(f"Talent Profile: {self.talent.alias}")
-        self.populate_data()
+        pass
         
-    def populate_physical_label(self):
+    def populate_physical_label(self, talent: Talent):
         unit_system = self.settings_manager.get_setting("unit_system", "imperial")
-        attr_name, attr_value = format_physical_attribute(self.talent, unit_system)
+        attr_name, attr_value = format_physical_attribute(talent, unit_system)
         
         if attr_name:
             self.physical_attr_name_label.setText(f"<b>{attr_name}:</b>")
@@ -222,119 +212,60 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
             self.physical_attr_name_label.setVisible(False)
             self.physical_attr_value_label.setVisible(False)
 
-    def populate_data(self):
-        self.age_label.setText(str(self.talent.age))
-        self.gender_label.setText(self.talent.gender)
-        self.orientation_label.setText(format_orientation(self.talent.orientation_score, self.talent.gender))
-        self.ethnicity_label.setText(self.talent.ethnicity)
-        self.popularity_label.setText(f"{sum(self.talent.popularity.values()):.2f}")
-        self.populate_physical_label()
-
-        self.performance_label.setText(f"{self.talent.performance:.2f}")
-        self.acting_label.setText(f"{self.talent.acting:.2f}")
-        self.stamina_label.setText(f"{self.talent.stamina:.2f}")
-        self.ambition_label.setText(str(self.talent.ambition))
-        self.professionalism_label.setText(str(self.talent.professionalism))
-        
-        while self.affinities_layout.count():
-            self.affinities_layout.takeAt(0).widget().deleteLater()
-        for tag, affinity in sorted(self.talent.tag_affinities.items()):
-            if affinity > 0:
+    # --- Public Methods for Presenter ---
+    def display_basic_info(self, data: dict):
+            self.age_label.setText(str(data['age']))
+            self.gender_label.setText(data['gender'])
+            self.orientation_label.setText(format_orientation(data['orientation'], data['gender']))
+            self.ethnicity_label.setText(data['ethnicity'])
+            self.popularity_label.setText(f"{data['popularity']:.2f}")
+            
+    def display_skills(self, data: dict):
+            self.performance_label.setText(f"{data['performance']:.2f}")
+            self.acting_label.setText(f"{data['acting']:.2f}")
+            self.stamina_label.setText(f"{data['stamina']:.2f}")
+            self.ambition_label.setText(str(data['ambition']))
+            self.professionalism_label.setText(str(data['professionalism']))
+    
+    def display_affinities(self, affinities: list):
+            while self.affinities_layout.count():
+                self.affinities_layout.takeAt(0).widget().deleteLater()
+            for tag, affinity in affinities:
                 self.affinities_layout.addWidget(QLabel(f"{tag}: {affinity}"))
 
-        self.populate_scene_history()
-        self.populate_chemistry()
-        self.populate_preferences()
-        self.refresh_available_roles()
-
-    def _populate_preferences_lists(self):
-        tag_definitions = self.controller.data_manager.tag_definitions
-        
-        avg_prefs_by_tag = {
-            tag: sum(roles.values()) / len(roles)
-            for tag, roles in self.talent.tag_preferences.items() if roles
-        }
-        
-        prefs_by_orientation = defaultdict(dict)
-        prefs_by_concept = defaultdict(dict)
-        
-        for tag, avg_score in avg_prefs_by_tag.items():
-            tag_def = tag_definitions.get(tag)
-            if not tag_def: continue
-            
-            if orientation := tag_def.get('orientation'):
-                prefs_by_orientation[orientation][tag] = avg_score
-            if concept := tag_def.get('concept'):
-                prefs_by_concept[concept][tag] = avg_score
-
-        likes, dislikes, processed_tags = [], [], set()
-        DISLIKE_THRESHOLD, LIKE_THRESHOLD, EXCEPTION_DEVIATION = 0.8, 1.2, 0.2
-
-        for orientation, tags_with_scores in prefs_by_orientation.items():
-            scores = list(tags_with_scores.values())
-            if scores and all(score < DISLIKE_THRESHOLD for score in scores):
-                dislikes.append(f"{orientation} scenes")
-                processed_tags.update(tags_with_scores.keys())
-
-        for concept, tags_with_scores in prefs_by_concept.items():
-            unprocessed = {tag: score for tag, score in tags_with_scores.items() if tag not in processed_tags}
-            if not unprocessed: continue
-            
-            scores = list(unprocessed.values())
-            avg_score = sum(scores) / len(scores)
-            is_like, is_dislike = avg_score >= LIKE_THRESHOLD, avg_score <= DISLIKE_THRESHOLD
-            
-            if is_like or is_dislike:
-                summary = f"{concept} scenes (~{avg_score:.2f})"; (likes if is_like else dislikes).append(summary)
-                for tag, score in unprocessed.items():
-                    if abs(score - avg_score) > EXCEPTION_DEVIATION:
-                        roles = ", ".join([f"{r}: {p:.2f}" for r, p in sorted(self.talent.tag_preferences[tag].items())])
-                        exception = f"  • Except: {tag} ({roles})"; (likes if score > avg_score else dislikes).append(exception)
-                processed_tags.update(unprocessed.keys())
-
-        for tag, avg_score in avg_prefs_by_tag.items():
-            if tag in processed_tags: continue
-            if avg_score >= LIKE_THRESHOLD or avg_score <= DISLIKE_THRESHOLD:
-                roles = ", ".join([f"{r}: {p:.2f}" for r, p in sorted(self.talent.tag_preferences[tag].items())])
-                display = f"{tag} ({roles})"; (likes if avg_score >= LIKE_THRESHOLD else dislikes).append(display)
-
-        self.likes_list.clear(); self.dislikes_list.clear()
-        if likes: self.likes_list.addItems(sorted(likes))
+    def display_preferences(self, likes: list, dislikes: list, limits: list, required_policies: list, refused_policies: list):
+        self.likes_list.clear()
+        if likes: self.likes_list.addItems(likes)
         else: self.likes_list.addItem("None")
-        if dislikes: self.dislikes_list.addItems(sorted(dislikes))
+                
+        self.dislikes_list.clear()
+        if dislikes: self.dislikes_list.addItems(dislikes)
         else: self.dislikes_list.addItem("None")
 
-    def populate_preferences(self):
-        self._populate_preferences_lists()
-        
         self.limits_list.clear()
-        if self.talent.hard_limits:
-            for limit in sorted(self.talent.hard_limits):
+        if limits:
+            for limit in limits:
                 item = QListWidgetItem(limit)
                 item.setForeground(QColor("red"))
                 self.limits_list.addItem(item)
         else:
             self.limits_list.addItem("None")
-
-        self.requires_policies_list.clear(); self.refuses_policies_list.clear()
-        policy_names = {p['id']: p['name'] for p in self.controller.data_manager.on_set_policies_data.values()}
-        
-        if required := self.talent.policy_requirements.get('requires'):
-            self.requires_policies_list.addItems([policy_names.get(pid, pid) for pid in sorted(required)])
+ 
+        self.requires_policies_list.clear()
+        if required_policies:
+            self.requires_policies_list.addItems(required_policies)
         else: self.requires_policies_list.addItem("None")
-        
-        if refused := self.talent.policy_requirements.get('refuses'):
-            self.refuses_policies_list.addItems([policy_names.get(pid, pid) for pid in sorted(refused)])
+         
+        self.refuses_policies_list.clear()
+        if refused_policies:
+            self.refuses_policies_list.addItems(refused_policies)
         else: self.refuses_policies_list.addItem("None")
     
-    @pyqtSlot()
-    def refresh_available_roles(self):
+    def update_available_roles(self, available_roles: list):
         """
-        Slot connected to the global scenes_changed signal. Re-fetches and
-        updates the list of available roles for the current talent.
+        Populates the available roles list from data provided by the presenter.
         """
         self.available_roles_list.clear()
-        available_roles = self.controller.hire_talent_service.find_available_roles_for_talent(self.talent.id)
 
         if not available_roles:
             self.roles_stack.setCurrentIndex(1)
@@ -368,22 +299,26 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
     def _confirm_hire(self):
         selected_items = self.available_roles_list.selectedItems()
         if not selected_items:
-            QMessageBox.warning(self, "Error", "Please select one or more roles to assign the talent to.")
+            QMessageBox.warning(self, "No Roles Selected", "Please select one or more roles to assign the talent to.")
             return
-        roles_to_cast, scene_ids = [], set()
+        
+        roles_to_cast, scene_ids, current_alias = [], set(), self.windowTitle().replace("Talent Profile: ", "")
         for item in selected_items:
             role_data = item.data(Qt.ItemDataRole.UserRole)
             if role_data['scene_id'] in scene_ids:
-                QMessageBox.warning(self, "Casting Error", f"Cannot cast '{self.talent.alias}' for multiple roles in the same scene.\nA talent can only be cast once per scene.")
+                QMessageBox.warning(self, "Casting Error", f"Cannot cast '{current_alias}' for multiple roles in the same scene.\nA talent can only be cast once per scene.")
                 return
             scene_ids.add(role_data['scene_id'])
             roles_to_cast.append(role_data)
-        self.hire_requested.emit(self.talent.id, roles_to_cast)
+        self.hire_confirmed.emit(roles_to_cast)
 
-    def populate_chemistry(self):
-        self.chemistry_table.setRowCount(0)
-        chemistry_data = self.controller.talent_service.get_talent_chemistry(self.talent.id)
-
+    def _on_chemistry_double_clicked(self, item: QTableWidgetItem):
+        # We only care about clicks in the first column (talent alias)
+        if item.column() == 0:
+            if talent_id := self.chemistry_table.item(item.row(), 0).data(Qt.ItemDataRole.UserRole):
+                self.talent_profile_requested.emit(talent_id)
+ 
+    def display_chemistry(self, chemistry_data: list):
         self.chemistry_table.setRowCount(len(chemistry_data))
         for row, chem_info in enumerate(chemistry_data):
             score = chem_info['score']
@@ -401,12 +336,10 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
         
         self.chemistry_table.resizeColumnsToContents()
             
-    def populate_scene_history(self):
+    def display_scene_history(self, scene_history: list[Scene]):
         self.scene_history_model.clear()
         root_node = self.scene_history_model.invisibleRootItem()
-        
-        scene_history = self.controller.get_scene_history_for_talent(self.talent.id)
-        
+    
         if not scene_history:
             root_node.appendRow(QStandardItem("No scenes on record."))
             return
@@ -418,7 +351,7 @@ class TalentProfileDialog(GeometryManagerMixin, QDialog):
             scene_item.setFont(font)
             scene_item.setEditable(False)
 
-            contributions = [c for c in scene.performer_contributions if c.talent_id == self.talent.id]
+            contributions = [c for c in scene.performer_contributions if c.talent_id == self.presenter.talent.id]
             if contributions:
                 sorted_contributions = sorted(contributions, key=lambda c: c.contribution_key)
                 for contrib in sorted_contributions:
