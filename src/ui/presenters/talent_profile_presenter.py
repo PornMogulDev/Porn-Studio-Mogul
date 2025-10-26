@@ -48,8 +48,6 @@ class TalentProfilePresenter(QObject):
             # The switch_to_talent method has a guard to prevent redundant reloads,
             # but it will ensure the view is updated if needed.
             self.switch_to_talent(talent.id)
-            # We still need to ensure the correct tab is selected visually.
-            self.view.set_active_talent_tab(talent.id) # This just updates the UI.
         else:
             self.open_talents[talent.id] = talent
             self.view.add_talent_tab(talent.id, talent.alias)
@@ -65,6 +63,7 @@ class TalentProfilePresenter(QObject):
             return
 
         self.current_talent_id = talent_id
+        self.view.set_active_talent_tab(talent_id)
         # The view is already showing the correct tab, we just need to load data.
         self._load_data_for_current_talent()
 

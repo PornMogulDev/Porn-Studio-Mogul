@@ -1,3 +1,4 @@
+import logging
 from PyQt6.QtWidgets import ( 
     QMainWindow, QWidget, QMenuBar, QDockWidget, QToolBar, QTabBar,
     QHBoxLayout, QLabel, QComboBox, QPushButton, QMessageBox
@@ -11,6 +12,8 @@ from ui.widgets.talent_profile.preferences_widget import PreferencesWidget
 from ui.widgets.talent_profile.history_widget import HistoryWidget
 from ui.widgets.talent_profile.chemistry_widget import ChemistryWidget
 from ui.widgets.talent_profile.hiring_widget import HiringWidget
+
+logger = logging.getLogger(__name__)
 
 class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
     """
@@ -78,6 +81,9 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         self.layout_combobox.setToolTip("Select a saved layout or type a new name to save.")
         self.layout_toolbar.addWidget(self.layout_combobox)
 
+        self.load_layout_button = QPushButton("Load")
+        self.layout_toolbar.addWidget(self.load_layout_button)
+
         self.save_layout_button = QPushButton("Save")
         self.layout_toolbar.addWidget(self.save_layout_button)
 
@@ -94,7 +100,7 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         self.tab_bar.tabCloseRequested.connect(self._on_tab_close_requested)
         self.save_layout_button.clicked.connect(self._on_save_layout)
         self.delete_layout_button.clicked.connect(self._on_delete_layout)
-        self.layout_combobox.currentTextChanged.connect(self._on_load_layout)
+        self.load_layout_button.clicked.connect(self._on_load_button_clicked)
 
     def _create_dock_widgets(self):
         """Creates and arranges all the dockable panel widgets."""
@@ -123,8 +129,10 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
     def _add_dock(self, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
         """Helper function to create, add, and connect a QDockWidget."""
         dock = QDockWidget(title, self)
+        # Create a safe object name by removing special characters like '&'
+        safe_name = title.replace(' & ', 'And').replace(' ', '')
         # Set a unique object name for state saving. e.g., "Details&SkillsDockWidget"
-        dock.setObjectName(f"{title.replace(' ', '')}DockWidget")
+        dock.setObjectName(f"{safe_name}DockWidget")
         dock.setWidget(widget)
         self.addDockWidget(area, dock)
         self.view_menu.addAction(dock.toggleViewAction())
@@ -135,7 +143,7 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         """Adds a new tab for a talent if it doesn't exist."""
         # Check if tab for this talent already exists
         for i in range(self.tab_bar.count()):
-            if self.tab_bar.tabData(i) == talent_id and self.tab_bar.currentIndex() != i:
+            if self.tab_bar.tabData(i) == talent_id:
                 return # Tab already exists
 
         # Block signals to prevent the `currentChanged` signal from firing
@@ -155,7 +163,7 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
     def set_active_talent_tab(self, talent_id: int):
         """Sets the tab corresponding to the given talent_id as the current one."""
         for i in range(self.tab_bar.count()):
-            if self.tab_bar.tabData(i) == talent_id:
+            if self.tab_bar.tabData(i) == talent_id and self.tab_bar.currentIndex() != i:
                 self.tab_bar.setCurrentIndex(i)
                 break
 
@@ -192,14 +200,31 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         last_layout_name = self.settings_manager.get_setting("talent_profile_last_layout")
         if last_layout_name:
             index = self.layout_combobox.findText(last_layout_name)
+            # If the layout name from settings exists in our combobox...
             if index != -1:
+                # ...load it directly without triggering signals.
+                self._load_layout_by_name(last_layout_name)
+                
+                # Then, update the combobox to reflect the loaded layout.
+                # We block signals to prevent a redundant load attempt.
+                self.layout_combobox.blockSignals(True)
                 self.layout_combobox.setCurrentIndex(index)
-                # This will trigger _on_load_layout via the signal
+                self.layout_combobox.blockSignals(False)
 
+    @pyqtSlot()
+    def _on_load_button_clicked(self):
+        """Slot for the 'Load' button. Loads the currently selected layout."""
+        layout_name = self.layout_combobox.currentText()
+        if layout_name:
+            self._load_layout_by_name(layout_name)
+ 
     @pyqtSlot()
     def _on_save_layout(self):
         """Saves the current dock layout to the settings."""
         layout_name = self.layout_combobox.currentText()
+        # Allow using the placeholder text of an editable combobox as a new name
+        if not layout_name and self.layout_combobox.lineEdit():
+            layout_name = self.layout_combobox.lineEdit().text()
         if not layout_name:
             QMessageBox.warning(self, "Save Layout", "Please enter a name for the layout.")
             return
@@ -211,9 +236,11 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         layouts[layout_name] = state_str
         self.settings_manager.set_talent_profile_layouts(layouts)
         
+        self.layout_combobox.blockSignals(True)
         self._populate_layouts_combobox()
         # Restore the text after repopulating
         self.layout_combobox.setCurrentText(layout_name)
+        self.layout_combobox.blockSignals(False)
 
         QMessageBox.information(self, "Layout Saved", f"Layout '{layout_name}' has been saved.")
 
@@ -236,14 +263,27 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
                 self.settings_manager.set_talent_profile_layouts(layouts)
                 self._populate_layouts_combobox()
     @pyqtSlot(str)
-    def _on_load_layout(self, layout_name: str):
-        """Loads a dock layout from settings when selected in the combobox."""
-        if self._is_loading_layout or not layout_name:
-            return
-
+    def _load_layout_by_name(self, layout_name: str):
+        """
+        Loads and applies a layout state from settings based on its name.
+        """
+        logger.debug(f"Attempting to load layout: '{layout_name}'")
         layouts = self.settings_manager.get_talent_profile_layouts()
         state_str = layouts.get(layout_name)
         if state_str:
-            state_bytes = QByteArray.fromBase64(state_str.encode('ascii'))
-            self.restoreState(state_bytes)
-            self.settings_manager.set_setting("talent_profile_last_layout", layout_name)
+            logger.debug(f"Found layout data for '{layout_name}'. Length: {len(state_str)} chars.")
+            try:
+                state_bytes = QByteArray.fromBase64(state_str.encode('ascii'))
+                logger.debug("Calling self.restoreState()...")
+                if self.restoreState(state_bytes):
+                    logger.info(f"Successfully loaded layout '{layout_name}'.")
+                    self.settings_manager.set_setting("talent_profile_last_layout", layout_name)
+                else:
+                    # This is a critical piece of information. restoreState() can fail.
+                    logger.warning(f"self.restoreState() returned 'False' for layout '{layout_name}'. The layout data may be corrupt or incompatible with the current UI.")
+                    QMessageBox.warning(self, "Load Error", f"Failed to load layout '{layout_name}'. The data may be corrupt.")
+            except Exception as e:
+                logger.error(f"An exception occurred while decoding or restoring layout '{layout_name}': {e}", exc_info=True)
+                QMessageBox.critical(self, "Load Error", f"An unexpected error occurred while loading layout '{layout_name}'. See logs for details.")
+        else:
+            logger.warning(f"Could not find layout data for name '{layout_name}' in settings.")

@@ -49,6 +49,8 @@ class SettingsManager:
             "theme": "system",  # 'dark', 'light', or 'system'
             "font_family": "Roboto",
             "font_size": 12,
+            "talent_profile_layouts": {},
+            "talent_profile_last_layout": None,
         }
         self.settings = self._load_settings()
 
@@ -92,7 +94,7 @@ class SettingsManager:
 
     def get_talent_profile_layouts(self) -> dict:
         """Returns the dictionary of saved talent profile layouts."""
-        return self.get_setting('talent_profile_layouts', {})
+        return self.get_setting('talent_profile_layouts', {}).copy()
 
     def set_talent_profile_layouts(self, layouts: dict):
         """Sets the dictionary of saved talent profile layouts."""
@@ -131,7 +133,11 @@ class SettingsManager:
         """
         if "window_geometries" not in self.settings:
             self.settings["window_geometries"] = {}
-        self.settings["window_geometries"][window_name] = geometry
+        window_data = self.settings["window_geometries"].get(window_name, {})
+        if not isinstance(window_data, dict): # Sanity check in case of corruption
+            window_data = {}
+        window_data.update(geometry)
+        self.settings["window_geometries"][window_name] = window_data
         self._save_settings()
 
     def set_window_setting(self, window_name: str, key: str, value: any):
