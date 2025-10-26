@@ -394,20 +394,26 @@
       { "role": "Receiver",
       "dynamic_role": "Submissive",
       "gender": "Female",
-      "count": 1,
+      "parameterized_by": "count",
+      "min_count": 1,
+      "max_count": 20,
       "stamina_modifier": 1.3,
-      "demand_modifier_scaling_per_other": 0.1, 
-      "stamina_modifier_scaling_per_other": 0.1
+      "demand_modifier_scaling_per_other": 0.1,
+      "demand_modifier_scaling_per_peer": 0.05, 
+      "stamina_modifier_scaling_per_other": 0.1,
+      "stamina_modifier_scaling_per_peer": -0.05
     },
       { "role": "Giver",
         "dynamic_role": "Dominant",
         "gender": "Male",
         "parameterized_by": "count",
-        "min_count": 2,
+        "min_count": 1,
         "max_count": 20,
         "stamina_modifier": 1.3,
         "demand_modifier_scaling_per_peer": 0.05,
-        "stamina_modifier_scaling_per_peer": -0.1 
+        "demand_modifier_scaling_per_other": 0.05,
+        "stamina_modifier_scaling_per_peer": -0.1,
+        "stamina_modifier_scaling_per_other": 0.1 
       }
     ],
     "tooltip": "Each 'Giver' at a time. So just Vaginal, not Double Vaginal, etc. So you don't have to add 2+ instances of the same."

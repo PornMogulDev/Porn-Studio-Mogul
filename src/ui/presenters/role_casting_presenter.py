@@ -1,6 +1,6 @@
 from PyQt6.QtCore import QObject, pyqtSlot
 from PyQt6.QtWidgets import QDialog
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Dict
 
 from core.interfaces import IGameController
 from data.game_state import Talent
@@ -16,7 +16,7 @@ class RoleCastingPresenter(QObject):
         self.scene_id = scene_id
         self.vp_id = vp_id
 
-        self._all_eligible_talent: List[Talent] = []
+        self._talent_with_demand: List[Dict] = []
         self._connect_signals()
         self._load_initial_data()
 
@@ -26,11 +26,16 @@ class RoleCastingPresenter(QObject):
     
     def _load_initial_data(self):
         # This single call gets all talent who are eligible and willing
-        self._all_eligible_talent = self.controller.hire_talent_service.get_eligible_talent_for_role(
-            self.scene_id, self.vp_id
-        )
+        eligible_talent = self.controller.hire_talent_service.get_eligible_talent_for_role(
+             self.scene_id, self.vp_id
+         )
+        self._talent_with_demand = []
+        for talent in eligible_talent:
+            cost = self.controller.calculate_talent_demand(talent.id, self.scene_id, self.vp_id)
+            self._talent_with_demand.append({'talent': talent, 'demand': cost})
+
         self._load_role_details()
-        self.view.update_talent_table(self._all_eligible_talent)
+        self.view.update_talent_table(self._talent_with_demand)
 
     def _load_role_details(self):
         role_details = self.controller.hire_talent_service.get_role_details_for_ui(self.scene_id, self.vp_id)
@@ -49,12 +54,12 @@ class RoleCastingPresenter(QObject):
     def _on_name_filter_changed(self, text: str):
         text_lower = text.lower()
         if not text_lower:
-            self.view.update_talent_table(self._all_eligible_talent)
+            self.view.update_talent_table(self._talent_with_demand)
             return
         
         filtered_list = [
-            talent for talent in self._all_eligible_talent 
-            if text_lower in talent.alias.lower()
+            data for data in self._talent_with_demand
+            if text_lower in data['talent'].alias.lower()
         ]
         self.view.update_talent_table(filtered_list)
         

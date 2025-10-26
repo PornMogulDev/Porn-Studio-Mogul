@@ -482,6 +482,11 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         for i in range(self.physical_assignment_layout.count()):
             if widget := self.physical_assignment_layout.itemAt(i).widget(): widget.setEnabled(is_editable)
 
+    def flush_pending_composition_changes(self):
+        """Immediately stops the update timer and emits any pending composition changes."""
+        if self.composition_update_timer.isActive():
+            self.composition_update_timer.stop()
+            self._emit_composition_change()
     # --- Private Helpers ---
     def _create_list_item_with_tooltip(self, tag_data: dict) -> QListWidgetItem:
         item = QListWidgetItem(tag_data['full_name']); item.setData(Qt.ItemDataRole.UserRole, tag_data)

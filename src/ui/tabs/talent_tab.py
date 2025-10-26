@@ -1,62 +1,16 @@
 from PyQt6.QtCore import Qt, QModelIndex, pyqtSignal, QPoint
 from typing import Dict, List
 from PyQt6.QtCore import Qt, QAbstractTableModel, QModelIndex, pyqtSignal, QPoint
-from PyQt6.QtGui import QAction, QColor
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
     QGroupBox, QComboBox, QCheckBox, QMenu,
     QGridLayout, QTableView, QTextEdit, QHeaderView
  )
-from collections import defaultdict
 
 from data.game_state import Talent, Scene
 from ui.widgets.help_button import HelpButton
-from ui.dialogs.scene_dialog import SceneDialog
-from utils.formatters import format_orientation, format_dick_size
-
-class TalentTableModel(QAbstractTableModel):
-    def __init__(self, talents: List[Talent] = None, settings_manager=None, parent=None):
-        super().__init__(parent)
-        self.talents = talents or []
-        self.settings_manager = settings_manager
-        self.headers = ["Alias", "Age", "Gender", "Orientation", "Ethnicity", "Dick Size", "Cup Size", "Perf.", "Act.", "Stam.", "Pop."]
-    
-    def data(self, index: QModelIndex, role: int):
-        if not index.isValid(): return None
-        talent = self.talents[index.row()]
-        col = index.column()
-
-        unit_system = self.settings_manager.get_setting("unit_system") if self.settings_manager else "metric"
-
-        if role == Qt.ItemDataRole.DisplayRole:
-            if col == 0: return talent.alias
-            if col == 1: return talent.age
-            if col == 2: return talent.gender
-            if col == 3: return format_orientation(talent.orientation_score, talent.gender)
-            if col == 4: return talent.ethnicity
-            if col == 5:
-                 if talent.gender == "Male" and talent.dick_size is not None: return format_dick_size(talent.dick_size, unit_system)
-                 return "N/A" 
-            if col == 6: return talent.boob_cup if talent.gender == "Female" else "N/A"
-            if col == 7: return f"{talent.performance:.2f}"
-            if col == 8: return f"{talent.acting:.2f}"
-            if col == 9: return f"{talent.stamina:.2f}"
-            if col == 10: return f"{sum(talent.popularity.values()):.2f}"
-        elif role == Qt.ItemDataRole.UserRole:
-            return talent
-        return None
-    def rowCount(self, parent: QModelIndex = QModelIndex()): return len(self.talents)
-    def columnCount(self, parent: QModelIndex = QModelIndex()): return len(self.headers)
-
-    def headerData(self, section: int, orientation: Qt.Orientation, role: int):
-        if role == Qt.ItemDataRole.DisplayRole and orientation == Qt.Orientation.Horizontal:
-            return self.headers[section]
-        return None
-
-    def update_data(self, new_talents: List[Talent]):
-        self.beginResetModel()
-        self.talents = new_talents
-        self.endResetModel()
+from ui.models.talent_table_model import TalentTableModel
 
 class HireWindow(QWidget):
     standard_filters_changed = pyqtSignal(dict)
@@ -77,10 +31,14 @@ class HireWindow(QWidget):
         self.advanced_filters = {}
         self.setup_ui()
 
-    def create_model_and_load(self, settings_manager):
+    def create_model_and_load(self, settings_manager, boob_cup_order: List[str]):
         """Called by the presenter to inject dependencies and trigger initial load."""
         if self.talent_model is None:
-            self.talent_model = TalentTableModel(settings_manager=settings_manager)
+            self.talent_model = TalentTableModel(
+                settings_manager=settings_manager, 
+                boob_cup_order=boob_cup_order,
+                mode='default' # Explicitly use default mode
+             )
             self.talent_table_view.setModel(self.talent_model)
             self._configure_table_view_headers()
             self.initial_load_requested.emit()
@@ -136,7 +94,9 @@ class HireWindow(QWidget):
         self.talent_table_view.horizontalHeader().setStretchLastSection(True)
         self.talent_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.talent_table_view.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        
+        self.talent_table_view.setSortingEnabled(True)
+        self.talent_table_view.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+
         talent_list_layout.addWidget(self.talent_table_view)
 
         # --- Connections ---

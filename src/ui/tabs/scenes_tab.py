@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QSortFilterProxyModel, Qt, QItemSelectionModel
 from PyQt6.QtGui import QStandardItemModel
-from ui.models.scene_models import SceneTableModel, SceneSortFilterProxyModel
+from ui.models.scene_model import SceneTableModel, SceneSortFilterProxyModel
 from ui.dialogs.shot_scene_details_dialog import ShotSceneDetailsDialog
 
 class ScenesTab(QWidget):

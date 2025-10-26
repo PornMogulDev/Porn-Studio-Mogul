@@ -165,6 +165,7 @@ class ScenePlannerPresenter(QObject):
     def on_ds_level_changed(self, level: int): self.editor_service.set_ds_level(level); self._refresh_composition()
         
     def on_performer_count_changed(self, new_count: int):
+        self.view.flush_pending_composition_changes()
         self.editor_service.update_performer_count(new_count)
         self._refresh_composition(); self._refresh_physical_panel(); self._refresh_action_segment_panel()
 
@@ -269,11 +270,6 @@ class ScenePlannerPresenter(QObject):
         self.view.accept()
 
     def on_cancel_requested(self):
-        """
-        Reverts any changes made during this editing session by saving the
-        original scene state back to the database.
-        """
-        self.controller.update_scene_full(self.editor_service.original_scene)
         self.view.reject()
     def on_delete_requested(self, penalty_percentage: float): self.controller.delete_scene(self.working_scene.id, penalty_percentage=penalty_percentage); self.view.accept()
     def on_favorites_changed(self): self.update_favorites(); self._refresh_thematic_panel(); self._refresh_physical_panel(); self._refresh_action_segment_panel()
@@ -297,16 +293,11 @@ class ScenePlannerPresenter(QObject):
             # A hire was made. The database is updated, but our local 'working_scene'
             # in the editor service is now stale. We need to refresh it.
             fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
-            print("\n--- [DEBUG] Scene State After Hire ---")
             if fresh_scene:
-                print(f"Fresh scene title: {fresh_scene.title}")
-                print(f"VPs in fresh scene: {len(fresh_scene.virtual_performers)}")
-                print(f"Cast in fresh scene: {fresh_scene.final_cast}")
                 self.editor_service.reset_with_scene(fresh_scene)
                 self._refresh_full_view()
             else:
                 print("ERROR: fresh_scene is None!")
-            print("-------------------------------------\n")
 
     # --- Data Access & Helpers ---
     def _get_bloc_info_text(self) -> str:
@@ -385,6 +376,13 @@ class ScenePlannerPresenter(QObject):
         # Re-fetch the scene data from the authoritative source
         fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
         
+        # Compare the newly fetched scene with the original state we have in memory.
+        # If they are identical, it means a *different* scene was changed, so we
+        # do nothing to avoid wiping out the user's current unsaved edits.
+        # The dataclasses' default __eq__ method handles this comparison perfectly.
+        if fresh_scene == self.editor_service.original_scene:
+            return
+
         if not fresh_scene:
             # The scene was likely deleted by another process. Close the dialog.
             logger.info(f"Scene {self.working_scene.id} no longer exists. Closing planner.")

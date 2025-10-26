@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QTableView,
     QHeaderView, QLabel, QGroupBox, QTextEdit
@@ -7,7 +7,7 @@ from PyQt6.QtCore import pyqtSignal, Qt, QModelIndex
 
 from data.game_state import Talent
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
-from ui.tabs.talent_tab import TalentTableModel
+from ui.models.talent_table_model import TalentTableModel
 
 class RoleCastingDialog(GeometryManagerMixin, QDialog):
     hire_requested = pyqtSignal(object) # talent
@@ -20,7 +20,11 @@ class RoleCastingDialog(GeometryManagerMixin, QDialog):
         self.vp_id = vp_id
 
         self.settings_manager = self.controller.settings_manager
-        self.talent_model = TalentTableModel(settings_manager=self.controller.settings_manager)
+        self.talent_model = TalentTableModel(
+            settings_manager=self.settings_manager,
+            boob_cup_order=self.controller.get_available_boob_cups(),
+            mode='casting'
+        )
 
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowTitle("Hire Talent for Role")
@@ -66,8 +70,9 @@ class RoleCastingDialog(GeometryManagerMixin, QDialog):
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch) # Alias
 
-    def update_talent_table(self, talents: List[Talent]):
-        self.talent_model.update_data(talents)
+    def update_talent_table(self, talent_data: List[Dict]):
+        """Accepts a list of dictionaries [{'talent': Talent, 'demand': int}]"""
+        self.talent_model.update_data(talent_data)
 
     def update_role_details(self, html: str):
         self.role_details_display.setHtml(html)

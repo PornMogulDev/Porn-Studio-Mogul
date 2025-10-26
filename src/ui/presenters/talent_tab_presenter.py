@@ -19,7 +19,10 @@ class TalentTabPresenter(QObject):
         self.view = view
         self.ui_manager = ui_manager
         self._connect_signals()
-        self.view.create_model_and_load(self.controller.settings_manager)
+        self.view.create_model_and_load(
+            self.controller.settings_manager,
+            self.controller.get_available_boob_cups()
+        )
     def _connect_signals(self):
         self.controller.signals.scenes_changed.connect(self.on_global_scenes_changed)
         self.controller.signals.talent_pool_changed.connect(self.view.refresh_from_state)
