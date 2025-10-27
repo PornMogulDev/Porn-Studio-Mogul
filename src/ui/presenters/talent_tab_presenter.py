@@ -18,6 +18,7 @@ class TalentTabPresenter(QObject):
         self.controller = controller
         self.view = view
         self.ui_manager = ui_manager
+        self.filter_dialog = None
         self._connect_signals()
         self.view.create_model_and_load(
             self.controller.settings_manager,
@@ -76,18 +77,27 @@ class TalentTabPresenter(QObject):
 
     @pyqtSlot(dict)
     def on_open_advanced_filters(self, current_filters: dict):
-        dialog = TalentFilterDialog(
-            ethnicities=self.controller.get_available_ethnicities(),
-            boob_cups=self.controller.get_available_boob_cups(),
-            go_to_categories=self.controller.get_go_to_list_categories(),
-            current_filters=current_filters,
-            settings_manager=self.controller.settings_manager,
-            parent=self.view
-        )
-        dialog.filters_applied.connect(self.view.on_filters_applied)
-        # Ensure the dialog is destroyed on close, preventing resource leaks.
-        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        dialog.exec()
+        if self.filter_dialog is None:
+            # Create the dialog for the first time
+            self.filter_dialog = TalentFilterDialog(
+                ethnicities=self.controller.get_available_ethnicities(),
+                boob_cups=self.controller.get_available_boob_cups(),
+                go_to_categories=self.controller.get_go_to_list_categories(),
+                current_filters=current_filters,
+                settings_manager=self.controller.settings_manager,
+                parent=self.view
+            )
+            self.filter_dialog.filters_applied.connect(self.view.on_filters_applied)
+            # When the user closes the dialog via the 'X' button, clear our reference to it
+            self.filter_dialog.finished.connect(self.on_filter_dialog_closed)
+            self.filter_dialog.show()
+        else:
+            # If it already exists, just bring it to the front
+            self.filter_dialog.raise_()
+            self.filter_dialog.activateWindow()
+     
+    def on_filter_dialog_closed(self):
+        self.filter_dialog = None
     
     @pyqtSlot(object)
     def on_open_talent_profile(self, talent: Talent):
