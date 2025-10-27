@@ -1,15 +1,9 @@
 from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QSpinBox, QDoubleSpinBox, QSlider
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QSpinBox, QDoubleSpinBox
+from superqt import QRangeSlider
 
 class RangeFilterWidget(QWidget):
-    """
-    A compound widget that provides a min/max spinbox pair and a slider.
-    It supports two modes of interaction:
-    1. Range Mode: The user sets a min and max value using the spinboxes.
-    2. Single Value Mode: The user drags the slider, which sets both min and max
-       to the slider's value for precise filtering.
-    The last control touched dictates the current mode.
-    """
+    """A compound widget providing a min/max spinbox pair and a QRangeSlider."""
     valuesChanged = pyqtSignal(object, object)
 
     def __init__(self, data_type: str = 'int', parent=None):
@@ -39,17 +33,14 @@ class RangeFilterWidget(QWidget):
 
         layout.addWidget(self.min_spinbox)
 
-        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider = QRangeSlider(Qt.Orientation.Horizontal)
         layout.addWidget(self.slider)
 
         layout.addWidget(QLabel("Max:"))
         layout.addWidget(self.max_spinbox)
 
     def _connect_signals(self):
-        # When slider is moved, enter "single value" mode
-        self.slider.valueChanged.connect(self._on_slider_moved)
-
-        # When spinboxes are changed, enter "range" mode
+        self.slider.valueChanged.connect(self._on_slider_value_changed)
         self.min_spinbox.valueChanged.connect(self._on_spinbox_changed)
         self.max_spinbox.valueChanged.connect(self._on_spinbox_changed)
 
@@ -64,64 +55,69 @@ class RangeFilterWidget(QWidget):
         # Block signals to prevent emitting valuesChanged prematurely
         self.min_spinbox.blockSignals(True)
         self.max_spinbox.blockSignals(True)
-        self.slider.blockSignals(True)
 
         self.min_spinbox.setValue(min_val)
         self.max_spinbox.setValue(max_val)
 
-        # If it's a single value, update the slider position
-        if min_val == max_val:
-            self.slider.setValue(int(min_val * self._precision_factor))
-
         # Unblock signals
         self.min_spinbox.blockSignals(False)
         self.max_spinbox.blockSignals(False)
-        self.slider.blockSignals(False)
+
+        # After setting spinboxes, update the slider to match
+        self._update_slider_from_spinboxes()
 
     def get_values(self):
         """Returns the current min and max values."""
         return self.min_spinbox.value(), self.max_spinbox.value()
 
-    def _on_slider_moved(self, slider_value: int):
-        """SLOT: Handles the slider being moved. Forces single-value mode."""
-        # Convert slider integer value to the appropriate data type
-        value = slider_value / self._precision_factor
-        if self._data_type == 'int':
-            value = int(value)
-
-        # Block spinbox signals to prevent a feedback loop
+    def _on_slider_value_changed(self, value: tuple):
+        """SLOT: Handles the slider handles being moved. Updates spinboxes."""
+        min_slider, max_slider = value
         self.min_spinbox.blockSignals(True)
         self.max_spinbox.blockSignals(True)
 
-        self.min_spinbox.setValue(value)
-        self.max_spinbox.setValue(value)
+        # Calculate the value based on the precision factor
+        min_val = min_slider / self._precision_factor
+        max_val = max_slider / self._precision_factor
+
+        # For integer-based widgets, ensure the value is an integer.
+        # For float-based widgets, it will correctly remain a float.
+        if self._data_type == 'int':
+            min_val = int(min_val)
+            max_val = int(max_val)
+
+        self.min_spinbox.setValue(min_val)
+        self.max_spinbox.setValue(max_val)
 
         self.min_spinbox.blockSignals(False)
         self.max_spinbox.blockSignals(False)
 
-        # Emit the change
-        self.valuesChanged.emit(value, value)
+        self.valuesChanged.emit(self.min_spinbox.value(), self.max_spinbox.value())
 
     def _on_spinbox_changed(self):
-        """SLOT: Handles either spinbox value changing. Forces range mode."""
+        """SLOT: Handles either spinbox value changing. Updates slider."""
         min_val = self.min_spinbox.value()
         max_val = self.max_spinbox.value()
 
-        # Enforce min <= max without feedback loops
-        if self.sender() == self.min_spinbox and min_val > max_val:
-            self.max_spinbox.blockSignals(True)
-            self.max_spinbox.setValue(min_val)
-            self.max_spinbox.blockSignals(False)
-            max_val = min_val # Update local variable for emit
-        elif self.sender() == self.max_spinbox and max_val < min_val:
-            self.min_spinbox.blockSignals(True)
-            self.min_spinbox.setValue(max_val)
-            self.min_spinbox.blockSignals(False)
-            min_val = max_val # Update local variable for emit
+        # Enforce that min_val is never greater than max_val
+        if min_val > max_val:
+            # If the user was editing the min_spinbox, pull the max value up to match.
+            if self.sender() == self.min_spinbox:
+                self.max_spinbox.blockSignals(True)
+                self.max_spinbox.setValue(min_val)
+                self.max_spinbox.blockSignals(False)
+            # If the user was editing the max_spinbox, push the min value down to match.
+            else:
+                self.min_spinbox.blockSignals(True)
+                self.min_spinbox.setValue(max_val)
+                self.min_spinbox.blockSignals(False)
 
-        # Ensure the other spinbox's limits are correct
-        self.max_spinbox.setMinimum(min_val)
-        self.min_spinbox.setMaximum(max_val)
-
-        # Emit the change
-        self.valuesChanged.emit(min_val, max_val)
+        self._update_slider_from_spinboxes()
+        self.valuesChanged.emit(self.min_spinbox.value(), self.max_spinbox.value())
+        
+    def _update_slider_from_spinboxes(self):
+        """Updates the slider's handle positions based on spinbox values."""
+        self.slider.blockSignals(True)
+        self.slider.setValue((int(self.min_spinbox.value() * self._precision_factor), 
+                               int(self.max_spinbox.value() * self._precision_factor)))
+        self.slider.blockSignals(False)

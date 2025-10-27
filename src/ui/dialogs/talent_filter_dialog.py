@@ -172,9 +172,9 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
 
         # Range Widgets
         self.age_range.set_values(self.current_filters.get('age_min', 18), self.current_filters.get('age_max', 99))
-        self.perf_range.set_values(self.current_filters.get('performance_min', 0.0), self.current_filters.get('performance_max', 100.0))
-        self.act_range.set_values(self.current_filters.get('acting_min', 0.0), self.current_filters.get('acting_max', 100.0))
-        self.stam_range.set_values(self.current_filters.get('stamina_min', 0.0), self.current_filters.get('stamina_max', 100.0))
+        self.perf_range.set_values(self.current_filters.get('performance_min', 0), self.current_filters.get('performance_max', 100))
+        self.act_range.set_values(self.current_filters.get('acting_min', 0), self.current_filters.get('acting_max', 100))
+        self.stam_range.set_values(self.current_filters.get('stamina_min', 0), self.current_filters.get('stamina_max', 100))
         self.ambition_range.set_values(self.current_filters.get('ambition_min', 1), self.current_filters.get('ambition_max', 10))
         self.dick_range.set_values(self.current_filters.get('dick_size_min', 0), self.current_filters.get('dick_size_max', 20))
         
@@ -218,9 +218,9 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.category_combo.setCurrentIndex(0)
         self.gender_any_radio.setChecked(True)
         self.age_range.set_values(18, 99)
-        self.perf_range.set_values(0.0, 100.0)
-        self.act_range.set_values(0.0, 100.0)
-        self.stam_range.set_values(0.0, 100.0)
+        self.perf_range.set_values(0, 100)
+        self.act_range.set_values(0, 100)
+        self.stam_range.set_values(0, 100)
         self.ambition_range.set_values(1, 10)
         self.dick_range.set_values(0, 20)
         self.ethnicity_list.clearSelection()

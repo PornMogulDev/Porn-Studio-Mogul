@@ -5,3 +5,4 @@ pyqt6_sip==13.10.2
 pyqtdarktheme==0.1.7
 SQLAlchemy==2.0.43
 debugpy==1.8.1
+superqt==0.7.6
