@@ -63,7 +63,12 @@ class TalentService:
         """
         query = self.session.query(TalentDB).options(selectinload(TalentDB.popularity_scores))
 
-        # Go-To Category Filter (from version 1)
+        # Go-To List only filter 
+        if filters.get('go_to_list_only'):
+            # Use distinct() in case a talent is in multiple categories
+            query = query.join(GoToListAssignmentDB).distinct()
+
+        # Go-To Category Filter
         category_id = filters.get('go_to_category_id', -1)
         if category_id != -1:
             query = query.join(GoToListAssignmentDB).filter(GoToListAssignmentDB.category_id == category_id)
