@@ -2,6 +2,7 @@ from typing import List, Optional
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
 
 from data.game_state import Talent
+from database.db_models import TalentDB
 from utils.formatters import format_orientation, format_dick_size
 
 class TalentTableModel(QAbstractTableModel):
@@ -19,33 +20,34 @@ class TalentTableModel(QAbstractTableModel):
     def data(self, index: QModelIndex, role: int):
         if not index.isValid(): return None
         item = self.display_data[index.row()]
-        talent = item['talent'] if self.mode == 'casting' else item
+        talent_db = item['talent'] if self.mode == 'casting' else item
         col = index.column()
 
         unit_system = self.settings_manager.get_setting("unit_system") if self.settings_manager else "metric"
 
         if role == Qt.ItemDataRole.DisplayRole:
-            # Common columns
-            if col == 0: return talent.alias
-            elif col == 1: return talent.age
-            elif col == 2: return talent.gender
-            elif col == 3: return format_orientation(talent.orientation_score, talent.gender)
-            elif col == 4: return talent.ethnicity
+             # Common columns
+            if col == 0: return talent_db.alias
+            elif col == 1: return talent_db.age
+            elif col == 2: return talent_db.gender
+            elif col == 3: return format_orientation(talent_db.orientation_score, talent_db.gender)
+            elif col == 4: return talent_db.ethnicity
             elif col == 5:
-                 if talent.gender == "Male" and talent.dick_size is not None: return format_dick_size(talent.dick_size, unit_system)
+                 if talent_db.gender == "Male" and talent_db.dick_size is not None: return format_dick_size(talent_db.dick_size, unit_system)
                  return "N/A"
-            elif col == 6: return talent.boob_cup if talent.gender == "Female" else "N/A"
-            elif col == 7: return f"{talent.performance:.2f}"
-            elif col == 8: return f"{talent.acting:.2f}"
-            elif col == 9: return f"{talent.stamina:.2f}"
-            elif col == 10: return f"{sum(talent.popularity.values()):.2f}"
+            elif col == 6: return talent_db.boob_cup if talent_db.gender == "Female" else "N/A"
+            elif col == 7: return f"{talent_db.performance:.2f}"
+            elif col == 8: return f"{talent_db.acting:.2f}"
+            elif col == 9: return f"{talent_db.stamina:.2f}"
+            elif col == 10: return f"{sum(p.score for p in talent_db.popularity_scores):.2f}"
             # Casting-specific column
             elif col == 11 and self.mode == 'casting':
                 return f"${item['demand']:,}"
 
         elif role == Qt.ItemDataRole.UserRole:
-            return talent
-
+            # This is the "just-in-time" conversion. Only happens when something needs the full dataclass.
+            return talent_db.to_dataclass(Talent)
+ 
         return None
         
     def rowCount(self, parent: QModelIndex = QModelIndex()): return len(self.display_data)
@@ -69,29 +71,29 @@ class TalentTableModel(QAbstractTableModel):
         reverse = (order == Qt.SortOrder.DescendingOrder)
 
         def get_sort_key(item):
-            talent = item['talent'] if self.mode == 'casting' else item
+            talent_db = item['talent'] if self.mode == 'casting' else item
             if column == 0:  # Alias
-                return talent.alias.lower()
+                return talent_db.alias.lower()
             if column == 1:  # Age
-                return talent.age
+                return talent_db.age
             if column == 2:  # Gender
-                return talent.gender
+                return talent_db.gender
             if column == 3:  # Orientation
-                return talent.orientation_score
+                return talent_db.orientation_score
             if column == 4:  # Ethnicity
-                return talent.ethnicity
+                return talent_db.ethnicity
             if column == 5:  # Dick Size
-                return talent.dick_size if talent.dick_size is not None else -1
+                return talent_db.dick_size if talent_db.dick_size is not None else -1
             if column == 6:  # Cup Size
-                return self._cup_map.get(talent.boob_cup, -1)
+                return self._cup_map.get(talent_db.boob_cup, -1)
             if column == 7:  # Performance
-                return talent.performance
+                return talent_db.performance
             if column == 8:  # Acting
-                return talent.acting
+                return talent_db.acting
             if column == 9:  # Stamina
-                return talent.stamina
+                return talent_db.stamina
             if column == 10: # Popularity
-                return sum(talent.popularity.values())
+                return sum(p.score for p in talent_db.popularity_scores)
             if column == 11 and self.mode == 'casting': # Demand
                 return item['demand']
             return 0

@@ -3,7 +3,7 @@ import random
 from typing import Dict, Optional, List, Set
 from collections import defaultdict
 from itertools import combinations
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import selectinload
 
 from data.game_state import Talent, Scene, ActionSegment
 from services.market_service import MarketService
@@ -56,12 +56,12 @@ class TalentService:
             
         return sorted(results, key=lambda x: x['other_talent_alias'])
 
-    def get_filtered_talents(self, filters: dict) -> List[Talent]:
+    def get_filtered_talents(self, filters: dict) -> List[TalentDB]:
         """
         Builds and executes a dynamic query to fetch talents from the DB
         based on a dictionary of filter criteria.
         """
-        query = self.session.query(TalentDB)
+        query = self.session.query(TalentDB).options(selectinload(TalentDB.popularity_scores))
 
         # Go-To Category Filter (from version 1)
         category_id = filters.get('go_to_category_id', -1)
@@ -103,7 +103,7 @@ class TalentService:
         query = query.filter(TalentDB.ambition.between(filters.get('ambition_min', 1), filters.get('ambition_max', 10)))
 
         results = query.order_by(TalentDB.alias).all()
-        return [t.to_dataclass(Talent) for t in results]
+        return results
 
     def recalculate_talent_age_affinities(self, talent: Talent):
         gender_data = self.data_manager.affinity_data.get(talent.gender)
