@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
     QRadioButton, QSpinBox, QDialogButtonBox, QGroupBox, QLabel,
@@ -9,18 +9,19 @@ from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 class SceneFilterDialog(GeometryManagerMixin, QDialog):
     filters_applied = pyqtSignal(dict)
 
-    def __init__(self, categories: list, orientations: list, mode: str, current_filters: dict, controller, parent=None):
+    def __init__(self, categories: list, orientations: list, mode: str, current_filters: dict, controller, all_tags=None, parent=None):
         super().__init__(parent)
         self.mode = mode # 'thematic', 'physical', or 'action'
         self.current_filters = current_filters
         self.categories = categories
         self.orientations = orientations
         self.controller = controller
+        self.all_tags = all_tags
         self.settings_manager = self.controller.settings_manager
         self.applied_filters = {}
 
         self.setWindowTitle(f"Advanced {self.mode.title()} Tag Filter")
-        self.setMinimumWidth(300)
+        self.defaultSize = QSize (300, 600)
         self.setup_ui()
         self.load_filters()
         self._restore_geometry()

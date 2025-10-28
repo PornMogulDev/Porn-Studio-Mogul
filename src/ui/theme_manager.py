@@ -153,8 +153,15 @@ class ThemeManager:
                 /* You could specify a custom disabled arrow image here if needed */
                 /* For now, the parent background color change is sufficient */
             }}
+            /* --- Style for disabled (non-selectable) items in a QComboBox dropdown --- */
+            QComboBox QAbstractItemView::item:disabled {{
+                color: {theme.disabled_text};
+                background-color: {theme.disabled_background};
+                /* We don't want selection-style colors for disabled items */
+                selection-background-color: {theme.disabled_background};
+            }}
 
-            /* --- NEW: Tab Styling --- */
+            /* --- Tab Styling --- */
             QTabWidget::pane {{ /* The container for the tab pages */
                 border: 1px solid {theme.border};
                 border-top: none;
