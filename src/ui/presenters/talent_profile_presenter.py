@@ -153,55 +153,67 @@ class TalentProfilePresenter(QObject):
             
     def _load_and_display_preferences(self, talent: Talent):
         """Processes and summarizes talent preferences for UI display."""
+        # Define thresholds for categorization and display
+        LOVES_THRESHOLD = 1.4
+        LIKES_THRESHOLD = 1.01 # Anything above 1.0 is a like
+        DISLIKES_THRESHOLD = 0.99 # Anything below 1.0 is a dislike
+        HATES_THRESHOLD = 0.60
+        REFUSAL_THRESHOLD = 0.2 # Preference so low they might refuse the role
+        NOTABLE_HIGH_THRESHOLD = 1.2
+        NOTABLE_LOW_THRESHOLD = 0.8
+
         tag_definitions = self.controller.data_manager.tag_definitions
         
-        avg_prefs_by_tag = {
-            tag: sum(roles.values()) / len(roles)
-            for tag, roles in talent.tag_preferences.items() if roles
-        }
-        
-        prefs_by_orientation = defaultdict(dict)
-        prefs_by_concept = defaultdict(dict)
-        
-        for tag, avg_score in avg_prefs_by_tag.items():
+        prefs_by_orientation = defaultdict(list)
+
+        # 1. Group all preference scores by their orientation
+        for tag, roles in talent.tag_preferences.items():
             tag_def = tag_definitions.get(tag)
-            if not tag_def: continue
-            
-            if orientation := tag_def.get('orientation'):
-                prefs_by_orientation[orientation][tag] = avg_score
-            if concept := tag_def.get('concept'):
-                prefs_by_concept[concept][tag] = avg_score
+            if not tag_def or not (orientation := tag_def.get('orientation')):
+                continue
+            for role, score in roles.items():
+                prefs_by_orientation[orientation].append({'tag': tag, 'role': role, 'score': score})
 
-        likes, dislikes, processed_tags = [], [], set()
-        DISLIKE_THRESHOLD, LIKE_THRESHOLD, EXCEPTION_DEVIATION = 0.8, 1.2, 0.2
+        # 2. Process each orientation group to create the final data structure
+        preferences_data = []
+        for orientation, items in sorted(prefs_by_orientation.items()):
+            if not items:
+                continue
 
-        for orientation, tags_with_scores in prefs_by_orientation.items():
-            scores = list(tags_with_scores.values())
-            if scores and all(score < DISLIKE_THRESHOLD for score in scores):
-                dislikes.append(f"{orientation} scenes")
-                processed_tags.update(tags_with_scores.keys())
-
-        for concept, tags_with_scores in prefs_by_concept.items():
-            unprocessed = {tag: score for tag, score in tags_with_scores.items() if tag not in processed_tags}
-            if not unprocessed: continue
-            
-            scores = list(unprocessed.values())
+            scores = [item['score'] for item in items]
             avg_score = sum(scores) / len(scores)
-            is_like, is_dislike = avg_score >= LIKE_THRESHOLD, avg_score <= DISLIKE_THRESHOLD
-            
-            if is_like or is_dislike:
-                summary = f"{concept} scenes (~{avg_score:.2f})"; (likes if is_like else dislikes).append(summary)
-                for tag, score in unprocessed.items():
-                    if abs(score - avg_score) > EXCEPTION_DEVIATION:
-                        roles = ", ".join([f"{r}: {p:.2f}" for r, p in sorted(talent.tag_preferences[tag].items())])
-                        exception = f"  • Except: {tag} ({roles})"; (likes if score > avg_score else dislikes).append(exception)
-                processed_tags.update(unprocessed.keys())
-
-        for tag, avg_score in avg_prefs_by_tag.items():
-            if tag in processed_tags: continue
-            if avg_score >= LIKE_THRESHOLD or avg_score <= DISLIKE_THRESHOLD:
-                roles = ", ".join([f"{r}: {p:.2f}" for r, p in sorted(talent.tag_preferences[tag].items())])
-                display = f"{tag} ({roles})"; (likes if avg_score >= LIKE_THRESHOLD else dislikes).append(display)
+        
+            # Determine summary string based on the average score
+            if avg_score >= LOVES_THRESHOLD:
+                summary = "Loves"
+            elif avg_score >= LIKES_THRESHOLD:
+                summary = "Likes"
+            elif avg_score > HATES_THRESHOLD: # Covers the range from 0.60 to 0.99
+                summary = "Dislikes"
+            else: # Anything 0.60 or below
+                summary = "Hates"
+        
+            # Check for potential refusals
+            has_refusals = any(item['score'] < REFUSAL_THRESHOLD for item in items)
+        
+            # Filter for notable items to display as children
+            notable_items = []
+            for item in items:
+                if item['score'] > NOTABLE_HIGH_THRESHOLD or item['score'] < NOTABLE_LOW_THRESHOLD:
+                    notable_items.append({
+                        'name': f"{item['tag']} ({item['role']})",
+                        'score': item['score']
+                    })
+                    
+            # Only add the orientation if there's something worth showing
+            if notable_items or has_refusals:
+                preferences_data.append({
+                    'orientation': orientation,
+                    'summary': summary,
+                    'average': avg_score,
+                    'has_refusals': has_refusals,
+                    'items': sorted(notable_items, key=lambda x: x['score'], reverse=True)
+                })
 
         # Policy requirements
         policy_names = {p['id']: p['name'] for p in self.controller.data_manager.on_set_policies_data.values()}
@@ -209,8 +221,7 @@ class TalentProfilePresenter(QObject):
         refused_policies = [policy_names.get(pid, pid) for pid in sorted(talent.policy_requirements.get('refuses', []))]
 
         self.view.preferences_widget.display_preferences(
-            likes=sorted(likes),
-            dislikes=sorted(dislikes),
+            preferences_data=preferences_data,
             limits=sorted(talent.hard_limits),
             required_policies=required_policies,
             refused_policies=refused_policies
