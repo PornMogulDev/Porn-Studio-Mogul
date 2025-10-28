@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QTableView,
     QHeaderView, QLabel, QGroupBox, QTextEdit
 )
-from PyQt6.QtCore import pyqtSignal, Qt, QModelIndex
+from PyQt6.QtCore import pyqtSignal, Qt, QModelIndex, QSize
 
 from data.game_state import Talent
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
@@ -28,7 +28,7 @@ class RoleCastingDialog(GeometryManagerMixin, QDialog):
 
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowTitle("Hire Talent for Role")
-        self.setMinimumSize(800, 600)
+        self.defaultSize = QSize(850, 600)
         
         self.setup_ui()
         self._connect_signals()

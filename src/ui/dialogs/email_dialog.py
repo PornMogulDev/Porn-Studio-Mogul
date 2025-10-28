@@ -1,10 +1,8 @@
 from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
     QTextEdit, QLabel, QPushButton, QDialogButtonBox, QMessageBox,
-    QStyle
 )
-from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize
 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.help_button import HelpButton
@@ -18,7 +16,7 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         theme_name = self.settings_manager.get_setting("theme", "dark")
         self.current_theme = self.controller.theme_manager.get_theme(theme_name)
         self.setWindowTitle("Inbox")
-        self.setMinimumSize(600, 500)
+        self.defaultSize = QSize(600, 500)
 
         self.setup_ui()
         self.connect_signals()

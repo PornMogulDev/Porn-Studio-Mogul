@@ -5,8 +5,11 @@ from PyQt6.QtWidgets import (
     QSpinBox, QGroupBox, QWidget, QScrollArea, QStackedWidget,
     QCheckBox, QMessageBox, QMenu, QTabWidget
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QMimeData, QPoint
-from PyQt6.QtGui import QDrag, QKeyEvent, QFont
+from PyQt6.QtCore import (
+    Qt, pyqtSignal, QTimer, QMimeData, QPoint,
+    QSize
+)
+from PyQt6.QtGui import QDrag, QKeyEvent
 
 from utils.scene_summary_builder import prepare_summary_data
 from ui.widgets.scene_summary_widget import SceneSummaryWidget
@@ -140,7 +143,7 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         self.viewer_groups = [group['name'] for group in self.controller.market_data.get('viewer_groups', [])]
         
         self.setWindowTitle("Scene Planner")
-        self.setBaseSize(1366, 768)
+        self.defaultSize = QSize(1366, 768)
 
         # Makes the dialog's window work with the snap layout features
         # and gives it maximize and minimize buttons

@@ -22,7 +22,6 @@ class SaveLoadDialog(GeometryManagerMixin, QDialog):
     
     def setup_ui(self):
         self.setWindowTitle("Save/Load Game")
-        self.setMinimumSize(400, 500)
         
         layout = QVBoxLayout(self)
         

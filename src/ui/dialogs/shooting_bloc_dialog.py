@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QFormLayout, QLabel,
     QSpinBox, QComboBox, QDialogButtonBox, QWidget, QLineEdit, QCheckBox
 )
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import QSize
 
 from data.settings_manager import SettingsManager
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
@@ -17,6 +17,7 @@ class ShootingBlocDialog(GeometryManagerMixin, QDialog):
         self.policies_data = self.controller.data_manager.on_set_policies_data
         
         self.setWindowTitle("Plan New Shooting Bloc")
+        self.defaultSize = QSize(400, 750)
         self.setMinimumSize(350,750)
         
         # UI element storage

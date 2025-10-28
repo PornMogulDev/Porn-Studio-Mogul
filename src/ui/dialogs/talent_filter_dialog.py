@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
     QListWidget, QPushButton, QWidget, QRadioButton, QButtonGroup,
@@ -14,7 +14,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.setWindowTitle("Advanced Talent Filter")
-        self.setMinimumSize(400,800)
+        self.defaultSize = QSize(500, 750)
         self.current_filters = current_filters.copy()
 
         # Data for populating lists

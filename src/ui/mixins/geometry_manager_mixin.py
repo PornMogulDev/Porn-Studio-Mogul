@@ -1,6 +1,6 @@
 import logging
 from PyQt6.QtWidgets import QApplication, QDialog
-from PyQt6.QtCore import QRect
+from PyQt6.QtCore import QRect, QSize
 
 logger = logging.getLogger(__name__)
 
@@ -111,22 +111,41 @@ class GeometryManagerMixin:
             super().done(result)
 
     def _apply_default_geometry(self):
-        # Resize to a sensible default. Prioritize minimumSize as it's often
-        # explicitly set for main windows. Fall back to sizeHint for dialogs.
-        min_size = self.minimumSize()
-        if min_size.width() > 0 and min_size.height() > 0:
-            self.resize(min_size)
-        else:
+        """
+        Applies a sensible default size and centers the widget.
+        The size is determined with the following priority:
+        1. A custom 'self.defaultSize' QSize property on the widget.
+        2. The widget's sizeHint().
+        3. A hardcoded failsafe size.
+        """
+        default_size = None
+        
+        # 1. Prioritize a custom `defaultSize` attribute
+        if hasattr(self, 'defaultSize') and isinstance(self.defaultSize, QSize):
+            default_size = self.defaultSize
+        
+        # 2. Fall back to sizeHint if it's valid
+        if not default_size or not default_size.isValid():
             size_hint = self.sizeHint()
             if size_hint.isValid():
-                self.resize(size_hint)
+                default_size = size_hint
+        
+        # 3. Use a hardcoded failsafe as a last resort
+        if not default_size or not default_size.isValid():
+            default_size = QSize(640, 480) # A sensible failsafe
+            logger.warning(f"Could not determine a default size for {self._get_window_name()}; "
+                             f"using failsafe {default_size.width()}x{default_size.height()}.")
 
+        self.resize(default_size)
+
+        # --- Centering logic ---
         parent = self.parentWidget()
         if parent:
+            # Center on parent
             parent_center = parent.mapToGlobal(parent.rect().center())
             self_rect = self.frameGeometry()
             self.move(parent_center.x() - self_rect.width() // 2,
-                    parent_center.y() - self_rect.height() // 2)
+                      parent_center.y() - self_rect.height() // 2)
         else:
             # Fallback: Center on primary screen
             if primary_screen := QApplication.primaryScreen():

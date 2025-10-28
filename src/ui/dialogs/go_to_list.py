@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt, QAbstractListModel, QModelIndex, QPoint
+from PyQt6.QtCore import Qt, QAbstractListModel, QModelIndex, QPoint, QSize
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QListView, QListWidget, QListWidgetItem,
@@ -13,6 +13,7 @@ class GoToTalentListModel(QAbstractListModel):
     def __init__(self, talents: list[Talent] = None, parent=None):
         super().__init__(parent)
         self.talents = talents or []
+        self.defaultSize = QSize(600, 500)
 
     def data(self, index: QModelIndex, role: int):
         if not index.isValid():

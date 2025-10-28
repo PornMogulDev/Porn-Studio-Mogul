@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
     QTextEdit, QLabel, QDialogButtonBox
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize
 
 from utils.paths import HELP_DIR
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
@@ -14,7 +14,7 @@ class HelpDialog(GeometryManagerMixin, QDialog):
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
         self.setWindowTitle("Help")
-        self.setMinimumSize(700, 500)
+        self.defaultSize = QSize(700, 600)
 
         self.setup_ui()
         self.connect_signals()
@@ -60,9 +60,11 @@ class HelpDialog(GeometryManagerMixin, QDialog):
         """Reads help topics from the controller and populates the list."""
         self.topic_list_widget.clear()
         
+        # Sort topics by title for consistent ordering
         topics = self.controller.help_topics
+        sorted_topics = sorted(topics.items(), key=lambda item: item[1].get('title', ''))
 
-        for key, data in topics:
+        for key, data in sorted_topics:
             item = QListWidgetItem(data.get('title', 'Untitled'))
             item.setData(Qt.ItemDataRole.UserRole, key) # Store the unique key
             self.topic_list_widget.addItem(item)

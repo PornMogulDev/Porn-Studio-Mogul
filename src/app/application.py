@@ -1,7 +1,7 @@
 import os, logging
 from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QMessageBox
 from PyQt6.QtGui import QFont
-from PyQt6.QtCore import pyqtSlot
+from PyQt6.QtCore import pyqtSlot, QSize
 import qdarktheme
 
 from data.data_manager import DataManager
@@ -79,7 +79,7 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Porn Studio Mogul")
-        self.setMinimumSize(1080, 1080)
+        self.defaultSize = QSize(1920, 1080)
 
         self.settings_manager = SettingsManager()
         self.theme_manager = ThemeManager(self.settings_manager)

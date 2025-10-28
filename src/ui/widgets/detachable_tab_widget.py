@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QTabWidget, QMainWindow, QApplication, QMenu
-from PyQt6.QtCore import Qt, QPoint, QEvent, QRect
+from PyQt6.QtCore import Qt, QPoint, QEvent, QRect, QSize
 from PyQt6.QtGui import QAction
 
 from data.settings_manager import SettingsManager
@@ -9,6 +9,7 @@ class DetachableTabWidget(QTabWidget):
     def __init__(self, settings_manager: SettingsManager, parent=None):
         super().__init__(parent)
         self.setMovable(True)
+        self.defaultSize = QSize(1366, 768)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_tab_context_menu)
         self.detached_windows = {}

@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QRadioButton, QButtonGroup, QPushButton
 )
 from PyQt6.QtGui import QStandardItemModel, QStandardItem
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QSize
 from collections import defaultdict
 from data.game_state import Scene
 from utils.scene_summary_builder import prepare_summary_data
@@ -19,7 +19,7 @@ class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
         self.settings_manager = self.controller.settings_manager
         
         self.setWindowTitle(f"Details: {self.scene.title}")
-        self.setMinimumSize(800, 700)
+        self.defaultSize = QSize(700, 800)
         
         # For post-production tab
         self.editing_option_group = QButtonGroup()

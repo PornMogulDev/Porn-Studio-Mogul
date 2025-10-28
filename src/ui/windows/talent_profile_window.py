@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QMenuBar, QDockWidget, QToolBar, QTabBar,
     QHBoxLayout, QLabel, QComboBox, QPushButton, QMessageBox
 )
-from PyQt6.QtCore import Qt, pyqtSlot, QEvent, QByteArray
+from PyQt6.QtCore import Qt, pyqtSlot, QEvent, QByteArray, QSize
 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.talent_profile.details_widget import DetailsWidget
@@ -27,7 +27,7 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         self._is_loading_layout = False # Flag to prevent signal loops
 
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setMinimumSize(800, 600)
+        self.defaultSize = QSize(700, 800)
         self.setWindowTitle("Talent Profile")
 
         self._setup_ui()
