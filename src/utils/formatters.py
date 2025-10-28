@@ -1,16 +1,21 @@
 from typing import Tuple, Optional
 from PyQt6.QtGui import QColor
 
+from ui.theme_manager import Theme
 from data.game_state import Talent
 
-#Helper dictionary to map chemistry scores to display text and color
-CHEMISTRY_MAP = {
-2: ("Great", QColor("darkGreen")),
-1: ("Good", QColor("green")),
-0: ("Neutral", QColor("gray")),
--1: ("Bad", QColor("#FF8C00")), # Dark Orange
--2: ("Terrible", QColor("red")),
-}
+def get_chemistry_map(theme: Theme) -> dict:
+    """
+    Generates a chemistry map with colors from the current theme.
+    This replaces the static CHEMISTRY_MAP dictionary.
+    """
+    return {
+        2: ("Great", QColor(theme.color_good)),
+        1: ("Good", QColor(theme.color_good)),
+        0: ("Neutral", QColor(theme.color_neutral)),
+        -1: ("Bad", QColor(theme.color_warning)),
+        -2: ("Terrible", QColor(theme.color_bad)),
+    }
 
 def format_orientation(score: int, gender: str) -> str:
     """Converts an orientation score (-100 to 100) into a detailed display string."""

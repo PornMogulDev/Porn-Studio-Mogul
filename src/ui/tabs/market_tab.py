@@ -95,6 +95,7 @@ class MarketTab(QWidget):
     def _create_group_widget(self, group_name, original_group_data, dynamic_state):
         """Creates a QGroupBox that displays all info for a single viewer group, resolving inheritance."""
         resolved_data = self.controller.get_resolved_group_data(group_name)
+        current_theme = self.controller.get_current_theme()
 
         # The main container is now a QWidget instead of a QGroupBox,
         # as the selection is handled by the combo box.
@@ -130,12 +131,12 @@ class MarketTab(QWidget):
             for key, sentiment in sorted_items:
                 if is_additive:
                     label = QLabel(f"{sentiment:+.2f}")
-                    if sentiment > 0: label.setStyleSheet("color: #008000;")
-                    elif sentiment < 0: label.setStyleSheet("color: #C00000;")
+                    if sentiment > 0: label.setStyleSheet(f"color: {current_theme.color_good};")
+                    elif sentiment < 0: label.setStyleSheet(f"color: {current_theme.color_bad};")
                 else:
                     label = QLabel(f"{sentiment:.2f}x")
-                    if sentiment > 1.0: label.setStyleSheet("color: #008000;")
-                    elif sentiment < 1.0: label.setStyleSheet("color: #C00000;")
+                    if sentiment > 1.0: label.setStyleSheet(f"color: {current_theme.color_good};")
+                    elif sentiment < 1.0: label.setStyleSheet(f"color: {current_theme.color_bad};")
                 layout.addRow(f"{key}:", label)
             
             scroll_area.setWidget(scroll_content_widget)

@@ -6,6 +6,7 @@ from services.talent_service import TalentService
 from services.hire_talent_service import HireTalentService
 from data.data_manager import DataManager
 from data.settings_manager import SettingsManager
+from ui.theme_manager import ThemeManager
 
 class GameSignals(QObject):
     show_start_screen_requested = pyqtSignal()
@@ -57,6 +58,9 @@ class IGameController(Protocol):
     
     @property
     def settings_manager(self) -> SettingsManager: ...
+
+    @property
+    def theme_manager(self) -> ThemeManager: ...
     
     @property
     def data_manager(self) -> DataManager: ...

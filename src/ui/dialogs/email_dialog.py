@@ -15,6 +15,8 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         super().__init__(parent)
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
+        theme_name = self.settings_manager.get_setting("theme", "dark")
+        self.current_theme = self.controller.theme_manager.get_theme(theme_name)
         self.setWindowTitle("Inbox")
         self.setMinimumSize(600, 500)
 
@@ -64,7 +66,7 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         self.subject_label.setStyleSheet("font-size: 14px; font-weight: bold;")
         
         self.date_label = QLabel("Date:")
-        self.date_label.setStyleSheet("color: grey;")
+        self.date_label.setStyleSheet(f"color: {self.current_theme.color_neutral};")
         
         self.body_text = QTextEdit()
         self.body_text.setReadOnly(True)

@@ -40,9 +40,23 @@ class BottomBarWidget(QWidget):
 
     def update_inbox_button(self):
         unread_count = self.controller.get_unread_email_count()
+        current_theme = self.controller.get_current_theme()
         if unread_count > 0:
             self.inbox_btn.setText(f"Inbox ({unread_count})")
-            self.inbox_btn.setStyleSheet("background-color: #3d9046;")
+            self.inbox_btn.setStyleSheet(
+                f"""
+                QPushButton {{
+                    background-color: {current_theme.color_warning};
+                    color: {current_theme.accent_text};
+                    border: 2px solid {current_theme.color_warning};
+                    font-weight: bold;
+                    border-radius: 4px;
+                }}
+                QPushButton:hover {{
+                    border: 2px solid {current_theme.accent_text};
+                }}
+                """
+            )
         else:
             self.inbox_btn.setText("Inbox")
             self.inbox_btn.setStyleSheet("")

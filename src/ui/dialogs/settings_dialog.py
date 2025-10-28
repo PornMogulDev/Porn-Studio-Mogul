@@ -47,7 +47,6 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         self.theme_combo = QComboBox()
         self.theme_combo.addItem("Dark", "dark")
         self.theme_combo.addItem("Light", "light")
-        self.theme_combo.addItem("System", "system")
         theme_layout.addWidget(theme_label)
         theme_layout.addWidget(self.theme_combo)
         display_v_layout.addLayout(theme_layout)

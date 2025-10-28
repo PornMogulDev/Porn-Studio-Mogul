@@ -8,7 +8,8 @@ from data.data_manager import DataManager
 from core.game_controller import GameController
 from app.start_screen import MenuScreen
 from app.main_window import MainGameWindow
-from data.settings_manager import SettingsManager 
+from data.settings_manager import SettingsManager
+from ui.theme_manager import ThemeManager 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from utils.paths import LOG_DIR, LOG_FILE
 
@@ -47,29 +48,31 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 
     # The application will now exit after the dialog is closed.
 
-def apply_theme(settings_manager: SettingsManager):
-    """Reads theme and font settings and applies them to the application."""
-    theme_name = settings_manager.get_setting("theme", "system")
-    font_family = settings_manager.font_family
-    font_size = settings_manager.font_size
-
+def apply_theme(settings_manager: SettingsManager, theme_manager: ThemeManager):
+    """
+    Applies the theme and font settings using the ThemeManager.
+    """
     app = QApplication.instance()
     if not app:
         return
 
-    # Apply font
-    font = QFont(font_family, font_size)
-    app.setFont(font)
+    # 1. Get settings
+    theme_name = settings_manager.get_setting("theme", "light") # Default to light
+    font_family = settings_manager.font_family
+    font_size = settings_manager.font_size
 
-    # Apply theme
-    if theme_name == "system":
-        app.setStyleSheet("")
-    else:
-        try:
-            app.setStyleSheet(qdarktheme.load_stylesheet(theme_name))
-        except TypeError:
-            logger.warning(f"Invalid theme '{theme_name}' in settings. Reverting to system default.")
-            app.setStyleSheet("")
+    # 2. Get the theme data object
+    current_theme = theme_manager.get_theme(theme_name)
+    
+    # 3. Generate the final stylesheet
+    final_stylesheet = theme_manager.generate_stylesheet(
+        theme=current_theme,
+        font_family=font_family,
+        font_size=font_size
+    )
+
+    # 4. Apply it
+    app.setStyleSheet(final_stylesheet)
 
 
 class ApplicationWindow(QMainWindow, GeometryManagerMixin):
@@ -79,12 +82,13 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         self.setMinimumSize(1080, 1080)
 
         self.settings_manager = SettingsManager()
-        apply_theme(self.settings_manager)
+        self.theme_manager = ThemeManager(self.settings_manager)
+        apply_theme(self.settings_manager, self.theme_manager)
         self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
 
         self.data_manager = DataManager()
 
-        self.controller = GameController(self.settings_manager, self.data_manager)
+        self.controller = GameController(self.settings_manager, self.data_manager, self.theme_manager)
 
         self.start_screen = MenuScreen(self.controller)
         self.main_window = MainGameWindow(self.controller)
@@ -121,4 +125,4 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         Listens for changes from the SettingsManager and applies them.
         """
         if key in ("theme", "font_family", "font_size"):
-            apply_theme(self.settings_manager)
+            apply_theme(self.settings_manager, self.theme_manager)

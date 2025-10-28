@@ -2,7 +2,7 @@
   "editing_tiers": [
     {
       "id": "quick_dirty",
-      "name": "Quick & Dirty Edit",
+      "name": "Quick and Dirty Edit",
       "cost": 250,
       "weeks": 1,
       "description": "A fast, cheap edit that gets the job done, but nothing more. Ineffective for complex footage.",

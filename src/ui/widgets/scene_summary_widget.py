@@ -62,7 +62,7 @@ class SceneSummaryWidget(QWidget):
         self.content_layout.addWidget(thematic_group)
         
         # 3. Physical Tags
-        physical_group = QGroupBox("Physical Tags & Assignments")
+        physical_group = QGroupBox("Physical Tags and Assignments")
         physical_layout = QVBoxLayout(physical_group)
         physical_tags = summary_data.get("physical_tags", [])
         if physical_tags:
@@ -75,7 +75,7 @@ class SceneSummaryWidget(QWidget):
         self.content_layout.addWidget(physical_group)
 
         # 4. Action Segments
-        actions_group = QGroupBox("Action Segments & Roles")
+        actions_group = QGroupBox("Action Segments and Roles")
         actions_layout = QVBoxLayout(actions_group)
         action_segments = summary_data.get("action_segments", [])
         if action_segments:

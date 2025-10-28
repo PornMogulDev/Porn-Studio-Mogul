@@ -31,7 +31,7 @@ class DetailsWidget(QWidget):
         details_layout.addRow("<b>Popularity:</b>", self.popularity_label)
         main_layout.addWidget(details_group)
 
-        skills_group = QGroupBox("Skills & Attributes")
+        skills_group = QGroupBox("Skills and Attributes")
         skills_layout = QFormLayout(skills_group)
         self.performance_label = QLabel()
         self.acting_label = QLabel()

@@ -28,7 +28,7 @@ class PreferencesWidget(QWidget):
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         
-        prefs_limits_group = QGroupBox("Preferences & Limits")
+        prefs_limits_group = QGroupBox("Preferences and Limits")
         prefs_grid_layout = QGridLayout(prefs_limits_group)
         prefs_grid_layout.addWidget(QLabel("<b>Role Preferences by Orientation:</b>"), 0, 0, 1, 2)
         self.preferences_tree = QTreeWidget()

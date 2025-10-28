@@ -60,11 +60,9 @@ class HelpDialog(GeometryManagerMixin, QDialog):
         """Reads help topics from the controller and populates the list."""
         self.topic_list_widget.clear()
         
-        # Sort topics by title for consistent ordering
         topics = self.controller.help_topics
-        sorted_topics = sorted(topics.items(), key=lambda item: item[1].get('title', ''))
 
-        for key, data in sorted_topics:
+        for key, data in topics:
             item = QListWidgetItem(data.get('title', 'Untitled'))
             item.setData(Qt.ItemDataRole.UserRole, key) # Store the unique key
             self.topic_list_widget.addItem(item)

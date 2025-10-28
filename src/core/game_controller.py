@@ -1,9 +1,6 @@
-import copy
 import logging
 from typing import List, Dict, Optional, Tuple, Set
-from collections import defaultdict
 from PyQt6.QtCore import QObject
-import random
 from sqlalchemy import func
 
 from core.interfaces import IGameController, GameSignals
@@ -12,6 +9,7 @@ from data.save_manager import SaveManager, QUICKSAVE_NAME
 from core.talent_generator import TalentGenerator
 from data.data_manager import DataManager
 from data.settings_manager import SettingsManager
+from ui.theme_manager import Theme, ThemeManager
 from database.db_models import *
 
 from services.market_service import MarketService
@@ -28,10 +26,11 @@ from services.player_settings_service import PlayerSettingsService
 logger = logging.getLogger(__name__)
 
 class GameController(QObject):
-    def __init__(self, settings_manager: SettingsManager, data_manager: DataManager):
+    def __init__(self, settings_manager: SettingsManager, data_manager: DataManager, theme_manager: ThemeManager):
         super().__init__()
         self.settings_manager = settings_manager
         self.data_manager = data_manager
+        self.theme_manager = theme_manager
         self.game_state = GameState()
         self.save_manager = SaveManager()
         self.signals = GameSignals()
@@ -67,6 +66,11 @@ class GameController(QObject):
 
         self._available_ethnicities = None
         self.game_over = False
+
+    def get_current_theme(self) -> Theme:
+        """Convenience method to get the current theme object."""
+        theme_name = self.settings_manager.get_setting("theme", "dark")
+        return self.theme_manager.get_theme(theme_name)
 
     def get_available_ethnicities(self) -> list[str]:
         if self._available_ethnicities is None:
