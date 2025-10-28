@@ -109,6 +109,15 @@ class SceneEditorService:
         new_segment = ActionSegment(id=new_id, tag_name=tag_name, parameters=params)
         self.working_scene.action_segments.append(new_segment)
         return new_id
+    
+    def add_style_tags(self, tag_names: List[str]):
+        for tag_name in tag_names: self.add_style_tag(tag_name)
+    def remove_style_tags(self, tag_names: List[str]):
+        for tag_name in tag_names: self.remove_style_tag(tag_name)
+    def add_action_segments(self, tag_names: List[str]) -> List[int]:
+        return [self.add_action_segment(tag_name) for tag_name in tag_names]
+    def remove_action_segments(self, segment_ids: List[int]):
+        for segment_id in segment_ids: self.remove_action_segment(segment_id)
 
     def remove_action_segment(self, segment_id: int):
         self.working_scene.action_segments = [s for s in self.working_scene.action_segments if s.id != segment_id]

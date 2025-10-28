@@ -108,22 +108,22 @@ class SceneDialog(GeometryManagerMixin, QDialog):
     # Thematic Tags
     thematic_search_changed = pyqtSignal(str)
     thematic_filter_requested = pyqtSignal()
-    add_thematic_tag_requested = pyqtSignal(str)
-    remove_thematic_tag_requested = pyqtSignal(str)
+    add_thematic_tags_requested = pyqtSignal(list)
+    remove_thematic_tags_requested = pyqtSignal(list)
     
     # Physical Tags
     physical_search_changed = pyqtSignal(str)
     physical_filter_requested = pyqtSignal()
-    add_physical_tag_requested = pyqtSignal(str)
-    remove_physical_tag_requested = pyqtSignal(str)
+    add_physical_tags_requested = pyqtSignal(list)
+    remove_physical_tags_requested = pyqtSignal(list)
     selected_physical_tag_changed = pyqtSignal(object) # QListWidgetItem or None
     physical_tag_assignment_changed = pyqtSignal(str, int, bool) # tag_name, vp_id, is_checked
     
     # Action Tags
     action_search_changed = pyqtSignal(str)
     action_filter_requested = pyqtSignal()
-    add_action_segment_requested = pyqtSignal(str)
-    remove_action_segment_requested = pyqtSignal(int)
+    add_action_segments_requested = pyqtSignal(list)
+    remove_action_segments_requested = pyqtSignal(list)
     selected_action_segment_changed = pyqtSignal(object) # QListWidgetItem or None
     segment_runtime_changed = pyqtSignal(int, int) # segment_id, new_value
     segment_parameter_changed = pyqtSignal(int, str, int) # segment_id, role, new_value
@@ -243,14 +243,18 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         available_col = QVBoxLayout(); available_col.addWidget(QLabel("<h3>Available Thematic Tags</h3>"))
         self.thematic_search_input = QLineEdit(placeholderText="Search themes..."); available_col.addWidget(self.thematic_search_input)
         self.thematic_filter_btn = QPushButton("Advanced Filter..."); available_col.addWidget(self.thematic_filter_btn)
-        self.available_thematic_list = DraggableListWidget(); available_col.addWidget(self.available_thematic_list)
+        self.available_thematic_list = DraggableListWidget()
+        self.available_thematic_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        available_col.addWidget(self.available_thematic_list)
         # Add/Remove
         add_remove_col = QVBoxLayout(); add_remove_col.addStretch()
         self.add_thematic_btn = QPushButton("Add >>"); self.remove_thematic_btn = QPushButton("<< Remove")
         add_remove_col.addWidget(self.add_thematic_btn); add_remove_col.addWidget(self.remove_thematic_btn); add_remove_col.addStretch()
         # Selected
         selected_col = QVBoxLayout(); selected_col.addWidget(QLabel("<h3>Selected Themes</h3>"))
-        self.selected_thematic_list = DropEnabledListWidget(); selected_col.addWidget(self.selected_thematic_list)
+        self.selected_thematic_list = DropEnabledListWidget()
+        self.selected_thematic_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        selected_col.addWidget(self.selected_thematic_list)
         layout.addLayout(available_col, 1); layout.addLayout(add_remove_col); layout.addLayout(selected_col, 1)
         return panel
 
@@ -260,14 +264,18 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         available_col = QVBoxLayout(); available_col.addWidget(QLabel("<h3>Available Physical Tags</h3>"))
         self.physical_search_input = QLineEdit(placeholderText="Search tags..."); available_col.addWidget(self.physical_search_input)
         self.physical_filter_btn = QPushButton("Advanced Filter..."); available_col.addWidget(self.physical_filter_btn)
-        self.available_physical_list = DraggableListWidget(); available_col.addWidget(self.available_physical_list)
+        self.available_physical_list = DraggableListWidget()
+        self.available_physical_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        available_col.addWidget(self.available_physical_list)
         # Add/Remove
         add_remove_col = QVBoxLayout(); add_remove_col.addStretch()
         self.add_physical_btn = QPushButton("Add >>"); self.remove_physical_btn = QPushButton("<< Remove")
         add_remove_col.addWidget(self.add_physical_btn); add_remove_col.addWidget(self.remove_physical_btn); add_remove_col.addStretch()
         # Selected
         selected_col = QVBoxLayout(); selected_col.addWidget(QLabel("<h3>Selected Tags</h3>"))
-        self.selected_physical_list = DropEnabledListWidget(); selected_col.addWidget(self.selected_physical_list)
+        self.selected_physical_list = DropEnabledListWidget()
+        self.selected_physical_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        selected_col.addWidget(self.selected_physical_list)
         # Assignment
         assignment_col_layout = QVBoxLayout(); assignment_col_layout.addWidget(QLabel("<h3>Assignments</h3>"))
         self.physical_assignment_group = QGroupBox("Assign to Performer(s)")
@@ -282,14 +290,18 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         available_actions_col = QVBoxLayout(); available_actions_col.addWidget(QLabel("<h3>Available Actions</h3>"))
         self.action_search_input = QLineEdit(placeholderText="Search actions..."); available_actions_col.addWidget(self.action_search_input)
         self.action_filter_btn = QPushButton("Advanced Filter..."); available_actions_col.addWidget(self.action_filter_btn)
-        self.available_actions_list = DraggableListWidget(); available_actions_col.addWidget(self.available_actions_list)
+        self.available_actions_list = DraggableListWidget()
+        self.available_actions_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        available_actions_col.addWidget(self.available_actions_list)
         # Add/Remove
         add_remove_actions_col = QVBoxLayout(); add_remove_actions_col.addStretch()
         self.add_action_btn = QPushButton("Add >>"); self.remove_action_btn = QPushButton("<< Remove")
         add_remove_actions_col.addWidget(self.add_action_btn); add_remove_actions_col.addWidget(self.remove_action_btn); add_remove_actions_col.addStretch()
         # Selected
         selected_actions_col = QVBoxLayout(); selected_actions_col.addWidget(QLabel("<h3>Action Segments</h3>"))
-        self.selected_actions_list = DropEnabledListWidget(); selected_actions_col.addWidget(self.selected_actions_list)
+        self.selected_actions_list = DropEnabledListWidget()
+        self.selected_actions_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        selected_actions_col.addWidget(self.selected_actions_list)
         self.total_percent_label = QLabel("<b>Total Assigned: 0%</b>"); self.total_percent_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         selected_actions_col.addWidget(self.total_percent_label)
         # Details
@@ -320,28 +332,28 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         # Thematic
         self.thematic_search_input.textChanged.connect(self.thematic_search_changed)
         self.thematic_filter_btn.clicked.connect(self.thematic_filter_requested)
-        self.add_thematic_btn.clicked.connect(lambda: self.add_thematic_tag_requested.emit(self.available_thematic_list.currentItem().text()) if self.available_thematic_list.currentItem() else None)
-        self.remove_thematic_btn.clicked.connect(lambda: self.remove_thematic_tag_requested.emit(self.selected_thematic_list.currentItem().text()) if self.selected_thematic_list.currentItem() else None)
-        self.available_thematic_list.itemDoubleClicked.connect(lambda item: self.add_thematic_tag_requested.emit(item.text()))
-        self.selected_thematic_list.item_dropped.connect(self.add_thematic_tag_requested)
-        self.selected_thematic_list.item_delete_requested.connect(lambda: self.remove_thematic_tag_requested.emit(self.selected_thematic_list.currentItem().text()) if self.selected_thematic_list.currentItem() else None)
+        self.add_thematic_btn.clicked.connect(lambda: self.add_thematic_tags_requested.emit([item.text() for item in self.available_thematic_list.selectedItems()]))
+        self.remove_thematic_btn.clicked.connect(lambda: self.remove_thematic_tags_requested.emit([item.text() for item in self.selected_thematic_list.selectedItems()]))
+        self.available_thematic_list.itemDoubleClicked.connect(lambda item: self.add_thematic_tags_requested.emit([item.text()]))
+        self.selected_thematic_list.item_dropped.connect(lambda text: self.add_thematic_tags_requested.emit([text]))
+        self.selected_thematic_list.item_delete_requested.connect(lambda: self.remove_thematic_tags_requested.emit([self.selected_thematic_list.currentItem().text()]) if self.selected_thematic_list.currentItem() else None)
         # Physical
         self.physical_search_input.textChanged.connect(self.physical_search_changed)
         self.physical_filter_btn.clicked.connect(self.physical_filter_requested)
-        self.add_physical_btn.clicked.connect(lambda: self.add_physical_tag_requested.emit(self.available_physical_list.currentItem().text()) if self.available_physical_list.currentItem() else None)
-        self.remove_physical_btn.clicked.connect(lambda: self.remove_physical_tag_requested.emit(self.selected_physical_list.currentItem().text()) if self.selected_physical_list.currentItem() else None)
-        self.available_physical_list.itemDoubleClicked.connect(lambda item: self.add_physical_tag_requested.emit(item.text()))
-        self.selected_physical_list.item_dropped.connect(self.add_physical_tag_requested)
-        self.selected_physical_list.item_delete_requested.connect(lambda: self.remove_physical_tag_requested.emit(self.selected_physical_list.currentItem().text()) if self.selected_physical_list.currentItem() else None)
+        self.add_physical_btn.clicked.connect(lambda: self.add_physical_tags_requested.emit([item.text() for item in self.available_physical_list.selectedItems()]))
+        self.remove_physical_btn.clicked.connect(lambda: self.remove_physical_tags_requested.emit([item.text() for item in self.selected_physical_list.selectedItems()]))
+        self.available_physical_list.itemDoubleClicked.connect(lambda item: self.add_physical_tags_requested.emit([item.text()]))
+        self.selected_physical_list.item_dropped.connect(lambda text: self.add_physical_tags_requested.emit([text]))
+        self.selected_physical_list.item_delete_requested.connect(lambda: self.remove_physical_tags_requested.emit([self.selected_physical_list.currentItem().text()]) if self.selected_physical_list.currentItem() else None)
         self.selected_physical_list.currentItemChanged.connect(lambda current, _: self.selected_physical_tag_changed.emit(current))
         # Action
         self.action_search_input.textChanged.connect(self.action_search_changed)
         self.action_filter_btn.clicked.connect(self.action_filter_requested)
-        self.add_action_btn.clicked.connect(lambda: self.add_action_segment_requested.emit(self.available_actions_list.currentItem().text()) if self.available_actions_list.currentItem() else None)
-        self.remove_action_btn.clicked.connect(lambda: self.remove_action_segment_requested.emit(self.selected_actions_list.currentItem().data(Qt.ItemDataRole.UserRole)) if self.selected_actions_list.currentItem() else None)
-        self.available_actions_list.itemDoubleClicked.connect(lambda item: self.add_action_segment_requested.emit(item.text()))
-        self.selected_actions_list.item_dropped.connect(self.add_action_segment_requested)
-        self.selected_actions_list.item_delete_requested.connect(lambda: self.remove_action_segment_requested.emit(self.selected_actions_list.currentItem().data(Qt.ItemDataRole.UserRole)) if self.selected_actions_list.currentItem() else None)
+        self.add_action_btn.clicked.connect(lambda: self.add_action_segments_requested.emit([item.text() for item in self.available_actions_list.selectedItems()]))
+        self.remove_action_btn.clicked.connect(lambda: self.remove_action_segments_requested.emit([item.data(Qt.ItemDataRole.UserRole) for item in self.selected_actions_list.selectedItems()]))
+        self.available_actions_list.itemDoubleClicked.connect(lambda item: self.add_action_segments_requested.emit([item.text()]))
+        self.selected_actions_list.item_dropped.connect(lambda text: self.add_action_segments_requested.emit([text]))
+        self.selected_actions_list.item_delete_requested.connect(lambda: self.remove_action_segments_requested.emit([self.selected_actions_list.currentItem().data(Qt.ItemDataRole.UserRole)]) if self.selected_actions_list.currentItem() else None)
         self.selected_actions_list.currentItemChanged.connect(lambda current, _: self.selected_action_segment_changed.emit(current))
         self.runtime_percent_spinbox.valueChanged.connect(self._emit_segment_runtime_change)
         # Context Menus for Favorites

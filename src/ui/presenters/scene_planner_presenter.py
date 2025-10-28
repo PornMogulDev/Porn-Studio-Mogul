@@ -67,22 +67,22 @@ class ScenePlannerPresenter(QObject):
         # Thematic
         self.view.thematic_search_changed.connect(self.on_thematic_search_changed)
         self.view.thematic_filter_requested.connect(self.on_thematic_filter_requested)
-        self.view.add_thematic_tag_requested.connect(self.on_add_thematic_tag)
-        self.view.remove_thematic_tag_requested.connect(self.on_remove_thematic_tag)
+        self.view.add_thematic_tags_requested.connect(self.on_add_thematic_tags)
+        self.view.remove_thematic_tags_requested.connect(self.on_remove_thematic_tags)
         
         # Physical
         self.view.physical_search_changed.connect(self.on_physical_search_changed)
         self.view.physical_filter_requested.connect(self.on_physical_filter_requested)
-        self.view.add_physical_tag_requested.connect(self.on_add_physical_tag)
-        self.view.remove_physical_tag_requested.connect(self.on_remove_physical_tag)
+        self.view.add_physical_tags_requested.connect(self.on_add_physical_tags)
+        self.view.remove_physical_tags_requested.connect(self.on_remove_physical_tags)
         self.view.selected_physical_tag_changed.connect(self.on_selected_physical_tag_changed)
         self.view.physical_tag_assignment_changed.connect(self.on_physical_tag_assignment_changed)
         
         # Action
         self.view.action_search_changed.connect(self.on_action_search_changed)
         self.view.action_filter_requested.connect(self.on_action_filter_requested)
-        self.view.add_action_segment_requested.connect(self.on_add_action_segment)
-        self.view.remove_action_segment_requested.connect(self.on_remove_action_segment)
+        self.view.add_action_segments_requested.connect(self.on_add_action_segments)
+        self.view.remove_action_segments_requested.connect(self.on_remove_action_segments)
         self.view.selected_action_segment_changed.connect(self.on_selected_action_segment_changed)
         self.view.segment_runtime_changed.connect(self.on_segment_runtime_changed)
         self.view.segment_parameter_changed.connect(self.on_segment_parameter_changed)
@@ -219,32 +219,35 @@ class ScenePlannerPresenter(QObject):
             elif mode == 'action': self.action_tag_filters = dialog.get_filters()
             refresh_callback()
 
-    def on_add_thematic_tag(self, tag_name: str):
-        self.editor_service.add_style_tag(tag_name)
+    def on_add_thematic_tags(self, tag_names: List[str]):
+        self.editor_service.add_style_tags(tag_names)
         self._refresh_thematic_panel()
         self._update_summary()
-    def on_remove_thematic_tag(self, tag_name: str):
-        self.editor_service.remove_style_tag(tag_name)
+    def on_remove_thematic_tags(self, tag_names: List[str]):
+        self.editor_service.remove_style_tags(tag_names)
         self._refresh_thematic_panel()
         self._update_summary()
-    def on_add_physical_tag(self, tag_name: str):
-        self.editor_service.add_style_tag(tag_name)
-        self.selected_physical_tag_name = tag_name
+    def on_add_physical_tags(self, tag_names: List[str]):
+        if not tag_names: return
+        self.editor_service.add_style_tags(tag_names)
+        self.selected_physical_tag_name = sorted(tag_names)[0]
         self._refresh_physical_panel()
         self._update_summary()
-    def on_remove_physical_tag(self, tag_name: str):
-        self.editor_service.remove_style_tag(tag_name)
-        self.selected_physical_tag_name = None
+    def on_remove_physical_tags(self, tag_names: List[str]):
+        if not tag_names: return
+        if self.selected_physical_tag_name in tag_names:
+            self.selected_physical_tag_name = None
+        self.editor_service.remove_style_tags(tag_names)
         self._refresh_physical_panel()
         self._update_summary()
 
     def on_selected_physical_tag_changed(self, item: Optional[QListWidgetItem]):
         if not item:
-            self.selected_physical_tag_name = None
             self.view.update_physical_assignment_panel(None, [], [], False)
             return
         tag_data = item.data(Qt.ItemDataRole.UserRole)
-        self.selected_physical_tag_name = tag_data['full_name']
+        raw_name = tag_data['full_name'].lstrip("⭐ ")
+        self.selected_physical_tag_name = raw_name
         performers_with_talent_data = []
         for vp in self.working_scene.virtual_performers:
             talent = self.get_talent_by_id(self.working_scene.final_cast.get(str(vp.id)))
@@ -252,25 +255,28 @@ class ScenePlannerPresenter(QObject):
                 'display_name': talent.alias if talent else vp.name, 'is_cast': talent is not None, 
                 'gender': vp.gender, 'ethnicity': vp.ethnicity, 'vp_id': vp.id
             })
-        assigned_ids = self.working_scene.assigned_tags.get(self.selected_physical_tag_name, [])
+        assigned_ids = self.working_scene.assigned_tags.get(raw_name, [])
         self.view.update_physical_assignment_panel(tag_data, performers_with_talent_data, assigned_ids, self.is_design_editable())
 
     def on_physical_tag_assignment_changed(self, tag_name: str, vp_id: int, is_assigned: bool):
         self.editor_service.update_style_tag_assignment(tag_name, vp_id, is_assigned)
         self._update_summary()
 
-    def on_add_action_segment(self, tag_name: str):
-        new_id = self.editor_service.add_action_segment(tag_name)
-        if new_id: self.selected_segment_id = new_id
+    def on_add_action_segments(self, tag_names: List[str]):
+        if not tag_names: return
+        new_ids = self.editor_service.add_action_segments(tag_names)
+        if new_ids: self.selected_segment_id = new_ids[0]
         self._refresh_action_segment_panel()
         self._update_summary()
 
-    def on_remove_action_segment(self, segment_id: int):
-        self.editor_service.remove_action_segment(segment_id)
-        self.selected_segment_id = None
-        # After removing, if there are segments left, select the first one.
-        if self.working_scene.action_segments:
-            self.selected_segment_id = self.working_scene.action_segments[0].id
+    def on_remove_action_segments(self, segment_ids: List[int]):
+        if not segment_ids: return
+        if self.selected_segment_id in segment_ids:
+            self.selected_segment_id = None
+        self.editor_service.remove_action_segments(segment_ids)
+        # After removing, if there are segments left and nothing is selected, select the first one.
+        if not self.selected_segment_id and self.working_scene.action_segments:
+            self.selected_segment_id = sorted(self.working_scene.action_segments, key=lambda s: s.tag_name)[0].id
         self._refresh_action_segment_panel()
         self._update_summary()
 
@@ -408,11 +414,13 @@ class ScenePlannerPresenter(QObject):
             if 'participant_count' in tag_data and not (min_p <= tag_data['participant_count'] <= max_p): continue
             tag_cats = {tag_data.get('categories', [])} if isinstance(tag_data.get('categories', []), str) else set(tag_data.get('categories', []))
             if not selected_cats or (match_mode == 'any' and selected_cats.intersection(tag_cats)) or (match_mode == 'all' and selected_cats.issubset(tag_cats)):
-                tags_to_display.append(tag_data)
-                sort_key = lambda t: (0 if t['full_name'] in favorite_tags else 1, t['full_name'])
+                # Create a sort key that ignores the star for alphabetical sorting
+                tag_data['_sort_name'] = full_name.lstrip("⭐ ")
+                tags_to_display.append(tag_data) 
+        sort_key = lambda t: (0 if t['full_name'] in favorite_tags else 1, t['_sort_name'])
         for t in tags_to_display:
             if t['full_name'] in favorite_tags: t['full_name'] = f"⭐ {t['full_name']}"
-        return sorted(tags_to_display, key=lambda t: t['full_name'])
+        return sorted(tags_to_display, key=sort_key)
         
     def _on_status_changed(self, new_status_str: str):
         new_status_lower = new_status_str.lower()
