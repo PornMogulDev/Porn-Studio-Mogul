@@ -242,7 +242,11 @@ class SceneService:
             selectinload(SceneDB.virtual_performers),
             selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments)
         ).get(scene_data.id)
-        if not scene_db or scene_db.is_locked: return {}
+        if not scene_db:
+            return {}
+        if len(scene_db.cast) > 0:
+            logger.warning(f"Attempted to edit scene {scene_data.id} which is already cast. Aborting save.")
+            return {}
 
         vp_id_map = {}
 

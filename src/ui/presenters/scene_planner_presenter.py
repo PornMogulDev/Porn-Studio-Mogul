@@ -161,7 +161,8 @@ class ScenePlannerPresenter(QObject):
         self.view.set_ui_lock_state(is_editable, is_cast_locked)
         
     # --- Slots for View Signals ---
-    def on_title_changed(self, title: str): self.editor_service.set_title(title)
+    def on_title_changed(self, title: str):
+        self.editor_service.set_title(title)
     def on_focus_target_changed(self, target: str): self.editor_service.set_focus_target(target)
     def on_total_runtime_changed(self, minutes: int): self.editor_service.set_total_runtime(minutes)
     def on_ds_level_changed(self, level: int):
@@ -434,6 +435,7 @@ class ScenePlannerPresenter(QObject):
 
             # If moving to casting, save immediately to make roles available.
             if new_status_lower == 'casting':
+
                 self.controller.update_scene_full(self.editor_service.finalize_for_saving())
                 # After saving, temp IDs become permanent. We must refresh our local state.
                 fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
@@ -443,9 +445,12 @@ class ScenePlannerPresenter(QObject):
                 else:
                     logger.error(f"Could not re-fetch scene {self.working_scene.id} after status change. Closing dialog.")
                     self.view.close()
+
         else:
             QMessageBox.warning(self.view, "Cannot Change Status", message)
             self._refresh_general_info()
+
+
 
     @pyqtSlot()
     def on_external_scene_change(self):
@@ -455,15 +460,9 @@ class ScenePlannerPresenter(QObject):
         has been modified by an external action (e.g., casting from a
         different dialog).
         """
-        logger.info(f"ScenePlanner (ID: {self.working_scene.id}) detected an external scene change.")
-        
         # Re-fetch the scene data from the authoritative source
         fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
-        
-        # Compare the newly fetched scene with the original state we have in memory.
-        # If they are identical, it means a *different* scene was changed, so we
-        # do nothing to avoid wiping out the user's current unsaved edits.
-        # The dataclasses' default __eq__ method handles this comparison perfectly.
+
         if fresh_scene == self.editor_service.original_scene:
             return
 
@@ -476,4 +475,3 @@ class ScenePlannerPresenter(QObject):
         # The scene still exists. Reset our local state and refresh the entire view.
         self.editor_service.reset_with_scene(fresh_scene)
         self._refresh_full_view()
-        logger.info(f"ScenePlanner (ID: {self.working_scene.id}) refreshed with updated data.")

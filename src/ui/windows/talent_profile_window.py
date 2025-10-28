@@ -267,14 +267,11 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         """
         Loads and applies a layout state from settings based on its name.
         """
-        logger.debug(f"Attempting to load layout: '{layout_name}'")
         layouts = self.settings_manager.get_talent_profile_layouts()
         state_str = layouts.get(layout_name)
         if state_str:
-            logger.debug(f"Found layout data for '{layout_name}'. Length: {len(state_str)} chars.")
             try:
                 state_bytes = QByteArray.fromBase64(state_str.encode('ascii'))
-                logger.debug("Calling self.restoreState()...")
                 if self.restoreState(state_bytes):
                     logger.info(f"Successfully loaded layout '{layout_name}'.")
                     self.settings_manager.set_setting("talent_profile_last_layout", layout_name)
