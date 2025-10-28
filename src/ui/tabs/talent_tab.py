@@ -82,8 +82,11 @@ class HireWindow(QWidget):
         help_btn.help_requested.connect(self.help_requested)
 
     def _configure_table_view_headers(self):
-        self.talent_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.talent_table_view.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch) # Alias
+        header = self.talent_table_view.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.talent_table_view.resizeColumnsToContents()
+        header.resizeSection(0, 150)
+        header.resizeSection(10, 50)
 
     def update_talent_list(self, talents: list):
         self.talent_model.update_data(talents)
