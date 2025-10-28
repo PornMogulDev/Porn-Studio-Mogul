@@ -326,27 +326,26 @@ class ScenePlannerPresenter(QObject):
 
     @pyqtSlot(int)
     def on_hire_for_role(self, vp_id: int):
-        # 1. Save the current in-memory state to the database. This returns
-        #    a map from any temporary negative IDs to their new permanent IDs.
-        id_map = self.controller.update_scene_full(self.working_scene)
+        # Sanity check to ensure the scene is in the right state.
+        fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
+        if not fresh_scene or fresh_scene.status.lower() != 'casting':
+            QMessageBox.warning(self.view, "Casting Error",
+                                "Scene is not ready for casting. Please ensure it is saved in 'Casting' status.")
+            return
 
-        # 2. Determine the correct, permanent ID for the virtual performer.
-        #    If vp_id was temporary (negative), get its new ID from the map.
-        #    If it was already permanent (positive), it remains unchanged.
-        new_vp_id = id_map.get(vp_id, vp_id)
-
-        # 3. Show the casting dialog using the correct, permanent ID.
-        result = self.ui_manager.show_role_casting_dialog(self.working_scene.id, new_vp_id)
+        # 1. Show the casting dialog. The vp_id is already permanent.
+        result = self.ui_manager.show_role_casting_dialog(self.working_scene.id, vp_id)
 
         if result == QDialog.DialogCode.Accepted:
-            # A hire was made. The database is updated, but our local 'working_scene'
+            # 2. A hire was made. The database is updated, but our local 'working_scene'
             # in the editor service is now stale. We need to refresh it.
-            fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
-            if fresh_scene:
-                self.editor_service.reset_with_scene(fresh_scene)
+            updated_scene = self.controller.get_scene_for_planner(self.working_scene.id)
+            if updated_scene:
+                self.editor_service.reset_with_scene(updated_scene)
                 self._refresh_full_view()
             else:
-                print("ERROR: fresh_scene is None!")
+                logger.error(f"Could not re-fetch scene {self.working_scene.id} after hiring. Closing dialog.")
+                self.view.close()
 
     # --- Data Access & Helpers ---
     def _update_summary(self):
@@ -416,10 +415,29 @@ class ScenePlannerPresenter(QObject):
         return sorted(tags_to_display, key=lambda t: t['full_name'])
         
     def _on_status_changed(self, new_status_str: str):
-        if new_status_str.lower() == self.working_scene.status.lower(): return
+        new_status_lower = new_status_str.lower()
+        if new_status_lower == self.working_scene.status.lower():
+            return
+
         is_valid, message = self.editor_service.validate_and_set_status(new_status_str)
-        if is_valid: self._refresh_full_view()
-        else: QMessageBox.warning(self.view, "Cannot Change Status", message); self._refresh_general_info()
+        if is_valid:
+            # Refresh the UI to reflect the new status and potential lock changes.
+            self._refresh_full_view()
+
+            # If moving to casting, save immediately to make roles available.
+            if new_status_lower == 'casting':
+                self.controller.update_scene_full(self.editor_service.finalize_for_saving())
+                # After saving, temp IDs become permanent. We must refresh our local state.
+                fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
+                if fresh_scene:
+                    self.editor_service.reset_with_scene(fresh_scene)
+                    self._refresh_full_view()
+                else:
+                    logger.error(f"Could not re-fetch scene {self.working_scene.id} after status change. Closing dialog.")
+                    self.view.close()
+        else:
+            QMessageBox.warning(self.view, "Cannot Change Status", message)
+            self._refresh_general_info()
 
     @pyqtSlot()
     def on_external_scene_change(self):

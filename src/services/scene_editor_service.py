@@ -162,7 +162,11 @@ class SceneEditorService:
         unassigned_slots = self._get_unassigned_slots()
         if unassigned_slots:
             return "Cannot proceed to Casting. The following roles are unassigned:\n\n- " + "\n- ".join(unassigned_slots)
-            
+        
+        unassigned_physical_tags = self._get_unassigned_physical_tags()
+        if unassigned_physical_tags:
+            return "Cannot proceed to Casting. The following physical tags have insufficient performers:\n\n- " + "\n- ".join(unassigned_physical_tags)
+
         return None
 
     def _get_validation_errors_for_scheduling(self) -> Optional[str]:
@@ -175,6 +179,23 @@ class SceneEditorService:
             return f"All {len(self.working_scene.virtual_performers)} roles must be cast to schedule the scene."
             
         return None
+    
+    def _get_unassigned_physical_tags(self) -> List[str]:
+        unassigned_tags = []
+        for tag_name, assigned_vp_ids in self.working_scene.assigned_tags.items():
+            tag_def = self.data_manager.tag_definitions.get(tag_name)
+            if not tag_def or tag_def.get('type') != 'Physical':
+                continue
+
+            required_count = 1
+            validation_rule = tag_def.get('validation_rule')
+            if validation_rule and validation_rule.get('mode') == 'match_all':
+                required_count = len(validation_rule.get('profiles', []))
+                if required_count == 0: required_count = 2 # Fallback
+
+            if len(assigned_vp_ids) < required_count:
+                unassigned_tags.append(f"'{tag_name}' (requires at least {required_count} performer(s), has {len(assigned_vp_ids)})")
+        return unassigned_tags
 
     def _get_unassigned_slots(self) -> List[str]:
         unassigned_slots = []
