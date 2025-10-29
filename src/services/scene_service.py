@@ -1,6 +1,6 @@
 import logging
 import random
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, DefaultDict
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -46,7 +46,7 @@ class SceneService:
 
     def get_shot_scenes(self) -> List[Scene]:
         """Fetches all scenes that have been shot or released for the scenes tab."""
-        scenes_db = self.session.query(SceneDB).options(
+        scenes_db = self.session.query(SceneDB).populate_existing().options(
             selectinload(SceneDB.performer_contributions_rel)
         ).filter(
             SceneDB.status.in_(['shot', 'in_editing', 'ready_to_release', 'released'])
@@ -321,23 +321,23 @@ class SceneService:
         self.signals.scenes_changed.emit()
         return vp_id_map
 
-    def start_editing_scene(self, scene_id: int, editing_tier_id: str) -> bool:
+    def start_editing_scene(self, scene_id: int, editing_tier_id: str) -> tuple[bool, int]:
         """Begins the editing process for a shot scene."""
         scene_db = self.session.query(SceneDB).get(scene_id)
         if not scene_db or scene_db.status != 'shot':
-            return False
+            return False, 0
 
         editing_options = self.data_manager.post_production_data.get('editing_tiers', [])
         tier_data = next((t for t in editing_options if t['id'] == editing_tier_id), None)
         if not tier_data:
-            return False
+            return False, 0
 
         cost = tier_data.get('cost', 0)
         money_info = self.session.query(GameInfoDB).filter_by(key='money').one()
         current_money = int(money_info.value)
         if current_money < cost:
             self.signals.notification_posted.emit("Not enough money for this editing option.")
-            return False
+            return False, 0
 
         # Deduct cost and update scene
         money_info.value = str(current_money - cost)
@@ -350,12 +350,9 @@ class SceneService:
         scene_db.post_production_choices = new_choices
         flag_modified(scene_db, "post_production_choices") # Important for JSON mutation
 
-        self.signals.money_changed.emit(int(money_info.value))
-        self.signals.notification_posted.emit(f"Editing started for '{scene_db.title}'. Cost: ${cost:,}")
-        self.signals.scenes_changed.emit()
-        return True
+        return True, cost
 
-    def release_scene(self, scene_id: int):
+    def release_scene(self, scene_id: int) -> Dict[str, List[str]]:
         scene_db = self.session.query(SceneDB).get(scene_id)
         if not (scene_db and scene_db.status == 'ready_to_release'): return
         
@@ -366,6 +363,8 @@ class SceneService:
         # Market Discovery Logic
         discovery_threshold = self.data_manager.game_config.get("market_discovery_interest_threshold", 1.5)
         num_to_discover = self.data_manager.game_config.get("market_discoveries_per_scene", 2)
+
+        all_new_discoveries = DefaultDict(list)
 
         for group_name, interest in scene.viewer_group_interest.items():
             if interest >= discovery_threshold:
@@ -393,6 +392,7 @@ class SceneService:
                         if sentiment_type not in current_discovered:
                             current_discovered[sentiment_type] = []
                         current_discovered[sentiment_type].append(tag_name)
+                        all_new_discoveries[group_name].append(tag_name)
                         newly_discovered_count += 1
                 
                 if newly_discovered_count > 0:
@@ -412,6 +412,8 @@ class SceneService:
         self.signals.scenes_changed.emit()
         self.signals.money_changed.emit(int(money_info.value))
         self.signals.market_changed.emit()
+
+        return dict(all_new_discoveries)
 
     def shoot_scene(self, scene_db: SceneDB) -> bool:
         """

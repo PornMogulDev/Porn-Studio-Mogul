@@ -17,7 +17,7 @@ class ShootingBlocDialog(GeometryManagerMixin, QDialog):
         self.policies_data = self.controller.data_manager.on_set_policies_data
         
         self.setWindowTitle("Plan New Shooting Bloc")
-        self.defaultSize = QSize(400, 750)
+        self.defaultSize = QSize(400, 800)
         self.setMinimumSize(350,750)
         
         # UI element storage

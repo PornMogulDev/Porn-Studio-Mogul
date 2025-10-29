@@ -181,13 +181,12 @@ class GameController(QObject):
         self._reinitialize_services()
 
         # --- 3. EMIT SIGNALS AND HANDLE PAUSES/GAME OVER ---
-        if changes.get("paused"):  # If the week was paused by an event...
-            if changes.get("scenes"): self.signals.scenes_changed.emit()
-            # ...stop here. Don't emit final time/money signals, as the week is not fully complete.
+        if changes.get("paused"):  # If the week was paused by an event..._
+            if changes.get("scenes_shot") or changes.get("scenes_edited"): self.signals.scenes_changed.emit()
             return
 
         # Emit signals for all changes that occurred during the week
-        if changes.get("scenes"): self.signals.scenes_changed.emit()
+        if changes.get("scenes_shot") or changes.get("scenes_edited"): self.signals.scenes_changed.emit()
         if changes.get("market"): self.signals.market_changed.emit()
         if changes.get("talent_pool"): self.signals.talent_pool_changed.emit()
 
@@ -201,15 +200,46 @@ class GameController(QObject):
         self.signals.money_changed.emit(self.game_state.money)
 
     def start_editing_scene(self, scene_id: int, editing_tier_id: str):
-        """Starts the editing process for a shot scene."""
-        if self.scene_service.start_editing_scene(scene_id, editing_tier_id):
+        """
+        Starts the editing process for a shot scene. The controller is responsible for
+        committing the transaction and emitting signals after the service runs.
+        """
+        success, cost = self.scene_service.start_editing_scene(scene_id, editing_tier_id)
+        if success:
+            # We need the fresh data from the session for the signals
+            money_info = self.db_session.query(GameInfoDB).filter_by(key='money').one()
+            scene_db = self.db_session.query(SceneDB).get(scene_id)
+
+            # Commit the transaction to make changes permanent
             self.db_session.commit()
+
+            # Now emit signals to notify the UI of the committed changes
+            self.signals.money_changed.emit(int(money_info.value))
+            self.signals.notification_posted.emit(f"Editing started for '{scene_db.title}'. Cost: ${cost:,}")
+            self.signals.scenes_changed.emit()
         else:
-            # The service sends its own notification on failure (e.g., not enough money)
             self.db_session.rollback()
 
     def release_scene(self, scene_id: int):
-        self.scene_service.release_scene(scene_id)
+        # Capture the returned dictionary of discoveries
+        discoveries = self.scene_service.release_scene(scene_id)
+        
+        if discoveries:
+            # We have new insights, let's create an email
+            scene = self.get_scene_for_planner(scene_id) # Get scene title
+            subject = f"Market Research Results: '{scene.title}'"
+            
+            body = "Our analysis of the release of your recent scene has yielded new market insights.\n\n"
+            for group_name, tags in discoveries.items():
+                body += f"<b>{group_name}:</b>\n"
+                for tag in tags:
+                    body += f"  - Discovered preference for '{tag}'\n"
+                body += "\n"
+            
+            body += "This information has been added to our market intelligence reports."
+            
+            self.create_email(subject, body)
+        
         self.db_session.commit()
 
     def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str]) -> bool:

@@ -23,7 +23,7 @@ class TimeService:
         Advances the game by one week by running a series of DB queries and updates.
         This process may be paused if an interactive event occurs during a scene shoot.
         """
-        changes = {"scenes": False, "market": False, "talent_pool": False, "paused": False}
+        changes = {"scenes_shot": [], "scenes_edited": [], "market": False, "talent_pool": False, "paused": False}
         current_date_val = self.game_state.year * 52 + self.game_state.week
 
         # Decay talent popularity
@@ -61,18 +61,18 @@ class TimeService:
             if event_occurred:
                 # An event has paused execution. Stop the entire week advancement.
                 # The controller will handle resuming the process.
-                changes["scenes"] = True # A scene was started, so changes occurred
+                changes["scenes_shot"].append(scene_db) # A scene was started, so changes occurred
                 changes["paused"] = True # *** FIX: Explicitly flag that the process was paused
                 return changes
-            changes["scenes"] = True
+            changes["scenes_shot"].append(scene_db)
 
         # Update scenes in post-production
         editing_scenes = self.session.query(SceneDB).filter_by(status='in_editing').all()
         for scene_db in editing_scenes:
             scene_db.weeks_remaining -= 1
+            changes["scenes_edited"].append(scene_db)
             if scene_db.weeks_remaining <= 0:
                 self.scene_service.calculation_service.apply_post_production_effects(scene_db)
-                changes["scenes"] = True
 
         # Advance time
         self.game_state.week += 1
