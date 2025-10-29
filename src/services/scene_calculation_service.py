@@ -79,16 +79,24 @@ class SceneCalculationService:
                 talent_db.fatigue_end_week, talent_db.fatigue_end_year = end_week, end_year
             
             talent_obj = talent_db.to_dataclass(Talent)
+            # 1. Calculate all gains using TalentService
             p_gain, a_gain, s_gain = self.talent_service.calculate_skill_gain(talent_obj, scene.total_runtime_minutes)
-            talent_db.performance = min(max_skill, talent_db.performance + p_gain)
-            talent_db.acting = min(max_skill, talent_db.acting + a_gain)
-            talent_db.stamina = min(max_skill, talent_db.stamina + s_gain)
+            dom_gain, sub_gain = 0.0, 0.0 # Default to 0
+            exp_gain = self.talent_service.calculate_experience_gain(talent_obj, scene.total_runtime_minutes) # New line
+
             # D/S Skill Progression
             vp_id = talent_id_to_vp.get(talent_db.id)
             if vp_id and (vp := vp_map.get(vp_id)):
                 dom_gain, sub_gain = self.talent_service.calculate_ds_skill_gain(talent_obj, scene, vp.disposition)
-                talent_db.dom_skill = min(max_skill, talent_db.dom_skill + dom_gain)
-                talent_db.sub_skill = min(max_skill, talent_db.sub_skill + sub_gain)
+            
+            # 2. Apply all gains to the DB object
+            talent_db.performance = min(max_skill, talent_db.performance + p_gain)
+            talent_db.acting = min(max_skill, talent_db.acting + a_gain)
+            talent_db.stamina = min(max_skill, talent_db.stamina + s_gain)
+            talent_db.dom_skill = min(max_skill, talent_db.dom_skill + dom_gain)
+            talent_db.sub_skill = min(max_skill, talent_db.sub_skill + sub_gain)
+            # Apply the experience gain using the same pattern
+            talent_db.experience = min(100.0, talent_db.experience + exp_gain) # New line
             
         composition_tags_with_scores = self._analyze_cast_composition(scene)
         scene.auto_tags = sorted(list(composition_tags_with_scores.keys()))

@@ -6,6 +6,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from data.game_state import Talent
 from core.interfaces import IGameController
 from ui.windows.talent_profile_window import TalentProfileWindow
+from utils.formatters import fuzz_skill_value, format_fatigue
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
@@ -96,10 +97,6 @@ class TalentProfilePresenter(QObject):
         # Details & Skills
         self._load_and_display_details(talent)
         
-        # Affinities
-        affinities = {tag: affinity for tag, affinity in talent.tag_affinities.items() if affinity > 0}
-        self.view.affinities_widget.display_affinities(sorted(affinities.items()))
-        
         # Preferences & Requirements
         self._load_and_display_preferences(talent)
         
@@ -121,13 +118,14 @@ class TalentProfilePresenter(QObject):
             'orientation': talent.orientation_score,
             'ethnicity': talent.ethnicity,
             'popularity': sum(talent.popularity.values()),
+            'fatigue': format_fatigue(talent.fatigue) # Added for Part 3
         })
         self.view.details_widget.display_skills({
-            'performance': talent.performance,
-            'acting': talent.acting,
-            'stamina': talent.stamina,
-            'ambition': talent.ambition,
-            'professionalism': talent.professionalism
+            'performance': fuzz_skill_value(talent.performance, talent.experience),
+            'acting': fuzz_skill_value(talent.acting, talent.experience),
+            'stamina': fuzz_skill_value(talent.stamina, talent.experience),
+            'dom_skill': fuzz_skill_value(talent.dom_skill, talent.experience),
+            'sub_skill': fuzz_skill_value(talent.sub_skill, talent.experience),
         })
         self.view.details_widget.populate_physical_label(talent)
 

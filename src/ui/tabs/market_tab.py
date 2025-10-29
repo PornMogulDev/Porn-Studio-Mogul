@@ -95,6 +95,7 @@ class MarketTab(QWidget):
     def _create_group_widget(self, group_name, original_group_data, dynamic_state):
         """Creates a QGroupBox that displays all info for a single viewer group, resolving inheritance."""
         resolved_data = self.controller.get_resolved_group_data(group_name)
+        discovered_sentiments = dynamic_state.discovered_sentiments if dynamic_state else {}
         current_theme = self.controller.get_current_theme()
 
         # The main container is now a QWidget instead of a QGroupBox,
@@ -112,7 +113,7 @@ class MarketTab(QWidget):
         
         prefs_data = resolved_data.get('preferences', {})
         
-        def create_sentiment_box(title, data_dict, is_additive=False):
+        def create_sentiment_box(title, data_dict, sentiment_type_key, is_additive=False):
             if not data_dict: return None
             
             box = QGroupBox(title)
@@ -127,8 +128,13 @@ class MarketTab(QWidget):
             scroll_content_widget = QWidget()
             layout = QFormLayout(scroll_content_widget)
 
+            discovered_tags = set(discovered_sentiments.get(sentiment_type_key, []))
             sorted_items = sorted(data_dict.items(), key=lambda item: item[1], reverse=True)
             for key, sentiment in sorted_items:
+                if key not in discovered_tags:
+                    label = QLabel("???")
+                    layout.addRow(f"{key}:", label)
+                    continue
                 if is_additive:
                     label = QLabel(f"{sentiment:+.2f}")
                     if sentiment > 0: label.setStyleSheet(f"color: {current_theme.color_good};")
@@ -164,7 +170,7 @@ class MarketTab(QWidget):
         
         # --- Orientation Sentiments (Right side) ---
         orientation_sentiments = prefs_data.get('orientation_sentiments', {})
-        if box := create_sentiment_box("Orientation Sentiments", orientation_sentiments):
+        if box := create_sentiment_box("Orientation Sentiments", orientation_sentiments, 'orientation_sentiments'):
             top_hbox_layout.addWidget(box, 1)
         
         main_vbox.addWidget(top_hbox_widget)
@@ -180,11 +186,11 @@ class MarketTab(QWidget):
             prefs_wrapper_layout = QHBoxLayout(prefs_wrapper_box)
             prefs_wrapper_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-            if box := create_sentiment_box("Thematic (Additive)", thematic_sentiments, is_additive=True):
+            if box := create_sentiment_box("Thematic (Additive)", thematic_sentiments, 'thematic_sentiments', is_additive=True):
                 prefs_wrapper_layout.addWidget(box, 1)
-            if box := create_sentiment_box("Physical", physical_sentiments):
+            if box := create_sentiment_box("Physical", physical_sentiments, 'physical_sentiments'):
                 prefs_wrapper_layout.addWidget(box, 1)
-            if box := create_sentiment_box("Action", action_sentiments):
+            if box := create_sentiment_box("Action", action_sentiments, 'action_sentiments'):
                 prefs_wrapper_layout.addWidget(box, 1)
 
             main_vbox.addWidget(prefs_wrapper_box, 1)

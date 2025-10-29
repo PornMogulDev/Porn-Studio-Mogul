@@ -2,7 +2,7 @@ import copy
 from typing import Dict, List
 from data.data_manager import DataManager
 from database.db_models import MarketGroupStateDB
-from data.game_state import MarketGroupState
+from data.game_state import MarketGroupState, Scene
 
 class MarketService:
     def __init__(self, db_session, data_manager: DataManager):
@@ -51,3 +51,32 @@ class MarketService:
             resolved_data.setdefault('popularity_spillover', {}).update(group_spillover)
             
         return resolved_data
+    
+    def get_potential_discoveries(self, scene: Scene, group_name: str) -> List[Dict]:
+        """Identifies sentiments that could be discovered from a successful scene."""
+        # This is a simplified example. A full implementation would need to more
+        # deeply analyze the revenue calculation to find the true top contributors.
+        
+        group_data = self.get_resolved_group_data(group_name)
+        prefs = group_data.get('preferences', {})
+        discoveries = []
+
+        # Thematic Tags
+        thematic_prefs = prefs.get('thematic_sentiments', {})
+        for tag in scene.global_tags:
+            if tag in thematic_prefs:
+                discoveries.append({'type': 'thematic_sentiments', 'tag': tag, 'impact': abs(thematic_prefs[tag])})
+
+        # Physical & Action Tags
+        all_content_tags = set(scene.assigned_tags.keys()) | {seg.tag_name for seg in scene.action_segments}
+        phys_prefs = prefs.get('physical_sentiments', {})
+        act_prefs = prefs.get('action_sentiments', {})
+
+        for tag in all_content_tags:
+            tag_def = self.data_manager.tag_definitions.get(tag, {})
+            if tag_def.get('type') == 'Physical' and tag in phys_prefs:
+                discoveries.append({'type': 'physical_sentiments', 'tag': tag, 'impact': abs(phys_prefs[tag] - 1.0)})
+            elif tag_def.get('type') == 'Action' and tag in act_prefs:
+                discoveries.append({'type': 'action_sentiments', 'tag': tag, 'impact': abs(act_prefs[tag] - 1.0)})
+
+        return discoveries

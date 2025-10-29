@@ -21,6 +21,7 @@ class DetailsWidget(QWidget):
         self.gender_label = QLabel()
         self.orientation_label = QLabel()
         self.popularity_label = QLabel()
+        self.fatigue_label = QLabel()
         self.physical_attr_name_label = QLabel()
         self.physical_attr_value_label = QLabel()
         details_layout.addRow("<b>Age:</b>", self.age_label)
@@ -29,6 +30,7 @@ class DetailsWidget(QWidget):
         details_layout.addRow("<b>Ethnicity:</b>", self.ethnicity_label)
         details_layout.addRow(self.physical_attr_name_label, self.physical_attr_value_label)
         details_layout.addRow("<b>Popularity:</b>", self.popularity_label)
+        details_layout.addRow("<b>Fatigue:</b>", self.fatigue_label)
         main_layout.addWidget(details_group)
 
         skills_group = QGroupBox("Skills and Attributes")
@@ -36,13 +38,9 @@ class DetailsWidget(QWidget):
         self.performance_label = QLabel()
         self.acting_label = QLabel()
         self.stamina_label = QLabel()
-        self.ambition_label = QLabel()
-        self.professionalism_label = QLabel()
         skills_layout.addRow("<b>Performance:</b>", self.performance_label)
         skills_layout.addRow("<b>Acting:</b>", self.acting_label)
         skills_layout.addRow("<b>Stamina:</b>", self.stamina_label)
-        skills_layout.addRow("<b>Ambition:</b>", self.ambition_label)
-        skills_layout.addRow("<b>Professionalism:</b>", self.professionalism_label)
         main_layout.addWidget(skills_group)
 
         main_layout.addStretch()
@@ -53,13 +51,12 @@ class DetailsWidget(QWidget):
         self.orientation_label.setText(format_orientation(data['orientation'], data['gender']))
         self.ethnicity_label.setText(data['ethnicity'])
         self.popularity_label.setText(f"{data['popularity']:.2f}")
+        self.fatigue_label.setText(data['fatigue'])
 
     def display_skills(self, data: dict):
         self.performance_label.setText(f"{data['performance']:.2f}")
         self.acting_label.setText(f"{data['acting']:.2f}")
         self.stamina_label.setText(f"{data['stamina']:.2f}")
-        self.ambition_label.setText(str(data['ambition']))
-        self.professionalism_label.setText(str(data['professionalism']))
 
     def populate_physical_label(self, talent: Talent):
         unit_system = self.settings_manager.get_setting("unit_system", "imperial")

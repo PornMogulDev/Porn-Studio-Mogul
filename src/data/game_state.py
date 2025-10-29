@@ -7,6 +7,7 @@ from typing import List, Dict, Optional, Any
 class MarketGroupState:
     name: str
     current_saturation: float = 1.0
+    discovered_sentiments: Dict[str, List[str]] = field(default_factory=dict)
 
 @dataclass_json
 @dataclass
@@ -22,7 +23,8 @@ class Talent:
     ambition: int
     professionalism: int = 5
     orientation_score: int = 0
-    disposition_score: int = 0 
+    disposition_score: int = 0
+    experience: float = 0.0
     chemistry: Dict[int, int] = field(default_factory=dict)
     popularity: Dict[str, float] = field(default_factory=dict)
     boob_cup: Optional[str] = None

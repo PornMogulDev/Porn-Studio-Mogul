@@ -107,9 +107,6 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         self.details_widget = DetailsWidget(self.settings_manager)
         self._add_dock("Details & Skills", self.details_widget, Qt.DockWidgetArea.LeftDockWidgetArea)
 
-        self.affinities_widget = AffinitiesWidget()
-        self._add_dock("Affinities", self.affinities_widget, Qt.DockWidgetArea.LeftDockWidgetArea)
-
         self.preferences_widget = PreferencesWidget()
         self._add_dock("Preferences", self.preferences_widget, Qt.DockWidgetArea.RightDockWidgetArea)
 

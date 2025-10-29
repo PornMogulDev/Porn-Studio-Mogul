@@ -147,6 +147,24 @@ class TalentService:
             
         return get_final_gain(talent.performance), get_final_gain(talent.acting), get_final_gain(talent.stamina)
 
+    def calculate_experience_gain(self, talent: Talent, scene_runtime_minutes: int) -> float:
+        """Calculates the experience gain for a talent from participating in a scene."""
+        base_gain = self.data_manager.game_config.get("experience_gain_base_rate", 0.5)
+        runtime_multiplier = self.data_manager.game_config.get("experience_gain_runtime_multiplier", 0.1)
+        cap = self.data_manager.game_config.get("maximum_experience_level", 100.0)
+
+        # Calculate raw gain from this scene
+        raw_gain = base_gain + (scene_runtime_minutes * runtime_multiplier)
+
+        # Apply diminishing returns based on current experience
+        if talent.experience >= cap:
+            return 0.0
+        
+        # Experience gain has a simpler diminishing returns curve than skills
+        final_gain = raw_gain * (1.0 - (talent.experience / cap))
+
+        return final_gain
+
     def calculate_ds_skill_gain(self, talent: Talent, scene: Scene, disposition: str) -> tuple[float, float]:
         """Calculates Dom/Sub skill gains based on scene dynamic level and disposition."""
         base_rate = self.data_manager.game_config.get("skill_gain_base_rate_per_minute", 0.02)

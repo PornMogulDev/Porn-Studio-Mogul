@@ -1,14 +1,10 @@
 import logging
-import numpy as np
-import copy
-from collections import defaultdict
-from itertools import combinations, permutations
+import random
 from typing import Dict, List, Optional
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy import JSON
 
-from data.game_state import Scene, Talent, VirtualPerformer, ActionSegment, SlotAssignment, ShootingBloc
+from data.game_state import Scene, ShootingBloc
 from data.data_manager import DataManager
 from services.scene_calculation_service import SceneCalculationService
 from services.role_performance_service import RolePerformanceService 
@@ -366,6 +362,43 @@ class SceneService:
         scene = scene_db.to_dataclass(Scene) 
         revenue = self.calculation_service.calculate_revenue(scene) 
         self.talent_service.update_popularity_from_scene(scene_id) 
+
+        # Market Discovery Logic
+        discovery_threshold = self.data_manager.game_config.get("market_discovery_interest_threshold", 1.5)
+        num_to_discover = self.data_manager.game_config.get("market_discoveries_per_scene", 2)
+
+        for group_name, interest in scene.viewer_group_interest.items():
+            if interest >= discovery_threshold:
+                market_state_db = self.session.query(MarketGroupStateDB).get(group_name)
+                if not market_state_db: continue
+                
+                # Find which sentiments contributed most to this scene for this group
+                potential_discoveries = self.market_service.get_potential_discoveries(scene, group_name)
+                
+                current_discovered = market_state_db.discovered_sentiments
+                
+                newly_discovered_count = 0
+                # Shuffle to add randomness, then sort by impact
+                random.shuffle(potential_discoveries)
+                potential_discoveries.sort(key=lambda x: x['impact'], reverse=True)
+
+                for item in potential_discoveries:
+                    if newly_discovered_count >= num_to_discover: break
+                    
+                    sentiment_type = item['type']
+                    tag_name = item['tag']
+                    
+                    # Check if we already know this one
+                    if tag_name not in current_discovered.get(sentiment_type, []):
+                        if sentiment_type not in current_discovered:
+                            current_discovered[sentiment_type] = []
+                        current_discovered[sentiment_type].append(tag_name)
+                        newly_discovered_count += 1
+                
+                if newly_discovered_count > 0:
+                    market_state_db.discovered_sentiments = current_discovered
+                    flag_modified(market_state_db, "discovered_sentiments")
+                    self.signals.notification_posted.emit(f"New market insights gained for '{group_name}'!")
         
         scene_db.revenue = revenue
         scene_db.status = 'released'

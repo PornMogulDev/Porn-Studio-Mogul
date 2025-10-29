@@ -110,6 +110,7 @@ class TalentDB(Base, DataclassMapper):
     stamina = Column(Float)
     dom_skill = Column(Float)
     sub_skill = Column(Float)
+    experience = Column(Float, default=0.0, nullable=False)
     ambition = Column(Integer)
     professionalism = Column(Integer, default=5, nullable=False)
     orientation_score = Column(Integer, default=0, nullable=False)
@@ -224,6 +225,7 @@ class MarketGroupStateDB(Base, DataclassMapper):
     __tablename__ = 'market_state'
     name = Column(String, primary_key=True)
     current_saturation = Column(Float)
+    discovered_sentiments = Column(JSON, default=dict, nullable=False)
 
 class TalentPopularityDB(Base, DataclassMapper):
     __tablename__ = 'talent_popularity'
