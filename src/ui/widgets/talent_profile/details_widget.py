@@ -66,7 +66,7 @@ class DetailsWidget(QWidget):
         self.stamina_label.setText(data['stamina'])
         self.dom_skill_label.setText(data.get('dom_skill', 'N/A'))
         self.sub_skill_label.setText(data.get('sub_skill', 'N/A'))
-        self.experience_label.setText(int(data['experience']))
+        self.experience_label.setText(str(data['experience']))
 
     def populate_physical_label(self, talent: Talent):
         unit_system = self.settings_manager.get_setting("unit_system", "imperial")

@@ -133,7 +133,7 @@ class MarketTab(QWidget):
             for key, sentiment in sorted_items:
                 if key not in discovered_tags:
                     label = QLabel("???")
-                    layout.addRow(f"{key}:", label)
+                    layout.addRow(QLabel("???"))
                     continue
                 if is_additive:
                     label = QLabel(f"{sentiment:+.2f}")
@@ -170,7 +170,13 @@ class MarketTab(QWidget):
         
         # --- Orientation Sentiments (Right side) ---
         orientation_sentiments = prefs_data.get('orientation_sentiments', {})
-        if box := create_sentiment_box("Orientation Sentiments", orientation_sentiments, 'orientation_sentiments'):
+        if box := create_sentiment_box("Orientation", orientation_sentiments, 'orientation_sentiments'):
+             top_hbox_layout.addWidget(box, 1)
+        
+        # --- Dominance Sentiments (Right side) ---
+        dom_sub_sentiments = prefs_data.get('dom_sub_sentiments', {})
+        if box := create_sentiment_box("D/s Dynamic Preferences", dom_sub_sentiments, 'dom_sub_sentiments'):
+            top_hbox_layout.addWidget(box, 1)
             top_hbox_layout.addWidget(box, 1)
         
         main_vbox.addWidget(top_hbox_widget)
@@ -196,35 +202,35 @@ class MarketTab(QWidget):
             main_vbox.addWidget(prefs_wrapper_box, 1)
 
         # Scaling Sentiments
-        scaling_sentiments = prefs_data.get('scaling_sentiments', {})
-        if scaling_sentiments:
-            scaling_box = QGroupBox("Scaling Sentiments")
-            scaling_box.setStyleSheet("font-weight: normal;")
-            box_layout = QVBoxLayout(scaling_box)
-            
-            scroll_area = QScrollArea()
-            scroll_area.setWidgetResizable(True)
-            scroll_area.setMinimumHeight(80)
-            scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            
-            scroll_widget = QWidget()
-            scaling_layout = QVBoxLayout(scroll_widget)
-            
-            for tag, rules in scaling_sentiments.items():
-                rule_str = f"<b>{tag}:</b> "
-                details = []
-                if 'based_on_role' in rules: details.append(f"scales on '{rules['based_on_role']}' count")
-                if 'applies_after' in rules: details.append(f"after {rules['applies_after']}")
-                if 'bonuses' in rules: details.append(f"bonuses: {rules['bonuses']}")
-                if 'bonus_per_unit' in rules: details.append(f"bonus/unit: {rules['bonus_per_unit']:+.2f}")
-                if 'penalty_after' in rules: details.append(f"penalty after {rules['penalty_after']}")
-                if 'penalty_per_unit' in rules: details.append(f"penalty/unit: {rules['penalty_per_unit']:.2f}")
-                rule_str += ", ".join(details)
-                scaling_layout.addWidget(QLabel(rule_str))
-                
-            scroll_area.setWidget(scroll_widget)
-            box_layout.addWidget(scroll_area)
-            main_vbox.addWidget(scaling_box)
+        # scaling_sentiments = prefs_data.get('scaling_sentiments', {})
+        # if scaling_sentiments:
+        #     scaling_box = QGroupBox("Scaling Sentiments")
+        #     scaling_box.setStyleSheet("font-weight: normal;")
+        #     box_layout = QVBoxLayout(scaling_box)
+        #     
+        #     scroll_area = QScrollArea()
+        #     scroll_area.setWidgetResizable(True)
+        #     scroll_area.setMinimumHeight(80)
+        #     scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        #     
+        #     scroll_widget = QWidget()
+        #     scaling_layout = QVBoxLayout(scroll_widget)
+        #     
+        #     for tag, rules in scaling_sentiments.items():
+        #         rule_str = f"<b>{tag}:</b> "
+        #         details = []
+        #         if 'based_on_role' in rules: details.append(f"scales on '{rules['based_on_role']}' count")
+        #         if 'applies_after' in rules: details.append(f"after {rules['applies_after']}")
+        #         if 'bonuses' in rules: details.append(f"bonuses: {rules['bonuses']}")
+        #         if 'bonus_per_unit' in rules: details.append(f"bonus/unit: {rules['bonus_per_unit']:+.2f}")
+        #         if 'penalty_after' in rules: details.append(f"penalty after {rules['penalty_after']}")
+        #         if 'penalty_per_unit' in rules: details.append(f"penalty/unit: {rules['penalty_per_unit']:.2f}")
+        #         rule_str += ", ".join(details)
+        #         scaling_layout.addWidget(QLabel(rule_str))
+        #         
+        #     scroll_area.setWidget(scroll_widget)
+        #     box_layout.addWidget(scroll_area)
+        #     main_vbox.addWidget(scaling_box)
             
         # Popularity Spillover
         spillover_data = resolved_data.get('popularity_spillover', {})

@@ -126,6 +126,7 @@ class TalentProfilePresenter(QObject):
             'stamina': format_skill_range(get_fuzzed_skill_range(talent.stamina, talent.experience, talent.id)),
             'dom_skill': format_skill_range(get_fuzzed_skill_range(talent.dom_skill, talent.experience, talent.id)),
             'sub_skill': format_skill_range(get_fuzzed_skill_range(talent.sub_skill, talent.experience, talent.id)),
+            'experience': int(talent.experience)
         })
         self.view.details_widget.populate_physical_label(talent)
 
