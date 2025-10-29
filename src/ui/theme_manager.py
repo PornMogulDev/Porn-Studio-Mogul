@@ -142,6 +142,34 @@ class ThemeManager:
                 border-color: {theme.accent};
             }}
 
+            /* --- CheckBox Styling --- */
+            QCheckBox::indicator {{
+                border: 1px solid {theme.border};
+                border-radius: 3px;
+                width: 15px;
+                height: 15px;
+                background-color: {theme.background_light};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {theme.accent};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {theme.accent};
+                border-color: {theme.accent};
+            }}
+            QCheckBox::indicator:checked:hover {{
+                background-color: {theme.accent_hover};
+                border-color: {theme.accent_hover};
+            }}
+
+            /* --- QRangeSlider Specific Styling --- */
+            QRangeSlider {{
+                qproperty-barColor: {theme.accent};
+                background: transparent;
+            }}
+            QRangeSlider:hover {{
+                qproperty-handleColor: {theme.accent_hover};
+            }}
             /* --- Disabled Widget States --- */
             QPushButton:disabled, QComboBox:disabled, QSpinBox:disabled, QLineEdit:disabled {{
                 background-color: {theme.disabled_background};

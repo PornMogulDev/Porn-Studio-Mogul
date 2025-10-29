@@ -14,7 +14,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.setWindowTitle("Advanced Talent Filter")
-        self.defaultSize = QSize(500, 750)
+        self.defaultSize = QSize(650, 750)
         self.initial_filters = current_filters.copy()
 
         self.all_ethnicities = ethnicities
@@ -29,7 +29,6 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
 
-        # --- (All other UI setup remains identical) ---
         # --- Go-To Category Filter ---
         go_to_group = QGroupBox("Go-To List Filter")
         go_to_layout = QVBoxLayout(go_to_group)
@@ -62,7 +61,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         # --- Age Filter ---
         age_group = QGroupBox("Age Range")
         age_layout = QVBoxLayout(age_group)
-        self.age_range = RangeFilterWidget('int')
+        self.age_range = RangeFilterWidget()
         self.age_range.set_range(18, 99)
         age_layout.addWidget(self.age_range)
         main_layout.addWidget(age_group)
@@ -70,11 +69,11 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         # --- Core Skills ---
         skills_group = QGroupBox("Core Skills")
         skills_layout = QFormLayout(skills_group)
-        self.perf_range = RangeFilterWidget('int')
+        self.perf_range = RangeFilterWidget()
         self.perf_range.set_range(0, 100)
-        self.act_range = RangeFilterWidget('int')
+        self.act_range = RangeFilterWidget()
         self.act_range.set_range(0, 100)
-        self.stam_range = RangeFilterWidget('int')
+        self.stam_range = RangeFilterWidget()
         self.stam_range.set_range(0, 100)
         skills_layout.addRow("Performance:", self.perf_range)
         skills_layout.addRow("Acting:", self.act_range)
@@ -84,7 +83,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         # --- Physical Attributes ---
         phys_group = QGroupBox("Physical Attributes")
         phys_layout = QFormLayout(phys_group)
-        self.dick_range = RangeFilterWidget('int')
+        self.dick_range = RangeFilterWidget()
         self.dick_range.set_range(0, 20)
         phys_layout.addRow("Dick Size (in):", self.dick_range)
         
