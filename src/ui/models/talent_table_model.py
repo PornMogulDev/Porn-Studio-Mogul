@@ -1,9 +1,9 @@
-from typing import List, Optional
+from typing import List, Optional, Union, Tuple
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
 
 from data.game_state import Talent
 from database.db_models import TalentDB
-from utils.formatters import format_orientation, format_dick_size
+from utils.formatters import format_orientation, format_dick_size, get_fuzzed_skill_range, format_skill_range
 
 class TalentTableModel(QAbstractTableModel):
     def __init__(self, settings_manager, boob_cup_order: List[str], mode: str = 'default', parent=None):
@@ -36,9 +36,24 @@ class TalentTableModel(QAbstractTableModel):
                   if talent_db.gender == "Male" and talent_db.dick_size is not None: return format_dick_size(talent_db.dick_size, unit_system)
                   return "N/A"
             elif col == 6: return talent_db.boob_cup if talent_db.gender == "Female" else "N/A"
-            elif col == 7: return f"{talent_db.performance:.2f}"
-            elif col == 8: return f"{talent_db.acting:.2f}"
-            elif col == 9: return f"{talent_db.stamina:.2f}"
+            elif col == 7:  # Performance
+                return format_skill_range(get_fuzzed_skill_range(talent_db.performance, talent_db.experience, talent_db.id))
+            elif col == 8:  # Acting
+                return format_skill_range(get_fuzzed_skill_range(talent_db.acting, talent_db.experience, talent_db.id))
+            elif col == 9:  # Stamina
+                return format_skill_range(get_fuzzed_skill_range(talent_db.stamina, talent_db.experience, talent_db.id))
+            elif col == 10:
+                # Handle both TalentDB (has .popularity_scores) and Talent dataclass (has .popularity)
+                if hasattr(talent_db, 'popularity_scores'):
+                    pop = sum(p.score for p in talent_db.popularity_scores) if talent_db.popularity_scores else 0.0
+                elif hasattr(talent_db, 'popularity'):
+                    pop = sum(talent_db.popularity.values())
+                else:
+                    pop = 0.0
+                return str(round(pop))
+            # Casting-specific column
+            elif col == 11 and self.mode == 'casting':
+                return f"${item['demand']:,}"
             elif col == 10:
                 # Handle both TalentDB (has .popularity_scores) and Talent dataclass (has .popularity)
                 if hasattr(talent_db, 'popularity_scores'):
@@ -80,8 +95,22 @@ class TalentTableModel(QAbstractTableModel):
         
         reverse = (order == Qt.SortOrder.DescendingOrder)
 
+        def get_skill_sort_value(skill_val: float, exp: float) -> int:
+            """Helper to get the sort value from a fuzzed skill (min of range or accurate value)."""
+            fuzzed = get_fuzzed_skill_range(skill_val, exp)
+            if isinstance(fuzzed, tuple):
+                return fuzzed[0] # Sort by the minimum of the range
+            return fuzzed
+
         def get_sort_key(item):
             talent_db = item['talent'] if self.mode == 'casting' else item
+
+            def get_skill_sort_value_with_id(skill_val: float, exp: float, talent_id: int) -> int:
+                fuzzed = get_fuzzed_skill_range(skill_val, exp, talent_id)
+                if isinstance(fuzzed, tuple):
+                    return fuzzed[0]
+                return fuzzed
+
             if column == 0:  # Alias
                 return talent_db.alias.lower()
             if column == 1:  # Age
@@ -97,17 +126,17 @@ class TalentTableModel(QAbstractTableModel):
             if column == 6:  # Cup Size
                 return self._cup_map.get(talent_db.boob_cup, -1)
             if column == 7:  # Performance
-                return talent_db.performance
+                return get_skill_sort_value_with_id(talent_db.performance, talent_db.experience, talent_db.id)
             if column == 8:  # Acting
-                return talent_db.acting
+                return get_skill_sort_value_with_id(talent_db.acting, talent_db.experience, talent_db.id)
             if column == 9:  # Stamina
-                return talent_db.stamina
+                return get_skill_sort_value_with_id(talent_db.stamina, talent_db.experience, talent_db.id)
             if column == 10: # Popularity
                 if hasattr(talent_db, 'popularity_scores'):
-                    return sum(p.score for p in talent_db.popularity_scores)
+                    return round(sum(p.score for p in talent_db.popularity_scores) if talent_db.popularity_scores else 0)
                 elif hasattr(talent_db, 'popularity'):
-                    return sum(talent_db.popularity.values())
-                return 0.0
+                    return round(sum(talent_db.popularity.values()))
+                return 0
             if column == 11 and self.mode == 'casting': # Demand
                 return item['demand']
             return 0

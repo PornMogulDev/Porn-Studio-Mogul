@@ -38,8 +38,12 @@ class DetailsWidget(QWidget):
         self.performance_label = QLabel()
         self.acting_label = QLabel()
         self.stamina_label = QLabel()
+        self.dom_skill_label = QLabel()
+        self.sub_skill_label = QLabel()
         skills_layout.addRow("<b>Performance:</b>", self.performance_label)
         skills_layout.addRow("<b>Acting:</b>", self.acting_label)
+        skills_layout.addRow("<b>Dom Skill:</b>", self.dom_skill_label)
+        skills_layout.addRow("<b>Sub Skill:</b>", self.sub_skill_label)
         skills_layout.addRow("<b>Stamina:</b>", self.stamina_label)
         main_layout.addWidget(skills_group)
 
@@ -50,13 +54,16 @@ class DetailsWidget(QWidget):
         self.gender_label.setText(data['gender'])
         self.orientation_label.setText(format_orientation(data['orientation'], data['gender']))
         self.ethnicity_label.setText(data['ethnicity'])
-        self.popularity_label.setText(f"{data['popularity']:.2f}")
+        self.popularity_label.setText(str(data['popularity']))
         self.fatigue_label.setText(data['fatigue'])
 
     def display_skills(self, data: dict):
-        self.performance_label.setText(f"{data['performance']:.2f}")
-        self.acting_label.setText(f"{data['acting']:.2f}")
-        self.stamina_label.setText(f"{data['stamina']:.2f}")
+        # The presenter now provides pre-formatted strings
+        self.performance_label.setText(data['performance'])
+        self.acting_label.setText(data['acting'])
+        self.stamina_label.setText(data['stamina'])
+        self.dom_skill_label.setText(data.get('dom_skill', 'N/A'))
+        self.sub_skill_label.setText(data.get('sub_skill', 'N/A'))
 
     def populate_physical_label(self, talent: Talent):
         unit_system = self.settings_manager.get_setting("unit_system", "imperial")

@@ -6,7 +6,7 @@ from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from data.game_state import Talent
 from core.interfaces import IGameController
 from ui.windows.talent_profile_window import TalentProfileWindow
-from utils.formatters import fuzz_skill_value, format_fatigue
+from utils.formatters import get_fuzzed_skill_range, format_skill_range, format_fatigue
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
@@ -117,15 +117,15 @@ class TalentProfilePresenter(QObject):
             'gender': talent.gender,
             'orientation': talent.orientation_score,
             'ethnicity': talent.ethnicity,
-            'popularity': sum(talent.popularity.values()),
-            'fatigue': format_fatigue(talent.fatigue) # Added for Part 3
+            'popularity': round(sum(talent.popularity.values())),
+            'fatigue': format_fatigue(talent.fatigue)
         })
         self.view.details_widget.display_skills({
-            'performance': fuzz_skill_value(talent.performance, talent.experience),
-            'acting': fuzz_skill_value(talent.acting, talent.experience),
-            'stamina': fuzz_skill_value(talent.stamina, talent.experience),
-            'dom_skill': fuzz_skill_value(talent.dom_skill, talent.experience),
-            'sub_skill': fuzz_skill_value(talent.sub_skill, talent.experience),
+            'performance': format_skill_range(get_fuzzed_skill_range(talent.performance, talent.experience, talent.id)),
+            'acting': format_skill_range(get_fuzzed_skill_range(talent.acting, talent.experience, talent.id)),
+            'stamina': format_skill_range(get_fuzzed_skill_range(talent.stamina, talent.experience, talent.id)),
+            'dom_skill': format_skill_range(get_fuzzed_skill_range(talent.dom_skill, talent.experience, talent.id)),
+            'sub_skill': format_skill_range(get_fuzzed_skill_range(talent.sub_skill, talent.experience, talent.id)),
         })
         self.view.details_widget.populate_physical_label(talent)
 

@@ -1,4 +1,4 @@
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 from PyQt6.QtGui import QColor
 
 from ui.theme_manager import Theme
@@ -28,13 +28,15 @@ def format_orientation(score: int, gender: str) -> str:
         return "Lesbian" if gender == "Female" else "Gay"
     return "Unknown"
 
-def format_dick_size(inches: float, unit_system: str) -> str:
-    """Formats a dick size in inches to the desired unit system's string representation."""
+def format_dick_size(inches_val: float, unit_system: str) -> str:
+    """
+    Formats dick size (provided in inches) to the chosen unit system, without decimals.
+    """
     if unit_system == 'metric':
-        cm_value = inches * 2.54
-        return f"{cm_value:.1f} cm"
-    else:  # imperial
-        return f'{inches}"'
+        cm = inches_val * 2.54
+        return f"{round(cm)} cm"
+    else:  # Imperial is the default
+        return f"{round(inches_val)}\""
 
 def format_physical_attribute(talent: Talent, unit_system: str) -> Tuple[Optional[str], Optional[str]]:
     """
@@ -47,31 +49,50 @@ def format_physical_attribute(talent: Talent, unit_system: str) -> Tuple[Optiona
     if talent.gender == "Female" and talent.boob_cup:
         return "Cup Size", f"{talent.boob_cup}"
     elif talent.gender == "Male" and talent.dick_size is not None:
-        return "Dick Size", format_dick_size(talent.dick_size, unit_system)
+        return ("Dick Size", format_dick_size(talent.dick_size, unit_system))
     return None, None
 
-def fuzz_skill_value(skill_value: float, experience: float) -> str:
+def get_fuzzed_skill_range(skill_value: float, experience: float, talent_id: int) -> Union[int, Tuple[int, int]]:
     """
-    Returns a fuzzed string representation of a skill based on player experience with the talent.
+    Returns a fuzzed skill range or accurate value based on experience.
+    The range width is fixed, but its position relative to the true value varies.
+
+    Args:
+        skill_value: The true skill value (0-100).
+        experience: The talent's experience (0-100).
+        talent_id: The talent's unique ID, used for deterministic randomness.
+
+    Returns:
+        A tuple (min, max) for a fuzzed range, or a single int for an accurate value.
     """
-    if experience < 5:
-        return "???"
-    elif experience < 20:
-        # Wide range, rounded to nearest 5
-        base = round(skill_value / 5) * 5
-        return f"{max(0, base - 5)} - {min(100, base + 5)}"
-    elif experience < 40:
-        # Tilde, rounded to nearest integer
-        return f"~{round(skill_value)}"
-    elif experience < 65:
-        # Show integer value, no decimals
-        return str(round(skill_value))
-    elif experience < 85:
-        # Show one decimal place
-        return f"{skill_value:.1f}"
-    else: # Max experience
-        # Show the "true" value
-        return f"{skill_value:.2f}"
+    true_val = round(skill_value)
+
+    if experience < 20: range_width = 40
+    elif experience < 40: range_width = 30
+    elif experience < 60: range_width = 20
+    elif experience < 80: range_width = 10
+    elif experience < 95: range_width = 5
+    else: return true_val
+
+    # Use the talent's ID to create a deterministic, pseudo-random offset.
+    # This ensures the range is consistent for a given talent at a given experience level.
+    offset = (talent_id * 13) % (range_width + 1)
+    min_val = true_val - offset
+    max_val = min_val + range_width
+
+    clamped_min = max(0, min_val)
+    clamped_max = min(100, max_val)
+
+    if clamped_min == 0: clamped_max = min(100, range_width)
+    if clamped_max == 100: clamped_min = max(0, 100 - range_width)
+
+    return (clamped_min, clamped_max)
+
+def format_skill_range(skill_range: Union[int, Tuple[int, int]]) -> str:
+    """Formats the output of get_fuzzed_skill_range into a display string."""
+    if isinstance(skill_range, int): return str(skill_range)
+    if isinstance(skill_range, tuple): return f"{skill_range[0]} - {skill_range[1]}"
+    return "N/A"
     
 def format_fatigue(fatigue_level: int) -> str:
     """Converts a numeric fatigue level to a descriptive string."""

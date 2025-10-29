@@ -70,24 +70,16 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         # --- Core Skills ---
         skills_group = QGroupBox("Core Skills")
         skills_layout = QFormLayout(skills_group)
-        self.perf_range = RangeFilterWidget('float')
+        self.perf_range = RangeFilterWidget('int')
         self.perf_range.set_range(0, 100)
-        self.act_range = RangeFilterWidget('float')
+        self.act_range = RangeFilterWidget('int')
         self.act_range.set_range(0, 100)
-        self.stam_range = RangeFilterWidget('float')
+        self.stam_range = RangeFilterWidget('int')
         self.stam_range.set_range(0, 100)
         skills_layout.addRow("Performance:", self.perf_range)
         skills_layout.addRow("Acting:", self.act_range)
         skills_layout.addRow("Stamina:", self.stam_range)
         main_layout.addWidget(skills_group)
-
-        # --- Attributes ---
-        attr_group = QGroupBox("Attributes")
-        attr_layout = QFormLayout(attr_group)
-        self.ambition_range = RangeFilterWidget('int')
-        self.ambition_range.set_range(1, 10)
-        attr_layout.addRow("Ambition:", self.ambition_range)
-        main_layout.addWidget(attr_group)
         
         # --- Physical Attributes ---
         phys_group = QGroupBox("Physical Attributes")
@@ -142,7 +134,6 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.perf_range.valuesChanged.connect(self._emit_filters)
         self.act_range.valuesChanged.connect(self._emit_filters)
         self.stam_range.valuesChanged.connect(self._emit_filters)
-        self.ambition_range.valuesChanged.connect(self._emit_filters)
         self.dick_range.valuesChanged.connect(self._emit_filters)
 
         # Lists
@@ -175,7 +166,6 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.perf_range.set_values(self.current_filters.get('performance_min', 0), self.current_filters.get('performance_max', 100))
         self.act_range.set_values(self.current_filters.get('acting_min', 0), self.current_filters.get('acting_max', 100))
         self.stam_range.set_values(self.current_filters.get('stamina_min', 0), self.current_filters.get('stamina_max', 100))
-        self.ambition_range.set_values(self.current_filters.get('ambition_min', 1), self.current_filters.get('ambition_max', 10))
         self.dick_range.set_values(self.current_filters.get('dick_size_min', 0), self.current_filters.get('dick_size_max', 20))
         
         # Lists
@@ -194,7 +184,6 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         perf_min, perf_max = self.perf_range.get_values()
         act_min, act_max = self.act_range.get_values()
         stam_min, stam_max = self.stam_range.get_values()
-        ambition_min, ambition_max = self.ambition_range.get_values()
         dick_min, dick_max = self.dick_range.get_values()
 
         filters = {
@@ -205,7 +194,6 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
             'performance_min': perf_min, 'performance_max': perf_max,
             'acting_min': act_min, 'acting_max': act_max,
             'stamina_min': stam_min, 'stamina_max': stam_max,
-            'ambition_min': ambition_min, 'ambition_max': ambition_max,
             'dick_size_min': dick_min, 'dick_size_max': dick_max,
             'ethnicities': [item.text() for item in self.ethnicity_list.selectedItems()],
             'boob_cups': [item.text() for item in self.cup_list.selectedItems()]
@@ -221,7 +209,6 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.perf_range.set_values(0, 100)
         self.act_range.set_values(0, 100)
         self.stam_range.set_values(0, 100)
-        self.ambition_range.set_values(1, 10)
         self.dick_range.set_values(0, 20)
         self.ethnicity_list.clearSelection()
         self.cup_list.clearSelection()

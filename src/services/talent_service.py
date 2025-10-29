@@ -85,7 +85,6 @@ class TalentService:
         if (gender := filters.get('gender')) and gender != "Any":
                 query = query.filter(TalentDB.gender == gender)
 
-        
         # Ethnicity
         if ethnicities := filters.get('ethnicities'):
             if "Any" not in ethnicities:
@@ -100,12 +99,6 @@ class TalentService:
         if min_d > 0 or max_d < 20:
             query = query.filter(TalentDB.dick_size != None)
             query = query.filter(TalentDB.dick_size.between(min_d, max_d))
-            
-        # Skills & Attributes
-        query = query.filter(TalentDB.performance.between(filters.get('performance_min', 0.0), filters.get('performance_max', 100.0)))
-        query = query.filter(TalentDB.acting.between(filters.get('acting_min', 0.0), filters.get('acting_max', 100.0)))
-        query = query.filter(TalentDB.stamina.between(filters.get('stamina_min', 0.0), filters.get('stamina_max', 100.0)))
-        query = query.filter(TalentDB.ambition.between(filters.get('ambition_min', 1), filters.get('ambition_max', 10)))
 
         results = query.order_by(TalentDB.alias).all()
         return results

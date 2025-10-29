@@ -13,7 +13,7 @@ class RangeFilterWidget(QWidget):
         """
         super().__init__(parent)
         self._data_type = data_type
-        self._precision_factor = 100 if data_type == 'float' else 1
+        self._precision_factor = 1
 
         self._setup_ui()
         self._connect_signals()
@@ -24,12 +24,8 @@ class RangeFilterWidget(QWidget):
 
         layout.addWidget(QLabel("Min:"))
 
-        if self._data_type == 'float':
-            self.min_spinbox = QDoubleSpinBox()
-            self.max_spinbox = QDoubleSpinBox()
-        else:
-            self.min_spinbox = QSpinBox()
-            self.max_spinbox = QSpinBox()
+        self.min_spinbox = QSpinBox()
+        self.max_spinbox = QSpinBox()
 
         layout.addWidget(self.min_spinbox)
 
@@ -80,11 +76,8 @@ class RangeFilterWidget(QWidget):
         min_val = min_slider / self._precision_factor
         max_val = max_slider / self._precision_factor
 
-        # For integer-based widgets, ensure the value is an integer.
-        # For float-based widgets, it will correctly remain a float.
-        if self._data_type == 'int':
-            min_val = int(min_val)
-            max_val = int(max_val)
+        min_val = int(min_val)
+        max_val = int(max_val)
 
         self.min_spinbox.setValue(min_val)
         self.max_spinbox.setValue(max_val)
