@@ -1,13 +1,11 @@
 from typing import Union, Tuple, TYPE_CHECKING
-from PyQt6.QtCore import QObject, pyqtSlot, Qt, QPoint
-from PyQt6.QtWidgets import QDialog
+from PyQt6.QtCore import QObject, pyqtSlot, QPoint
 
 from core.interfaces import IGameController
 from ui.tabs.talent_tab import HireWindow
 from ui.dialogs.talent_filter_dialog import TalentFilterDialog
 from data.game_state import Talent
-from ui.windows.talent_profile_window import TalentProfileWindow
-from ui.dialogs.scene_dialog import SceneDialog
+from database.db_models import TalentDB  # Import the DB model
 from utils.formatters import get_fuzzed_skill_range
 
 if TYPE_CHECKING:
@@ -25,6 +23,7 @@ class TalentTabPresenter(QObject):
             self.controller.settings_manager,
             self.controller.get_available_boob_cups()
         )
+
     def _connect_signals(self):
         self.controller.signals.talent_pool_changed.connect(self.view.refresh_from_state)
         self.controller.signals.go_to_categories_changed.connect(self.view.refresh_from_state)
@@ -43,9 +42,11 @@ class TalentTabPresenter(QObject):
     def on_initial_load(self):
         self.view.refresh_from_state()
 
-    def _talent_passes_skill_filters(self, talent: Talent, skill_filters: dict) -> bool:
-        """Checks if a talent's fuzzed skill ranges overlap with user's filter ranges."""
-        
+    def _talent_passes_skill_filters(self, talent: Union[Talent, TalentDB], skill_filters: dict) -> bool:
+        """
+        Checks if a talent's fuzzed skill ranges overlap with user's filter ranges.
+        Accepts either a Talent dataclass or a TalentDB model to avoid premature conversion.
+        """
         skill_checks = {
             'performance': ('performance_min', 'performance_max'),
             'acting': ('acting_min', 'acting_max'),
@@ -58,6 +59,7 @@ class TalentTabPresenter(QObject):
             
             if user_min is None or user_max is None: continue
 
+            # This works on both Talent and TalentDB because the attribute names are the same
             true_skill_val = getattr(talent, skill_attr, 0.0)
             fuzzed_range: Union[int, Tuple[int, int]] = get_fuzzed_skill_range(true_skill_val, talent.experience, talent.id)
             
@@ -65,6 +67,8 @@ class TalentTabPresenter(QObject):
                 if not (user_min <= fuzzed_range <= user_max): return False
             else:
                 talent_min, talent_max = fuzzed_range
+                # Check for overlap: talent range must not be completely to the left
+                # OR completely to the right of the user's desired range.
                 if not (talent_min <= user_max and talent_max >= user_min): return False
                     
         return True
@@ -76,8 +80,8 @@ class TalentTabPresenter(QObject):
         for key in skill_filter_keys:
             filters_for_db.pop(key, None)
 
+        # This logic remains the same
         role_filter = all_filters.get('role_filter', {'active': False})
-
         if role_filter.get('active') and role_filter.get('filter_by_reqs'):
             role_details = self.controller.hire_talent_service.get_role_details_for_ui(
                 role_filter['scene_id'], role_filter['vp_id']
@@ -85,22 +89,30 @@ class TalentTabPresenter(QObject):
             filters_for_db['gender'] = role_details.get('gender')
             if ethnicity := role_details.get('ethnicity', "Any"):
                 if ethnicity != "Any": filters_for_db['ethnicities'] = [ethnicity]
-            self.view.set_standard_filters_enabled(False) # Disable advanced filter button
+            self.view.set_standard_filters_enabled(False)
         else:
             self.view.set_standard_filters_enabled(True)
 
+        # Step 1: Get filtered list of lightweight DB objects
         talents_from_db = self.controller.get_filtered_talents(filters_for_db)
         
+        # Step 2: Perform the skill-based filtering in Python WITHOUT dataclass conversion
         talents_passing_skills = [
             t for t in talents_from_db 
-            if self._talent_passes_skill_filters(t.to_dataclass(Talent), all_filters)
+            if self._talent_passes_skill_filters(t, all_filters)
         ]
 
+        # Step 3: The final list (still of TalentDB objects) is passed for availability checks
         if role_filter.get('active') and role_filter.get('hide_refusals'):
-            final_talents = self.controller.hire_talent_service.filter_talents_by_availability(talents_passing_skills, role_filter['scene_id'], role_filter['vp_id'])
+            # Assuming filter_talents_by_availability can also work with TalentDB objects
+            final_talents = self.controller.hire_talent_service.filter_talents_by_availability(
+                talents_passing_skills, role_filter['scene_id'], role_filter['vp_id']
+            )
         else:
             final_talents = talents_passing_skills
             
+        # Step 4: Update the view. The TableModel will now perform the conversion
+        # only on the final, much smaller, list of talents.
         self.view.update_talent_list(final_talents)
     
     @pyqtSlot(object, QPoint)
@@ -112,7 +124,6 @@ class TalentTabPresenter(QObject):
     @pyqtSlot(dict)
     def on_open_advanced_filters(self, current_filters: dict):
         if self.filter_dialog is None:
-            # Create the dialog for the first time
             self.filter_dialog = TalentFilterDialog(
                 ethnicities=self.controller.get_available_ethnicities(),
                 boob_cups=self.controller.get_available_boob_cups(),
@@ -122,20 +133,17 @@ class TalentTabPresenter(QObject):
                 parent=self.view
             )
             self.filter_dialog.filters_applied.connect(self.view.on_filters_applied)
-            # When the user closes the dialog via the 'X' button, clear our reference to it
             self.filter_dialog.finished.connect(self.on_filter_dialog_closed)
             self.filter_dialog.show()
         else:
-            # If it already exists, just bring it to the front
             self.filter_dialog.raise_()
             self.filter_dialog.activateWindow()
      
-    def on_filter_dialog_closed(self):
+    def on_filter_dialog_closed(self, result):
         self.filter_dialog = None
     
     @pyqtSlot(object)
     def on_open_talent_profile(self, talent: Talent):
-        """Handles the request to open a talent's profile, delegating to the UIManager."""
         self.ui_manager.show_talent_profile(talent)
 
     @pyqtSlot(str)
