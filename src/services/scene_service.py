@@ -352,11 +352,12 @@ class SceneService:
 
         return True, cost
 
-    def release_scene(self, scene_id: int) -> Dict[str, List[str]]:
+    def release_scene(self, scene_id: int) -> Dict:
         scene_db = self.session.query(SceneDB).get(scene_id)
-        if not (scene_db and scene_db.status == 'ready_to_release'): return
-        
-        scene = scene_db.to_dataclass(Scene) 
+        if not (scene_db and scene_db.status == 'ready_to_release'):
+            return {}
+
+        scene = scene_db.to_dataclass(Scene)
         revenue = self.calculation_service.calculate_revenue(scene) 
         self.talent_service.update_popularity_from_scene(scene_id) 
 
@@ -365,6 +366,7 @@ class SceneService:
         num_to_discover = self.data_manager.game_config.get("market_discoveries_per_scene", 2)
 
         all_new_discoveries = DefaultDict(list)
+        market_did_change = False
 
         for group_name, interest in scene.viewer_group_interest.items():
             if interest >= discovery_threshold:
@@ -377,6 +379,7 @@ class SceneService:
                 current_discovered = market_state_db.discovered_sentiments
                 
                 newly_discovered_count = 0
+                market_did_change = True
                 # Shuffle to add randomness, then sort by impact
                 random.shuffle(potential_discoveries)
                 potential_discoveries.sort(key=lambda x: x['impact'], reverse=True)
@@ -398,7 +401,6 @@ class SceneService:
                 if newly_discovered_count > 0:
                     market_state_db.discovered_sentiments = current_discovered
                     flag_modified(market_state_db, "discovered_sentiments")
-                    self.signals.notification_posted.emit(f"New market insights gained for '{group_name}'!")
         
         scene_db.revenue = revenue
         scene_db.status = 'released'
@@ -406,14 +408,14 @@ class SceneService:
         scene_db.revenue_modifier_details = scene.revenue_modifier_details
 
         money_info = self.session.query(GameInfoDB).filter_by(key='money').one()
-        money_info.value = str(int(money_info.value) + revenue)
-        
-        self.signals.notification_posted.emit(f"'{scene.title}' released! Revenue: +${revenue:,}")
-        self.signals.scenes_changed.emit()
-        self.signals.money_changed.emit(int(money_info.value))
-        self.signals.market_changed.emit()
+        new_money = int(float(money_info.value)) + revenue
+        money_info.value = str(new_money)
 
-        return dict(all_new_discoveries)
+        return {
+            'discoveries': dict(all_new_discoveries), 'revenue': revenue,
+            'title': scene.title, 'new_money': new_money,
+            'market_changed': market_did_change
+        }
 
     def shoot_scene(self, scene_db: SceneDB) -> bool:
         """

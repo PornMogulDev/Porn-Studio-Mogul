@@ -23,6 +23,7 @@ class SaveManager:
     def __init__(self):
         Path(SAVE_DIR).mkdir(exist_ok=True)
         self.db_manager = DBManager()
+        self.cleanup_session_file()
 
     def get_save_path(self, save_name: str) -> Path:
         return Path(SAVE_DIR) / f"{save_name}.sqlite"
@@ -149,3 +150,11 @@ class SaveManager:
                 'size': stats.st_size
             })
         return sorted(saves, key=lambda x: x['date'], reverse=True)
+    
+    def cleanup_session_file(self):
+        """Deletes the temporary live session database file if it exists."""
+        session_path = self.get_save_path(LIVE_SESSION_NAME)
+        if session_path.exists():
+            self.db_manager.disconnect() # Ensure no locks are held
+            session_path.unlink()
+            logger.info("Cleaned up stale session.sqlite file.")

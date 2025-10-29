@@ -222,25 +222,48 @@ class GameController(QObject):
 
     def release_scene(self, scene_id: int):
         # Capture the returned dictionary of discoveries
-        discoveries = self.scene_service.release_scene(scene_id)
-        
+        result = self.scene_service.release_scene(scene_id)
+        if not result:
+            self.db_session.rollback()
+            return
+
+        discoveries = result.get('discoveries', {})
+        revenue = result.get('revenue')
+        title = result.get('title')
+        new_money = result.get('new_money')
+        market_changed = result.get('market_changed')
+
+        email_created = False
         if discoveries:
             # We have new insights, let's create an email
-            scene = self.get_scene_for_planner(scene_id) # Get scene title
-            subject = f"Market Research Results: '{scene.title}'"
-            
+            subject = f"Market Research Results: '{title}'"
+
             body = "Our analysis of the release of your recent scene has yielded new market insights.\n\n"
             for group_name, tags in discoveries.items():
                 body += f"<b>{group_name}:</b>\n"
                 for tag in tags:
                     body += f"  - Discovered preference for '{tag}'\n"
-                body += "\n"
-            
+                body += "\n"         
+
             body += "This information has been added to our market intelligence reports."
-            
-            self.create_email(subject, body)
         
+            self.create_email(subject, body)
+            email_created = True
+
         self.db_session.commit()
+
+        # Emit all signals now that the transaction is complete
+        self.signals.notification_posted.emit(f"'{title}' released! Revenue: +${revenue:,}")
+        self.signals.scenes_changed.emit()
+        self.signals.money_changed.emit(new_money)
+
+        if market_changed:
+            for group_name in discoveries:
+                self.signals.notification_posted.emit(f"New market insights gained for '{group_name}'!")
+            self.signals.market_changed.emit()
+
+        if email_created:
+            self.signals.emails_changed.emit()
 
     def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str]) -> bool:
         """
@@ -544,10 +567,12 @@ class GameController(QObject):
     def return_to_main_menu(self, exit_save):
         self.game_session_service.return_to_main_menu(exit_save, self.db_session, self.current_save_path, self.game_over)
         self.db_session = None # Clear session after returning to menu
+        self.save_manager.cleanup_session_file()
 
     def quit_game(self, exit_save=False):
         self.game_session_service.handle_exit_save(exit_save, self.db_session, self.current_save_path)
         # Now, signal the main application window that it's time to close.
+        self.save_manager.cleanup_session_file()
         self.signals.quit_game_requested.emit()
 
     def handle_game_over(self):

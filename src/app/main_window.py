@@ -51,7 +51,7 @@ class MainGameWindow(QWidget):
         self.hire_tab = HireWindow()
         self.hire_presenter = TalentTabPresenter(self.controller, self.hire_tab, self.ui_manager)
 
-        self.scenes_tab = ScenesTab(self.controller)
+        self.scenes_tab = ScenesTab(self.controller, self.ui_manager)
         self.schedule_tab = ScheduleTab(self.controller, self.ui_manager)
         self.market_tab = MarketTab(self.controller)
 

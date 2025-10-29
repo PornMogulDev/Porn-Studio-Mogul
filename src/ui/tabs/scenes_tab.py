@@ -1,16 +1,16 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableView,
-    QAbstractItemView, QHeaderView, QMessageBox
+    QAbstractItemView, QHeaderView
 )
-from PyQt6.QtCore import QSortFilterProxyModel, Qt, QItemSelectionModel
-from PyQt6.QtGui import QStandardItemModel
+from PyQt6.QtCore import Qt
 from ui.models.scene_model import SceneTableModel, SceneSortFilterProxyModel
 from ui.dialogs.shot_scene_details_dialog import ShotSceneDetailsDialog
 
 class ScenesTab(QWidget):
-    def __init__(self, controller):
+    def __init__(self, controller, uimanager):
         super().__init__()
         self.controller = controller
+        self.uimanager = uimanager
         self.source_model = SceneTableModel(controller=self.controller)
         self.proxy_model = SceneSortFilterProxyModel()
         self.proxy_model.setSourceModel(self.source_model)
@@ -76,12 +76,10 @@ class ScenesTab(QWidget):
             self.controller.release_scene(selected_scene.id)
         elif selected_scene.status == 'shot':
             # This is handled by the double-click/details dialog
-            dialog = ShotSceneDetailsDialog(selected_scene, self.controller, self)
-            dialog.exec()
+            self.uimanager.show_shot_scene_details(selected_scene)
             
     def view_scene_details(self, proxy_index):
         source_index = self.proxy_model.mapToSource(proxy_index)
         scene = self.source_model.data(source_index, Qt.ItemDataRole.UserRole)
         if scene:
-            dialog = ShotSceneDetailsDialog(scene, self.controller, self)
-            dialog.exec()
+            self.uimanager.show_shot_scene_details(scene)

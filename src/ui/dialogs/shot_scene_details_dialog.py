@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QFormLayout, QWidget, QTabWidget, QRadioButton, QButtonGroup, 
     QPushButton, QStackedWidget
 )
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, QTimer
 from data.game_state import Scene
 from utils.scene_summary_builder import prepare_summary_data
 from ui.widgets.scene_summary_widget import SceneSummaryWidget
@@ -15,6 +15,8 @@ class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
         self.scene = scene
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
+
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         
         self.setWindowTitle(f"Details: {self.scene.title}")
         self.defaultSize = QSize(750, 800)
@@ -22,8 +24,9 @@ class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
         self.editing_option_group = QButtonGroup()
         
         self.setup_ui()
-        self.populate_data()
         self._restore_geometry()
+
+        QTimer.singleShot(0, self.populate_data)
 
         # Connect to the signal to refresh data if the scene changes while open
         self.controller.signals.scenes_changed.connect(self._on_scene_changed)
@@ -61,7 +64,7 @@ class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
         self.tabs.addTab(financial_tab, "Financials")
         
         # --- Tab 2: Design Summary ---
-        self.summary_widget = SceneSummaryWidget()
+        self.summary_widget = SceneSummaryWidget(self)
         self.tabs.addTab(self.summary_widget, "Design Summary")
 
         # --- Tab 3: Post-Production (will be created dynamically) ---
@@ -231,7 +234,8 @@ class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
         if not checked_button:
             return
             
-        tier_id = checked_button.property("tier_id")    
+        tier_id = checked_button.property("tier_id")
+    
         self.controller.start_editing_scene(self.scene.id, tier_id)
 
     def _on_scene_changed(self):

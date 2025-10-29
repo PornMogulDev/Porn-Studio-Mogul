@@ -36,11 +36,22 @@ class TalentProfilePresenter(QObject):
         self.view.hiring_widget.hire_confirmed.connect(self._on_hire_confirmed)
         self.view.chemistry_widget.talent_profile_requested.connect(self.open_talent_profile_requested)
         self.view.hiring_widget.open_scene_dialog_requested.connect(self.uimanager.show_scene_planner)
-        self.view.history_widget.open_scene_dialog_requested.connect(self.uimanager.show_scene_planner)
+        self.view.history_widget.open_scene_dialog_requested.connect(self._on_shot_scene_details_requested)
         
         # Connect to global signals to stay up-to-date
         self.controller.signals.scenes_changed.connect(self.refresh_available_roles)
         self.controller.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
+
+    @pyqtSlot(int)
+    def _on_shot_scene_details_requested(self, scene_id: int):
+        """
+        Slot to handle a request to open a scene's details.
+        It fetches the full scene object before calling the UIManager.
+        """
+        if scene := self.controller.get_scene_for_planner(scene_id):
+            self.uimanager.show_shot_scene_details(scene)
+        else:
+            logger.warning(f"Could not find scene with ID {scene_id} to show details.")
 
     def open_talent(self, talent: Talent):
         """Opens a talent in the window, creating a new tab if necessary."""

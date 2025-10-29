@@ -115,6 +115,7 @@ class UIManager:
         self._dialog_instances.clear()
         self._talent_profile_window_singleton = None
         self._open_scene_dialogs.clear()
+        self._open_shot_scene_dialogs.clear()
 
         logger.info("All managed modeless dialogs have been closed and references cleared.")
 
