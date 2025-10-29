@@ -1,12 +1,13 @@
-from typing import Union, Tuple, TYPE_CHECKING
+from typing import Union, Tuple, TYPE_CHECKING, List, Dict, Optional
 from PyQt6.QtCore import QObject, pyqtSlot, QPoint
 
 from core.interfaces import IGameController
 from ui.tabs.talent_tab import HireWindow
 from ui.dialogs.talent_filter_dialog import TalentFilterDialog
 from data.game_state import Talent
-from database.db_models import TalentDB  # Import the DB model
+from database.db_models import TalentDB
 from utils.formatters import get_fuzzed_skill_range
+from ui.presenters.talent_filter_cache import TalentFilterCache
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
@@ -18,6 +19,12 @@ class TalentTabPresenter(QObject):
         self.view = view
         self.ui_manager = ui_manager
         self.filter_dialog = None
+
+        # --- Caching Mechanism ---
+        self._all_talents_for_filtering: List[TalentDB] = []
+        self._talent_filter_cache: Dict[int, TalentFilterCache] = {}
+        self._cache_is_dirty = True
+
         self._connect_signals()
         self.view.create_model_and_load(
             self.controller.settings_manager,
@@ -25,7 +32,8 @@ class TalentTabPresenter(QObject):
         )
 
     def _connect_signals(self):
-        self.controller.signals.talent_pool_changed.connect(self.view.refresh_from_state)
+        # When talent pool changes, mark our cache as dirty. It will be rebuilt on the next filter action.
+        self.controller.signals.talent_pool_changed.connect(self._invalidate_filter_cache)
         self.controller.signals.go_to_categories_changed.connect(self.view.refresh_from_state)
         self.controller.signals.go_to_list_changed.connect(self.view.refresh_from_state)
 
@@ -39,82 +47,80 @@ class TalentTabPresenter(QObject):
         self.view.help_requested.connect(self.on_help_requested)
 
     @pyqtSlot()
+    def _invalidate_filter_cache(self):
+        self._cache_is_dirty = True
+        self.view.refresh_from_state()
+
+    def _build_filter_cache(self):
+        """
+        Calculates fuzzed ranges for ALL talents ONCE and stores them.
+        This is the core of the performance optimization.
+        """
+        # Fetch all talents from DB. Using a throwaway filter to get the full list.
+        self._all_talents_for_filtering = self.controller.get_filtered_talents({})
+        self._talent_filter_cache.clear()
+
+        for t_db in self._all_talents_for_filtering:
+            perf_fuzzed = get_fuzzed_skill_range(t_db.performance, t_db.experience, t_db.id)
+            act_fuzzed = get_fuzzed_skill_range(t_db.acting, t_db.experience, t_db.id)
+            stam_fuzzed = get_fuzzed_skill_range(t_db.stamina, t_db.experience, t_db.id)
+
+            self._talent_filter_cache[t_db.id] = TalentFilterCache(
+                talent_db=t_db,
+                perf_range=(perf_fuzzed, perf_fuzzed) if isinstance(perf_fuzzed, int) else perf_fuzzed,
+                act_range=(act_fuzzed, act_fuzzed) if isinstance(act_fuzzed, int) else act_fuzzed,
+                stam_range=(stam_fuzzed, stam_fuzzed) if isinstance(stam_fuzzed, int) else stam_fuzzed
+            )
+        self._cache_is_dirty = False
+
+    def _talent_passes_cached_skill_filters(self, cache_item: TalentFilterCache, filters: dict) -> bool:
+        """Performs fast integer comparisons against the pre-calculated cache."""
+        # Performance
+        user_min_perf, user_max_perf = filters.get('performance_min', 0), filters.get('performance_max', 100)
+        talent_min_perf, talent_max_perf = cache_item.perf_range
+        if not (talent_min_perf <= user_max_perf and talent_max_perf >= user_min_perf):
+            return False
+
+        # Acting
+        user_min_act, user_max_act = filters.get('acting_min', 0), filters.get('acting_max', 100)
+        talent_min_act, talent_max_act = cache_item.act_range
+        if not (talent_min_act <= user_max_act and talent_max_act >= user_min_act):
+            return False
+
+        # Stamina
+        user_min_stam, user_max_stam = filters.get('stamina_min', 0), filters.get('stamina_max', 100)
+        talent_min_stam, talent_max_stam = cache_item.stam_range
+        if not (talent_min_stam <= user_max_stam and talent_max_stam >= user_min_stam):
+            return False
+
+        return True
+
+    @pyqtSlot()
     def on_initial_load(self):
         self.view.refresh_from_state()
 
-    def _talent_passes_skill_filters(self, talent: Union[Talent, TalentDB], skill_filters: dict) -> bool:
-        """
-        Checks if a talent's fuzzed skill ranges overlap with user's filter ranges.
-        Accepts either a Talent dataclass or a TalentDB model to avoid premature conversion.
-        """
-        skill_checks = {
-            'performance': ('performance_min', 'performance_max'),
-            'acting': ('acting_min', 'acting_max'),
-            'stamina': ('stamina_min', 'stamina_max'),
-        }
-
-        for skill_attr, (min_key, max_key) in skill_checks.items():
-            user_min = skill_filters.get(min_key)
-            user_max = skill_filters.get(max_key)
-            
-            if user_min is None or user_max is None: continue
-
-            # This works on both Talent and TalentDB because the attribute names are the same
-            true_skill_val = getattr(talent, skill_attr, 0.0)
-            fuzzed_range: Union[int, Tuple[int, int]] = get_fuzzed_skill_range(true_skill_val, talent.experience, talent.id)
-            
-            if isinstance(fuzzed_range, int):
-                if not (user_min <= fuzzed_range <= user_max): return False
-            else:
-                talent_min, talent_max = fuzzed_range
-                # Check for overlap: talent range must not be completely to the left
-                # OR completely to the right of the user's desired range.
-                if not (talent_min <= user_max and talent_max >= user_min): return False
-                    
-        return True
-
     @pyqtSlot(dict)
     def on_standard_filters_changed(self, all_filters: dict):
-        filters_for_db = all_filters.copy()
-        skill_filter_keys = ['performance_min', 'performance_max', 'acting_min', 'acting_max', 'stamina_min', 'stamina_max']
-        for key in skill_filter_keys:
-            filters_for_db.pop(key, None)
+        # Step 1: Ensure the cache is up-to-date.
+        if self._cache_is_dirty:
+            self._build_filter_cache()
 
-        # This logic remains the same
-        role_filter = all_filters.get('role_filter', {'active': False})
-        if role_filter.get('active') and role_filter.get('filter_by_reqs'):
-            role_details = self.controller.hire_talent_service.get_role_details_for_ui(
-                role_filter['scene_id'], role_filter['vp_id']
-            )
-            filters_for_db['gender'] = role_details.get('gender')
-            if ethnicity := role_details.get('ethnicity', "Any"):
-                if ethnicity != "Any": filters_for_db['ethnicities'] = [ethnicity]
-            self.view.set_standard_filters_enabled(False)
-        else:
-            self.view.set_standard_filters_enabled(True)
+        # Step 2: Apply fast database-side filters.
+        db_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina'))}
+        talents_from_db = self.controller.get_filtered_talents(db_filters)
 
-        # Step 1: Get filtered list of lightweight DB objects
-        talents_from_db = self.controller.get_filtered_talents(filters_for_db)
+        # Step 3: Apply slow Python-side filters using the pre-calculated cache.
+        final_talent_ids = {t_db.id for t_db in talents_from_db}
         
-        # Step 2: Perform the skill-based filtering in Python WITHOUT dataclass conversion
+        # This list comprehension is now extremely fast.
         talents_passing_skills = [
-            t for t in talents_from_db 
-            if self._talent_passes_skill_filters(t, all_filters)
+            cache_item.talent_db
+            for talent_id, cache_item in self._talent_filter_cache.items()
+            if talent_id in final_talent_ids and self._talent_passes_cached_skill_filters(cache_item, all_filters)
         ]
+        
+        self.view.update_talent_list(talents_passing_skills)
 
-        # Step 3: The final list (still of TalentDB objects) is passed for availability checks
-        if role_filter.get('active') and role_filter.get('hide_refusals'):
-            # Assuming filter_talents_by_availability can also work with TalentDB objects
-            final_talents = self.controller.hire_talent_service.filter_talents_by_availability(
-                talents_passing_skills, role_filter['scene_id'], role_filter['vp_id']
-            )
-        else:
-            final_talents = talents_passing_skills
-            
-        # Step 4: Update the view. The TableModel will now perform the conversion
-        # only on the final, much smaller, list of talents.
-        self.view.update_talent_list(final_talents)
-    
     @pyqtSlot(object, QPoint)
     def on_context_menu_requested(self, talent: Talent, pos: QPoint):
         all_categories = self.controller.get_go_to_list_categories()
@@ -132,6 +138,7 @@ class TalentTabPresenter(QObject):
                 settings_manager=self.controller.settings_manager,
                 parent=self.view
             )
+            # The dialog now only emits when 'Apply' is clicked.
             self.filter_dialog.filters_applied.connect(self.view.on_filters_applied)
             self.filter_dialog.finished.connect(self.on_filter_dialog_closed)
             self.filter_dialog.show()
@@ -143,7 +150,10 @@ class TalentTabPresenter(QObject):
         self.filter_dialog = None
     
     @pyqtSlot(object)
-    def on_open_talent_profile(self, talent: Talent):
+    def on_open_talent_profile(self, talent: Union[Talent, TalentDB]):
+        # The UserRole might now return a TalentDB object, handle both cases.
+        if isinstance(talent, TalentDB):
+            talent = talent.to_dataclass(Talent)
         self.ui_manager.show_talent_profile(talent)
 
     @pyqtSlot(str)
