@@ -17,11 +17,11 @@ class GoToListService:
 
     def get_talents_in_category(self, category_id: int) -> List[Talent]:
         """Gets all talents within a specific Go-To List category."""
-        talent_ids_tuples = self.session.query(GoToListAssignmentDB.talent_id).filter_by(category_id=category_id).all()
-        if not talent_ids_tuples: return []
-        
-        talent_ids = [item[0] for item in talent_ids_tuples]
-        talents_db = self.session.query(TalentDB).filter(TalentDB.id.in_(talent_ids)).order_by(TalentDB.alias).all()
+        talents_db = self.session.query(TalentDB)\
+            .join(GoToListAssignmentDB)\
+            .filter(GoToListAssignmentDB.category_id == category_id)\
+            .order_by(TalentDB.alias)\
+            .all()
         return [t.to_dataclass(Talent) for t in talents_db]
     
     def get_talent_categories(self, talent_id: int) -> List[Dict]:

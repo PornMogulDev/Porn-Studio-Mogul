@@ -65,8 +65,12 @@ class PlayerSettingsService:
             fav_info.value = json_val
         
         self._cache[key] = sorted(favs_list)
-        # The service does not commit; the controller manages the session transaction.
-        self.signals.favorites_changed.emit()
+        try:
+            self.session.commit()
+            self.signals.favorites_changed.emit()
+        except Exception as e:
+            logger.error(f"Failed to set favorite tags for '{key}': {e}")
+            self.session.rollback()
 
     def toggle_favorite_tag(self, tag_name: str, tag_type: str):
         """Adds or removes a tag from the favorites list."""
@@ -74,7 +78,7 @@ class PlayerSettingsService:
         if tag_name in current_favs:
             current_favs.remove(tag_name)
         else:
-            current_favs.append(tag_name)
+            current_favs.append(tag_name) 
         self._set_favorite_tags(tag_type, current_favs)
 
     def reset_favorite_tags(self, tag_type: str):

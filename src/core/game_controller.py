@@ -123,12 +123,16 @@ class GameController(QObject):
     def get_go_to_list_talents(self) -> List[Talent]:
         """Gets all unique talents present in any Go-To List category."""
         if not self.db_session: return []
-        # This one is a bit different as it queries assignments but returns talents
-        assigned_talent_ids_query = self.db_session.query(GoToListAssignmentDB.talent_id).distinct()
-        talent_ids_tuples = assigned_talent_ids_query.all()
-        if not talent_ids_tuples: return []
-        talent_ids = [item[0] for item in talent_ids_tuples]
-        talents_db = self.db_session.query(TalentDB).filter(TalentDB.id.in_(talent_ids)).order_by(TalentDB.alias).all()
+        
+        # Create a subquery to find all unique talent IDs in the assignment table.
+        subquery = self.db_session.query(GoToListAssignmentDB.talent_id).distinct().subquery()
+        
+        # Query the TalentDB table, joining on the subquery.
+        # This fetches only the required talents in a single, efficient operation.
+        talents_db = self.db_session.query(TalentDB).join(
+            subquery, TalentDB.id == subquery.c.talent_id
+        ).order_by(TalentDB.alias).all()
+        
         return [t.to_dataclass(Talent) for t in talents_db]
 
     def get_go_to_list_categories(self) -> List[Dict]:
@@ -423,45 +427,42 @@ class GameController(QObject):
         if scenes_affected:
             self.signals.scenes_changed.emit()
 
-    def get_thematic_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
-        if self._cached_thematic_tags_data: return self._cached_thematic_tags_data
+    def _get_tags_for_planner_by_type(self, tag_type: str) -> Tuple[List[Dict], Set[str], Set[str]]:
+        """Helper method to get and process tags of a specific type."""
         tags, categories, orientations = [], set(), set()
         for full_name, tag_data in self.tag_definitions.items():
-            if tag_data.get('type') == 'Thematic':
-                cats_raw = tag_data.get('categories', []); cats = [cats_raw] if isinstance(cats_raw, str) else cats_raw
+            if tag_data.get('type') == tag_type:
+                cats_raw = tag_data.get('categories', [])
+                cats = [cats_raw] if isinstance(cats_raw, str) else cats_raw
                 categories.update(cats)
-                if orientation := tag_data.get('orientation'): orientations.add(orientation)
-                tag_data_with_name = tag_data.copy(); tag_data_with_name['full_name'] = full_name
+                
+                if orientation := tag_data.get('orientation'):
+                    orientations.add(orientation)
+                
+                tag_data_with_name = tag_data.copy()
+                tag_data_with_name['full_name'] = full_name
+
+                # Special handling for Action tags
+                if tag_type == 'Action':
+                    count = sum(slot.get('count', slot.get('min_count', 0)) for slot in tag_data.get('slots', []))
+                    tag_data_with_name['participant_count'] = count
+
                 tags.append(tag_data_with_name)
-        self._cached_thematic_tags_data = (tags, categories, orientations)
+        return (tags, categories, orientations)
+
+    def get_thematic_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
+        if not self._cached_thematic_tags_data:
+            self._cached_thematic_tags_data = self._get_tags_for_planner_by_type('Thematic')
         return self._cached_thematic_tags_data
 
     def get_physical_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
-        if self._cached_physical_tags_data: return self._cached_physical_tags_data
-        tags, categories, orientations = [], set(), set()
-        for full_name, tag_data in self.tag_definitions.items():
-            if tag_data.get('type') == 'Physical':
-                cats_raw = tag_data.get('categories', []); cats = [cats_raw] if isinstance(cats_raw, str) else cats_raw
-                categories.update(cats)
-                if orientation := tag_data.get('orientation'): orientations.add(orientation)
-                tag_data_with_name = tag_data.copy(); tag_data_with_name['full_name'] = full_name
-                tags.append(tag_data_with_name)
-        self._cached_physical_tags_data = (tags, categories, orientations)
+        if not self._cached_physical_tags_data:
+            self._cached_physical_tags_data = self._get_tags_for_planner_by_type('Physical')
         return self._cached_physical_tags_data
 
     def get_action_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
-        if self._cached_action_tags_data: return self._cached_action_tags_data
-        action_tags, action_tag_categories, action_tag_orientations = [], set(), set()
-        for full_name, tag_data in self.tag_definitions.items():
-            if tag_data.get('type') == 'Action':
-                cats_raw = tag_data.get('categories', []); cats = [cats_raw] if isinstance(cats_raw, str) else cats_raw
-                action_tag_categories.update(cats)
-                if orientation := tag_data.get('orientation'): action_tag_orientations.add(orientation)
-                tag_data_with_name = tag_data.copy(); tag_data_with_name['full_name'] = full_name
-                count = sum(slot.get('count', slot.get('min_count', 0)) for slot in tag_data.get('slots', []))
-                tag_data_with_name['participant_count'] = count
-                action_tags.append(tag_data_with_name)
-        self._cached_action_tags_data = (action_tags, action_tag_categories, action_tag_orientations)
+        if not self._cached_action_tags_data:
+            self._cached_action_tags_data = self._get_tags_for_planner_by_type('Action')
         return self._cached_action_tags_data
 
     def get_resolved_group_data(self, group_name: str) -> Dict: return self.market_service.get_resolved_group_data(group_name)
@@ -712,11 +713,7 @@ class GameController(QObject):
     def toggle_favorite_tag(self, tag_name: str, tag_type: str):
         if not self.player_settings_service: return
         self.player_settings_service.toggle_favorite_tag(tag_name, tag_type)
-        # The service does not commit, so we do it here.
-        self.db_session.commit()
 
     def reset_favorite_tags(self, tag_type: str):
         if not self.player_settings_service: return
         self.player_settings_service.reset_favorite_tags(tag_type)
-        # The service does not commit, so we do it here.
-        self.db_session.commit()
