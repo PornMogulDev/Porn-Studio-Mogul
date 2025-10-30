@@ -40,8 +40,8 @@ class TalentTabPresenter(QObject):
         self.view.initial_load_requested.connect(self.on_initial_load)
         self.view.standard_filters_changed.connect(self.on_standard_filters_changed)
         self.view.context_menu_requested.connect(self.on_context_menu_requested)
-        self.view.add_talent_to_category_requested.connect(self.controller.add_talent_to_go_to_category)
-        self.view.remove_talent_from_category_requested.connect(self.controller.remove_talent_from_go_to_category)
+        self.view.add_talent_to_category_requested.connect(self.controller.add_talents_to_go_to_category)
+        self.view.remove_talent_from_category_requested.connect(self.controller.remove_talents_from_go_to_category)
         self.view.open_advanced_filters_requested.connect(self.on_open_advanced_filters)
         self.view.open_talent_profile_requested.connect(self.on_open_talent_profile)
         self.view.help_requested.connect(self.on_help_requested)
@@ -121,11 +121,11 @@ class TalentTabPresenter(QObject):
         
         self.view.update_talent_list(talents_passing_skills)
 
-    @pyqtSlot(object, QPoint)
-    def on_context_menu_requested(self, talent: Talent, pos: QPoint):
+    @pyqtSlot(list, QPoint)
+    def on_context_menu_requested(self, talents: List[Talent], pos: QPoint):
         all_categories = self.controller.get_go_to_list_categories()
-        talent_categories = self.controller.get_talent_go_to_categories(talent.id)
-        self.view.display_talent_context_menu(talent, all_categories, talent_categories, pos)
+        # For multi-select, we don't need to get specific talent categories, just all possible ones.
+        self.view.display_talent_context_menu(talents, all_categories, pos)
 
     @pyqtSlot(dict)
     def on_open_advanced_filters(self, current_filters: dict):

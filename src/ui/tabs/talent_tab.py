@@ -16,9 +16,9 @@ class HireWindow(QWidget):
     show_role_info_requested = pyqtSignal(int, int) # scene_id, vp_id
     clear_role_info_requested = pyqtSignal()
     scene_filter_selected = pyqtSignal(int)
-    context_menu_requested = pyqtSignal(object, QPoint)
-    add_talent_to_category_requested = pyqtSignal(int, int)
-    remove_talent_from_category_requested = pyqtSignal(int, int)
+    context_menu_requested = pyqtSignal(list, QPoint)
+    add_talent_to_category_requested = pyqtSignal(list, int)
+    remove_talent_from_category_requested = pyqtSignal(list, int)
     open_advanced_filters_requested = pyqtSignal(dict)
     open_talent_profile_requested = pyqtSignal(object)
     initial_load_requested = pyqtSignal()
@@ -61,6 +61,7 @@ class HireWindow(QWidget):
         
         self.talent_table_view = QTableView()
         self.talent_table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+        self.talent_table_view.setSelectionMode(QTableView.SelectionMode.ExtendedSelection)
         self.talent_table_view.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
         self.talent_table_view.verticalHeader().setVisible(False)
         self.talent_table_view.horizontalHeader().setStretchLastSection(True)
@@ -104,33 +105,48 @@ class HireWindow(QWidget):
 
     def show_talent_list_context_menu(self, pos):
         index = self.talent_table_view.indexAt(pos)
-        if not index.isValid(): return
-        if talent := self.talent_model.data(index, Qt.ItemDataRole.UserRole):
-            global_pos = self.talent_table_view.viewport().mapToGlobal(pos)
-            self.context_menu_requested.emit(talent, global_pos)
+        if not index.isValid():
+            return
 
-    def display_talent_context_menu(self, talent: Talent, all_categories: list, talent_categories: list, pos: QPoint):
+        # If the right-clicked item is not already selected, clear selection and select it.
+        # This makes single right-clicks behave intuitively.
+        if not self.talent_table_view.selectionModel().isSelected(index):
+            self.talent_table_view.clearSelection()
+            self.talent_table_view.selectRow(index.row())
+
+        # Now, gather all selected talents
+        selected_indexes = self.talent_table_view.selectionModel().selectedRows()
+        selected_talents = [self.talent_model.data(idx, Qt.ItemDataRole.UserRole) for idx in selected_indexes]
+        
+        if selected_talents:
+            global_pos = self.talent_table_view.viewport().mapToGlobal(pos)
+            self.context_menu_requested.emit(selected_talents, global_pos)
+
+    def display_talent_context_menu(self, talents: List[Talent], all_categories: list, pos: QPoint):
         menu = QMenu(self)
+        talent_ids = [t.id for t in talents]
 
         add_menu = menu.addMenu("Add to Go-To Category...")
         if all_categories:
             for category in sorted(all_categories, key=lambda c: c['name']):
                 action = QAction(category['name'], self)
                 action.triggered.connect(
-                    lambda checked=False, t_id=talent.id, c_id=category['id']: 
-                    self.add_talent_to_category_requested.emit(t_id, c_id)
+                    lambda checked=False, t_ids=talent_ids, c_id=category['id']: 
+                    self.add_talent_to_category_requested.emit(t_ids, c_id)
                 )
                 add_menu.addAction(action)
         else:
             add_menu.setEnabled(False)
 
         remove_menu = menu.addMenu("Remove from Go-To Category...")
-        if talent_categories:
-            for category in sorted(talent_categories, key=lambda c: c['name']):
+        # For multi-select, it's simpler to show all categories for removal.
+        # The service layer is smart enough to only remove existing assignments.
+        if all_categories:
+            for category in sorted(all_categories, key=lambda c: c['name']):
                 action = QAction(category['name'], self)
                 action.triggered.connect(
-                    lambda checked=False, t_id=talent.id, c_id=category['id']: 
-                    self.remove_talent_from_category_requested.emit(t_id, c_id)
+                    lambda checked=False, t_ids=talent_ids, c_id=category['id']:  
+                    self.remove_talent_from_category_requested.emit(t_ids, c_id)
                 )
                 remove_menu.addAction(action)
         else:
