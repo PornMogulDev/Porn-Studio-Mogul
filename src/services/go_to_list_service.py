@@ -1,9 +1,12 @@
+import logging
 from sqlalchemy import func
 from typing import List, Dict
 
 from data.game_state import Talent
 from database.db_models import GoToListCategoryDB, GoToListAssignmentDB, TalentDB
 from core.interfaces import GameSignals
+
+logger = logging.getLogger(__name__)
 
 class GoToListService:
     def __init__(self, db_session, signals: GameSignals):
@@ -45,10 +48,17 @@ class GoToListService:
             self.signals.notification_posted.emit(f"A category named '{clean_name}' already exists.")
             return False
             
-        new_category = GoToListCategoryDB(name=clean_name)
-        self.session.add(new_category)
-        self.signals.notification_posted.emit(f"Category '{clean_name}' created.")
-        return True
+        try:
+            new_category = GoToListCategoryDB(name=clean_name)
+            self.session.add(new_category)
+            self.session.commit()
+            self.signals.notification_posted.emit(f"Category '{clean_name}' created.")
+            self.signals.go_to_categories_changed.emit()
+            return True
+        except Exception as e:
+            logger.error(f"Error creating category '{clean_name}': {e}")
+            self.session.rollback()
+            return False
 
     def rename_category(self, category_id: int, new_name: str) -> bool:
         """Renames an existing Go-To List category. Returns True on success."""
@@ -70,10 +80,17 @@ class GoToListService:
             self.signals.notification_posted.emit(f"A category named '{clean_name}' already exists.")
             return False
             
-        original_name = category.name
-        category.name = clean_name
-        self.signals.notification_posted.emit(f"Category '{original_name}' renamed to '{clean_name}'.")
-        return True
+        try:
+            original_name = category.name
+            category.name = clean_name
+            self.session.commit()
+            self.signals.notification_posted.emit(f"Category '{original_name}' renamed to '{clean_name}'.")
+            self.signals.go_to_categories_changed.emit()
+            return True
+        except Exception as e:
+            logger.error(f"Error renaming category ID {category_id}: {e}")
+            self.session.rollback()
+            return False
 
     def delete_category(self, category_id: int) -> bool:
         """Deletes a Go-To List category and all its assignments. Returns True on success."""
@@ -85,32 +102,19 @@ class GoToListService:
             self.signals.notification_posted.emit(f"Category '{category.name}' cannot be deleted.")
             return False
             
-        category_name = category.name
-        self.session.delete(category)
-        self.signals.notification_posted.emit(f"Category '{category_name}' deleted.")
-        return True
-
-    def add_talent_to_category(self, talent_id: int, category_id: int) -> bool:
-        """Assigns a talent to a specific Go-To List category. Returns True on success."""
-        exists = self.session.query(GoToListAssignmentDB).filter_by(
-            talent_id=talent_id, category_id=category_id
-        ).first()
-        
-        if not exists:
-            new_assignment = GoToListAssignmentDB(talent_id=talent_id, category_id=category_id)
-            self.session.add(new_assignment)
-            
-            talent_db = self.session.query(TalentDB).get(talent_id)
-            category_db = self.session.query(GoToListCategoryDB).get(category_id)
-            
-            if talent_db and category_db:
-                self.signals.notification_posted.emit(f"Added {talent_db.alias} to category '{category_db.name}'.")
+        try:
+            category_name = category.name
+            self.session.delete(category)
+            self.session.commit()
+            self.signals.notification_posted.emit(f"Category '{category_name}' deleted.")
+            self.signals.go_to_categories_changed.emit()
+            self.signals.go_to_list_changed.emit() # Deleting a category affects assignments
             return True
-        else:
-            self.signals.notification_posted.emit("Talent is already in that category.")
+        except Exception as e:
+            logger.error(f"Error deleting category ID {category_id}: {e}")
+            self.session.rollback()
             return False
 
-    # --- NEW METHOD ---
     def add_talents_to_category(self, talent_ids: List[int], category_id: int) -> int:
         """Assigns a list of talents to a specific category. Returns the number of new assignments."""
         if not talent_ids:
@@ -130,43 +134,42 @@ class GoToListService:
             self.signals.notification_posted.emit("All selected talents are already in that category.")
             return 0
             
-        for talent_id in talent_ids_to_add:
-            new_assignment = GoToListAssignmentDB(talent_id=talent_id, category_id=category_id)
-            self.session.add(new_assignment)
-        
-        category_db = self.session.query(GoToListCategoryDB).get(category_id)
-        if category_db:
-            self.signals.notification_posted.emit(f"Added {len(talent_ids_to_add)} talent(s) to category '{category_db.name}'.")
-        
-        return len(talent_ids_to_add)
+        try:
+            for talent_id in talent_ids_to_add:
+                new_assignment = GoToListAssignmentDB(talent_id=talent_id, category_id=category_id)
+                self.session.add(new_assignment)
+            self.session.commit()
 
-    def remove_talent_from_category(self, talent_id: int, category_id: int) -> bool:
-        """Removes a talent from a specific Go-To List category. Returns True on success."""
-        assignment = self.session.query(GoToListAssignmentDB).filter_by(
-            talent_id=talent_id, category_id=category_id
-        ).first()
-        
-        if assignment:
-            self.session.delete(assignment)
-            talent_db = self.session.query(TalentDB).get(talent_id)
             category_db = self.session.query(GoToListCategoryDB).get(category_id)
-            if talent_db and category_db:
-                self.signals.notification_posted.emit(f"Removed {talent_db.alias} from category '{category_db.name}'.")
-            return True
-        return False
+            if category_db:
+                self.signals.notification_posted.emit(f"Added {len(talent_ids_to_add)} talent(s) to category '{category_db.name}'.")
+            self.signals.go_to_list_changed.emit()
+            return len(talent_ids_to_add)
+        except Exception as e:
+            logger.error(f"Error adding talents to category {category_id}: {e}")
+            self.session.rollback()
+            return 0
 
     def remove_talents_from_category(self, talent_ids: List[int], category_id: int) -> int:
         """Removes a list of talents from a specific category. Returns the number of talents removed."""
         if not talent_ids:
             return 0
 
-        num_deleted = self.session.query(GoToListAssignmentDB).filter(
-            GoToListAssignmentDB.category_id == category_id,
-            GoToListAssignmentDB.talent_id.in_(talent_ids)
-        ).delete(synchronize_session=False)
+        try:
+            num_deleted = self.session.query(GoToListAssignmentDB).filter(
+                GoToListAssignmentDB.category_id == category_id,
+                GoToListAssignmentDB.talent_id.in_(talent_ids)
+            ).delete(synchronize_session=False)
 
-        if num_deleted > 0:
-            category_db = self.session.query(GoToListCategoryDB).get(category_id)
-            if category_db:
-                self.signals.notification_posted.emit(f"Removed {num_deleted} talent(s) from category '{category_db.name}'.")
-        return num_deleted
+            if num_deleted > 0:
+                self.session.commit()
+                category_db = self.session.query(GoToListCategoryDB).get(category_id)
+                if category_db:
+                    self.signals.notification_posted.emit(f"Removed {num_deleted} talent(s) from category '{category_db.name}'.")
+                self.signals.go_to_list_changed.emit()
+            
+            return num_deleted
+        except Exception as e:
+            logger.error(f"Error removing talents from category {category_id}: {e}")
+            self.session.rollback()
+            return 0

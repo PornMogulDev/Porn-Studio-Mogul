@@ -124,15 +124,10 @@ class GameController(QObject):
         """Gets all unique talents present in any Go-To List category."""
         if not self.db_session: return []
         
-        # Create a subquery to find all unique talent IDs in the assignment table.
-        subquery = self.db_session.query(GoToListAssignmentDB.talent_id).distinct().subquery()
-        
-        # Query the TalentDB table, joining on the subquery.
-        # This fetches only the required talents in a single, efficient operation.
-        talents_db = self.db_session.query(TalentDB).join(
-            subquery, TalentDB.id == subquery.c.talent_id
-        ).order_by(TalentDB.alias).all()
-        
+        talents_db = self.db_session.query(TalentDB)\
+            .join(GoToListAssignmentDB)\
+            .distinct()\
+            .order_by(TalentDB.alias).all()
         return [t.to_dataclass(Talent) for t in talents_db]
 
     def get_go_to_list_categories(self) -> List[Dict]:
@@ -623,87 +618,53 @@ class GameController(QObject):
         
         general_category = self.db_session.query(GoToListCategoryDB).filter_by(name="General").one_or_none()
         if not general_category:
-            self.signals.notification_posted.emit("Error: 'General' Go-To category not found.")
+            logger.error("Error: 'General' Go-To category not found.")
             return
 
-        if self.go_to_list_service.add_talent_to_category(talent_id, general_category.id):
-            self.db_session.commit()
-            self.signals.go_to_list_changed.emit()
-        else:
-            self.db_session.rollback()
+        self.go_to_list_service.add_talents_to_category([talent_id], general_category.id)
 
     def remove_talents_from_go_to_list(self, talent_ids: list[int]):
         """Removes talents from ALL Go-To List categories."""
-        if not self.db_session or not talent_ids: return
-        num_deleted = self.db_session.query(GoToListAssignmentDB).filter(
-            GoToListAssignmentDB.talent_id.in_(talent_ids)
-        ).delete(synchronize_session=False)
-        
-        if num_deleted > 0:
-            self.db_session.commit()
-            self.signals.notification_posted.emit(f"Removed selected talent(s) from all Go-To categories.")
-            self.signals.go_to_list_changed.emit()
+        try:
+            if not self.db_session or not talent_ids: return
+            num_deleted = self.db_session.query(GoToListAssignmentDB).filter(
+                GoToListAssignmentDB.talent_id.in_(talent_ids)
+            ).delete(synchronize_session=False)
+            
+            if num_deleted > 0:
+                self.db_session.commit()
+                self.signals.notification_posted.emit(f"Removed selected talent(s) from all Go-To categories.")
+                self.signals.go_to_list_changed.emit()
+        except Exception:
+            self.db_session.rollback()
 
     def create_go_to_list_category(self, name: str):
         if not self.go_to_list_service: return
-        if self.go_to_list_service.create_category(name):
-            self.db_session.commit()
-            self.signals.go_to_categories_changed.emit()
-        else:
-            self.db_session.rollback()
+        self.go_to_list_service.create_category(name)
 
     def rename_go_to_list_category(self, category_id: int, new_name: str):
         if not self.go_to_list_service: return
-        if self.go_to_list_service.rename_category(category_id, new_name):
-            self.db_session.commit()
-            self.signals.go_to_categories_changed.emit()
-        else:
-            self.db_session.rollback()
+        self.go_to_list_service.rename_category(category_id, new_name)
 
     def delete_go_to_list_category(self, category_id: int):
         if not self.go_to_list_service: return
-        if self.go_to_list_service.delete_category(category_id):
-            self.db_session.commit()
-            self.signals.go_to_categories_changed.emit()
-            self.signals.go_to_list_changed.emit() # Deleting a category affects assignments
-        else:
-            self.db_session.rollback()
+        self.go_to_list_service.delete_category(category_id)
 
     def add_talent_to_go_to_category(self, talent_id: int, category_id: int):
         if not self.go_to_list_service: return
-        if self.go_to_list_service.add_talent_to_category(talent_id, category_id):
-            self.db_session.commit()
-            self.signals.go_to_list_changed.emit()
-        else:
-            self.db_session.rollback()
+        self.go_to_list_service.add_talents_to_category([talent_id], category_id)
 
     def add_talents_to_go_to_category(self, talent_ids: list[int], category_id: int):
         if not self.go_to_list_service: return
-        num_added = self.go_to_list_service.add_talents_to_category(talent_ids, category_id)
-        if num_added > 0:
-            self.db_session.commit()
-            self.signals.go_to_list_changed.emit()
-        else:
-            # Rollback even if 0 were added in case of other session changes
-            self.db_session.rollback()
+        self.go_to_list_service.add_talents_to_category(talent_ids, category_id)
 
     def remove_talent_from_go_to_category(self, talent_id: int, category_id: int):
         if not self.go_to_list_service: return
-        if self.go_to_list_service.remove_talent_from_category(talent_id, category_id):
-            self.db_session.commit()
-            self.signals.go_to_list_changed.emit()
-        else:
-            self.db_session.rollback()
+        self.go_to_list_service.remove_talents_from_category([talent_id], category_id)
 
     def remove_talents_from_go_to_category(self, talent_ids: list[int], category_id: int):
         if not self.go_to_list_service: return
-        num_deleted = self.go_to_list_service.remove_talents_from_category(talent_ids, category_id)
-        if num_deleted > 0:
-            self.db_session.commit()
-            self.signals.go_to_list_changed.emit()
-        else:
-            # Rollback even if 0 were deleted in case of other session changes
-            self.db_session.rollback()
+        self.go_to_list_service.remove_talents_from_category(talent_ids, category_id)
 
     # --- Tag Favorites System (Delegated to PlayerSettingsService) ---
     def get_favorite_tags(self, tag_type: str) -> List[str]:
