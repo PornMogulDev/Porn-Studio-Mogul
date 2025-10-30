@@ -22,6 +22,7 @@ from services.time_service import TimeService
 from services.go_to_list_service import GoToListService
 from services.game_session_service import GameSessionService
 from services.player_settings_service import PlayerSettingsService
+from services.email_service import EmailService
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,8 @@ class GameController(QObject):
         self.time_service = None
         self.go_to_list_service = None
         self.scene_event_service = None
-        self.player_settings_service = None # Add the new service
+        self.player_settings_service = None
+        self.email_service = None
         
         self._cached_thematic_tags_data = None
         self._cached_physical_tags_data = None
@@ -143,9 +145,8 @@ class GameController(QObject):
         return self.go_to_list_service.get_talent_categories(talent_id)
 
     def get_all_emails(self) -> List[EmailMessage]:
-        if not self.db_session: return []
-        emails_db = self.db_session.query(EmailMessageDB).order_by(EmailMessageDB.year.desc(), EmailMessageDB.week.desc(), EmailMessageDB.id.desc()).all()
-        return [e.to_dataclass(EmailMessage) for e in emails_db]
+        if not self.email_service: return []
+        return self.email_service.get_all_emails()
 
     # --- Game Logic ---
     def advance_week(self):
@@ -246,7 +247,7 @@ class GameController(QObject):
 
             body += "This information has been added to our market intelligence reports."
         
-            self.create_email(subject, body)
+            self.email_service.create_email(subject, body)
             email_created = True
 
         self.db_session.commit()
@@ -504,7 +505,8 @@ class GameController(QObject):
         self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, self.role_performance_service, self.scene_event_service)
         self.time_service = TimeService(self.db_session, self.game_state, self.signals, self.scene_service, self.talent_service, self.market_service, self.data_manager)
         self.go_to_list_service = GoToListService(self.db_session, self.signals)
-        self.player_settings_service = PlayerSettingsService(self.db_session, self.signals) # Instantiate the new service
+        self.player_settings_service = PlayerSettingsService(self.db_session, self.signals) 
+        self.email_service = EmailService(self.db_session, self.signals, self.game_state)
 
     # --- Game Session Management (Delegated to GameSessionService) ---
 
@@ -589,27 +591,20 @@ class GameController(QObject):
     # --- Other Methods ---
 
     def create_email(self, subject: str, body: str):
-        new_email = EmailMessageDB(subject=subject, body=body, week=self.game_state.week, year=self.game_state.year, is_read=False)
-        self.db_session.add(new_email)
-        self.db_session.commit()
-        self.signals.emails_changed.emit()
+        if not self.email_service: return
+        self.email_service.create_email(subject, body)
 
     def get_unread_email_count(self) -> int:
-        if not self.db_session: return 0
-        return self.db_session.query(EmailMessageDB).filter_by(is_read=False).count()
+        if not self.email_service: return 0
+        return self.email_service.get_unread_email_count()
 
     def mark_email_as_read(self, email_id: int):
-        email_db = self.db_session.query(EmailMessageDB).get(email_id)
-        if email_db and not email_db.is_read:
-            email_db.is_read = True
-            self.db_session.commit()
-            self.signals.emails_changed.emit()
+        if not self.email_service: return
+        self.email_service.mark_email_as_read(email_id)
 
     def delete_emails(self, email_ids: list[int]):
-        if not self.db_session or not email_ids: return
-        self.db_session.query(EmailMessageDB).filter(EmailMessageDB.id.in_(email_ids)).delete(synchronize_session=False)
-        self.db_session.commit()
-        self.signals.emails_changed.emit()
+        if not self.email_service: return
+        self.email_service.delete_emails(email_ids)
 
     # --- Go-To List Actions (Proxy Methods) ---
     def add_talent_to_go_to_list(self, talent_id: int):
