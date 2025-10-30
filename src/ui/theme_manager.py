@@ -32,6 +32,10 @@ class Theme:
     groupbox_border: str = "#D0D0D0"
     header_background: str = "#E1E1E1"
 
+    # Notification styling
+    notification_background: str = "rgba(51, 51, 51, 220)"
+    notification_text: str = "#FFFFFF"
+
 # --- Default Themes ---
 
 DEFAULT_LIGHT = Theme(name="light") # This will use the new defaults we added above
@@ -60,6 +64,10 @@ DEFAULT_DARK = Theme(
     # Specific component overrides
     groupbox_border="#4A4A4A",
     header_background="#383838",
+
+    # Notification styling for dark theme
+    notification_background="rgba(80, 80, 80, 230)",
+    notification_text="#F0F0F0",
 )
 
 class ThemeManager:

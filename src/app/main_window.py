@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 from ui.tabs.talent_tab import HireWindow
 from ui.tabs.scenes_tab import ScenesTab
 from ui.tabs.schedule_tab import ScheduleTab
-from core.notifications import NotificationManager
+from core.notifications_manager import NotificationManager
 from ui.tabs.market_tab import MarketTab
 from ui.presenters.talent_tab_presenter import TalentTabPresenter
 from ui.widgets.detachable_tab_widget import DetachableTabWidget
@@ -25,7 +25,7 @@ class MainGameWindow(QWidget):
         self.ui_manager = UIManager(controller, self)
         self.hire_presenter = None
         self.setup_ui()
-        self.notification_manager = NotificationManager(self)
+        self.notification_manager = NotificationManager(self, controller)
         self._create_actions()
 
         # --- Signal Connections ---
