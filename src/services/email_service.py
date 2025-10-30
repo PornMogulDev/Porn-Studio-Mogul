@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Dict
 
 from core.interfaces import GameSignals
 from data.game_state import GameState, EmailMessage
@@ -28,7 +28,7 @@ class EmailService:
         """Returns the count of unread emails."""
         return self.session.query(EmailMessageDB).filter_by(is_read=False).count()
 
-    def create_email(self, subject: str, body: str) -> bool:
+    def create_email(self, subject: str, body: str, commit: bool = True) -> bool:
         """Creates and saves a new email for the current game week."""
         try:
             new_email = EmailMessageDB(
@@ -39,8 +39,9 @@ class EmailService:
                 is_read=False
             )
             self.session.add(new_email)
-            self.session.commit()
-            self.signals.emails_changed.emit()
+            if commit:
+                self.session.commit()
+                self.signals.emails_changed.emit()
             return True
         except Exception as e:
             logger.error(f"Failed to create email: {e}")
@@ -72,3 +73,21 @@ class EmailService:
         except Exception as e:
             logger.error(f"Failed to delete emails: {e}")
             self.session.rollback()
+
+    def create_market_discovery_email(self, scene_title: str, discoveries: Dict[str, List[str]], commit: bool = True):
+        """Creates a formatted email summarizing market discoveries from a scene release."""
+        if not discoveries:
+            return
+
+        subject = f"Market Research Results: '{scene_title}'"
+        body = "Our analysis of the release of your recent scene has yielded new market insights.\n\n"
+        for group_name, tags in discoveries.items():
+            body += f"<b>{group_name}:</b>\n"
+            # Using a more robust formatting for list items
+            tag_list = "".join([f"<li>Discovered preference for '<b>{tag}</b>'</li>" for tag in sorted(tags)])
+            body += f"<ul>{tag_list}</ul>"
+        
+        body += "\nThis information has been added to our market intelligence reports."
+        
+        # Call create_email but control the commit based on the context
+        self.create_email(subject, body, commit=commit)

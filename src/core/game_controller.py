@@ -205,66 +205,24 @@ class GameController(QObject):
         committing the transaction and emitting signals after the service runs.
         """
         success, cost = self.scene_service.start_editing_scene(scene_id, editing_tier_id)
-        if success:
-            # We need the fresh data from the session for the signals
-            money_info = self.db_session.query(GameInfoDB).filter_by(key='money').one()
-            scene_db = self.db_session.query(SceneDB).get(scene_id)
-
-            # Commit the transaction to make changes permanent
-            self.db_session.commit()
-
-            # Now emit signals to notify the UI of the committed changes
-            self.signals.money_changed.emit(int(money_info.value))
-            self.signals.notification_posted.emit(f"Editing started for '{scene_db.title}'. Cost: ${cost:,}")
-            self.signals.scenes_changed.emit()
-        else:
-            self.db_session.rollback()
 
     def release_scene(self, scene_id: int):
         # Capture the returned dictionary of discoveries
         result = self.scene_service.release_scene(scene_id)
         if not result:
-            self.db_session.rollback()
             return
 
-        discoveries = result.get('discoveries', {})
-        revenue = result.get('revenue')
-        title = result.get('title')
-        new_money = result.get('new_money')
-        market_changed = result.get('market_changed')
-
-        email_created = False
-        if discoveries:
-            # We have new insights, let's create an email
-            subject = f"Market Research Results: '{title}'"
-
-            body = "Our analysis of the release of your recent scene has yielded new market insights.\n\n"
-            for group_name, tags in discoveries.items():
-                body += f"<b>{group_name}:</b>\n"
-                for tag in tags:
-                    body += f"  - Discovered preference for '{tag}'\n"
-                body += "\n"         
-
-            body += "This information has been added to our market intelligence reports."
-        
-            self.email_service.create_email(subject, body)
-            email_created = True
-
-        self.db_session.commit()
-
-        # Emit all signals now that the transaction is complete
-        self.signals.notification_posted.emit(f"'{title}' released! Revenue: +${revenue:,}")
+        self.signals.notification_posted.emit(f"'{result['title']}' released! Revenue: +${result['revenue']:,}")
         self.signals.scenes_changed.emit()
-        self.signals.money_changed.emit(new_money)
+        self.signals.money_changed.emit(result['new_money'])
 
-        if market_changed:
-            for group_name in discoveries:
+        if result['market_changed']:
+            # The emails_changed signal is now emitted by the EmailService itself,
+            # so we don't need to call it here.
+            for group_name in result['discoveries']:
                 self.signals.notification_posted.emit(f"New market insights gained for '{group_name}'!")
             self.signals.market_changed.emit()
-
-        if email_created:
-            self.signals.emails_changed.emit()
-
+            
     def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str]) -> bool:
         """
         Calculates the cost authoritatively and creates a shooting bloc.
@@ -318,110 +276,37 @@ class GameController(QObject):
             self.signals.notification_posted.emit(f"Not enough money. Cost: ${final_cost:,}, Have: ${self.game_state.money:,}")
             return False
         
-        # Deduct money and create the bloc
-        money_info = self.db_session.query(GameInfoDB).filter_by(key='money').one()
-        self.game_state.money = int(float(money_info.value)) - final_cost
-        money_info.value = str(self.game_state.money)
-
         final_name = name.strip() if name.strip() else f"{year} W{week} Shoot"
         
-        # Call the service with the correctly calculated cost and argument order
-        bloc_id = self.scene_service.create_shooting_bloc(week, year, num_scenes, settings, final_cost, final_name, policies)
-
-        if bloc_id:
-            self.db_session.commit()
-            self.signals.notification_posted.emit(f"Shooting bloc '{final_name}' planned. Cost: ${final_cost:,}")
-            self.signals.money_changed.emit(self.game_state.money)
-            self.signals.scenes_changed.emit()
-            return True
-        else:
-            self.db_session.rollback()
-            # Restore money state if it failed
-            current_money = int(float(money_info.value)) + final_cost
-            self.game_state.money = current_money
-            money_info.value = str(current_money)
-            self.signals.notification_posted.emit("Error: Failed to plan shooting bloc.")
-            return False
-
+        return self.scene_service.create_shooting_bloc(week, year, num_scenes, settings, final_cost, final_name, policies)
+    
     def create_blank_scene(self, week: Optional[int] = None, year: Optional[int] = None) -> int:
         use_week = week if week is not None else self.game_state.week
         use_year = year if year is not None else self.game_state.year
-        new_id = self.scene_service.create_blank_scene(use_week, use_year)
-        self.db_session.commit()
-        return new_id
-
-    def delete_scene(self, scene_id: int, silent: bool = False, penalty_percentage: float = 0.0, commit_session: bool = True): 
-        deleted_title = self.scene_service.delete_scene(scene_id, penalty_percentage)
-        if deleted_title:
-            if commit_session:
-                self.db_session.commit()
-            if not silent:
-                self.signals.notification_posted.emit(f"Scene '{deleted_title}' has been deleted.")
-            self.signals.scenes_changed.emit()
-        return deleted_title
+        return self.scene_service.create_blank_scene(use_week, use_year)
+    
+    def delete_scene(self, scene_id: int, silent: bool = False, penalty_percentage: float = 0.0): 
+        self.scene_service.delete_scene(scene_id, penalty_percentage, silent)
 
     def update_scene_full(self, scene_data: Scene) -> Dict:
         """Receives a full Scene dataclass from the presenter and updates the database."""
-        id_map = self.scene_service.update_scene_full(scene_data)
-        self.db_session.commit()
-        return id_map
+        return self.scene_service.update_scene_full(scene_data)
 
     def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int) -> int:
         return self.hire_talent_service.calculate_talent_demand(talent_id, scene_id, vp_id)
 
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int):
-        result = self.scene_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
-        
-        if result:
-            self.db_session.commit()
-            self.signals.notification_posted.emit(result['main_message'])
-            if result['locked_message']: self.signals.notification_posted.emit(result['locked_message'])
-            if result['complete_message']: self.signals.notification_posted.emit(result['complete_message'])
-            self.signals.scenes_changed.emit()
-        else: # Revert if something went wrong
-            self.db_session.rollback()
+        self.scene_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
 
     def cast_talent_for_multiple_roles(self, talent_id: int, roles: List[Dict]):
         """Casts a single talent into multiple roles across different scenes."""
-        talent = self.talent_service.get_talent_by_id(talent_id)
-        if not talent:
-            self.signals.notification_posted.emit("Error: Talent not found.")
-            return
-
-        all_messages = []
-        scenes_affected = set()
 
         # Server-side validation as a safeguard against client-side errors or other entry points
         scene_ids = [role['scene_id'] for role in roles]
         if len(scene_ids) != len(set(scene_ids)):
-            self.db_session.rollback()
             self.signals.notification_posted.emit("Casting failed: Cannot assign a talent to multiple roles in the same scene.")
             return
-
-        for role in roles:
-            scene_id = role['scene_id']
-            virtual_performer_id = role['virtual_performer_id']
-            cost = role['cost']
-            
-            result = self.scene_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
-            
-            if result:
-                all_messages.append(result['main_message'])
-                if result['locked_message']: all_messages.append(result['locked_message'])
-                if result['complete_message']: all_messages.append(result['complete_message'])
-                scenes_affected.add(scene_id)
-            else:
-                self.db_session.rollback()
-                self.signals.notification_posted.emit(f"An error occurred while casting {talent.alias}. Operation cancelled.")
-                return
-
-        self.db_session.commit()
-        
-        for msg in all_messages:
-            self.signals.notification_posted.emit(msg)
-        
-        if scenes_affected:
-            self.signals.scenes_changed.emit()
+        self.scene_service.cast_talent_for_multiple_roles(talent_id, roles)
 
     def _get_tags_for_planner_by_type(self, tag_type: str) -> Tuple[List[Dict], Set[str], Set[str]]:
         """Helper method to get and process tags of a specific type."""
@@ -484,7 +369,7 @@ class GameController(QObject):
             # The notification about cost was already sent by the event service.
             # We call delete_scene silently to avoid duplicate messages.
             # We also tell it not to commit, as we'll do that at the end of this method.
-            self.delete_scene(scene_id, silent=True, commit_session=False)
+            self.delete_scene(scene_id, silent=True)
         else:
             # If the scene was NOT cancelled, continue the shoot.
             self.scene_service._continue_shoot_scene(scene_id, outcome.get("modifiers", {}))
