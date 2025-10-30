@@ -1,6 +1,7 @@
 import numpy as np
 import random
-from typing import Dict, Optional, List, Set, Union
+from dataclasses import dataclass
+from typing import Dict, Optional, List, Set, Union, Tuple
 from collections import defaultdict
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -8,6 +9,7 @@ from data.game_state import Talent, Scene, ActionSegment
 from services.talent_service import TalentService
 from services.role_performance_service import RolePerformanceService
 from data.data_manager import DataManager
+from services.service_config import HiringConfig
 from database.db_models import (
     TalentDB, SceneDB, ActionSegmentDB,
     ShootingBlocDB
@@ -15,49 +17,49 @@ from database.db_models import (
 
 
 class HireTalentService:
-    def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, role_perf_service: RolePerformanceService):
+    def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, role_perf_service: RolePerformanceService, config: HiringConfig):
         self.session = db_session
         self.data_manager = data_manager
         self.talent_service = talent_service
         self.role_performance_service = role_perf_service
+        self.config = config
 
-    def _get_roles_by_tag_for_vp(self, scene: Scene, vp_id: int) -> Dict[str, Set[str]]:
-        """Helper to get a map of tags to the set of roles a VP performs in them."""
+    def _get_vp_role_context(self, scene: Scene, vp_id: int) -> Tuple[Set[str], Dict[str, Set[str]]]:
+        """
+        Parses the scene's expanded segments once to extract all role context for a VP.
+
+        Returns:
+            A tuple containing:
+            - A set of all action tag names the VP participates in.
+            - A dictionary mapping tag names to the set of roles the VP performs in that tag.
+        """
+        action_tags = set()
         roles_by_tag = defaultdict(set)
+        
         expanded_segments = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
         for segment in expanded_segments:
+            is_vp_in_segment = False
             for assignment in segment.slot_assignments:
                 if assignment.virtual_performer_id == vp_id:
+                    is_vp_in_segment = True
                     try:
                         _, role, _ = assignment.slot_id.rsplit('_', 2)
                     except ValueError:
-                        role = "Performer" # Default role if parsing fails
+                        role = "Performer" # Default role
                     roles_by_tag[segment.tag_name].add(role)
-        return dict(roles_by_tag)
-
-    def _get_action_tags_for_role(self, scene: Scene, vp_id: int) -> List[str]:
-        """Helper to find all action tags a specific virtual performer is involved in for a scene."""
-        role_tags = set()
-        expanded_segments = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
-        for segment in expanded_segments:
-            for assignment in segment.slot_assignments:
-                if assignment.virtual_performer_id == vp_id:
-                    role_tags.add(segment.tag_name)
-                    break
-        return list(role_tags)
+            
+            if is_vp_in_segment:
+                action_tags.add(segment.tag_name)
+                
+        return action_tags, dict(roles_by_tag)
 
     def _get_role_tags_for_display(self, scene: Scene, vp_id: int) -> List[str]:
         """Helper to get a formatted list of tags and roles for UI display."""
-        role_tags_map = defaultdict(set)
-        expanded_segments = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
-        for segment in expanded_segments:
-            for assignment in segment.slot_assignments:
-                if assignment.virtual_performer_id == vp_id:
-                    try: _, role, _ = assignment.slot_id.rsplit('_', 2)
-                    except ValueError: role_tags_map[segment.tag_name].add("Performer")
-                    else: role_tags_map[segment.tag_name].add(role)
-        
-        tags_with_roles = [f"{tag_name} ({', '.join(sorted(list(roles)))})" for tag_name, roles in sorted(role_tags_map.items())]
+        _, roles_by_tag = self._get_vp_role_context(scene, vp_id)
+        tags_with_roles = [
+            f"{tag_name} ({', '.join(sorted(list(roles)))})" 
+            for tag_name, roles in sorted(roles_by_tag.items())
+        ]
         return tags_with_roles
 
 
@@ -127,7 +129,7 @@ class HireTalentService:
             return False, f"Refuses scenes with more than {talent.max_scene_partners} partners."
 
         # Check 2: Hard Limits
-        role_action_tags = self._get_action_tags_for_role(scene, vp_id)
+        role_action_tags, roles_by_tag = self._get_vp_role_context(scene, vp_id)
         for full_tag_name in role_action_tags:
             tag_def = self.data_manager.tag_definitions.get(full_tag_name)
             base_name = tag_def.get('name') if tag_def else full_tag_name
@@ -136,7 +138,6 @@ class HireTalentService:
         
         # Check 3: Concurrency Limits
         expanded_segments = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
-        roles_by_tag = self._get_roles_by_tag_for_vp(scene, vp_id)
         for segment in expanded_segments:
             if not any(a.virtual_performer_id == vp_id for a in segment.slot_assignments):
                 continue
@@ -145,13 +146,13 @@ class HireTalentService:
                 continue
             if 'Receiver' in roles_by_tag.get(segment.tag_name, set()):
                 num_givers = sum(1 for a in segment.slot_assignments if '_Giver_' in a.slot_id)
-                limit = talent.concurrency_limits.get(concept, self.data_manager.game_config.get("hiring_concurrency_default_limit", 99))
+                limit = talent.concurrency_limits.get(concept, self.config.concurrency_default_limit)
                 if num_givers > limit:
                     return False, f"Concurrency limit for '{concept}' exceeded (Max: {limit}, Scene has: {num_givers})."
 
         # Check 4: Preference & Orientation Compatibility
-        refusal_threshold = self.data_manager.game_config.get("talent_refusal_threshold", 0.2)
-        orientation_threshold = self.data_manager.game_config.get("talent_orientation_refusal_threshold", 0.1)
+        refusal_threshold = self.config.refusal_threshold
+        orientation_threshold = self.config.orientation_refusal_threshold
         for tag_name, roles_in_tag in roles_by_tag.items():
             for role in roles_in_tag:
                 preference = talent.tag_preferences.get(tag_name, {}).get(role, 1.0)
@@ -178,8 +179,8 @@ class HireTalentService:
                         policy_name = policy_names.get(policy_id, policy_id)
                         return False, f"Refuses to work with the '{policy_name}' policy."
         
-            pop_scalar = self.data_manager.game_config.get("pickiness_popularity_scalar", 0.4)
-            amb_scalar = self.data_manager.game_config.get("pickiness_ambition_scalar", 2.5)
+            pop_scalar = self.config.pickiness_popularity_scalar
+            amb_scalar = self.config.pickiness_ambition_scalar
             # Handle popularity from either TalentDB or Talent dataclass
             if hasattr(talent, 'popularity_scores'): # TalentDB
                 total_popularity = sum(p.score for p in talent.popularity_scores)
@@ -234,7 +235,7 @@ class HireTalentService:
 
                 role_info = {
                     'scene_id': scene_db.id, 'scene_title': scene_db.title, 'virtual_performer_id': vp_db.id,
-                    'vp_name': vp_db.name, 'cost': self.calculate_talent_demand(talent.id, scene_db.id, vp_db.id),
+                    'vp_name': vp_db.name, 'cost': self.calculate_talent_demand(talent.id, scene_db.id, vp_db.id, scene=scene),
                     'tags': self._get_role_tags_for_display(scene, vp_db.id),
                     'is_available': is_available, 'refusal_reason': refusal_reason
                 }
@@ -242,26 +243,28 @@ class HireTalentService:
                 available_roles.append(role_info)
         return available_roles
     
-    def calculate_talent_demand(self, talent_id, scene_id, vp_id: int) -> int:
+    def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int, scene: Optional[Scene] = None) -> int:
         talent = self.talent_service.get_talent_by_id(talent_id)
-        # We need the Scene dataclass for its complex logic methods
-        scene_db = self.session.query(SceneDB).options(
-            joinedload(SceneDB.virtual_performers),
-            joinedload(SceneDB.action_segments).joinedload(ActionSegmentDB.slot_assignments)
-        ).get(scene_id)
-        
-        if not talent or not scene_db: return 0
-        scene = scene_db.to_dataclass(Scene)
+        if not talent: return 0
 
-        base_demand = self.data_manager.game_config.get("base_talent_demand", 400)
-        performance_multiplier = 1 + (talent.performance / self.data_manager.game_config.get("hiring_demand_perf_divisor", 200))
-        median_ambition = self.data_manager.game_config.get("median_ambition", 5.5)
-        ambition_demand_divisor = self.data_manager.game_config.get("ambition_demand_divisor", 10.0)
+        # If a Scene object is not passed in, fetch it from the database.
+        if not scene:
+            scene_db = self.session.query(SceneDB).options(
+                joinedload(SceneDB.virtual_performers),
+                joinedload(SceneDB.action_segments).joinedload(ActionSegmentDB.slot_assignments)
+            ).get(scene_id)
+            if not scene_db: return 0
+            scene = scene_db.to_dataclass(Scene)
+
+        base_demand = self.config.base_talent_demand
+        performance_multiplier = 1 + (talent.performance / self.config.demand_perf_divisor)
+        median_ambition = self.config.median_ambition
+        ambition_demand_divisor = self.config.ambition_demand_divisor
         ambition_multiplier = 1.0 + ((talent.ambition - median_ambition) / ambition_demand_divisor)
         
         overall_popularity = sum(talent.popularity.values())
 
-        popularity_demand_scalar = self.data_manager.game_config.get("popularity_demand_scalar", 0.05)
+        popularity_demand_scalar = self.config.popularity_demand_scalar
         popularity_multiplier = 1.0 + (overall_popularity * popularity_demand_scalar)
         
         role_multiplier = 1.0; max_demand_mod = 1.0
@@ -278,7 +281,7 @@ class HireTalentService:
                     max_demand_mod = max(max_demand_mod, final_mod)
         role_multiplier = max_demand_mod
         
-        roles_by_tag = self._get_roles_by_tag_for_vp(scene, vp_id)
+        _, roles_by_tag = self._get_vp_role_context(scene, vp_id)
         preference_scores = []
         if roles_by_tag:
             for tag_name, roles in roles_by_tag.items():
@@ -294,7 +297,7 @@ class HireTalentService:
         if preference_multiplier > 0:
             final_demand /= preference_multiplier
 
-        return max(self.data_manager.game_config.get("minimum_talent_demand", 100), int(final_demand))
+        return max(self.config.minimum_talent_demand, int(final_demand))
     
     def get_role_details_for_ui(self, scene_id: int, vp_id: int) -> Dict:
         """

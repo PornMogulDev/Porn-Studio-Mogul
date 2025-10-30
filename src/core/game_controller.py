@@ -5,13 +5,14 @@ from sqlalchemy import func
 
 from core.interfaces import IGameController, GameSignals
 from data.game_state import *
-from data.save_manager import SaveManager, QUICKSAVE_NAME
+from data.save_manager import SaveManager, EXITSAVE_NAME
 from core.talent_generator import TalentGenerator
 from data.data_manager import DataManager
 from data.settings_manager import SettingsManager
 from ui.theme_manager import Theme, ThemeManager
 from database.db_models import *
 
+from services.service_config import HiringConfig
 from services.market_service import MarketService
 from services.talent_service import TalentService
 from services.hire_talent_service import HireTalentService
@@ -51,6 +52,7 @@ class GameController(QObject):
         
         self.game_session_service = GameSessionService(self.save_manager, self.data_manager, self.signals, self.talent_generator)
 
+        self.hiring_config = None
         self.market_service = None
         self.talent_service = None
         self.hire_talent_service = None
@@ -379,13 +381,30 @@ class GameController(QObject):
         # After resolving the event, automatically try to continue the week.
         self.advance_week()
 
+    def _create_hiring_config(self) -> HiringConfig:
+        """Creates the HiringConfig object from the data manager."""
+        return HiringConfig(
+            concurrency_default_limit=self.data_manager.game_config.get("hiring_concurrency_default_limit", 99),
+            refusal_threshold=self.data_manager.game_config.get("talent_refusal_threshold", 0.2),
+            orientation_refusal_threshold=self.data_manager.game_config.get("talent_orientation_refusal_threshold", 0.1),
+            pickiness_popularity_scalar=self.data_manager.game_config.get("pickiness_popularity_scalar", 0.05),
+            pickiness_ambition_scalar=self.data_manager.game_config.get("pickiness_ambition_scalar", 0.1),
+            base_talent_demand=self.data_manager.game_config.get("base_talent_demand", 400),
+            demand_perf_divisor=self.data_manager.game_config.get("hiring_demand_perf_divisor", 200.0),
+            median_ambition=self.data_manager.game_config.get("median_ambition_level", 5),
+            ambition_demand_divisor=self.data_manager.game_config.get("ambition_to_demand_divisor", 5.0),
+            popularity_demand_scalar=self.data_manager.game_config.get("popularity_to_demand_scalar", 0.001),
+            minimum_talent_demand=self.data_manager.game_config.get("minimum_talent_demand", 100)
+        )
+
     def _reinitialize_services(self):
         if not self.db_session:
             return
         self.market_service = MarketService(self.db_session, self.data_manager)
         self.role_performance_service = RolePerformanceService(self.data_manager)
         self.talent_service = TalentService(self.db_session, self.data_manager, self.market_service)
-        self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.role_performance_service)
+        self.hiring_config = self._create_hiring_config()
+        self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.role_performance_service, self.hiring_config)
         self.scene_event_service = SceneEventService(self.db_session, self.game_state, self.signals, self.data_manager, self.talent_service)
         self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, self.role_performance_service, self.scene_event_service)
         self.time_service = TimeService(self.db_session, self.game_state, self.signals, self.scene_service, self.talent_service, self.market_service, self.data_manager)
@@ -420,8 +439,8 @@ class GameController(QObject):
         self.signals.emails_changed.emit()
         self.signals.show_main_window_requested.emit()
 
-    def save_game(self, save_name='autosave'):
-        self.game_session_service.save_game(save_name, self.db_session, self.current_save_path)
+    def save_game(self, save_name: str):
+        self.game_session_service.save_game(save_name)
 
     def delete_save_file(self, save_name: str) -> bool:
         return self.game_session_service.delete_save(save_name)
@@ -440,20 +459,37 @@ class GameController(QObject):
             self.signals.show_main_window_requested.emit()
 
     def quick_save(self):
-        self.game_session_service.quick_save(self.db_session, self.current_save_path)
+        self.game_session_service.quick_save()
 
     def quick_load(self):
         result = self.game_session_service.quick_load()
         if result:
-            self.load_game(QUICKSAVE_NAME) # quick_load returns None if no save exists
+            self.game_state, self.db_session, self.current_save_path = result
+            self._reinitialize_services()
+            self.signals.show_main_window_requested.emit()
 
-    def return_to_main_menu(self, exit_save):
-        self.game_session_service.return_to_main_menu(exit_save, self.db_session, self.current_save_path, self.game_over)
-        self.db_session = None # Clear session after returning to menu
-        self.save_manager.cleanup_session_file()
+    def return_to_main_menu(self, exit_save: bool):
+        """
+        Handles returning to the main menu from an active game.
+        This method is now the single source of truth for session cleanup in this context.
+        """
+        if self.db_session:
+            # Only perform an exit save if the game is active and not over.
+            self.game_session_service.handle_exit_save(exit_save)
+            
+            # Execute the shutdown sequence in the correct order.
+            self.db_session.close()
+            self.db_session = None
+            self.save_manager.db_manager.disconnect()
+            self.save_manager.cleanup_session_file()
+
+        if self.game_over:
+            self.game_over = False  # Reset state for the start screen
+
+        self.signals.show_start_screen_requested.emit()
 
     def quit_game(self, exit_save=False):
-        self.game_session_service.handle_exit_save(exit_save, self.db_session, self.current_save_path)
+        self.game_session_service.handle_exit_save(exit_save)
         self.signals.quit_game_requested.emit()
 
     def handle_application_shutdown(self):

@@ -81,23 +81,31 @@ class GameSessionService:
         db_session.commit()
         return game_state, db_session, save_path
 
-    def load_game(self, save_name: str) -> tuple[GameState, any, str]:
+    def load_game(self, save_name: str) -> Optional[tuple[GameState, any, str]]:
         """
         Loads a game from a save file by copying it to the live session.
         Returns the essential game state for the controller.
         """
-        # Step 1: Disconnect any previously active session to ensure a clean slate.
-        self.save_manager.db_manager.disconnect()
+        try:
+            # Step 1: Disconnect any previously active session to ensure a clean slate.
+            self.save_manager.db_manager.disconnect()
 
-        # Step 2: This method copies the save file AND connects the DB manager to it.
-        # This is the crucial step that was out of order.
-        game_state = self.save_manager.load_game(save_name)
+            # Step 2: This method copies the save file AND connects the DB manager to it.
+            game_state = self.save_manager.load_game(save_name)
 
-        # Step 3: Now that a connection is established, we can safely get the session.
-        save_path = str(self.save_manager.get_save_path(LIVE_SESSION_NAME))
-        db_session = self.save_manager.db_manager.get_session()
-        
-        return game_state, db_session, save_path
+            # Step 3: Now that a connection is established, we can safely get the session.
+            save_path = self.save_manager.db_manager.db_path
+            db_session = self.save_manager.db_manager.get_session()
+            
+            return game_state, db_session, save_path
+        except FileNotFoundError:
+            logger.error(f"Attempted to load a save file that does not exist: {save_name}")
+            self.signals.notification_posted.emit(f"Error: Save file '{save_name}' not found.")
+            return None
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while loading game '{save_name}': {e}", exc_info=True)
+            self.signals.notification_posted.emit("A critical error occurred while loading the game.")
+            return None
 
     def continue_game(self) -> Optional[tuple[GameState, any, str]]:
         """Loads the most recent save file."""
@@ -106,15 +114,24 @@ class GameSessionService:
             return self.load_game(latest_save)
         return None
 
-    def save_game(self, save_name: str, db_session: any, current_save_path: str):
+    def save_game(self, save_name: str):
         """Saves the current game session to a named file."""
-        if db_session and current_save_path:
-            db_session.commit() 
-            self.save_manager.copy_save(current_save_path, save_name)
-            self.signals.saves_changed.emit()
+        # The service is now self-sufficient. It gets the session and path from its own manager.
+        db_session = self.save_manager.db_manager.get_session()
+        current_save_path = self.save_manager.db_manager.db_path
 
-    def quick_save(self, db_session: any, current_save_path: str):
-        self.save_game(QUICKSAVE_NAME, db_session, current_save_path)
+        if db_session and current_save_path:
+            try:
+                db_session.commit() # Commit any pending changes.
+                self.save_manager.copy_save(current_save_path, save_name)
+                self.signals.saves_changed.emit()
+            except Exception as e:
+                logger.error(f"Failed to save game to '{save_name}': {e}")
+                db_session.rollback()
+                self.signals.notification_posted.emit("Error: Could not save the game.")
+
+    def quick_save(self):
+        self.save_game(QUICKSAVE_NAME)
         self.signals.notification_posted.emit("Game quick saved!")
 
     def quick_load(self) -> Optional[tuple[GameState, any, str]]:
@@ -131,20 +148,7 @@ class GameSessionService:
             return True
         return False
 
-    def return_to_main_menu(self, exit_save: bool, db_session: any, current_save_path: str, is_game_over: bool):
-        if is_game_over:
-            self.signals.show_start_screen_requested.emit()
-            return
-            
-        if exit_save:
-            self.save_game(EXITSAVE_NAME, db_session, current_save_path)
-            
-        if db_session:
-            db_session.close()
-        self.save_manager.db_manager.disconnect()
-        self.signals.show_start_screen_requested.emit()
-
-    def handle_exit_save(self, exit_save: bool, db_session: any, current_save_path: str):
+    def handle_exit_save(self, exit_save: bool):
         """Handles saving the game on exit if requested."""
-        if exit_save:
-             self.save_game(EXITSAVE_NAME, db_session, current_save_path)
+        if exit_save and self.save_manager.db_manager.db_path:
+             self.save_game(EXITSAVE_NAME)
