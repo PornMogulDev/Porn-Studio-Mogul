@@ -114,6 +114,21 @@ class GoToListService:
             logger.error(f"Error deleting category ID {category_id}: {e}")
             self.session.rollback()
             return False
+    
+    def add_talent_to_general_category(self, talent_id: int) -> bool:
+        """
+        A specific business logic method to add a talent to the default 'General' category.
+        Returns True on success.
+        """
+        general_category = self.session.query(GoToListCategoryDB).filter_by(name="General").one_or_none()
+        if not general_category:
+            logger.error("Critical Error: The default 'General' Go-To List category was not found.")
+            self.signals.notification_posted.emit("Error: Could not find the 'General' category.")
+            return False
+        
+        # This method is already transactional, so we can just call it.
+        num_added = self.add_talents_to_category([talent_id], general_category.id)
+        return num_added > 0
 
     def add_talents_to_category(self, talent_ids: List[int], category_id: int) -> int:
         """Assigns a list of talents to a specific category. Returns the number of new assignments."""
@@ -173,3 +188,22 @@ class GoToListService:
             logger.error(f"Error removing talents from category {category_id}: {e}")
             self.session.rollback()
             return 0
+    
+    def remove_talents_from_all_categories(self, talent_ids: List[int]) -> bool:
+        """Removes talents from ALL Go-To List categories. Returns True if any were removed."""
+        if not talent_ids:
+            return False
+        try:
+            num_deleted = self.session.query(GoToListAssignmentDB).filter(
+                GoToListAssignmentDB.talent_id.in_(talent_ids)
+            ).delete(synchronize_session=False)
+            
+            if num_deleted > 0:
+                self.session.commit()
+                self.signals.notification_posted.emit(f"Removed {num_deleted} talent assignment(s) from all Go-To categories.")
+                self.signals.go_to_list_changed.emit()
+            return num_deleted > 0
+        except Exception as e:
+            logger.error(f"Error removing talents from all Go-To categories: {e}")
+            self.session.rollback()
+            return False

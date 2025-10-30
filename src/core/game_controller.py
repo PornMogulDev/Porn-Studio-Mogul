@@ -493,30 +493,13 @@ class GameController(QObject):
 
     # --- Go-To List Actions (Proxy Methods) ---
     def add_talent_to_go_to_list(self, talent_id: int):
-        """Adds a talent to the default 'General' Go-To List category."""
-        if not self.db_session: return
-        
-        general_category = self.db_session.query(GoToListCategoryDB).filter_by(name="General").one_or_none()
-        if not general_category:
-            logger.error("Error: 'General' Go-To category not found.")
-            return
-
-        self.go_to_list_service.add_talents_to_category([talent_id], general_category.id)
+        """Adds a talent to the default 'General' Go-To List category via the service."""
+        if not self.go_to_list_service: return
+        self.go_to_list_service.add_talent_to_general_category(talent_id)
 
     def remove_talents_from_go_to_list(self, talent_ids: list[int]):
-        """Removes talents from ALL Go-To List categories."""
-        try:
-            if not self.db_session or not talent_ids: return
-            num_deleted = self.db_session.query(GoToListAssignmentDB).filter(
-                GoToListAssignmentDB.talent_id.in_(talent_ids)
-            ).delete(synchronize_session=False)
-            
-            if num_deleted > 0:
-                self.db_session.commit()
-                self.signals.notification_posted.emit(f"Removed selected talent(s) from all Go-To categories.")
-                self.signals.go_to_list_changed.emit()
-        except Exception:
-            self.db_session.rollback()
+        if not self.go_to_list_service: return
+        self.go_to_list_service.remove_talents_from_all_categories(talent_ids)
 
     def create_go_to_list_category(self, name: str):
         if not self.go_to_list_service: return
