@@ -51,7 +51,7 @@ class MenuScreen(QWidget):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("font-size: 30pt; font-weight: bold;") # Override for title
         
-        version_label = QLabel("0.5.4 (better talent filter)")
+        version_label = QLabel("0.5.5 (skill fuzzing)")
         version_label.setAlignment(Qt.AlignmentFlag.AlignAbsolute | Qt.AlignmentFlag.AlignBottom)
 
         top_layout.addWidget(title_label, 9)   # Give the title 9 shares of space
@@ -65,7 +65,6 @@ class MenuScreen(QWidget):
         menu_layout.setHorizontalSpacing(100)
 
         # --- Left Buttons ---
-        
         settings_btn = MenuButton("Settings")
         settings_btn.clicked.connect(self.show_settings_dialog) 
         editor_btn = MenuButton("Editor")
@@ -74,7 +73,6 @@ class MenuScreen(QWidget):
         acknowledge_btn.clicked.connect(self.show_acknowledgements_dialog)
 
         # --- Middle Buttons ---
-        
         self.continue_game_btn = MenuButton("Continue")
         self.continue_game_btn.setEnabled(False)
         self.continue_game_btn.clicked.connect(self.controller.continue_game)

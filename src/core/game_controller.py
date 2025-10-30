@@ -571,9 +571,17 @@ class GameController(QObject):
 
     def quit_game(self, exit_save=False):
         self.game_session_service.handle_exit_save(exit_save, self.db_session, self.current_save_path)
-        # Now, signal the main application window that it's time to close.
-        self.save_manager.cleanup_session_file()
         self.signals.quit_game_requested.emit()
+
+    def handle_application_shutdown(self):
+        """
+        Performs final cleanup when the application is closing.
+        This is typically called from the main window's closeEvent.
+        """
+        if self.db_session:
+            self.db_session.close()
+        self.save_manager.db_manager.disconnect()
+        self.save_manager.cleanup_session_file()
 
     def handle_game_over(self):
         self.game_over = True

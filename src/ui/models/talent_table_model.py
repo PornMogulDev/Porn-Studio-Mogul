@@ -13,7 +13,7 @@ class TalentTableModel(QAbstractTableModel):
         self.settings_manager = settings_manager
         self.mode = mode
         self._cup_map = {cup: i for i, cup in enumerate(boob_cup_order)} if boob_cup_order else {}
-        self.headers = ["Alias", "Age", "Gender", "Orientation", "Ethnicity", "Dick Size", "Cup Size", "Perf.", "Act.", "Stam.", "Pop."]
+        self.headers = ["Alias", "Age", "Gender", "Orientation", "Ethnicity", "Dick Size", "Cup Size", "Perf.", "Act.", "Dom", "Sub", "Stam.", "Pop."]
     
         if self.mode == 'casting':
             self.headers.append("Demand")
@@ -35,9 +35,11 @@ class TalentTableModel(QAbstractTableModel):
             if col == 6: return item.cup_size
             if col == 7: return item.performance
             if col == 8: return item.acting
-            if col == 9: return item.stamina
-            if col == 10: return item.popularity
-            if col == 11 and self.mode == 'casting': return item.demand
+            if col == 9: return item.dom
+            if col == 10: return item.sub
+            if col == 11: return item.stamina
+            if col == 12: return item.popularity
+            if col == 13 and self.mode == 'casting': return item.demand
         
         elif role == Qt.ItemDataRole.UserRole:
             # The ViewModel stores the full Talent dataclass for easy access
@@ -79,10 +81,14 @@ class TalentTableModel(QAbstractTableModel):
             perf_fuzzed = get_fuzzed_skill_range(talent_obj.performance, talent_obj.experience, talent_obj.id)
             act_fuzzed = get_fuzzed_skill_range(talent_obj.acting, talent_obj.experience, talent_obj.id)
             stam_fuzzed = get_fuzzed_skill_range(talent_obj.stamina, talent_obj.experience, talent_obj.id)
-            
+            dom_fuzzed = get_fuzzed_skill_range(talent_obj.dom_skill, talent_obj.experience, talent_obj.id)
+            sub_fuzzed = get_fuzzed_skill_range(talent_obj.sub_skill, talent_obj.experience, talent_obj.id)
+
             perf_sort = perf_fuzzed if isinstance(perf_fuzzed, int) else perf_fuzzed[0]
             act_sort = act_fuzzed if isinstance(act_fuzzed, int) else act_fuzzed[0]
             stam_sort = stam_fuzzed if isinstance(stam_fuzzed, int) else stam_fuzzed[0]
+            dom_sort = dom_fuzzed if isinstance(dom_fuzzed, int) else dom_fuzzed[0]
+            sub_sort = sub_fuzzed if isinstance(sub_fuzzed, int) else sub_fuzzed[0]
 
             # --- Calculate popularity ---
             if hasattr(talent_obj, 'popularity_scores'): # TalentDB object
@@ -106,6 +112,8 @@ class TalentTableModel(QAbstractTableModel):
                 cup_size=talent_obj.boob_cup if talent_obj.gender == "Female" else "N/A",
                 performance=format_skill_range(perf_fuzzed),
                 acting=format_skill_range(act_fuzzed),
+                dom=format_skill_range(dom_fuzzed),
+                sub=format_skill_range(sub_fuzzed),
                 stamina=format_skill_range(stam_fuzzed),
                 popularity=str(popularity),
                 demand=f"${demand:,}" if self.mode == 'casting' else "",
@@ -117,6 +125,8 @@ class TalentTableModel(QAbstractTableModel):
                 _cup_size_sort=self._cup_map.get(talent_obj.boob_cup, -1),
                 _performance_sort=perf_sort,
                 _acting_sort=act_sort,
+                _dom_sort=dom_sort,
+                _sub_sort=sub_sort,
                 _stamina_sort=stam_sort,
                 _popularity_sort=popularity,
                 _demand_sort=demand
@@ -142,9 +152,11 @@ class TalentTableModel(QAbstractTableModel):
         elif column == 6: sorter = lambda vm: vm._cup_size_sort
         elif column == 7: sorter = lambda vm: vm._performance_sort
         elif column == 8: sorter = lambda vm: vm._acting_sort
-        elif column == 9: sorter = lambda vm: vm._stamina_sort
-        elif column == 10: sorter = lambda vm: vm._popularity_sort
-        elif column == 11 and self.mode == 'casting': sorter = lambda vm: vm._demand_sort
+        elif column == 9: sorter = lambda vm: vm._dom_sort
+        elif column == 10: sorter = lambda vm: vm._sub_sort
+        elif column == 11: sorter = lambda vm: vm._stamina_sort
+        elif column == 12: sorter = lambda vm: vm._popularity_sort
+        elif column == 13 and self.mode == 'casting': sorter = lambda vm: vm._demand_sort
         
         if sorter:
             self.display_data.sort(key=sorter, reverse=reverse)

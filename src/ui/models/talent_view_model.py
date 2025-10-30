@@ -26,6 +26,8 @@ class TalentViewModel:
     cup_size: str
     performance: str
     acting: str
+    dom: str
+    sub: str
     stamina: str
     popularity: str
     demand: str  # Populated only in 'casting' mode, otherwise an empty string.
@@ -38,6 +40,8 @@ class TalentViewModel:
     _cup_size_sort: int
     _performance_sort: int
     _acting_sort: int
+    _dom_sort: int
+    _sub_sort: int
     _stamina_sort: int
     _popularity_sort: int
     _demand_sort: int  # Populated only in 'casting' mode, otherwise 0.

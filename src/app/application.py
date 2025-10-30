@@ -1,8 +1,7 @@
 import os, logging
 from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QMessageBox
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtCore import pyqtSlot, QSize
-import qdarktheme
 
 from data.data_manager import DataManager
 from core.game_controller import GameController
@@ -126,3 +125,13 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         """
         if key in ("theme", "font_family", "font_size"):
             apply_theme(self.settings_manager, self.theme_manager)
+
+    def closeEvent(self, event: QCloseEvent):
+        """
+        Handles the application's close event.
+        This is triggered by closing the window or by calling self.close().
+        It's the central point for cleanup before the application exits.
+        """
+        self._save_geometry() # From GeometryManagerMixin
+        self.controller.handle_application_shutdown()
+        super().closeEvent(event)
