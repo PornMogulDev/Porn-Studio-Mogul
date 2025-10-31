@@ -5,19 +5,19 @@ from sqlalchemy import func
 
 from core.interfaces import IGameController, GameSignals
 from data.game_state import *
-from data.save_manager import SaveManager, EXITSAVE_NAME
+from data.save_manager import SaveManager
 from core.talent_generator import TalentGenerator
 from data.data_manager import DataManager
 from data.settings_manager import SettingsManager
 from ui.theme_manager import Theme, ThemeManager
 from database.db_models import *
 
-from services.service_config import HiringConfig, MarketConfig
+from services.service_config import HiringConfig, MarketConfig, SceneCalculationConfig
 from services.market_group_resolver import MarketGroupResolver
+from services.role_performance_service import RolePerformanceService
 from services.market_service import MarketService
 from services.talent_service import TalentService
 from services.hire_talent_service import HireTalentService
-from services.role_performance_service import RolePerformanceService
 from services.scene_event_service import SceneEventService
 from services.scene_service import SceneService
 from services.time_service import TimeService
@@ -54,6 +54,7 @@ class GameController(QObject):
         self.game_session_service = GameSessionService(self.save_manager, self.data_manager, self.signals, self.talent_generator)
 
         self.hiring_config = None
+        self.scene_calc_config = None
         self.market_service = None
         self.talent_service = None
         self.hire_talent_service = None
@@ -400,6 +401,37 @@ class GameController(QObject):
             popularity_demand_scalar=self.data_manager.game_config.get("popularity_to_demand_scalar", 0.001),
             minimum_talent_demand=self.data_manager.game_config.get("minimum_talent_demand", 100)
         )
+    
+    def _create_scene_calculation_config(self) -> SceneCalculationConfig:
+        """Creates the SceneCalculationConfig object from the data manager."""
+        game_config = self.data_manager.game_config
+        # Convert string keys from JSON to int keys for DS weights
+        ds_weights_str_keys = game_config.get("scene_quality_ds_weights", {})
+        ds_weights_int_keys = {int(k): v for k, v in ds_weights_str_keys.items()}
+        
+        return SceneCalculationConfig(
+            stamina_to_pool_multiplier=game_config.get("stamina_to_pool_multiplier", 5),
+            base_fatigue_weeks=game_config.get("base_fatigue_weeks", 2),
+            in_scene_penalty_scalar=game_config.get("in_scene_penalty_scalar", 0.4),
+            fatigue_penalty_scalar=game_config.get("fatigue_penalty_scalar", 0.3),
+            maximum_skill_level=game_config.get("maximum_skill_level", 100.0),
+            scene_quality_base_acting_weight=game_config.get("scene_quality_base_acting_weight", 0.3),
+            scene_quality_min_acting_weight=game_config.get("scene_quality_min_acting_weight", 0.2),
+            scene_quality_max_acting_weight=game_config.get("scene_quality_max_acting_weight", 0.8),
+            protagonist_contribution_weight=game_config.get("protagonist_contribution_weight", 1.25),
+            chemistry_performance_scalar=game_config.get("chemistry_performance_scalar", 0.125),
+            scene_quality_ds_weights=ds_weights_int_keys,
+            scene_quality_min_performance_modifier=game_config.get("scene_quality_min_performance_modifier", 0.1),
+            scene_quality_auto_tag_default_quality=game_config.get("scene_quality_auto_tag_default_quality", 100.0),
+            base_release_revenue=game_config.get("base_release_revenue", 50000),
+            star_power_revenue_scalar=game_config.get("star_power_revenue_scalar", 0.005),
+            saturation_spend_rate=game_config.get("saturation_spend_rate", 0.15),
+            default_sentiment_multiplier=game_config.get("default_sentiment_multiplier", 1.0),
+            revenue_weight_focused_physical_tag=game_config.get("revenue_weight_focused_physical_tag", 5.0),
+            revenue_weight_default_action_appeal=game_config.get("revenue_weight_default_action_appeal", 10.0),
+            revenue_weight_auto_tag=game_config.get("revenue_weight_auto_tag", 1.5),
+            revenue_penalties=game_config.get("revenue_penalties", {})
+        )
 
     def _reinitialize_services(self):
         if not self.db_session:
@@ -407,9 +439,11 @@ class GameController(QObject):
         self.market_service = MarketService(self.db_session, self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.talent_service = TalentService(self.db_session, self.data_manager, self.market_service)
         self.hiring_config = self._create_hiring_config()
+        self.scene_calc_config = self._create_scene_calculation_config()
         self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.hiring_config)
         self.scene_event_service = SceneEventService(self.db_session, self.game_state, self.signals, self.data_manager, self.talent_service)
-        self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, self.scene_event_service)
+        self.role_performance_service = RolePerformanceService()
+        self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, self.scene_event_service, self.email_service, self.role_performance_service, self.scene_calc_config)
         self.time_service = TimeService(self.db_session, self.game_state, self.signals, self.scene_service, self.talent_service, self.market_service, self.data_manager)
         self.go_to_list_service = GoToListService(self.db_session, self.signals)
         self.player_settings_service = PlayerSettingsService(self.db_session, self.signals) 

@@ -6,8 +6,10 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from data.game_state import Scene, ShootingBloc
 from data.data_manager import DataManager
+from services.service_config import SceneCalculationConfig
+from services.email_service import EmailService
+from services.role_performance_service import RolePerformanceService
 from services.scene_calculation_service import SceneCalculationService
-from services.role_performance_service import RolePerformanceService 
 from services.scene_event_service import SceneEventService
 from services.talent_service import TalentService
 from services.market_service import MarketService
@@ -18,14 +20,17 @@ logger = logging.getLogger(__name__)
 
 class SceneService:
     def __init__(self, db_session, signals, data_manager: DataManager, 
-                 talent_service: TalentService, market_service: MarketService, event_service: SceneEventService):
+                 talent_service: TalentService, market_service: MarketService, 
+                 event_service: SceneEventService, email_service: EmailService, role_performance_service: RolePerformanceService, 
+                 scene_calc_config: 'SceneCalculationConfig'):
         self.session = db_session
         self.signals = signals
         self.data_manager = data_manager
         self.talent_service = talent_service
         self.market_service = market_service
         self.event_service = event_service
-        self.calculation_service = SceneCalculationService(db_session, data_manager, talent_service, market_service)
+        self.email_service = email_service
+        self.calculation_service = SceneCalculationService(db_session, data_manager, talent_service, market_service, role_performance_service, scene_calc_config)
 
     # --- UI Query Methods ---
     def get_blocs_for_schedule_view(self, year: int) -> List[ShootingBloc]:
