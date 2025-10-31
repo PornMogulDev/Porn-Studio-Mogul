@@ -41,6 +41,10 @@ class MarketService:
     def get_resolved_group_data(self, group_name: str) -> Dict:
         return self.resolver.get_resolved_group(group_name)
     
+    def get_all_resolved_group_data(self) -> Dict[str, Dict]:
+        """Returns the fully resolved static data for all market groups."""
+        return self.resolver.get_all_resolved_groups()
+    
     def get_potential_discoveries(self, scene: Scene, group_name: str) -> List[Dict]:
         """Identifies sentiments that could be discovered from a successful scene."""
         # This is a simplified example. A full implementation would need to more

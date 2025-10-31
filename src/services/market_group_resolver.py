@@ -55,3 +55,7 @@ class MarketGroupResolver:
     def get_resolved_group(self, group_name: str) -> Dict:
         """Public method to safely get resolved data from the cache."""
         return self._resolved_cache.get(group_name, {})
+    
+    def get_all_resolved_groups(self) -> Dict[str, Dict]:
+        """Public method to safely get all resolved data from the cache."""
+        return self._resolved_cache

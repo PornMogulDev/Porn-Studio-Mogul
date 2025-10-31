@@ -4,8 +4,10 @@ from typing import Dict, List, Optional, DefaultDict
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
-from data.game_state import Scene, ShootingBloc
+from data.game_state import Scene, ShootingBloc, Talent
 from data.data_manager import DataManager
+from database.db_models import ( SceneDB, VirtualPerformerDB, ActionSegmentDB, SlotAssignmentDB,
+                                MarketGroupStateDB, TalentDB, GameInfoDB, SceneCastDB, ShootingBlocDB )
 from services.service_config import SceneCalculationConfig
 from services.email_service import EmailService
 from services.role_performance_service import RolePerformanceService
@@ -13,16 +15,15 @@ from services.scene_calculation_service import SceneCalculationService
 from services.scene_event_service import SceneEventService
 from services.talent_service import TalentService
 from services.market_service import MarketService
-from database.db_models import ( SceneDB, VirtualPerformerDB, ActionSegmentDB, SlotAssignmentDB,
-                                MarketGroupStateDB, TalentDB, GameInfoDB, SceneCastDB, ShootingBlocDB )
+from services.revenue_calculator import RevenueCalculator
 
 logger = logging.getLogger(__name__)
 
 class SceneService:
     def __init__(self, db_session, signals, data_manager: DataManager, 
                  talent_service: TalentService, market_service: MarketService, 
-                 event_service: SceneEventService, email_service: EmailService, role_performance_service: RolePerformanceService, 
-                 scene_calc_config: 'SceneCalculationConfig'):
+                 event_service: SceneEventService, email_service: EmailService,
+                 calculation_service: 'SceneCalculationService', revenue_calculator: RevenueCalculator):
         self.session = db_session
         self.signals = signals
         self.data_manager = data_manager
@@ -30,7 +31,8 @@ class SceneService:
         self.market_service = market_service
         self.event_service = event_service
         self.email_service = email_service
-        self.calculation_service = SceneCalculationService(db_session, data_manager, talent_service, market_service, role_performance_service, scene_calc_config)
+        self.calculation_service = calculation_service
+        self.revenue_calculator = revenue_calculator
 
     # --- UI Query Methods ---
     def get_blocs_for_schedule_view(self, year: int) -> List[ShootingBloc]:
@@ -424,9 +426,23 @@ class SceneService:
             return {}
 
         try:
+            # --- 1. GATHER DATA ---
             scene = scene_db.to_dataclass(Scene)
-            revenue = self.calculation_service.calculate_revenue(scene) 
-            self.talent_service.update_popularity_from_scene(scene_id) 
+            talent_ids = list(scene.final_cast.values())
+            cast_talents_db = self.session.query(TalentDB).filter(TalentDB.id.in_(talent_ids)).all()
+            cast_talents_dc = [t.to_dataclass(Talent) for t in cast_talents_db]
+            
+            all_market_states = self.market_service.get_all_market_states()
+            all_resolved_groups = self.market_service.get_all_resolved_group_data()
+
+            # --- 2. DELEGATE CALCULATION ---
+            revenue_result = self.revenue_calculator.calculate_revenue(
+                scene, cast_talents_dc, all_market_states, all_resolved_groups
+            )
+
+            # --- 3. APPLY RESULTS ---
+            revenue = revenue_result.total_revenue
+            self.talent_service.update_popularity_from_scene(scene_id)  
     
             # Market Discovery Logic
             discovery_threshold = self.data_manager.game_config.get("market_discovery_interest_threshold", 1.5)
@@ -435,7 +451,7 @@ class SceneService:
             all_new_discoveries = DefaultDict(list)
             market_did_change = False
     
-            for group_name, interest in scene.viewer_group_interest.items():
+            for group_name, interest in revenue_result.viewer_group_interest.items():
                 if interest < discovery_threshold:
                     continue
                     
@@ -471,11 +487,17 @@ class SceneService:
                 if newly_discovered_count > 0:
                     market_state_db.discovered_sentiments = current_discovered
                     flag_modified(market_state_db, "discovered_sentiments")
+
+            # Update market saturation
+            for group_name, cost in revenue_result.market_saturation_updates.items():
+                market_state_db = self.session.query(MarketGroupStateDB).get(group_name)
+                if market_state_db:
+                    market_state_db.current_saturation = max(0, market_state_db.current_saturation - cost)
         
             scene_db.revenue = revenue
             scene_db.status = 'released'
-            scene_db.viewer_group_interest = scene.viewer_group_interest
-            scene_db.revenue_modifier_details = scene.revenue_modifier_details
+            scene_db.viewer_group_interest = revenue_result.viewer_group_interest
+            scene_db.revenue_modifier_details = revenue_result.revenue_modifier_details
     
             money_info = self.session.query(GameInfoDB).filter_by(key='money').one()
             new_money = int(float(money_info.value)) + revenue
