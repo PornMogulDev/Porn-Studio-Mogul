@@ -400,7 +400,7 @@ class GameController(QObject):
     def _reinitialize_services(self):
         if not self.db_session:
             return
-        self.market_service = MarketService(self.db_session, self.data_manager)
+        self.market_service = MarketService(self.db_session, self.data_manager.market_data, self.data_manager.tag_definitions)
         self.role_performance_service = RolePerformanceService(self.data_manager)
         self.talent_service = TalentService(self.db_session, self.data_manager, self.market_service)
         self.hiring_config = self._create_hiring_config()
