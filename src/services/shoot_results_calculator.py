@@ -1,10 +1,9 @@
 import logging
 from collections import defaultdict
-from typing import List
+from typing import List, Tuple
 
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
-from services.talent_service import TalentService
 from services.service_config import SceneCalculationConfig
 from services.role_performance_service import RolePerformanceService
 from services.calculation_models import TalentShootOutcome, FatigueResult
@@ -17,11 +16,10 @@ class ShootResultsCalculator:
     fatigue, skill gains, and experience gains.
     """
     def __init__(self, data_manager: DataManager, config: SceneCalculationConfig,
-                 role_perf_service: RolePerformanceService, talent_service: 'TalentService'):
+                 role_perf_service: RolePerformanceService):
         self.data_manager = data_manager
         self.config = config
         self.role_performance_service = role_perf_service
-        self.talent_service = talent_service # Used for pure gain calculations
 
     def calculate_talent_outcomes(
         self, scene: Scene, talents: List[Talent], current_week: int, current_year: int
@@ -50,14 +48,14 @@ class ShootResultsCalculator:
             stamina_cost = talent_stamina_cost.get(talent.id, 0.0)
             fatigue_result = self._calculate_fatigue(talent, stamina_cost, current_week, current_year)
             
-            p_gain, a_gain, s_gain = self.talent_service.calculate_skill_gain(talent, scene.total_runtime_minutes)
+            p_gain, a_gain, s_gain = self._calculate_skill_gain(talent, scene.total_runtime_minutes)
             
             dom_gain, sub_gain = 0.0, 0.0
             vp_id = talent_id_to_vp.get(talent.id)
             if vp_id and (vp := vp_map.get(vp_id)):
-                dom_gain, sub_gain = self.talent_service.calculate_ds_skill_gain(talent, scene, vp.disposition)
+                dom_gain, sub_gain = self._calculate_ds_skill_gain(talent, scene, vp.disposition)
                 
-            exp_gain = self.talent_service.calculate_experience_gain(talent, scene.total_runtime_minutes)
+            exp_gain = self._calculate_experience_gain(talent, scene.total_runtime_minutes)
             
             skill_gains = {
                 'performance': p_gain, 'acting': a_gain, 'stamina': s_gain,
@@ -119,3 +117,51 @@ class ShootResultsCalculator:
             fatigue_end_week=end_week,
             fatigue_end_year=end_year
         )
+    
+    def _calculate_skill_gain(self, talent: Talent, runtime_minutes: int) -> Tuple[float, float, float]:
+        """Calculates potential skill gains for a talent based on scene runtime."""
+        base_rate = self.config.skill_gain_base_rate
+        curve_steepness = self.config.skill_gain_curve_steepness
+
+        def get_gain(skill_value):
+            diminishing_return_factor = 1 - (skill_value / 100) ** curve_steepness
+            return (runtime_minutes * base_rate) * diminishing_return_factor
+
+        return get_gain(talent.performance), get_gain(talent.acting), get_gain(talent.stamina)
+
+    def _calculate_ds_skill_gain(self, talent: Talent, scene: Scene, disposition: str) -> Tuple[float, float]:
+        """Calculates D/S skill gain based on scene dynamic and talent disposition."""
+        if scene.dom_sub_dynamic_level == 0:
+            return 0.0, 0.0
+
+        dom_gain, sub_gain = 0.0, 0.0
+        runtime = scene.total_runtime_minutes
+
+        base_rate = self.config.ds_skill_gain_base_rate
+        disposition_multiplier = self.config.ds_skill_gain_disposition_multiplier
+        dynamic_level_multipliers = self.config.ds_skill_gain_dynamic_level_multipliers
+        level_multiplier = dynamic_level_multipliers.get(scene.dom_sub_dynamic_level, 1.0)
+        base_gain = runtime * base_rate * level_multiplier
+
+        dom_focus, sub_focus = 0.5, 0.5
+        if scene.dom_sub_dynamic_level == 1: dom_focus, sub_focus = 0.0, 1.0
+        elif scene.dom_sub_dynamic_level == 3: dom_focus, sub_focus = 1.0, 0.0
+
+        if disposition == "Dom":
+            dom_focus *= disposition_multiplier
+        elif disposition == "Sub":
+            sub_focus *= disposition_multiplier
+
+        total_focus = dom_focus + sub_focus # Renormalize
+        if total_focus > 0:
+            dom_gain = base_gain * (dom_focus / total_focus)
+            sub_gain = base_gain * (sub_focus / total_focus)
+        
+        return dom_gain, sub_gain
+
+    def _calculate_experience_gain(self, talent: Talent, runtime_minutes: int) -> float:
+        """Calculates experience gain, with diminishing returns."""
+        base_rate = self.config.exp_gain_base_rate
+        curve_steepness = self.config.exp_gain_curve_steepness
+        diminishing_return_factor = 1 - (talent.experience / 100) ** curve_steepness
+        return max(0, (runtime_minutes * base_rate) * diminishing_return_factor)

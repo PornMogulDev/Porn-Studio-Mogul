@@ -61,6 +61,7 @@ class GameController(QObject):
 
         self.hiring_config = None
         self.scene_calc_config = None
+        self.talent_config = None
         self.market_service = None
         self.talent_service = None
         self.hire_talent_service = None
@@ -436,14 +437,24 @@ class GameController(QObject):
             revenue_weight_focused_physical_tag=game_config.get("revenue_weight_focused_physical_tag", 5.0),
             revenue_weight_default_action_appeal=game_config.get("revenue_weight_default_action_appeal", 10.0),
             revenue_weight_auto_tag=game_config.get("revenue_weight_auto_tag", 1.5),
-            revenue_penalties=game_config.get("revenue_penalties", {})
+            revenue_penalties=game_config.get("revenue_penalties", {}),
+            skill_gain_base_rate=game_config.get("skill_gain_base_rate", 0.02),
+            skill_gain_curve_steepness=game_config.get("skill_gain_curve_steepness", 1.5),
+            exp_gain_base_rate=game_config.get("experience_gain_base_rate", 0.05),
+            exp_gain_curve_steepness=game_config.get("experience_gain_curve_steepness", 2.0),
+            ds_skill_gain_base_rate=game_config.get("ds_skill_gain_base_rate", 0.015),
+            ds_skill_gain_disposition_multiplier=game_config.get("ds_skill_gain_disposition_multiplier", 1.5),
+            ds_skill_gain_dynamic_level_multipliers={int(k): v for k, v in game_config.get("ds_skill_gain_dynamic_level_multipliers", {}).items()},
+            age_based_affinity_rules=game_config.get("age_based_affinity_rules", []),
+            popularity_gain_scalar=game_config.get("popularity_gain_scalar", 0.05)
         )
 
     def _reinitialize_services(self):
         if not self.db_session:
             return
         self.market_service = MarketService(self.db_session, self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
-        self.talent_service = TalentService(self.db_session, self.data_manager, self.market_service)
+        self.scene_calc_config = self._create_scene_calculation_config()
+        self.talent_service = TalentService(self.db_session, self.data_manager, self.scene_calc_config)
         self.hiring_config = self._create_hiring_config()
         self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.hiring_config)
         self.role_performance_service = RolePerformanceService()
@@ -452,10 +463,9 @@ class GameController(QObject):
         self.email_service = EmailService(self.db_session, self.signals, self.game_state)
 
         # --- Refactored Calculation Services ---
-        self.scene_calc_config = self._create_scene_calculation_config()
         self.auto_tag_analyzer = AutoTagAnalyzer(self.data_manager)
 
-        self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_service, self.talent_service)
+        self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_service)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
         self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
@@ -594,6 +604,11 @@ class GameController(QObject):
     def delete_emails(self, email_ids: list[int]):
         if not self.email_service: return
         self.email_service.delete_emails(email_ids)
+
+    def discover_and_create_chemistry_from_cast(self, cast_talents: List[Talent]):
+        """Proxy method to create chemistry links after a scene is shot."""
+        if not self.talent_service: return
+        self.talent_service.discover_and_create_chemistry(cast_talents, commit=False)
 
     # --- Go-To List Actions (Proxy Methods) ---
     def add_talent_to_go_to_list(self, talent_id: int):

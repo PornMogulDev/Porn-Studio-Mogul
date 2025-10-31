@@ -53,7 +53,7 @@ class SceneCalculationService:
 
         # Discover chemistry and auto-tags
         cast_talents_by_id = {t.id: t for t in cast_talents_dc}
-        self.talent_service.discover_and_create_chemistry(scene, cast_talents_by_id)
+        self.talent_service.discover_and_create_chemistry(cast_talents_dc)
 
         # Calculate talent outcomes (stamina, fatigue, skills)
         talent_outcomes = self.shoot_results_calculator.calculate_talent_outcomes(

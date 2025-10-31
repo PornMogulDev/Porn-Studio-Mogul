@@ -1,6 +1,6 @@
     
 from dataclasses import dataclass, field
-from typing import Dict
+from typing import Dict, List
 
 @dataclass(frozen=True)
 class HiringConfig:
@@ -32,6 +32,15 @@ class SceneCalculationConfig:
     
     # Skills & Experience
     maximum_skill_level: float
+    skill_gain_base_rate: float
+    skill_gain_curve_steepness: float
+    exp_gain_base_rate: float
+    exp_gain_curve_steepness: float
+    ds_skill_gain_base_rate: float
+    ds_skill_gain_disposition_multiplier: float
+    ds_skill_gain_dynamic_level_multipliers: Dict[int, float]
+    age_based_affinity_rules: List[Dict]
+    popularity_gain_scalar: float
 
     # Quality Calculation
     scene_quality_base_acting_weight: float
@@ -49,8 +58,6 @@ class SceneCalculationConfig:
     saturation_spend_rate: float
     default_sentiment_multiplier: float
     revenue_weight_focused_physical_tag: float
-    revenue_weight_default_action_appeal: float
-    revenue_weight_auto_tag: float
     revenue_weight_default_action_appeal: float
     revenue_weight_auto_tag: float
     revenue_penalties: Dict = field(default_factory=dict)
