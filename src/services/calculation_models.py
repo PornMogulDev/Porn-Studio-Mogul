@@ -47,3 +47,14 @@ class PostProductionResult:
     new_tag_qualities: Dict[str, float]
     new_performer_contributions: List[Dict[str, float | int | str]]
     revenue_modifier_details: Dict[str, float]
+
+@dataclass(frozen=True)
+class WeekAdvancementResult:
+    """Represents the outcome of a week advancement process."""
+    new_week: int
+    new_year: int
+    was_paused: bool = False
+    scenes_shot: int = 0
+    scenes_edited: int = 0
+    market_changed: bool = False
+    talent_pool_changed: bool = False

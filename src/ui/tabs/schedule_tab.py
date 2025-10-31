@@ -17,18 +17,21 @@ class ScheduleTab(QWidget):
         super().__init__()
         self.controller = controller
         self.ui_manager = ui_manager
+        # Local state to hold authoritative time from signals
+        self.current_game_week = controller.game_state.week
+        self.current_game_year = controller.game_state.year
         self.setup_ui()
     
         # --- Connections ---
         self.controller.signals.scenes_changed.connect(self.refresh_schedule)
-        self.controller.signals.time_changed.connect(self.update_year_selector)
+        self.controller.signals.time_changed.connect(self._on_time_changed)
         self.help_btn.help_requested.connect(self.controller.signals.show_help_requested)
         self.year_spinbox.valueChanged.connect(self.refresh_schedule)
         self.plan_scene_btn.clicked.connect(self.plan_shooting_bloc)
         self.tree_view.doubleClicked.connect(self.handle_double_click)
         
         # Initial setup
-        self.update_year_selector()
+        self._on_time_changed(self.controller.game_state.week, self.controller.game_state.year)
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -55,15 +58,28 @@ class ScheduleTab(QWidget):
         self.tree_view.setEditTriggers(QTreeView.EditTrigger.NoEditTriggers)
         main_layout.addWidget(self.tree_view)
         
-    def update_year_selector(self):
-        current_year = self.controller.game_state.year
-        self.year_spinbox.setRange(current_year, current_year + 10)
-        self.year_spinbox.setValue(current_year)
+    def _on_time_changed(self, new_week: int, new_year: int):
+        """Slot to handle time changes, updating the year selector and refreshing the view."""
+        self.current_game_week = new_week
+        self.current_game_year = new_year
+
+        # Block signals to prevent valueChanged from triggering a second refresh
+        self.year_spinbox.blockSignals(True)
+        
+        # Update the range and value only if the year has actually changed.
+        # This is more efficient and correct for year-end rollovers.
+        if self.year_spinbox.value() != new_year:
+            self.year_spinbox.setRange(new_year, new_year + 10)
+            self.year_spinbox.setValue(new_year)
+        
+        self.year_spinbox.blockSignals(False)
+
+        # Always refresh the schedule to show the new week's state
         self.refresh_schedule()
 
     def refresh_schedule(self):
         self.model.clear()
-        current_week = self.controller.game_state.week
+        current_week = self.current_game_week
         viewing_year = self.year_spinbox.value()
         
         all_blocs = self.controller.get_blocs_for_schedule_view(viewing_year)
@@ -73,7 +89,7 @@ class ScheduleTab(QWidget):
             if week not in blocs_by_week: blocs_by_week[week] = []
             blocs_by_week[week].append(bloc)
 
-        start_week = current_week if viewing_year == self.controller.game_state.year else 1
+        start_week = current_week if viewing_year == self.current_game_year else 1
         
         for week_num in range(start_week, 53):
             week_item = QStandardItem(f"Week {week_num}")

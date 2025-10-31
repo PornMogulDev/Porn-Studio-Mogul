@@ -20,21 +20,13 @@ class MarketService:
 
     def recover_all_market_saturation(self) -> bool:
         market_changed = False
-        try:
-            market_groups_db = self.session.query(MarketGroupStateDB).all()
-            for group_db in market_groups_db:
-                if group_db.current_saturation < 1.0:
-                    saturation_deficit = 1.0 - group_db.current_saturation
-                    recovery_amount = saturation_deficit * self.config.saturation_recovery_rate
-                    group_db.current_saturation = min(1.0, group_db.current_saturation + recovery_amount)
-                    market_changed = True
-            
-            if market_changed:
-                self.session.commit()
-        except Exception as e:
-            logger.error(f"Error recovering market saturation: {e}", exc_info=True)
-            self.session.rollback() # Important: Rollback on error
-            return False
+        market_groups_db = self.session.query(MarketGroupStateDB).all()
+        for group_db in market_groups_db:
+            if group_db.current_saturation < 1.0:
+                saturation_deficit = 1.0 - group_db.current_saturation
+                recovery_amount = saturation_deficit * self.config.saturation_recovery_rate
+                group_db.current_saturation = min(1.0, group_db.current_saturation + recovery_amount)
+                market_changed = True
         
         return market_changed
     

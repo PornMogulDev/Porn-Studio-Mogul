@@ -180,44 +180,45 @@ class GameController(QObject):
             self.signals.incomplete_scene_check_requested.emit(incomplete_scenes)
             return  # Stop here, wait for UI to handle and possibly recall this method
 
-        # --- 1. PROCESS WEEK ADVANCEMENT ---
-        # All game logic for the week happens here, before saving.
-        changes = self.time_service.process_week_advancement()
+        # --- 1. DELEGATE TO TIME SERVICE ---
+        # The service handles the entire transaction and returns a result object.
+        result = self.time_service.advance_week()
+
+        # --- 2. UPDATE GAMESTATE & AUTOSAVE ---
+        self.game_state.week = result.new_week
+        self.game_state.year = result.new_year
         
-        # Update GameState money from DB before committing and saving
         money_info = self.db_session.query(GameInfoDB).filter_by(key='money').one()
         self.game_state.money = int(float(money_info.value))
 
-        # Commit all changes from the week advancement to the database
-        self.db_session.commit()
-
-        # --- 2. AUTOSAVE AFTER ALL CHANGES ARE COMMITTED ---
         # The autosave will now contain the state of the *new* week.
         self.save_manager.auto_save(self.db_session)
         
-        # After auto_save, the session is rebound. We need to get the new session
-        # and re-initialize services with it for the next player action.
         self.db_session = self.save_manager.db_manager.get_session()
         self._reinitialize_services()
 
         # --- 3. EMIT SIGNALS AND HANDLE PAUSES/GAME OVER ---
-        if changes.get("paused"):  # If the week was paused by an event..._
-            if changes.get("scenes_shot") or changes.get("scenes_edited"): self.signals.scenes_changed.emit()
+        if result.was_paused:
+            # If paused, we only signal changes that already happened. Time/Money have not advanced.
+            if result.scenes_shot > 0: self.signals.scenes_changed.emit()
             return
-
-        # Emit signals for all changes that occurred during the week
-        if changes.get("scenes_shot") or changes.get("scenes_edited"): self.signals.scenes_changed.emit()
-        if changes.get("market"): self.signals.market_changed.emit()
-        if changes.get("talent_pool"): self.signals.talent_pool_changed.emit()
 
         # Check for game over condition
         if self.game_state.money <= self.game_constant.get('game_over_threshold', -5000):
             self.signals.game_over_triggered.emit("bankruptcy")
             return
 
-        # Finally, signal that the time and money have officially changed for the new week
-        self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
+        # --- 4. EMIT SIGNALS (Order is important!) ---
+        # First, emit the primary signals that establish the new context (time and money).
+        # This allows UI elements like the schedule to update their base state correctly.
+        self.signals.time_changed.emit(result.new_week, result.new_year)
         self.signals.money_changed.emit(self.game_state.money)
+
+        # Second, emit signals for specific content changes that happened during the week.
+        # UIs listening to these will now have the correct time context.
+        if result.scenes_shot > 0 or result.scenes_edited > 0: self.signals.scenes_changed.emit()
+        if result.market_changed: self.signals.market_changed.emit()
+        if result.talent_pool_changed: self.signals.talent_pool_changed.emit()
 
     def start_editing_scene(self, scene_id: int, editing_tier_id: str):
         """
@@ -488,7 +489,7 @@ class GameController(QObject):
         )
         self.scene_service.event_service = self.scene_event_service # Late-binding to resolve circular dependency
        
-        self.time_service = TimeService(self.db_session, self.game_state, self.signals, self.scene_service, self.talent_service, self.market_service, self.data_manager)
+        self.time_service = TimeService(self.db_session, self.signals, self.scene_service, self.talent_service, self.market_service)
 
     # --- Game Session Management (Delegated to GameSessionService) ---
 

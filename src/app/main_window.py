@@ -102,7 +102,7 @@ class MainGameWindow(QWidget):
             self.hire_presenter.view.refresh_from_state()
 
         self.scenes_tab.refresh_view()
-        self.schedule_tab.update_year_selector()
+        self.schedule_tab._on_time_changed(self.controller.game_state.week, self.controller.game_state.year)
         self.market_tab.refresh_view()
 
     def game_over_ui(self, reason: str):

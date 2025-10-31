@@ -562,3 +562,17 @@ class SceneService:
             return
 
         self.calculation_service.calculate_shoot_results(scene_db, shoot_modifiers)
+
+    def process_weekly_post_production(self) -> List[SceneDB]:
+        """
+        Updates weeks_remaining for scenes in editing and finalizes them if ready.
+        Returns a list of scenes that finished editing this week.
+        """
+        edited_scenes = []
+        editing_scenes_db = self.session.query(SceneDB).filter_by(status='in_editing').all()
+        for scene_db in editing_scenes_db:
+            scene_db.weeks_remaining -= 1
+            if scene_db.weeks_remaining <= 0:
+                self.calculation_service.apply_post_production_effects(scene_db)
+                edited_scenes.append(scene_db)
+        return edited_scenes

@@ -55,26 +55,32 @@ class TalentService:
     def discover_and_create_chemistry(self, cast_talents: List[Talent], commit: bool = False):
         """
         Checks for new chemistry pairs and creates them in the database.
-        Can operate within a larger transaction if commit=False.
+        (Wrapper around logic methods).
         """
         if len(cast_talents) < 2:
             return
 
-        # Optimization: Fetch all existing chemistry pairs for the cast in one query
-        all_pairs = [tuple(sorted((t1.id, t2.id))) for t1, t2 in combinations(cast_talents, 2)]
+        talent_ids = [t.id for t in cast_talents]
+        
+        # 1. Fetch existing pairs for the current cast
+        all_possible_pairs = [tuple(sorted((t1.id, t2.id))) for t1, t2 in combinations(cast_talents, 2)]
+        
+        if not all_possible_pairs:
+            return
+
         existing_pairs_query = self.session.query(TalentChemistryDB.talent_a_id, TalentChemistryDB.talent_b_id).filter(
-            tuple_(TalentChemistryDB.talent_a_id, TalentChemistryDB.talent_b_id).in_(all_pairs)
+            tuple_(TalentChemistryDB.talent_a_id, TalentChemistryDB.talent_b_id).in_(all_possible_pairs)
         )
         existing_pairs = {tuple(sorted(pair)) for pair in existing_pairs_query.all()}
 
         new_chems_added = False
         for t1, t2 in combinations(cast_talents, 2):
-            # Ensure consistent key order
             id1, id2 = sorted((t1.id, t2.id))
             if (id1, id2) in existing_pairs:
                 continue
 
-            initial_score = 0  # Future: Add logic for initial score based on interaction
+            # 2. Persist new pairs
+            initial_score = 0  # Logic for initial score is externalized or set to 0 here
             new_chem = TalentChemistryDB(talent_a_id=id1, talent_b_id=id2, chemistry_score=initial_score)
             self.session.add(new_chem)
             new_chems_added = True
@@ -89,17 +95,38 @@ class TalentService:
     def recalculate_talent_age_affinities(self, talent: Talent) -> Dict:
         """Recalculates affinities affected by age."""
         new_affinities = talent.tag_affinities.copy()
-        rules = self.config.age_based_affinity_rules  # This method can stay as it relates to general talent state
+        rules = self.config.age_based_affinity_rules
+        
+        if not rules:
+            return new_affinities
+            
         for rule in rules:
             tag_name = rule.get('tag')
             if talent.age >= rule.get('min_age') and talent.age <= rule.get('max_age'):
                 new_affinities[tag_name] = rule.get('affinity_score', 0)
         return new_affinities
+    
+    def _calculate_new_popularity_score(self, current_pop: float, interest_score: float) -> float:
+        """
+        [UNIT TESTABLE LOGIC] Calculates the popularity gain with diminishing returns.
+        """
+        base_gain = interest_score * self.config.popularity_gain_scalar
+        
+        # Apply diminishing returns only if current pop > 0
+        if current_pop > 0:
+            # 1.5 exponent provides a reasonable curve
+            diminishing_factor = 1 - (current_pop / 100.0) ** 1.5 
+            actual_gain = base_gain * max(0.0, diminishing_factor) # Ensure gain is non-negative
+            new_pop = current_pop + actual_gain
+        else:
+            new_pop = base_gain
+            
+        return min(100.0, new_pop)
 
     def update_popularity_from_scene(self, scene_id: int, commit: bool = False):
         """
         Updates the popularity for all cast members of a released scene.
-        Can operate within a larger transaction if commit=False.
+        Focuses on DB orchestration and uses the dedicated calculation helper.
         """
         scene_db = self.session.query(SceneDB).options(
             selectinload(SceneDB.cast)
@@ -112,7 +139,6 @@ class TalentService:
         if not talent_ids:
             return
         
-        # Optimization: Eager load popularity scores to avoid N+1 queries
         talents = self.session.query(TalentDB).options(
             selectinload(TalentDB.popularity_scores)
         ).filter(TalentDB.id.in_(talent_ids)).all()
@@ -120,28 +146,22 @@ class TalentService:
         talent_map = {t.id: t for t in talents}
         viewer_interest = scene_db.viewer_group_interest
         
-        for talent_id in talent_ids:
-            talent_db = talent_map.get(talent_id)
-            if not talent_db:
-                continue
-            
+        for talent_db in talents:
             pop_map = {p.market_group_name: p for p in talent_db.popularity_scores}
             
             for group_name, interest_score in viewer_interest.items():
-                base_gain = interest_score * self.config.popularity_gain_scalar
                 
                 if group_name in pop_map:
                     pop_entry = pop_map[group_name]
-                    # Apply diminishing returns for popularity gain
                     current_pop = pop_entry.score
-                    diminishing_factor = 1 - (current_pop / 100.0) ** 1.5
-                    actual_gain = base_gain * diminishing_factor
-                    pop_entry.score = min(100.0, current_pop + actual_gain)
+                    pop_entry.score = self._calculate_new_popularity_score(current_pop, interest_score)
                 else:
+                    # New popularity entry (initial score is derived directly from calculation)
+                    initial_score = self._calculate_new_popularity_score(0.0, interest_score)
                     new_pop_entry = TalentPopularityDB(
-                        talent_id=talent_id,
+                        talent_id=talent_db.id,
                         market_group_name=group_name,
-                        score=min(100.0, base_gain) # First gain has no diminishing returns
+                        score=initial_score
                     )
                     self.session.add(new_pop_entry)
 
@@ -151,3 +171,37 @@ class TalentService:
             except Exception as e:
                 logger.error(f"Failed to update talent popularity for scene {scene_id}: {e}", exc_info=True)
                 self.session.rollback()
+
+    def process_weekly_updates(self, current_date_val: int, new_year: bool) -> bool:
+        """
+        Processes all weekly changes for talents: popularity decay, fatigue recovery, and aging.
+        Returns True if any talent data was changed.
+        """
+        talents_to_update = self.session.query(TalentDB).options(
+            selectinload(TalentDB.popularity_scores)
+        ).all()
+        if not talents_to_update:
+            return False
+
+        # --- Popularity Decay ---
+        decay_rate = self.config.popularity_gain_scalar
+        for talent in talents_to_update:
+            for pop_entry in talent.popularity_scores:
+                pop_entry.score *= decay_rate
+            
+            # --- Fatigue Recovery ---
+            if talent.fatigue > 0:
+                fatigue_end_val = talent.fatigue_end_year * 52 + talent.fatigue_end_week
+                if current_date_val >= fatigue_end_val:
+                    talent.fatigue = 0
+                    talent.fatigue_end_week = 0
+                    talent.fatigue_end_year = 0
+            
+            # --- Aging ---
+            if new_year:
+                talent.age += 1
+                talent_obj = talent.to_dataclass(Talent) 
+                new_affinities = self.recalculate_talent_age_affinities(talent_obj)
+                talent.tag_affinities = new_affinities
+        
+        return True
