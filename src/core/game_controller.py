@@ -12,7 +12,8 @@ from data.settings_manager import SettingsManager
 from ui.theme_manager import Theme, ThemeManager
 from database.db_models import *
 
-from services.service_config import HiringConfig
+from services.service_config import HiringConfig, MarketConfig
+from services.market_group_resolver import MarketGroupResolver
 from services.market_service import MarketService
 from services.talent_service import TalentService
 from services.hire_talent_service import HireTalentService
@@ -63,6 +64,9 @@ class GameController(QObject):
         self.scene_event_service = None
         self.player_settings_service = None
         self.email_service = None
+
+        self.market_config = MarketConfig(saturation_recovery_rate=self.data_manager.game_config.get("market_saturation_recovery_rate", 0.05))
+        self.market_resolver = MarketGroupResolver(self.data_manager.market_data)
         
         self._cached_thematic_tags_data = None
         self._cached_physical_tags_data = None
@@ -400,7 +404,7 @@ class GameController(QObject):
     def _reinitialize_services(self):
         if not self.db_session:
             return
-        self.market_service = MarketService(self.db_session, self.data_manager.market_data, self.data_manager.tag_definitions)
+        self.market_service = MarketService(self.db_session, self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.role_performance_service = RolePerformanceService(self.data_manager)
         self.talent_service = TalentService(self.db_session, self.data_manager, self.market_service)
         self.hiring_config = self._create_hiring_config()

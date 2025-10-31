@@ -15,3 +15,7 @@ class HiringConfig:
     ambition_demand_divisor: float
     popularity_demand_scalar: float
     minimum_talent_demand: int
+
+@dataclass(frozen=True)
+class MarketConfig:
+    saturation_recovery_rate: float
