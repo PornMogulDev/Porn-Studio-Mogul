@@ -18,15 +18,14 @@ logger = logging.getLogger(__name__)
 
 class SceneService:
     def __init__(self, db_session, signals, data_manager: DataManager, 
-                 talent_service: TalentService, market_service: MarketService, role_perf_service: RolePerformanceService,
-                    event_service: SceneEventService):
+                 talent_service: TalentService, market_service: MarketService, event_service: SceneEventService):
         self.session = db_session
         self.signals = signals
         self.data_manager = data_manager
         self.talent_service = talent_service
         self.market_service = market_service
         self.event_service = event_service
-        self.calculation_service = SceneCalculationService(db_session, data_manager, talent_service, market_service, role_perf_service)
+        self.calculation_service = SceneCalculationService(db_session, data_manager, talent_service, market_service)
 
     # --- UI Query Methods ---
     def get_blocs_for_schedule_view(self, year: int) -> List[ShootingBloc]:

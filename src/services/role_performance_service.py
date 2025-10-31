@@ -1,5 +1,4 @@
 from data.game_state import ActionSegment
-from data.data_manager import DataManager
 
 class RolePerformanceService:
     """
@@ -7,10 +6,8 @@ class RolePerformanceService:
     based on the context of a scene segment (e.g., number of partners).
     This logic is used for calculating both hiring demand and stamina cost.
     """
-    def __init__(self, data_manager: DataManager):
-        self.data_manager = data_manager
-
-    def get_final_modifier(self, base_modifier_key: str, slot_def: dict, segment: ActionSegment, role: str) -> float:
+    @staticmethod
+    def get_final_modifier(base_modifier_key: str, slot_def: dict, segment: ActionSegment, role: str) -> float:
         """
         Calculates the final modifier for a given attribute (demand, stamina)
         based on scaling rules for the number of peers and other participants.

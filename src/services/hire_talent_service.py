@@ -17,11 +17,10 @@ from database.db_models import (
 
 
 class HireTalentService:
-    def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, role_perf_service: RolePerformanceService, config: HiringConfig):
+    def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, config: HiringConfig):
         self.session = db_session
         self.data_manager = data_manager
         self.talent_service = talent_service
-        self.role_performance_service = role_perf_service
         self.config = config
 
     def _get_vp_role_context(self, scene: Scene, vp_id: int) -> Tuple[Set[str], Dict[str, Set[str]]]:
@@ -277,7 +276,7 @@ class HireTalentService:
                     except ValueError: continue
                     slot_def = next((s for s in slots if s['role'] == role), None)
                     if not slot_def: continue
-                    final_mod = self.role_performance_service.get_final_modifier('demand_modifier', slot_def, segment, role)
+                    final_mod = RolePerformanceService.get_final_modifier('demand_modifier', slot_def, segment, role)
                     max_demand_mod = max(max_demand_mod, final_mod)
         role_multiplier = max_demand_mod
         

@@ -405,12 +405,11 @@ class GameController(QObject):
         if not self.db_session:
             return
         self.market_service = MarketService(self.db_session, self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
-        self.role_performance_service = RolePerformanceService(self.data_manager)
         self.talent_service = TalentService(self.db_session, self.data_manager, self.market_service)
         self.hiring_config = self._create_hiring_config()
-        self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.role_performance_service, self.hiring_config)
+        self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.hiring_config)
         self.scene_event_service = SceneEventService(self.db_session, self.game_state, self.signals, self.data_manager, self.talent_service)
-        self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, self.role_performance_service, self.scene_event_service)
+        self.scene_service = SceneService(self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, self.scene_event_service)
         self.time_service = TimeService(self.db_session, self.game_state, self.signals, self.scene_service, self.talent_service, self.market_service, self.data_manager)
         self.go_to_list_service = GoToListService(self.db_session, self.signals)
         self.player_settings_service = PlayerSettingsService(self.db_session, self.signals) 
