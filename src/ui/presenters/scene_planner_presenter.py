@@ -8,7 +8,7 @@ from data.game_state import Scene, Talent, ShootingBloc
 from ui.dialogs.scene_dialog import SceneDialog
 from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from utils.scene_summary_builder import prepare_summary_data
-from services.scene_editor_service import SceneEditorService
+from services.scene_state_editor import SceneStateEditor
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
@@ -25,7 +25,7 @@ class ScenePlannerPresenter(QObject):
         original_scene = self.controller.get_scene_for_planner(scene_id)
         if not original_scene: raise ValueError(f"Scene with ID {scene_id} not found.")
             
-        self.editor_service = SceneEditorService(original_scene, self.controller.data_manager)
+        self.state_editor = SceneStateEditor(original_scene, self.controller.data_manager)
         
         self._talent_cache = {}
         self.parent_bloc: Optional[ShootingBloc] = None
@@ -46,7 +46,7 @@ class ScenePlannerPresenter(QObject):
         self._connect_signals()
 
     @property
-    def working_scene(self) -> Scene: return self.editor_service.working_scene
+    def working_scene(self) -> Scene: return self.state_editor.working_scene
 
     def _connect_signals(self):
         # View signals
@@ -162,27 +162,27 @@ class ScenePlannerPresenter(QObject):
         
     # --- Slots for View Signals ---
     def on_title_changed(self, title: str):
-        self.editor_service.set_title(title)
-    def on_focus_target_changed(self, target: str): self.editor_service.set_focus_target(target)
-    def on_total_runtime_changed(self, minutes: int): self.editor_service.set_total_runtime(minutes)
+        self.state_editor.set_title(title)
+    def on_focus_target_changed(self, target: str): self.state_editor.set_focus_target(target)
+    def on_total_runtime_changed(self, minutes: int): self.state_editor.set_total_runtime(minutes)
     def on_ds_level_changed(self, level: int):
-        self.editor_service.set_ds_level(level)
+        self.state_editor.set_ds_level(level)
         self._refresh_composition()
         self._update_summary()
 
     def on_performer_count_changed(self, new_count: int):
         self.view.flush_pending_composition_changes()
-        self.editor_service.update_performer_count(new_count)
+        self.state_editor.update_performer_count(new_count)
         self._refresh_composition(); self._refresh_physical_panel(); self._refresh_action_segment_panel()
         self._update_summary()
 
     def on_composition_changed(self, performers_data: List[Dict]):
-        self.editor_service.update_composition(performers_data)
+        self.state_editor.update_composition(performers_data)
         self.on_selected_physical_tag_changed(self.view.selected_physical_list.currentItem()); self._refresh_action_segment_panel()
         self._update_summary()
 
     def on_protagonist_toggled(self, vp_id: int, is_protagonist: bool):
-        self.editor_service.set_protagonist_status(vp_id, is_protagonist)
+        self.state_editor.set_protagonist_status(vp_id, is_protagonist)
 
     def on_thematic_search_changed(self, text: str):
         self.thematic_search_text = text.lower()
@@ -221,16 +221,16 @@ class ScenePlannerPresenter(QObject):
             refresh_callback()
 
     def on_add_thematic_tags(self, tag_names: List[str]):
-        self.editor_service.add_style_tags(tag_names)
+        self.state_editor.add_style_tags(tag_names)
         self._refresh_thematic_panel()
         self._update_summary()
     def on_remove_thematic_tags(self, tag_names: List[str]):
-        self.editor_service.remove_style_tags(tag_names)
+        self.state_editor.remove_style_tags(tag_names)
         self._refresh_thematic_panel()
         self._update_summary()
     def on_add_physical_tags(self, tag_names: List[str]):
         if not tag_names: return
-        self.editor_service.add_style_tags(tag_names)
+        self.state_editor.add_style_tags(tag_names)
         self.selected_physical_tag_name = sorted(tag_names)[0]
         self._refresh_physical_panel()
         self._update_summary()
@@ -238,7 +238,7 @@ class ScenePlannerPresenter(QObject):
         if not tag_names: return
         if self.selected_physical_tag_name in tag_names:
             self.selected_physical_tag_name = None
-        self.editor_service.remove_style_tags(tag_names)
+        self.state_editor.remove_style_tags(tag_names)
         self._refresh_physical_panel()
         self._update_summary()
 
@@ -260,12 +260,12 @@ class ScenePlannerPresenter(QObject):
         self.view.update_physical_assignment_panel(tag_data, performers_with_talent_data, assigned_ids, self.is_design_editable())
 
     def on_physical_tag_assignment_changed(self, tag_name: str, vp_id: int, is_assigned: bool):
-        self.editor_service.update_style_tag_assignment(tag_name, vp_id, is_assigned)
+        self.state_editor.update_style_tag_assignment(tag_name, vp_id, is_assigned)
         self._update_summary()
 
     def on_add_action_segments(self, tag_names: List[str]):
         if not tag_names: return
-        new_ids = self.editor_service.add_action_segments(tag_names)
+        new_ids = self.state_editor.add_action_segments(tag_names)
         if new_ids: self.selected_segment_id = new_ids[0]
         self._refresh_action_segment_panel()
         self._update_summary()
@@ -274,7 +274,7 @@ class ScenePlannerPresenter(QObject):
         if not segment_ids: return
         if self.selected_segment_id in segment_ids:
             self.selected_segment_id = None
-        self.editor_service.remove_action_segments(segment_ids)
+        self.state_editor.remove_action_segments(segment_ids)
         # After removing, if there are segments left and nothing is selected, select the first one.
         if not self.selected_segment_id and self.working_scene.action_segments:
             self.selected_segment_id = sorted(self.working_scene.action_segments, key=lambda s: s.tag_name)[0].id
@@ -309,20 +309,20 @@ class ScenePlannerPresenter(QObject):
         self.view.update_segment_details(segment, self.controller.tag_definitions, vp_options_by_slot, self.is_design_editable())
 
     def on_segment_runtime_changed(self, segment_id: int, percentage: int):
-        self.editor_service.update_action_segment_runtime(segment_id, percentage)
+        self.state_editor.update_action_segment_runtime(segment_id, percentage)
         self._refresh_action_segment_panel()
         self._update_summary()
     def on_segment_parameter_changed(self, segment_id: int, role: str, value: int):
-        self.editor_service.update_action_segment_parameter(segment_id, role, value)
+        self.state_editor.update_action_segment_parameter(segment_id, role, value)
         self._refresh_action_segment_panel()
         self._update_summary()
     def on_slot_assignment_changed(self, segment_id: int, slot_id: str, vp_id: Optional[int]):
-        self.editor_service.update_slot_assignment(segment_id, slot_id, vp_id)
+        self.state_editor.update_slot_assignment(segment_id, slot_id, vp_id)
         self.on_selected_action_segment_changed(self.view.selected_actions_list.currentItem())
         self._update_summary()
 
     def on_save_requested(self):
-        self.controller.update_scene_full(self.editor_service.finalize_for_saving())
+        self.controller.update_scene_full(self.state_editor.finalize_for_saving())
         self.view.accept()
 
     def on_cancel_requested(self):
@@ -348,7 +348,7 @@ class ScenePlannerPresenter(QObject):
             # in the editor service is now stale. We need to refresh it.
             updated_scene = self.controller.get_scene_for_planner(self.working_scene.id)
             if updated_scene:
-                self.editor_service.reset_with_scene(updated_scene)
+                self.state_editor.reset_with_scene(updated_scene)
                 self._refresh_full_view()
             else:
                 logger.error(f"Could not re-fetch scene {self.working_scene.id} after hiring. Closing dialog.")
@@ -428,7 +428,7 @@ class ScenePlannerPresenter(QObject):
         if new_status_lower == self.working_scene.status.lower():
             return
 
-        is_valid, message = self.editor_service.validate_and_set_status(new_status_str)
+        is_valid, message = self.state_editor.validate_and_set_status(new_status_str)
         if is_valid:
             # Refresh the UI to reflect the new status and potential lock changes.
             self._refresh_full_view()
@@ -436,11 +436,11 @@ class ScenePlannerPresenter(QObject):
             # If moving to casting, save immediately to make roles available.
             if new_status_lower == 'casting':
 
-                self.controller.update_scene_full(self.editor_service.finalize_for_saving())
+                self.controller.update_scene_full(self.state_editor.finalize_for_saving())
                 # After saving, temp IDs become permanent. We must refresh our local state.
                 fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
                 if fresh_scene:
-                    self.editor_service.reset_with_scene(fresh_scene)
+                    self.state_editor.reset_with_scene(fresh_scene)
                     self._refresh_full_view()
                 else:
                     logger.error(f"Could not re-fetch scene {self.working_scene.id} after status change. Closing dialog.")
@@ -463,7 +463,7 @@ class ScenePlannerPresenter(QObject):
         # Re-fetch the scene data from the authoritative source
         fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
 
-        if fresh_scene == self.editor_service.original_scene:
+        if fresh_scene == self.state_editor.original_scene:
             return
 
         if not fresh_scene:
@@ -473,5 +473,5 @@ class ScenePlannerPresenter(QObject):
             return
             
         # The scene still exists. Reset our local state and refresh the entire view.
-        self.editor_service.reset_with_scene(fresh_scene)
+        self.state_editor.reset_with_scene(fresh_scene)
         self._refresh_full_view()

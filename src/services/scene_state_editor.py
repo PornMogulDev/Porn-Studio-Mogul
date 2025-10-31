@@ -8,7 +8,7 @@ from data.data_manager import DataManager
 
 logger = logging.getLogger(__name__)
 
-class SceneEditorService:
+class SceneStateEditor:
     def __init__(self, scene_to_edit: Scene, data_manager: DataManager):
         self.working_scene = copy.deepcopy(scene_to_edit)
         self.original_scene = scene_to_edit
