@@ -375,24 +375,18 @@ class GameController(QObject):
         if not self.scene_event_service or not self.scene_service:
              return
         
-        # Delegate the complex resolution logic to the service
-        outcome = self.scene_event_service.resolve_interactive_event(event_id, scene_id, talent_id, choice_id)
+        # The event service now handles its own transaction and scene deletion.
+        # It returns whether the shoot should continue.
+        shoot_completed, modifiers = self.scene_event_service.resolve_interactive_event(event_id, scene_id, talent_id, choice_id)
 
-        # If a new event was chained, stop here. The service already emitted the signal.
-        if outcome.get("chained_event_triggered"):
-            self.db_session.commit()
+        if not shoot_completed:
+            # If the scene was cancelled or a new event was chained, stop here.
+            # The service has already committed its changes or emitted new signals.
             return
 
-        # If the scene was cancelled, the controller now handles calling the deletion service.
-        if outcome.get("scene_was_cancelled"):
-            # The notification about cost was already sent by the event service.
-            # We call delete_scene silently to avoid duplicate messages.
-            # We also tell it not to commit, as we'll do that at the end of this method.
-            self.delete_scene(scene_id, silent=True)
-        else:
-            # If the scene was NOT cancelled, continue the shoot.
-            self.scene_service._continue_shoot_scene(scene_id, outcome.get("modifiers", {}))
-
+        # If the event resolved normally, continue the shoot and commit the results.
+        self.scene_service._continue_shoot_scene(scene_id, modifiers)
+        # Commit the results of the shoot itself.
         self.db_session.commit()
         
         # After resolving the event, automatically try to continue the week.
@@ -451,32 +445,40 @@ class GameController(QObject):
         self.market_service = MarketService(self.db_session, self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.talent_service = TalentService(self.db_session, self.data_manager, self.market_service)
         self.hiring_config = self._create_hiring_config()
-        self.scene_calc_config = self._create_scene_calculation_config()
         self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.hiring_config)
-        self.auto_tag_analyzer = AutoTagAnalyzer(self.data_manager)
-        self.scene_event_service = SceneEventService(self.db_session, self.game_state, self.signals, self.data_manager, self.talent_service)
         self.role_performance_service = RolePerformanceService()
+        self.player_settings_service = PlayerSettingsService(self.db_session, self.signals) 
+        self.go_to_list_service = GoToListService(self.db_session, self.signals)
+        self.email_service = EmailService(self.db_session, self.signals, self.game_state)
 
-        # Instantiate pure calculators
+        # --- Refactored Calculation Services ---
+        self.scene_calc_config = self._create_scene_calculation_config()
+        self.auto_tag_analyzer = AutoTagAnalyzer(self.data_manager)
+
         self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_service, self.talent_service)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
         self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
 
-        # Instantiate orchestrator services and inject calculators
+        # --- High-level Orchestration Services ---
+        # Note: SceneService and SceneEventService have a circular dependency.
+        # We resolve it by initializing SceneService first, then SceneEventService,
+        # then injecting the event service back into the scene service.
         self.scene_calculation_service = SceneCalculationService(
             self.db_session, self.data_manager, self.talent_service, self.market_service, 
             self.scene_calc_config, self.auto_tag_analyzer, self.shoot_results_calculator,
             self.scene_quality_calculator, self.post_production_calculator
         )
         self.scene_service = SceneService(
-            self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service,
-            self.scene_event_service, self.email_service, self.scene_calculation_service, self.revenue_calculator)
+            self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, 
+            self.email_service, self.scene_calculation_service, self.revenue_calculator
+        )
+        self.scene_event_service = SceneEventService(
+            self.db_session, self.signals, self.data_manager, self.talent_service, self.scene_service
+        )
+        self.scene_service.event_service = self.scene_event_service # Late-binding to resolve circular dependency
        
         self.time_service = TimeService(self.db_session, self.game_state, self.signals, self.scene_service, self.talent_service, self.market_service, self.data_manager)
-        self.go_to_list_service = GoToListService(self.db_session, self.signals)
-        self.player_settings_service = PlayerSettingsService(self.db_session, self.signals) 
-        self.email_service = EmailService(self.db_session, self.signals, self.game_state)
 
     # --- Game Session Management (Delegated to GameSessionService) ---
 

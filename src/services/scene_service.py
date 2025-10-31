@@ -22,14 +22,13 @@ logger = logging.getLogger(__name__)
 class SceneService:
     def __init__(self, db_session, signals, data_manager: DataManager, 
                  talent_service: TalentService, market_service: MarketService, 
-                 event_service: SceneEventService, email_service: EmailService,
-                 calculation_service: 'SceneCalculationService', revenue_calculator: RevenueCalculator):
+                 email_service: EmailService, calculation_service: 'SceneCalculationService',
+                 revenue_calculator: RevenueCalculator):
         self.session = db_session
         self.signals = signals
         self.data_manager = data_manager
         self.talent_service = talent_service
         self.market_service = market_service
-        self.event_service = event_service
         self.email_service = email_service
         self.calculation_service = calculation_service
         self.revenue_calculator = revenue_calculator
@@ -266,7 +265,7 @@ class SceneService:
             self.session.rollback()
             return -1
 
-    def delete_scene(self, scene_id: int, penalty_percentage: float = 0.0, silent: bool = False) -> bool:
+    def delete_scene(self, scene_id: int, penalty_percentage: float = 0.0, silent: bool = False, commit: bool = True) -> bool:
         try:
             scene_db = self.session.query(SceneDB).options(selectinload(SceneDB.cast)).get(scene_id)
             if not scene_db:
@@ -286,7 +285,8 @@ class SceneService:
                     self.signals.money_changed.emit(new_money)
             
             self.session.delete(scene_db)
-            self.session.commit()
+            if commit:
+                self.session.commit()
             if not silent:
                 self.signals.notification_posted.emit(f"Scene '{scene_title}' has been deleted.")
             self.signals.scenes_changed.emit()
