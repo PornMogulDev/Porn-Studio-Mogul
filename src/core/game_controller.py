@@ -15,6 +15,8 @@ from database.db_models import *
 from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig
 from services.utils.market_group_resolver import MarketGroupResolver
 from services.utils.role_performance_service import RolePerformanceService
+from services.utils.talent_availability_checker import TalentAvailabilityChecker
+from services.utils.talent_logic_helper import TalentLogicHelper
 from services.calculation.scene_orchestrator import SceneOrchestrator
 from services.market_service import MarketService
 from services.talent_service import TalentService
@@ -67,6 +69,8 @@ class GameController(QObject):
         self.hire_talent_service = None
         self.role_performance_service = None
         self.auto_tag_analyzer = None
+        self.talent_logic_helper = None
+        self.availability_checker = None
         self.shoot_results_calculator = None
         self.scene_quality_calculator = None
         self.post_production_calculator = None
@@ -455,9 +459,13 @@ class GameController(QObject):
             return
         self.market_service = MarketService(self.db_session, self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.scene_calc_config = self._create_scene_calculation_config()
-        self.talent_service = TalentService(self.db_session, self.data_manager, self.scene_calc_config)
+        # --- Pure Logic Helpers ---
+        self.talent_logic_helper = TalentLogicHelper(self.scene_calc_config)
+        self.availability_checker = TalentAvailabilityChecker(self.data_manager, self._create_hiring_config())
+        # --- Services ---
+        self.talent_service = TalentService(self.db_session, self.data_manager, self.scene_calc_config, self.talent_logic_helper)
         self.hiring_config = self._create_hiring_config()
-        self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.hiring_config)
+        self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.hiring_config, self.availability_checker)
         self.role_performance_service = RolePerformanceService()
         self.player_settings_service = PlayerSettingsService(self.db_session, self.signals) 
         self.go_to_list_service = GoToListService(self.db_session, self.signals)

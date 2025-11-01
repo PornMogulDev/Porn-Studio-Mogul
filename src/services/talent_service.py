@@ -9,14 +9,16 @@ from data.data_manager import DataManager
 from services.models.configs import SceneCalculationConfig
 from database.db_models import (TalentDB, TalentPopularityDB, TalentChemistryDB,
                                 SceneDB, SceneCastDB, GameInfoDB)
+from services.utils.talent_logic_helper import TalentLogicHelper
 
 logger = logging.getLogger(__name__)
 
 class TalentService:
-    def __init__(self, db_session, data_manager: DataManager, config: SceneCalculationConfig):
+    def __init__(self, db_session, data_manager: DataManager, config: SceneCalculationConfig, talent_logic_helper: TalentLogicHelper):
         self.session = db_session
         self.data_manager = data_manager
         self.config = config
+        self.talent_logic_helper = talent_logic_helper
 
     def get_filtered_talents(self, all_filters: dict) -> List[TalentDB]:
         query = self.session.query(TalentDB).options(selectinload(TalentDB.popularity_scores))
@@ -118,20 +120,6 @@ class TalentService:
             results[other_talent.id] = {'alias': other_talent.alias, 'score': rel.chemistry_score}
         return results
     
-    def recalculate_talent_age_affinities(self, talent: Talent) -> Dict:
-        """Recalculates affinities affected by age."""
-        new_affinities = talent.tag_affinities.copy()
-        rules = self.config.age_based_affinity_rules
-        
-        if not rules:
-            return new_affinities
-            
-        for rule in rules:
-            tag_name = rule.get('tag')
-            if talent.age >= rule.get('min_age') and talent.age <= rule.get('max_age'):
-                new_affinities[tag_name] = rule.get('affinity_score', 0)
-        return new_affinities
-    
     def _calculate_new_popularity_score(self, current_pop: float, interest_score: float) -> float:
         """
         [UNIT TESTABLE LOGIC] Calculates the popularity gain with diminishing returns.
@@ -227,7 +215,7 @@ class TalentService:
             if new_year:
                 talent.age += 1
                 talent_obj = talent.to_dataclass(Talent) 
-                new_affinities = self.recalculate_talent_age_affinities(talent_obj)
+                new_affinities = self.talent_logic_helper.recalculate_talent_age_affinities(talent_obj)
                 talent.tag_affinities = new_affinities
         
         return True

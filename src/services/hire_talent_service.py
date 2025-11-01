@@ -6,25 +6,27 @@ from collections import defaultdict
 from sqlalchemy.orm import joinedload, selectinload
 
 from data.game_state import Talent, Scene, ActionSegment
+from data.data_manager import DataManager
 from database.db_models import (
     TalentDB, SceneDB, ActionSegmentDB,
     ShootingBlocDB
 )
 from services.talent_service import TalentService
-from services.utils.role_performance_service import RolePerformanceService
-from data.data_manager import DataManager
 from services.models.configs import HiringConfig
+from services.utils.role_performance_service import RolePerformanceService
+from services.utils.talent_availability_checker import TalentAvailabilityChecker
 
 class HireTalentService:
-    def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, config: HiringConfig):
+    def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, config: HiringConfig, availability_checker: TalentAvailabilityChecker):
         self.session = db_session
         self.data_manager = data_manager
         self.talent_service = talent_service
         self.config = config
+        self.availability_checker = availability_checker
 
-    def _get_vp_role_context(self, scene: Scene, vp_id: int) -> Tuple[Set[str], Dict[str, Set[str]]]:
+    def _get_role_tags_for_display(self, scene: Scene, vp_id: int) -> List[str]:
         """
-        Parses the scene's expanded segments once to extract all role context for a VP.
+        Helper to get a formatted list of tags and roles for UI display.
 
         Returns:
             A tuple containing:
@@ -34,26 +36,7 @@ class HireTalentService:
         action_tags = set()
         roles_by_tag = defaultdict(set)
         
-        expanded_segments = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
-        for segment in expanded_segments:
-            is_vp_in_segment = False
-            for assignment in segment.slot_assignments:
-                if assignment.virtual_performer_id == vp_id:
-                    is_vp_in_segment = True
-                    try:
-                        _, role, _ = assignment.slot_id.rsplit('_', 2)
-                    except ValueError:
-                        role = "Performer" # Default role
-                    roles_by_tag[segment.tag_name].add(role)
-            
-            if is_vp_in_segment:
-                action_tags.add(segment.tag_name)
-                
-        return action_tags, dict(roles_by_tag)
-
-    def _get_role_tags_for_display(self, scene: Scene, vp_id: int) -> List[str]:
-        """Helper to get a formatted list of tags and roles for UI display."""
-        _, roles_by_tag = self._get_vp_role_context(scene, vp_id)
+        _, roles_by_tag = self.availability_checker._get_vp_role_context(scene, vp_id)
         tags_with_roles = [
             f"{tag_name} ({', '.join(sorted(list(roles)))})" 
             for tag_name, roles in sorted(roles_by_tag.items())
@@ -90,8 +73,8 @@ class HireTalentService:
 
         for talent_db in potential_candidates_db:
             # Pass the lightweight DB object directly to the checker
-            is_available, _ = self._check_talent_availability_for_role(talent_db, scene, vp.id, scene_db, bloc_db)
-            if is_available:
+            result = self.availability_checker.check(talent_db, scene, vp.id, bloc_db)
+            if result.is_available:
                 eligible_talents_db.append(talent_db)
             
         return sorted(eligible_talents_db, key=lambda t: t.alias)
@@ -111,88 +94,11 @@ class HireTalentService:
         # --- Step B: In-Memory Python Filtering (Optimized) ---
         available_talents = []
         for talent_obj in talents: # Now works with Talent or TalentDB
-            is_available, _ = self._check_talent_availability_for_role(talent_obj, scene, vp_id, scene_db, bloc_db)
-            if is_available:
+            result = self.availability_checker.check(talent_obj, scene, vp_id, scene_db, bloc_db)
+            if result.is_available:
                 available_talents.append(talent_obj)
 
         return available_talents
-
-    def _check_talent_availability_for_role(self, talent: Union[Talent, TalentDB], scene: Scene, vp_id: int, scene_db: SceneDB, bloc_db: Optional[ShootingBlocDB]) -> tuple[bool, Optional[str]]:
-        # This function's logic can remain largely the same because attributes like
-        # .max_scene_partners, .hard_limits, .popularity etc. exist on both objects.
-        
-        # Check 1: Max Scene Partners
-        num_performers = len(scene.virtual_performers)
-        if num_performers > 1 and (num_performers - 1) > talent.max_scene_partners:
-            return False, f"Refuses scenes with more than {talent.max_scene_partners} partners."
-
-        # Check 2: Hard Limits
-        role_action_tags, roles_by_tag = self._get_vp_role_context(scene, vp_id)
-        for full_tag_name in role_action_tags:
-            tag_def = self.data_manager.tag_definitions.get(full_tag_name)
-            base_name = tag_def.get('name') if tag_def else full_tag_name
-            if full_tag_name in talent.hard_limits or (base_name and base_name in talent.hard_limits):
-                return False, f"Talent has a hard limit against '{base_name}'."
-        
-        # Check 3: Concurrency Limits
-        expanded_segments = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
-        for segment in expanded_segments:
-            if not any(a.virtual_performer_id == vp_id for a in segment.slot_assignments):
-                continue
-            tag_def = self.data_manager.tag_definitions.get(segment.tag_name)
-            if not tag_def or not (concept := tag_def.get('concept')):
-                continue
-            if 'Receiver' in roles_by_tag.get(segment.tag_name, set()):
-                num_givers = sum(1 for a in segment.slot_assignments if '_Giver_' in a.slot_id)
-                limit = talent.concurrency_limits.get(concept, self.config.concurrency_default_limit)
-                if num_givers > limit:
-                    return False, f"Concurrency limit for '{concept}' exceeded (Max: {limit}, Scene has: {num_givers})."
-
-        # Check 4: Preference & Orientation Compatibility
-        refusal_threshold = self.config.refusal_threshold
-        orientation_threshold = self.config.orientation_refusal_threshold
-        for tag_name, roles_in_tag in roles_by_tag.items():
-            for role in roles_in_tag:
-                preference = talent.tag_preferences.get(tag_name, {}).get(role, 1.0)
-                if preference < refusal_threshold:
-                    if preference < orientation_threshold:
-                        reason = f"Role involves '{tag_name}', which conflicts with their sexual orientation."
-                    else:
-                        reason = f"Strongly dislikes performing the '{role}' role in '{tag_name}'."
-                    return False, reason
-
-        # Check 5: Policy & Production (requires bloc)
-        if bloc_db:
-            active_policies = set(bloc_db.on_set_policies or [])
-            policy_names = {p['id']: p['name'] for p in self.data_manager.on_set_policies_data.values()}
-
-            if required_policies := talent.policy_requirements.get('requires'):
-                for policy_id in required_policies:
-                    if policy_id not in active_policies:
-                        policy_name = policy_names.get(policy_id, policy_id)
-                        return False, f"Requires the '{policy_name}' policy to be active."
-            if refused_policies := talent.policy_requirements.get('refuses'):
-                for policy_id in refused_policies:
-                    if policy_id in active_policies:
-                        policy_name = policy_names.get(policy_id, policy_id)
-                        return False, f"Refuses to work with the '{policy_name}' policy."
-        
-            pop_scalar = self.config.pickiness_popularity_scalar
-            amb_scalar = self.config.pickiness_ambition_scalar
-            # Handle popularity from either TalentDB or Talent dataclass
-            if hasattr(talent, 'popularity_scores'): # TalentDB
-                total_popularity = sum(p.score for p in talent.popularity_scores)
-            else: # Talent
-                total_popularity = sum(talent.popularity.values())
-            
-            pickiness_score = (total_popularity * pop_scalar) + (talent.ambition * amb_scalar)
-            
-            for category, tier_name in (bloc_db.production_settings or {}).items():
-                tier_data = next((t for t in self.data_manager.production_settings_data.get(category, []) if t['tier_name'] == tier_name), None)
-                if tier_data and tier_data.get('is_low_tier', False) and random.random() * 100 < pickiness_score:
-                    return False, f"Considers the '{tier_name}' {category} setting beneath them."
-
-        return True, None
     
     def find_available_roles_for_talent(self, talent_id: int) -> List[Dict]:
         """
@@ -227,15 +133,13 @@ class HireTalentService:
                 if not (vp_db.gender == talent.gender and (vp_db.ethnicity == "Any" or vp_db.ethnicity == talent.ethnicity)): continue
                 
                 bloc_db = blocs_by_id.get(scene.bloc_id) if scene.bloc_id else None
-                is_available, refusal_reason = self._check_talent_availability_for_role(
-                    talent, scene, vp_db.id, scene_db, bloc_db
-                )
+                result = self.availability_checker.check(talent, scene, vp_db.id, scene_db, bloc_db)
 
                 role_info = {
                     'scene_id': scene_db.id, 'scene_title': scene_db.title, 'virtual_performer_id': vp_db.id,
                     'vp_name': vp_db.name, 'cost': self.calculate_talent_demand(talent.id, scene_db.id, vp_db.id, scene=scene),
                     'tags': self._get_role_tags_for_display(scene, vp_db.id),
-                    'is_available': is_available, 'refusal_reason': refusal_reason
+                    'is_available': result.is_available, 'refusal_reason': result.reason
                 }
                 
                 available_roles.append(role_info)
@@ -279,7 +183,7 @@ class HireTalentService:
                     max_demand_mod = max(max_demand_mod, final_mod)
         role_multiplier = max_demand_mod
         
-        _, roles_by_tag = self._get_vp_role_context(scene, vp_id)
+        _, roles_by_tag = self.availability_checker._get_vp_role_context(scene, vp_id)
         preference_scores = []
         if roles_by_tag:
             for tag_name, roles in roles_by_tag.items():
