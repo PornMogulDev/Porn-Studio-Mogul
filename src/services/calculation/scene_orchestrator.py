@@ -7,7 +7,7 @@ from data.game_state import Scene, Talent
 from data.data_manager import DataManager
 from database.db_models import ( SceneDB, MarketGroupStateDB, TalentDB, GameInfoDB, ShootingBlocDB,
                                 ScenePerformerContributionDB, SceneCastDB, TalentChemistryDB )
-from services.talent_service import TalentService
+from services.command.talent_command_service import TalentCommandService
 from services.market_service import MarketService
 from services.models.configs import SceneCalculationConfig
 from services.calculation.auto_tag_analyzer import AutoTagAnalyzer
@@ -18,11 +18,11 @@ from services.calculation.post_production_calculator import PostProductionCalcul
 logger = logging.getLogger(__name__)
 
 class SceneOrchestrator:
-    def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, market_service: MarketService, config: SceneCalculationConfig, auto_tag_analyzer: AutoTagAnalyzer,
+    def __init__(self, db_session, data_manager: DataManager, talent_command_service: TalentCommandService, market_service: MarketService, config: SceneCalculationConfig, auto_tag_analyzer: AutoTagAnalyzer,
                  shoot_results_calc: ShootResultsCalculator, scene_quality_calc: SceneQualityCalculator, post_prod_calc: PostProductionCalculator):
         self.session = db_session
         self.data_manager = data_manager
-        self.talent_service = talent_service
+        self.talent_command_service  = talent_command_service
         self.market_service = market_service
         self.config = config
         self.auto_tag_analyzer = auto_tag_analyzer
@@ -53,7 +53,7 @@ class SceneOrchestrator:
 
         # Discover chemistry and auto-tags
         cast_talents_by_id = {t.id: t for t in cast_talents_dc}
-        self.talent_service.discover_and_create_chemistry(cast_talents_dc)
+        self.talent_command_service.discover_and_create_chemistry(cast_talents_dc)
 
         # Calculate talent outcomes (stamina, fatigue, skills)
         talent_outcomes = self.shoot_results_calculator.calculate_talent_outcomes(

@@ -11,16 +11,16 @@ from database.db_models import (
     TalentDB, SceneDB, ActionSegmentDB,
     ShootingBlocDB
 )
-from services.talent_service import TalentService
+from services.query.game_query_service import GameQueryService
 from services.models.configs import HiringConfig
 from services.utils.role_performance_service import RolePerformanceService
 from services.utils.talent_availability_checker import TalentAvailabilityChecker
 
 class HireTalentService:
-    def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, config: HiringConfig, availability_checker: TalentAvailabilityChecker):
+    def __init__(self, db_session, data_manager: DataManager, query_service: GameQueryService, config: HiringConfig, availability_checker: TalentAvailabilityChecker):
         self.session = db_session
         self.data_manager = data_manager
-        self.talent_service = talent_service
+        self.query_service = query_service
         self.config = config
         self.availability_checker = availability_checker
 
@@ -94,7 +94,7 @@ class HireTalentService:
         # --- Step B: In-Memory Python Filtering (Optimized) ---
         available_talents = []
         for talent_obj in talents: # Now works with Talent or TalentDB
-            result = self.availability_checker.check(talent_obj, scene, vp_id, scene_db, bloc_db)
+            result = self.availability_checker.check(talent_obj, scene, vp_id, bloc_db)
             if result.is_available:
                 available_talents.append(talent_obj)
 
@@ -105,7 +105,7 @@ class HireTalentService:
         Finds all uncast roles in 'casting' scenes that a given talent is eligible for,
         and calculates the hiring cost for each. Includes availability and refusal reasons.
         """
-        talent = self.talent_service.get_talent_by_id(talent_id)
+        talent = self.query_service.get_talent_by_id(talent_id)
         if not talent: return []
 
         available_roles = []
@@ -133,7 +133,7 @@ class HireTalentService:
                 if not (vp_db.gender == talent.gender and (vp_db.ethnicity == "Any" or vp_db.ethnicity == talent.ethnicity)): continue
                 
                 bloc_db = blocs_by_id.get(scene.bloc_id) if scene.bloc_id else None
-                result = self.availability_checker.check(talent, scene, vp_db.id, scene_db, bloc_db)
+                result = self.availability_checker.check(talent, scene, vp_db.id, bloc_db)
 
                 role_info = {
                     'scene_id': scene_db.id, 'scene_title': scene_db.title, 'virtual_performer_id': vp_db.id,
@@ -146,7 +146,7 @@ class HireTalentService:
         return available_roles
     
     def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int, scene: Optional[Scene] = None) -> int:
-        talent = self.talent_service.get_talent_by_id(talent_id)
+        talent = self.query_service.get_talent_by_id(talent_id)
         if not talent: return 0
 
         # If a Scene object is not passed in, fetch it from the database.

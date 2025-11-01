@@ -3,8 +3,8 @@ from typing import Tuple
 from sqlalchemy.orm import selectinload
 
 from database.db_models import GameInfoDB, SceneDB, TalentDB, Talent
+from services.command.talent_command_service import TalentCommandService
 from services.scene_service import SceneService
-from services.talent_service import TalentService
 from services.market_service import MarketService
 from services.models.results import WeekAdvancementResult
 
@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 class TimeService:
     def __init__(self, db_session, signals, scene_service: SceneService, 
-                 talent_service: TalentService, market_service: MarketService):
+                 talent_command_service: TalentCommandService, market_service: MarketService):
         self.session = db_session
         self.signals = signals
         self.scene_service = scene_service
-        self.talent_service = talent_service
+        self.talent_command_service = talent_command_service
         self.market_service = market_service
 
     def _get_current_time(self) -> Tuple[int, int]:
@@ -64,7 +64,7 @@ class TimeService:
                     next_year += 1
                     is_new_year = True
 
-            talent_pool_changed = self.talent_service.process_weekly_updates(current_date_val, is_new_year)
+            talent_pool_changed = self.talent_command_service.process_weekly_updates(current_date_val, is_new_year)
 
             # --- 2. Persist the new time ---
             week_info = self.session.query(GameInfoDB).filter_by(key='week').one()

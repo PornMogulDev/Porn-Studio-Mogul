@@ -143,7 +143,7 @@ class UIManager:
 
     def show_interactive_event(self, event_data: dict, scene_id: int, talent_id: int):
         scene_data = self.controller.get_scene_for_planner(scene_id)
-        talent_data = self.controller.talent_service.get_talent_by_id(talent_id)
+        talent_data = self.controller.query_service.get_talent_by_id(talent_id)
         current_money = self.controller.game_state.money
 
         if not scene_data or not talent_data:
@@ -259,7 +259,7 @@ class UIManager:
         window.activateWindow()
     
     def show_talent_profile_by_id(self, talent_id: int):
-        if talent := self.controller.talent_service.get_talent_by_id(talent_id):
+        if talent := self.controller.query_service.get_talent_by_id(talent_id):
             self.show_talent_profile(talent)
 
     def _on_singleton_profile_closed(self):

@@ -6,7 +6,7 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
-from services.talent_service import TalentService
+from services.query.game_query_service import GameQueryService
 from core.game_signals import GameSignals
 from database.db_models import TalentDB, ShootingBlocDB, GameInfoDB, SceneDB
 from services.events.event_conditions import (
@@ -30,11 +30,11 @@ class SceneEventService:
     This service is self-contained and manages its own database transactions for event resolution.
     """
     def __init__(self, db_session, signals: GameSignals, data_manager: DataManager,
-                 talent_service: TalentService, scene_service: 'SceneService'):
+                 query_service: GameQueryService, scene_service: 'SceneService'):
         self.session = db_session
         self.signals = signals
         self.data_manager = data_manager
-        self.talent_service = talent_service
+        self.query_service = query_service
         self.scene_service = scene_service
         
         # Condition Factory: Maps condition types from JSON to handler classes
@@ -239,7 +239,7 @@ class SceneEventService:
             logger.error(f"[ERROR] Could not find choice data for id: {choice_id} in event {event_id}")
             return False, modifiers
         
-        talent = self.talent_service.get_talent_by_id(talent_id)
+        talent = self.query_service.get_talent_by_id(talent_id)
         scene_db = self.session.query(SceneDB).options(joinedload(SceneDB.cast)).get(scene_id)
         
         # Resolve special targets first

@@ -108,7 +108,7 @@ class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
         
         expenses_html += "Talent Salaries:<br>"
         for vp_id, talent_id in self.scene.final_cast.items():
-            talent = self.controller.talent_service.get_talent_by_id(talent_id)
+            talent = self.controller.query_service.get_talent_by_id(talent_id)
             salary = self.scene.pps_salaries.get(str(talent_id), 0)
             if talent:
                 expenses_html += f"&nbsp;&nbsp;• {talent.alias}: <font color='{theme.color_bad}'>-${salary:,}</font><br>"

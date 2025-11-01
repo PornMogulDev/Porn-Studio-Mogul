@@ -8,9 +8,10 @@ from data.game_state import Scene, ShootingBloc, Talent
 from data.data_manager import DataManager
 from database.db_models import ( SceneDB, VirtualPerformerDB, ActionSegmentDB, SlotAssignmentDB,
                                 MarketGroupStateDB, TalentDB, GameInfoDB, SceneCastDB, ShootingBlocDB )
+from services.query.game_query_service import GameQueryService
+from services.command.talent_command_service import TalentCommandService
 from services.email_service import EmailService
 from services.events.scene_event_service import SceneEventService
-from services.talent_service import TalentService
 from services.market_service import MarketService
 from services.calculation.scene_orchestrator import SceneOrchestrator
 from services.calculation.revenue_calculator import RevenueCalculator
@@ -20,18 +21,20 @@ from services.utils.role_performance_service import RolePerformanceService
 logger = logging.getLogger(__name__)
 
 class SceneService:
-    def __init__(self, db_session, signals, data_manager: DataManager, 
-                 talent_service: TalentService, market_service: MarketService, 
-                 email_service: EmailService, calculation_service: 'SceneOrchestrator',
-                 revenue_calculator: RevenueCalculator):
+    def __init__(self, db_session, signals, data_manager: DataManager, query_service: GameQueryService, 
+             talent_command_service: TalentCommandService, market_service: MarketService, 
+             email_service: EmailService, calculation_service: 'SceneOrchestrator',
+             revenue_calculator: RevenueCalculator):
         self.session = db_session
         self.signals = signals
         self.data_manager = data_manager
-        self.talent_service = talent_service
+        self.query_service = query_service
+        self.talent_command_service = talent_command_service
         self.market_service = market_service
         self.email_service = email_service
         self.calculation_service = calculation_service
         self.revenue_calculator = revenue_calculator
+        self.event_service = None
 
     # --- UI Query Methods ---
     def get_blocs_for_schedule_view(self, year: int) -> List[ShootingBloc]:
@@ -136,7 +139,7 @@ class SceneService:
         castings in a single transaction.
         """
         scene_db = self.session.query(SceneDB).get(scene_id)
-        talent = self.talent_service.get_talent_by_id(talent_id)
+        talent = self.query_service.get_talent_by_id(talent_id)
         if not scene_db or not talent: return None
 
         new_cast_entry = SceneCastDB(
@@ -442,7 +445,7 @@ class SceneService:
 
             # --- 3. APPLY RESULTS ---
             revenue = revenue_result.total_revenue
-            self.talent_service.update_popularity_from_scene(scene_id)  
+            self.talent_command_service.update_popularity_from_scene(scene_id)  
     
             # Market Discovery Logic
             discovery_threshold = self.data_manager.game_config.get("market_discovery_interest_threshold", 1.5)

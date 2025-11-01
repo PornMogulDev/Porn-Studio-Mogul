@@ -31,7 +31,7 @@ def prepare_summary_data(scene: Scene, controller: IGameController) -> Dict:
         if talent_id := scene.final_cast.get(str(vp_id)):
             if talent_id in talent_cache:
                 return talent_cache[talent_id]
-            if talent := controller.talent_service.get_talent_by_id(talent_id):
+            if talent := controller.query_service.get_talent_by_id(talent_id):
                 talent_cache[talent_id] = talent.alias
                 return talent.alias
         

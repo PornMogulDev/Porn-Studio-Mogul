@@ -370,7 +370,7 @@ class ScenePlannerPresenter(QObject):
             return None
         
         if talent_id in self._talent_cache: return self._talent_cache[talent_id]
-        talent = self.controller.talent_service.get_talent_by_id(talent_id)
+        talent = self.controller.query_service.get_talent_by_id(talent_id)
         if talent: self._talent_cache[talent_id] = talent
         return talent
 

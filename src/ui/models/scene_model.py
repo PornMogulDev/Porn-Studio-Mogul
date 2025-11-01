@@ -84,7 +84,7 @@ class SceneTableModel(QAbstractTableModel):
                 
                 talent_aliases = []
                 for talent_id in scene.final_cast.values():
-                    talent = self.controller.talent_service.get_talent_by_id(talent_id)
+                    talent = self.controller.query_service.get_talent_by_id(talent_id)
                     talent_aliases.append(talent.alias if talent else f"ID {talent_id}?")
                 return ", ".join(talent_aliases)
         

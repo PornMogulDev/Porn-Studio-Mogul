@@ -22,7 +22,6 @@ from services.utils.talent_availability_checker import TalentAvailabilityChecker
 from services.utils.talent_logic_helper import TalentLogicHelper
 from services.calculation.scene_orchestrator import SceneOrchestrator
 from services.market_service import MarketService
-from services.talent_service import TalentService
 from services.hire_talent_service import HireTalentService
 from services.events.scene_event_service import SceneEventService
 from services.scene_service import SceneService
@@ -70,7 +69,6 @@ class GameController(QObject):
         self.query_service = None
         self.talent_command_service = None
         self.market_service = None
-        self.talent_service = None
         self.hire_talent_service = None
         self.role_performance_service = None
         self.auto_tag_analyzer = None
@@ -113,8 +111,8 @@ class GameController(QObject):
 
     # --- UI Data Access Methods ---
     def get_filtered_talents(self, filters: dict) -> List[Talent]:
-        if not self.talent_service: return []
-        return self.talent_service.get_filtered_talents(filters)
+        if not self.query_service: return []
+        return self.query_service.get_filtered_talents(filters)
 
     def get_blocs_for_schedule_view(self, year: int) -> List[ShootingBloc]:
         if not self.scene_service: return []
@@ -473,9 +471,8 @@ class GameController(QObject):
             self.db_session, self.signals, self.scene_calc_config, self.talent_logic_helper
         )
         # --- Services ---
-        self.talent_service = TalentService(self.query_service, self.talent_command_service)
         self.hiring_config = self._create_hiring_config()
-        self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.hiring_config, self.availability_checker)
+        self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
         self.role_performance_service = RolePerformanceService()
         self.player_settings_service = PlayerSettingsService(self.db_session, self.signals) 
         self.go_to_list_service = GoToListService(self.db_session, self.signals)
@@ -494,20 +491,20 @@ class GameController(QObject):
         # We resolve it by initializing SceneService first, then SceneEventService,
         # then injecting the event service back into the scene service.
         self.scene_orchestrator = SceneOrchestrator(
-            self.db_session, self.data_manager, self.talent_service, self.market_service, 
+            self.db_session, self.data_manager, self.talent_command_service, self.market_service, 
             self.scene_calc_config, self.auto_tag_analyzer, self.shoot_results_calculator,
             self.scene_quality_calculator, self.post_production_calculator
         )
         self.scene_service = SceneService(
-            self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, 
-            self.email_service, self.scene_orchestrator, self.revenue_calculator
+            self.db_session, self.signals, self.data_manager, self.query_service, self.talent_command_service,
+            self.market_service, self.email_service, self.scene_orchestrator, self.revenue_calculator
         )
         self.scene_event_service = SceneEventService(
-            self.db_session, self.signals, self.data_manager, self.talent_service, self.scene_service
+            self.db_session, self.signals, self.data_manager, self.query_service, self.scene_service
         )
         self.scene_service.event_service = self.scene_event_service # Late-binding to resolve circular dependency
        
-        self.time_service = TimeService(self.db_session, self.signals, self.scene_service, self.talent_service, self.market_service)
+        self.time_service = TimeService(self.db_session, self.signals, self.scene_service, self.talent_command_service, self.market_service)
 
     # --- Game Session Management (Delegated to GameSessionService) ---
 
@@ -626,8 +623,8 @@ class GameController(QObject):
 
     def discover_and_create_chemistry_from_cast(self, cast_talents: List[Talent]):
         """Proxy method to create chemistry links after a scene is shot."""
-        if not self.talent_service: return
-        self.talent_service.discover_and_create_chemistry(cast_talents, commit=False)
+        if not self.talent_command_service: return
+        self.talent_command_service.discover_and_create_chemistry(cast_talents, commit=False)
 
     # --- Go-To List Actions (Proxy Methods) ---
     def add_talent_to_go_to_list(self, talent_id: int):
