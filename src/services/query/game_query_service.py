@@ -6,7 +6,8 @@ from sqlalchemy import or_
 
 from data.game_state import Talent, Scene, ShootingBloc
 from database.db_models import (TalentDB, TalentChemistryDB, SceneDB, ShootingBlocDB, 
-                                SceneCastDB, ActionSegmentDB)
+                                SceneCastDB, ActionSegmentDB, GoToListAssignmentDB,
+                                GoToListCategoryDB )
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,39 @@ class GameQueryService:
             other_talent = rel.talent_b if rel.talent_a_id == talent_id else rel.talent_a
             results[other_talent.id] = {'alias': other_talent.alias, 'score': rel.chemistry_score}
         return results
+    
+    def get_all_talents_in_go_to_lists(self) -> List[Talent]:
+        """Gets all unique talents present in any Go-To List category."""
+        talents_db = self.session.query(TalentDB)\
+            .join(GoToListAssignmentDB)\
+            .distinct()\
+            .order_by(TalentDB.alias).all()
+        return [t.to_dataclass(Talent) for t in talents_db]
+    
+    # --- Go To List Queries ---
+
+    def get_all_categories(self) -> List[Dict]:
+        """Returns a list of all Go-To List categories for UI display."""
+        categories_db = self.session.query(GoToListCategoryDB).order_by(GoToListCategoryDB.name).all()
+        return [{'id': c.id, 'name': c.name, 'is_deletable': c.is_deletable} for c in categories_db]
+
+    def get_talents_in_category(self, category_id: int) -> List[Talent]:
+        """Gets all talents within a specific Go-To List category."""
+        talents_db = self.session.query(TalentDB)\
+            .join(GoToListAssignmentDB)\
+            .filter(GoToListAssignmentDB.category_id == category_id)\
+            .order_by(TalentDB.alias)\
+            .all()
+        return [t.to_dataclass(Talent) for t in talents_db]
+    
+    def get_talent_categories(self, talent_id: int) -> List[Dict]:
+        """Returns a list of all Go-To List categories a specific talent belongs to."""
+        assignments = self.session.query(GoToListCategoryDB).\
+            join(GoToListAssignmentDB).\
+            filter(GoToListAssignmentDB.talent_id == talent_id).\
+            order_by(GoToListCategoryDB.name).all()
+            
+        return [{'id': c.id, 'name': c.name, 'is_deletable': c.is_deletable} for c in assignments]
     
     # --- Scene & Bloc Query Methods ---
 

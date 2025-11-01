@@ -12,29 +12,6 @@ class GoToListService:
     def __init__(self, db_session, signals: GameSignals):
         self.session = db_session
         self.signals = signals
-
-    def get_all_categories(self) -> List[Dict]:
-        """Returns a list of all Go-To List categories for UI display."""
-        categories_db = self.session.query(GoToListCategoryDB).order_by(GoToListCategoryDB.name).all()
-        return [{'id': c.id, 'name': c.name, 'is_deletable': c.is_deletable} for c in categories_db]
-
-    def get_talents_in_category(self, category_id: int) -> List[Talent]:
-        """Gets all talents within a specific Go-To List category."""
-        talents_db = self.session.query(TalentDB)\
-            .join(GoToListAssignmentDB)\
-            .filter(GoToListAssignmentDB.category_id == category_id)\
-            .order_by(TalentDB.alias)\
-            .all()
-        return [t.to_dataclass(Talent) for t in talents_db]
-    
-    def get_talent_categories(self, talent_id: int) -> List[Dict]:
-        """Returns a list of all Go-To List categories a specific talent belongs to."""
-        assignments = self.session.query(GoToListCategoryDB).\
-            join(GoToListAssignmentDB).\
-            filter(GoToListAssignmentDB.talent_id == talent_id).\
-            order_by(GoToListCategoryDB.name).all()
-            
-        return [{'id': c.id, 'name': c.name, 'is_deletable': c.is_deletable} for c in assignments]
     
     def create_category(self, name: str) -> bool:
         """Creates a new Go-To List category. Returns True on success."""

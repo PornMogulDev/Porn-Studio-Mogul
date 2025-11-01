@@ -150,26 +150,20 @@ class GameController(QObject):
 
     # --- Go-To List Data Access (Proxy Methods) ---
     def get_go_to_list_talents(self) -> List[Talent]:
-        """Gets all unique talents present in any Go-To List category."""
-        if not self.db_session: return []
-        
-        talents_db = self.db_session.query(TalentDB)\
-            .join(GoToListAssignmentDB)\
-            .distinct()\
-            .order_by(TalentDB.alias).all()
-        return [t.to_dataclass(Talent) for t in talents_db]
+        if not self.query_service: return []
+        return self.query_service.get_all_talents_in_go_to_lists()
 
     def get_go_to_list_categories(self) -> List[Dict]:
-        if not self.go_to_list_service: return []
-        return self.go_to_list_service.get_all_categories()
+        if not self.query_service: return []
+        return self.query_service.get_all_categories()
 
     def get_talents_in_go_to_category(self, category_id: int) -> List[Talent]:
-        if not self.go_to_list_service: return []
-        return self.go_to_list_service.get_talents_in_category(category_id)
+        if not self.query_service: return []
+        return self.query_service.get_talents_in_category(category_id)
 
     def get_talent_go_to_categories(self, talent_id: int) -> List[Dict]:
-        if not self.go_to_list_service: return []
-        return self.go_to_list_service.get_talent_categories(talent_id)
+        if not self.query_service: return []
+        return self.query_service.get_talent_categories(talent_id)
 
     def get_all_emails(self) -> List[EmailMessage]:
         if not self.email_service: return []
@@ -199,10 +193,8 @@ class GameController(QObject):
         self.game_state.money = int(float(money_info.value))
 
         # The autosave will now contain the state of the *new* week.
+        self.db_session.commit() # Commit transaction before saving
         self.save_manager.auto_save(self.db_session)
-        
-        self.db_session = self.save_manager.db_manager.get_session()
-        self._reinitialize_services()
 
         # --- 3. EMIT SIGNALS AND HANDLE PAUSES/GAME OVER ---
         if result.was_paused:
@@ -259,46 +251,7 @@ class GameController(QObject):
         if not self.scene_command_service: return False
 
         # --- Authoritative server-side cost calculation ---
-        total_cost_per_scene = 0
-
-        # Special handling for Camera cost
-        cam_equip_tier_name = settings.get("Camera Equipment")
-        cam_setup_tier_name = settings.get("Camera Setup")
-        
-        equip_cost = 0
-        if cam_equip_tier_name:
-            tiers = self.data_manager.production_settings_data.get("Camera Equipment", [])
-            tier_info = next((t for t in tiers if t['tier_name'] == cam_equip_tier_name), None)
-            if tier_info:
-                equip_cost = tier_info.get('cost_per_scene', 0)
-
-        setup_multiplier = 1.0
-        if cam_setup_tier_name:
-            tiers = self.data_manager.production_settings_data.get("Camera Setup", [])
-            tier_info = next((t for t in tiers if t['tier_name'] == cam_setup_tier_name), None)
-            if tier_info:
-                setup_multiplier = tier_info.get('cost_multiplier', 1.0)
-        
-        total_cost_per_scene += equip_cost * setup_multiplier
-
-        # Add costs from all other standard categories
-        for category, tier_name in settings.items():
-            if category in ["Camera Equipment", "Camera Setup"]:
-                continue
-            tiers = self.data_manager.production_settings_data.get(category, [])
-            tier_info = next((t for t in tiers if t['tier_name'] == tier_name), None)
-            if tier_info:
-                total_cost_per_scene += tier_info.get('cost_per_scene', 0)
-        
-        settings_cost = total_cost_per_scene * num_scenes
-
-        # Cost from policies (per bloc)
-        policies_cost = 0
-        for policy_id in policies:
-            if policy_data := self.data_manager.on_set_policies_data.get(policy_id):
-                policies_cost += policy_data.get('cost_per_bloc', 0)
-        
-        final_cost = int(settings_cost + policies_cost) # Ensure final cost is an integer
+        final_cost = self.scene_command_service.calculate_shooting_bloc_cost(num_scenes, settings, policies)
         
         if self.game_state.money < final_cost:
             self.signals.notification_posted.emit(f"Not enough money. Cost: ${final_cost:,}, Have: ${self.game_state.money:,}")
@@ -308,6 +261,11 @@ class GameController(QObject):
         
         return self.scene_command_service.create_shooting_bloc(week, year, num_scenes, settings, final_cost, final_name, policies)
     
+    def calculate_shooting_bloc_cost(self, num_scenes: int, settings: Dict, policies: List[str]) -> int:
+        """Proxy method for the UI to get a cost estimate from the authoritative service."""
+        if not self.scene_command_service: return 0
+        return self.scene_command_service.calculate_shooting_bloc_cost(num_scenes, settings, policies)
+
     def create_blank_scene(self, week: Optional[int] = None, year: Optional[int] = None) -> int:
         use_week = week if week is not None else self.game_state.week
         use_year = year if year is not None else self.game_state.year
@@ -457,7 +415,7 @@ class GameController(QObject):
             popularity_gain_scalar=game_config.get("popularity_gain_scalar", 0.05)
         )
 
-    def _reinitialize_services(self):
+    def _initialize_services(self):
         if not self.db_session:
             return
         self.market_service = MarketService(self.db_session, self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
@@ -510,7 +468,7 @@ class GameController(QObject):
     def new_game_started(self):
         """Initializes a new game session."""
         self.game_state, self.db_session, self.current_save_path = self.game_session_service.start_new_game()
-        self._reinitialize_services()
+        self._initialize_services()
         
         # Emit signals to update UI
         self.signals.money_changed.emit(self.game_state.money)
@@ -522,7 +480,7 @@ class GameController(QObject):
     def load_game(self, save_name):
         """Loads a game session from a file."""
         self.game_state, self.db_session, self.current_save_path = self.game_session_service.load_game(save_name)
-        self._reinitialize_services()
+        self._initialize_services()
         
         # Emit signals to update UI
         self.signals.money_changed.emit(self.game_state.money)
@@ -542,7 +500,7 @@ class GameController(QObject):
         result = self.game_session_service.continue_game()
         if result:
             self.game_state, self.db_session, self.current_save_path = result
-            self._reinitialize_services()
+            self._initialize_services()
             
             self.signals.money_changed.emit(self.game_state.money)
             self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
@@ -558,7 +516,7 @@ class GameController(QObject):
         result = self.game_session_service.quick_load()
         if result:
             self.game_state, self.db_session, self.current_save_path = result
-            self._reinitialize_services()
+            self._initialize_services()
             self.signals.show_main_window_requested.emit()
 
     def return_to_main_menu(self, exit_save: bool):
