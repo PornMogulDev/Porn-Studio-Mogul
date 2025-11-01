@@ -15,6 +15,7 @@ from database.db_models import *
 
 from services.query.game_query_service import GameQueryService
 from services.command.talent_command_service import TalentCommandService
+from services.command.scene_command_service import SceneCommandService
 from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig
 from services.utils.market_group_resolver import MarketGroupResolver
 from services.utils.role_performance_service import RolePerformanceService
@@ -68,6 +69,7 @@ class GameController(QObject):
         self.talent_config = None
         self.query_service = None
         self.talent_command_service = None
+        self.scene_command_service = None
         self.market_service = None
         self.hire_talent_service = None
         self.role_performance_service = None
@@ -495,15 +497,15 @@ class GameController(QObject):
             self.scene_calc_config, self.auto_tag_analyzer, self.shoot_results_calculator,
             self.scene_quality_calculator, self.post_production_calculator
         )
-        self.scene_service = SceneService(
+        self.scene_command_service = SceneCommandService(
             self.db_session, self.signals, self.data_manager, self.query_service, self.talent_command_service,
             self.market_service, self.email_service, self.scene_orchestrator, self.revenue_calculator
         )
+        self.scene_service = SceneService(self.query_service, self.scene_command_service)
         self.scene_event_service = SceneEventService(
             self.db_session, self.signals, self.data_manager, self.query_service, self.scene_service
         )
-        self.scene_service.event_service = self.scene_event_service # Late-binding to resolve circular dependency
-       
+        self.scene_command_service.event_service = self.scene_event_service
         self.time_service = TimeService(self.db_session, self.signals, self.scene_service, self.talent_command_service, self.market_service)
 
     # --- Game Session Management (Delegated to GameSessionService) ---
