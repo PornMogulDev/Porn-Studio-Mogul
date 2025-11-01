@@ -8,7 +8,7 @@ from data.game_state import Scene, Talent, ShootingBloc
 from ui.dialogs.scene_dialog import SceneDialog
 from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from utils.scene_summary_builder import prepare_summary_data
-from services.scene_state_editor import SceneStateEditor
+from services.utils.scene_state_editor import SceneStateEditor
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager

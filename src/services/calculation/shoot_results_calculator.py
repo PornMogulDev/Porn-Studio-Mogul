@@ -4,9 +4,9 @@ from typing import List, Tuple
 
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
-from services.service_config import SceneCalculationConfig
-from services.role_performance_service import RolePerformanceService
-from services.calculation_models import TalentShootOutcome, FatigueResult
+from services.models.configs import SceneCalculationConfig
+from services.utils.role_performance_service import RolePerformanceService
+from services.models.results import TalentShootOutcome, FatigueResult
 
 logger = logging.getLogger(__name__)
 

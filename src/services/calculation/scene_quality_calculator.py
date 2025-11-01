@@ -7,8 +7,8 @@ from typing import Dict, List, Tuple
 
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
-from services.service_config import SceneCalculationConfig
-from services.calculation_models import SceneQualityResult
+from services.models.configs import SceneCalculationConfig
+from services.models.results import SceneQualityResult
 
 logger = logging.getLogger(__name__)
 

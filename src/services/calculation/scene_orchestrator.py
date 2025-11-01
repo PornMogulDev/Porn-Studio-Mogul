@@ -9,15 +9,15 @@ from database.db_models import ( SceneDB, MarketGroupStateDB, TalentDB, GameInfo
                                 ScenePerformerContributionDB, SceneCastDB, TalentChemistryDB )
 from services.talent_service import TalentService
 from services.market_service import MarketService
-from services.service_config import SceneCalculationConfig
-from services.auto_tag_analyzer import AutoTagAnalyzer
-from services.shoot_results_calculator import ShootResultsCalculator
-from services.scene_quality_calculator import SceneQualityCalculator
-from services.post_production_calculator import PostProductionCalculator
+from services.models.configs import SceneCalculationConfig
+from services.calculation.auto_tag_analyzer import AutoTagAnalyzer
+from services.calculation.shoot_results_calculator import ShootResultsCalculator
+from services.calculation.scene_quality_calculator import SceneQualityCalculator
+from services.calculation.post_production_calculator import PostProductionCalculator
 
 logger = logging.getLogger(__name__)
 
-class SceneCalculationService:
+class SceneOrchestrator:
     def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, market_service: MarketService, config: SceneCalculationConfig, auto_tag_analyzer: AutoTagAnalyzer,
                  shoot_results_calc: ShootResultsCalculator, scene_quality_calc: SceneQualityCalculator, post_prod_calc: PostProductionCalculator):
         self.session = db_session

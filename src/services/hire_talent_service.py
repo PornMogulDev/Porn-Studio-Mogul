@@ -6,15 +6,14 @@ from collections import defaultdict
 from sqlalchemy.orm import joinedload, selectinload
 
 from data.game_state import Talent, Scene, ActionSegment
-from services.talent_service import TalentService
-from services.role_performance_service import RolePerformanceService
-from data.data_manager import DataManager
-from services.service_config import HiringConfig
 from database.db_models import (
     TalentDB, SceneDB, ActionSegmentDB,
     ShootingBlocDB
 )
-
+from services.talent_service import TalentService
+from services.utils.role_performance_service import RolePerformanceService
+from data.data_manager import DataManager
+from services.models.configs import HiringConfig
 
 class HireTalentService:
     def __init__(self, db_session, data_manager: DataManager, talent_service: TalentService, config: HiringConfig):

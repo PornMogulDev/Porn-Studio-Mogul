@@ -6,7 +6,7 @@ from database.db_models import GameInfoDB, SceneDB, TalentDB, Talent
 from services.scene_service import SceneService
 from services.talent_service import TalentService
 from services.market_service import MarketService
-from services.calculation_models import WeekAdvancementResult
+from services.models.results import WeekAdvancementResult
 
 logger = logging.getLogger(__name__)
 

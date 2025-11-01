@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple
 
 from data.game_state import Talent, Scene
 from data.data_manager import DataManager
-from services.service_config import SceneCalculationConfig
+from services.models.configs import SceneCalculationConfig
 from database.db_models import (TalentDB, TalentPopularityDB, TalentChemistryDB,
                                 SceneDB, SceneCastDB, GameInfoDB)
 
@@ -92,6 +92,32 @@ class TalentService:
                 logger.error(f"Failed to create new chemistry: {e}", exc_info=True)
                 self.session.rollback()
 
+    def get_talent_chemistry(self, talent_id: int) -> Dict[int, Dict]:
+        """
+        Fetches all chemistry relationships for a given talent.
+
+        Args:
+            talent_id: The ID of the talent to look up.
+
+        Returns:
+            A dictionary mapping the other talent's ID to a dict containing
+            their alias and the chemistry score. e.g., {102: {'alias': 'Jane Doe', 'score': 15}}
+        """
+        from sqlalchemy import or_
+
+        chemistry_relations_db = self.session.query(TalentChemistryDB).options(
+            joinedload(TalentChemistryDB.talent_a),
+            joinedload(TalentChemistryDB.talent_b)
+        ).filter(
+            or_(TalentChemistryDB.talent_a_id == talent_id, TalentChemistryDB.talent_b_id == talent_id)
+        ).all()
+
+        results = {}
+        for rel in chemistry_relations_db:
+            other_talent = rel.talent_b if rel.talent_a_id == talent_id else rel.talent_a
+            results[other_talent.id] = {'alias': other_talent.alias, 'score': rel.chemistry_score}
+        return results
+    
     def recalculate_talent_age_affinities(self, talent: Talent) -> Dict:
         """Recalculates affinities affected by age."""
         new_affinities = talent.tag_affinities.copy()

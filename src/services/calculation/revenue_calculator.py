@@ -3,8 +3,8 @@ from typing import Dict, List, Tuple
 
 from data.game_state import Scene, Talent, MarketGroupState
 from data.data_manager import DataManager
-from services.service_config import SceneCalculationConfig
-from services.calculation_models import SceneRevenueResult
+from services.models.configs import SceneCalculationConfig
+from services.models.results import SceneRevenueResult
 
 class RevenueCalculator:
     """

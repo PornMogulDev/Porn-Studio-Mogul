@@ -8,21 +8,21 @@ from data.game_state import Scene, ShootingBloc, Talent
 from data.data_manager import DataManager
 from database.db_models import ( SceneDB, VirtualPerformerDB, ActionSegmentDB, SlotAssignmentDB,
                                 MarketGroupStateDB, TalentDB, GameInfoDB, SceneCastDB, ShootingBlocDB )
-from services.service_config import SceneCalculationConfig
 from services.email_service import EmailService
-from services.role_performance_service import RolePerformanceService
-from services.scene_calculation_service import SceneCalculationService
-from services.scene_event_service import SceneEventService
+from services.events.scene_event_service import SceneEventService
 from services.talent_service import TalentService
 from services.market_service import MarketService
-from services.revenue_calculator import RevenueCalculator
+from services.calculation.scene_orchestrator import SceneOrchestrator
+from services.calculation.revenue_calculator import RevenueCalculator
+from services.models.configs import SceneCalculationConfig
+from services.utils.role_performance_service import RolePerformanceService
 
 logger = logging.getLogger(__name__)
 
 class SceneService:
     def __init__(self, db_session, signals, data_manager: DataManager, 
                  talent_service: TalentService, market_service: MarketService, 
-                 email_service: EmailService, calculation_service: 'SceneCalculationService',
+                 email_service: EmailService, calculation_service: 'SceneOrchestrator',
                  revenue_calculator: RevenueCalculator):
         self.session = db_session
         self.signals = signals

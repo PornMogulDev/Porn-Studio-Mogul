@@ -12,23 +12,23 @@ from data.settings_manager import SettingsManager
 from ui.theme_manager import Theme, ThemeManager
 from database.db_models import *
 
-from services.service_config import HiringConfig, MarketConfig, SceneCalculationConfig
-from services.market_group_resolver import MarketGroupResolver
-from services.role_performance_service import RolePerformanceService
-from services.scene_calculation_service import SceneCalculationService
+from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig
+from services.utils.market_group_resolver import MarketGroupResolver
+from services.utils.role_performance_service import RolePerformanceService
+from services.calculation.scene_orchestrator import SceneOrchestrator
 from services.market_service import MarketService
 from services.talent_service import TalentService
 from services.hire_talent_service import HireTalentService
-from services.scene_event_service import SceneEventService
+from services.events.scene_event_service import SceneEventService
 from services.scene_service import SceneService
 from services.time_service import TimeService
 from services.go_to_list_service import GoToListService
 from services.game_session_service import GameSessionService
-from services.auto_tag_analyzer import AutoTagAnalyzer
-from services.shoot_results_calculator import ShootResultsCalculator
-from services.scene_quality_calculator import SceneQualityCalculator
-from services.post_production_calculator import PostProductionCalculator
-from services.revenue_calculator import RevenueCalculator
+from services.calculation.auto_tag_analyzer import AutoTagAnalyzer
+from services.calculation.shoot_results_calculator import ShootResultsCalculator
+from services.calculation.scene_quality_calculator import SceneQualityCalculator
+from services.calculation.post_production_calculator import PostProductionCalculator
+from services.calculation.revenue_calculator import RevenueCalculator
 from services.player_settings_service import PlayerSettingsService
 from services.email_service import EmailService
 
@@ -71,7 +71,7 @@ class GameController(QObject):
         self.scene_quality_calculator = None
         self.post_production_calculator = None
         self.revenue_calculator = None
-        self.scene_calculation_service = None
+        self.scene_orchestrator = None
         self.scene_service = None
         self.time_service = None
         self.go_to_list_service = None
@@ -475,14 +475,14 @@ class GameController(QObject):
         # Note: SceneService and SceneEventService have a circular dependency.
         # We resolve it by initializing SceneService first, then SceneEventService,
         # then injecting the event service back into the scene service.
-        self.scene_calculation_service = SceneCalculationService(
+        self.scene_orchestrator = SceneOrchestrator(
             self.db_session, self.data_manager, self.talent_service, self.market_service, 
             self.scene_calc_config, self.auto_tag_analyzer, self.shoot_results_calculator,
             self.scene_quality_calculator, self.post_production_calculator
         )
         self.scene_service = SceneService(
             self.db_session, self.signals, self.data_manager, self.talent_service, self.market_service, 
-            self.email_service, self.scene_calculation_service, self.revenue_calculator
+            self.email_service, self.scene_orchestrator, self.revenue_calculator
         )
         self.scene_event_service = SceneEventService(
             self.db_session, self.signals, self.data_manager, self.talent_service, self.scene_service

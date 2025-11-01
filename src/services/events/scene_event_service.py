@@ -9,7 +9,7 @@ from data.data_manager import DataManager
 from services.talent_service import TalentService
 from core.interfaces import GameSignals
 from database.db_models import TalentDB, ShootingBlocDB, GameInfoDB, SceneDB
-from services.event_conditions import (
+from services.events.event_conditions import (
     PolicyActiveCondition, PolicyInactiveCondition, CastHasGenderCondition,
     SceneHasTagConceptCondition, CastSizeIsCondition,
     TalentProfessionalismAboveCondition, TalentProfessionalismBelowCondition,

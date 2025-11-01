@@ -1,7 +1,7 @@
 from typing import Dict, List, Tuple
 
 from data.data_manager import DataManager
-from services.calculation_models import PostProductionResult
+from services.models.results import PostProductionResult
 
 class PostProductionCalculator:
     """
