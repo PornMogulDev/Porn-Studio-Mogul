@@ -3,19 +3,19 @@ from typing import Tuple
 from sqlalchemy.orm import selectinload
 
 from database.db_models import GameInfoDB, SceneDB, TalentDB, Talent
+from services.command.scene_command_service import SceneCommandService
 from services.command.talent_command_service import TalentCommandService
-from services.scene_service import SceneService
 from services.market_service import MarketService
 from services.models.results import WeekAdvancementResult
 
 logger = logging.getLogger(__name__)
 
 class TimeService:
-    def __init__(self, db_session, signals, scene_service: SceneService, 
+    def __init__(self, db_session, signals, scene_command_service: SceneCommandService, 
                  talent_command_service: TalentCommandService, market_service: MarketService):
         self.session = db_session
         self.signals = signals
-        self.scene_service = scene_service
+        self.scene_command_service = scene_command_service
         self.talent_command_service = talent_command_service
         self.market_service = market_service
 
@@ -43,7 +43,7 @@ class TimeService:
             
             scenes_shot_count = 0
             for scene_db in scenes_to_shoot:
-                event_occurred = self.scene_service.shoot_scene(scene_db)
+                event_occurred = self.scene_command_service.shoot_scene(scene_db)
                 scenes_shot_count += 1
                 if event_occurred:
                     # An event paused execution. Commit what we have and stop.
@@ -55,7 +55,7 @@ class TimeService:
                     )
 
             # Update post-production and advance time
-            edited_scenes = self.scene_service.process_weekly_post_production()
+            edited_scenes = self.scene_command_service.process_weekly_post_production()
 
             next_week, next_year = (current_week + 1, current_year)
             is_new_year = False

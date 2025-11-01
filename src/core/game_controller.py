@@ -25,7 +25,6 @@ from services.calculation.scene_orchestrator import SceneOrchestrator
 from services.market_service import MarketService
 from services.hire_talent_service import HireTalentService
 from services.events.scene_event_service import SceneEventService
-from services.scene_service import SceneService
 from services.time_service import TimeService
 from services.go_to_list_service import GoToListService
 from services.game_session_service import GameSessionService
@@ -81,7 +80,6 @@ class GameController(QObject):
         self.post_production_calculator = None
         self.revenue_calculator = None
         self.scene_orchestrator = None
-        self.scene_service = None
         self.time_service = None
         self.go_to_list_service = None
         self.scene_event_service = None
@@ -117,38 +115,38 @@ class GameController(QObject):
         return self.query_service.get_filtered_talents(filters)
 
     def get_blocs_for_schedule_view(self, year: int) -> List[ShootingBloc]:
-        if not self.scene_service: return []
-        return self.scene_service.get_blocs_for_schedule_view(year)
+        if not self.query_service: return []
+        return self.query_service.get_blocs_for_schedule_view(year)
 
     def get_bloc_by_id(self, bloc_id: int) -> Optional[ShootingBloc]:
-        if not self.scene_service: return None
-        return self.scene_service.get_bloc_by_id(bloc_id)
+        if not self.query_service: return None
+        return self.query_service.get_bloc_by_id(bloc_id)
 
     def get_scene_for_planner(self, scene_id: int) -> Optional[Scene]:
-        if not self.scene_service: return None
-        return self.scene_service.get_scene_for_planner(scene_id)
+        if not self.query_service: return None
+        return self.query_service.get_scene_for_planner(scene_id)
         
     def get_shot_scenes(self) -> List[Scene]:
-        if not self.scene_service: return []
-        return self.scene_service.get_shot_scenes()
+        if not self.query_service: return []
+        return self.query_service.get_shot_scenes()
         
     def get_all_market_states(self) -> Dict[str, MarketGroupState]:
         if not self.market_service: return {}
         return self.market_service.get_all_market_states()
         
     def get_scene_history_for_talent(self, talent_id: int) -> List[Scene]:
-        if not self.scene_service: return []
-        return self.scene_service.get_scene_history_for_talent(talent_id)
+        if not self.query_service: return []
+        return self.query_service.get_scene_history_for_talent(talent_id)
 
     def get_castable_scenes(self) -> List[Dict]:
         """Gets a simplified list of scenes in 'casting' for UI filters."""
-        if not self.scene_service: return []
-        return self.scene_service.get_castable_scenes_for_ui()
+        if not self.query_service: return []
+        return self.query_service.get_castable_scenes_for_ui()
 
     def get_uncast_roles_for_scene(self, scene_id: int) -> List[Dict]:
         """Gets a list of uncast roles for a specific scene for UI filters."""
-        if not self.scene_service: return []
-        return self.scene_service.get_uncast_roles_for_scene_ui(scene_id)
+        if not self.query_service: return []
+        return self.query_service.get_uncast_roles_for_scene_ui(scene_id)
 
     # --- Go-To List Data Access (Proxy Methods) ---
     def get_go_to_list_talents(self) -> List[Talent]:
@@ -182,7 +180,7 @@ class GameController(QObject):
         if self.game_over: return
 
         # Pre-flight check for incomplete scenes scheduled for this week
-        incomplete_scenes = self.scene_service.get_incomplete_scenes_for_week(
+        incomplete_scenes = self.query_service.get_incomplete_scenes_for_week(
             self.game_state.week, self.game_state.year
         )
         if incomplete_scenes:
@@ -234,11 +232,11 @@ class GameController(QObject):
         Starts the editing process for a shot scene. The controller is responsible for
         committing the transaction and emitting signals after the service runs.
         """
-        success, cost = self.scene_service.start_editing_scene(scene_id, editing_tier_id)
+        success, cost = self.scene_command_service.start_editing_scene(scene_id, editing_tier_id)
 
     def release_scene(self, scene_id: int):
         # Capture the returned dictionary of discoveries
-        result = self.scene_service.release_scene(scene_id)
+        result = self.scene_command_service.release_scene(scene_id)
         if not result:
             return
 
@@ -258,7 +256,7 @@ class GameController(QObject):
         Calculates the cost authoritatively and creates a shooting bloc.
         This version does NOT accept a 'cost' parameter from the UI.
         """
-        if not self.scene_service: return False
+        if not self.scene_command_service: return False
 
         # --- Authoritative server-side cost calculation ---
         total_cost_per_scene = 0
@@ -308,25 +306,25 @@ class GameController(QObject):
         
         final_name = name.strip() if name.strip() else f"{year} W{week} Shoot"
         
-        return self.scene_service.create_shooting_bloc(week, year, num_scenes, settings, final_cost, final_name, policies)
+        return self.scene_command_service.create_shooting_bloc(week, year, num_scenes, settings, final_cost, final_name, policies)
     
     def create_blank_scene(self, week: Optional[int] = None, year: Optional[int] = None) -> int:
         use_week = week if week is not None else self.game_state.week
         use_year = year if year is not None else self.game_state.year
-        return self.scene_service.create_blank_scene(use_week, use_year)
+        return self.scene_command_service.create_blank_scene(use_week, use_year)
     
     def delete_scene(self, scene_id: int, silent: bool = False, penalty_percentage: float = 0.0): 
-        self.scene_service.delete_scene(scene_id, penalty_percentage, silent)
+        self.scene_command_service.delete_scene(scene_id, penalty_percentage, silent)
 
     def update_scene_full(self, scene_data: Scene) -> Dict:
         """Receives a full Scene dataclass from the presenter and updates the database."""
-        return self.scene_service.update_scene_full(scene_data)
+        return self.scene_command_service.update_scene_full(scene_data)
 
     def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int) -> int:
         return self.hire_talent_service.calculate_talent_demand(talent_id, scene_id, vp_id)
 
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int):
-        self.scene_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
+        self.scene_command_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
 
     def cast_talent_for_multiple_roles(self, talent_id: int, roles: List[Dict]):
         """Casts a single talent into multiple roles across different scenes."""
@@ -336,7 +334,7 @@ class GameController(QObject):
         if len(scene_ids) != len(set(scene_ids)):
             self.signals.notification_posted.emit("Casting failed: Cannot assign a talent to multiple roles in the same scene.")
             return
-        self.scene_service.cast_talent_for_multiple_roles(talent_id, roles)
+        self.scene_command_service.cast_talent_for_multiple_roles(talent_id, roles)
 
     def _get_tags_for_planner_by_type(self, tag_type: str) -> Tuple[List[Dict], Set[str], Set[str]]:
         """Helper method to get and process tags of a specific type."""
@@ -383,7 +381,7 @@ class GameController(QObject):
         Applies the effects of a player's choice from an interactive event
         and resumes the scene shooting process.
         """
-        if not self.scene_event_service or not self.scene_service:
+        if not self.scene_event_service or not self.scene_command_service:
              return
         
         # The event service now handles its own transaction and scene deletion.
@@ -396,7 +394,7 @@ class GameController(QObject):
             return
 
         # If the event resolved normally, continue the shoot and commit the results.
-        self.scene_service._continue_shoot_scene(scene_id, modifiers)
+        self.scene_command_service._continue_shoot_scene(scene_id, modifiers)
         # Commit the results of the shoot itself.
         self.db_session.commit()
         
@@ -501,12 +499,11 @@ class GameController(QObject):
             self.db_session, self.signals, self.data_manager, self.query_service, self.talent_command_service,
             self.market_service, self.email_service, self.scene_orchestrator, self.revenue_calculator
         )
-        self.scene_service = SceneService(self.query_service, self.scene_command_service)
         self.scene_event_service = SceneEventService(
-            self.db_session, self.signals, self.data_manager, self.query_service, self.scene_service
+            self.db_session, self.signals, self.data_manager, self.query_service, self.scene_command_service
         )
         self.scene_command_service.event_service = self.scene_event_service
-        self.time_service = TimeService(self.db_session, self.signals, self.scene_service, self.talent_command_service, self.market_service)
+        self.time_service = TimeService(self.db_session, self.signals, self.scene_command_service, self.talent_command_service, self.market_service)
 
     # --- Game Session Management (Delegated to GameSessionService) ---
 

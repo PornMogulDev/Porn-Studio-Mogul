@@ -19,7 +19,7 @@ from services.events.event_conditions import (
 
 
 if TYPE_CHECKING:
-    from services.scene_service import SceneService
+    from services.command.scene_command_service import SceneCommandService
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +30,12 @@ class SceneEventService:
     This service is self-contained and manages its own database transactions for event resolution.
     """
     def __init__(self, db_session, signals: GameSignals, data_manager: DataManager,
-                 query_service: GameQueryService, scene_service: 'SceneService'):
+                 query_service: GameQueryService, scene_command_service: 'SceneCommandService'):
         self.session = db_session
         self.signals = signals
         self.data_manager = data_manager
         self.query_service = query_service
-        self.scene_service = scene_service
+        self.scene_command_service = scene_command_service
         
         # Condition Factory: Maps condition types from JSON to handler classes
         self._condition_handlers = {
@@ -281,7 +281,7 @@ class SceneEventService:
                     cost_multiplier = effect.get('cost_multiplier', 1.0)
                     # Delete the scene via the scene service. The service handles money changes.
                     # Pass silent=True because we are sending our own notification here.
-                    self.scene_service.delete_scene(scene_id, penalty_percentage=cost_multiplier, silent=True, commit=False)
+                    self.scene_command_service.delete_scene(scene_id, penalty_percentage=cost_multiplier, silent=True, commit=False)
                     reason = effect.get('reason', 'Event')
                     self.signals.notification_posted.emit(f"Scene '{scene_db.title}' cancelled ({reason}).")
                     return False, False # Shoot is NOT complete, no chained event
