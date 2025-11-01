@@ -2,7 +2,7 @@ import json
 import logging
 from typing import List
 
-from core.interfaces import GameSignals
+from core.game_signals import GameSignals
 from database.db_models import GameInfoDB
 
 logger = logging.getLogger(__name__)

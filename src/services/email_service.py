@@ -1,7 +1,7 @@
 import logging
 from typing import List, Dict
 
-from core.interfaces import GameSignals
+from core.game_signals import GameSignals
 from data.game_state import GameState, EmailMessage
 from database.db_models import EmailMessageDB
 

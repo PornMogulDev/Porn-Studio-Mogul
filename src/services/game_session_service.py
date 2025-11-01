@@ -5,7 +5,7 @@ from data.game_state import GameState, MarketGroupState
 from data.save_manager import SaveManager, LIVE_SESSION_NAME, QUICKSAVE_NAME, EXITSAVE_NAME
 from core.talent_generator import TalentGenerator
 from data.data_manager import DataManager
-from core.interfaces import GameSignals
+from core.game_signals import GameSignals
 from database.db_models import (GameInfoDB, MarketGroupStateDB, TalentDB,
 GoToListCategoryDB, EmailMessageDB)
 

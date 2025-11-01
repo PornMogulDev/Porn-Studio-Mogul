@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
 from services.talent_service import TalentService
-from core.interfaces import GameSignals
+from core.game_signals import GameSignals
 from database.db_models import TalentDB, ShootingBlocDB, GameInfoDB, SceneDB
 from services.events.event_conditions import (
     PolicyActiveCondition, PolicyInactiveCondition, CastHasGenderCondition,

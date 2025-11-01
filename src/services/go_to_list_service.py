@@ -4,7 +4,7 @@ from typing import List, Dict
 
 from data.game_state import Talent
 from database.db_models import GoToListCategoryDB, GoToListAssignmentDB, TalentDB
-from core.interfaces import GameSignals
+from core.game_signals import GameSignals
 
 logger = logging.getLogger(__name__)
 

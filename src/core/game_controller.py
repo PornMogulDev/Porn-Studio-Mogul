@@ -3,7 +3,8 @@ from typing import List, Dict, Optional, Tuple, Set
 from PyQt6.QtCore import QObject
 from sqlalchemy import func
 
-from core.interfaces import IGameController, GameSignals
+from core.game_signals import GameSignals
+from core.interfaces import IGameController
 from data.game_state import *
 from data.save_manager import SaveManager
 from core.talent_generator import TalentGenerator
@@ -12,6 +13,8 @@ from data.settings_manager import SettingsManager
 from ui.theme_manager import Theme, ThemeManager
 from database.db_models import *
 
+from services.query.game_query_service import GameQueryService
+from services.command.talent_command_service import TalentCommandService
 from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig
 from services.utils.market_group_resolver import MarketGroupResolver
 from services.utils.role_performance_service import RolePerformanceService
@@ -64,6 +67,8 @@ class GameController(QObject):
         self.hiring_config = None
         self.scene_calc_config = None
         self.talent_config = None
+        self.query_service = None
+        self.talent_command_service = None
         self.market_service = None
         self.talent_service = None
         self.hire_talent_service = None
@@ -462,8 +467,13 @@ class GameController(QObject):
         # --- Pure Logic Helpers ---
         self.talent_logic_helper = TalentLogicHelper(self.scene_calc_config)
         self.availability_checker = TalentAvailabilityChecker(self.data_manager, self._create_hiring_config())
+        # --- CQRS Services ---
+        self.query_service = GameQueryService(self.db_session)
+        self.talent_command_service = TalentCommandService(
+            self.db_session, self.signals, self.scene_calc_config, self.talent_logic_helper
+        )
         # --- Services ---
-        self.talent_service = TalentService(self.db_session, self.data_manager, self.scene_calc_config, self.talent_logic_helper)
+        self.talent_service = TalentService(self.query_service, self.talent_command_service)
         self.hiring_config = self._create_hiring_config()
         self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.talent_service, self.hiring_config, self.availability_checker)
         self.role_performance_service = RolePerformanceService()
