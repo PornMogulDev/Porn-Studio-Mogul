@@ -2,7 +2,7 @@ import logging
 import random
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload, selectinload, Session
 
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
@@ -29,9 +29,9 @@ class SceneEventService:
     Handles the triggering and resolution of interactive events that occur during scene shoots.
     This service is self-contained and manages its own database transactions for event resolution.
     """
-    def __init__(self, db_session, signals: GameSignals, data_manager: DataManager,
+    def __init__(self, session_factory, signals: GameSignals, data_manager: DataManager,
                  query_service: GameQueryService, scene_command_service: 'SceneCommandService'):
-        self.session = db_session
+        self.session_factory = session_factory
         self.signals = signals
         self.data_manager = data_manager
         self.query_service = query_service
@@ -52,7 +52,7 @@ class SceneEventService:
             'not_has_production_tier': NotHasProductionTierCondition(),
         }
 
-    def check_for_shoot_event(self, scene: Scene) -> Optional[Dict]:
+    def check_for_shoot_event(self, session: Session, scene: Scene) -> Optional[Dict]:
         """
         Checks if a random interactive event should trigger for a scene being shot.
         This is the main entry point for event triggering.
@@ -60,7 +60,7 @@ class SceneEventService:
         if not scene.bloc_id or not scene.final_cast:
             return None
 
-        bloc_db = self.session.query(ShootingBlocDB).get(scene.bloc_id)
+        bloc_db = session.query(ShootingBlocDB).get(scene.bloc_id)
         if not bloc_db:
             return None
 
@@ -78,12 +78,12 @@ class SceneEventService:
             if concept := tag_def.get('concept'):
                 scene_tag_concepts.add(concept)
         
-        cast_genders_db = self.session.query(TalentDB.gender).filter(TalentDB.id.in_(cast_talent_ids)).distinct().all()
+        cast_genders_db = session.query(TalentDB.gender).filter(TalentDB.id.in_(cast_talent_ids)).distinct().all()
         cast_genders = {g[0] for g in cast_genders_db}
         cast_size = len(cast_talent_ids)
         
         # Pre-fetch all cast TalentDB objects to avoid querying in a loop
-        cast_talents_db = self.session.query(TalentDB).filter(TalentDB.id.in_(cast_talent_ids)).all()
+        cast_talents_db = session.query(TalentDB).filter(TalentDB.id.in_(cast_talent_ids)).all()
         
         event_to_trigger = None
         triggering_talent_id = None

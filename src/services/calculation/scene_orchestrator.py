@@ -1,7 +1,7 @@
 import logging
 from typing import Dict
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, Session
 
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
@@ -18,9 +18,8 @@ from services.calculation.post_production_calculator import PostProductionCalcul
 logger = logging.getLogger(__name__)
 
 class SceneOrchestrator:
-    def __init__(self, db_session, data_manager: DataManager, talent_command_service: TalentCommandService, market_service: MarketService, config: SceneCalculationConfig, auto_tag_analyzer: AutoTagAnalyzer,
+    def __init__(self, data_manager: DataManager, talent_command_service: TalentCommandService, market_service: MarketService, config: SceneCalculationConfig, auto_tag_analyzer: AutoTagAnalyzer,
                  shoot_results_calc: ShootResultsCalculator, scene_quality_calc: SceneQualityCalculator, post_prod_calc: PostProductionCalculator):
-        self.session = db_session
         self.data_manager = data_manager
         self.talent_command_service  = talent_command_service
         self.market_service = market_service
@@ -30,23 +29,23 @@ class SceneOrchestrator:
         self.scene_quality_calculator = scene_quality_calc
         self.post_production_calculator = post_prod_calc
     
-    def calculate_shoot_results(self, scene_db: SceneDB, shoot_modifiers: Dict):
+    def calculate_shoot_results(self, session: Session, scene_db: SceneDB, shoot_modifiers: Dict):
         # --- 1. PRE-CALCULATION & DATA FETCHING ---
 
         # Deduct salary costs
         total_salary_cost = sum(c.salary for c in scene_db.cast)
         
         if total_salary_cost > 0:
-            money_info = self.session.query(GameInfoDB).filter_by(key='money').one()
+            money_info = session.query(GameInfoDB).filter_by(key='money').one()
             money_info.value = str(int(float(money_info.value)) - total_salary_cost)
 
         scene = scene_db.to_dataclass(Scene) 
         talent_ids = list(scene.final_cast.values())
-        talents_db = self.session.query(TalentDB).filter(TalentDB.id.in_(talent_ids)).all()
+        talents_db = session.query(TalentDB).filter(TalentDB.id.in_(talent_ids)).all()
         cast_talents_dc = [t.to_dataclass(Talent) for t in talents_db]
 
-        week_info = self.session.query(GameInfoDB).filter_by(key='week').one()
-        year_info = self.session.query(GameInfoDB).filter_by(key='year').one()
+        week_info = session.query(GameInfoDB).filter_by(key='week').one()
+        year_info = session.query(GameInfoDB).filter_by(key='year').one()
         current_week, current_year = int(week_info.value), int(year_info.value)
 
         # --- 2. DELEGATE TO PURE CALCULATORS ---
@@ -69,7 +68,7 @@ class SceneOrchestrator:
         scene.auto_tags = discovered_tags # Update scene dataclass for quality calculation
 
         # Calculate scene quality
-        bloc_db = self.session.query(ShootingBlocDB).get(scene.bloc_id) if scene.bloc_id else None
+        bloc_db = session.query(ShootingBlocDB).get(scene.bloc_id) if scene.bloc_id else None
         quality_result = self.scene_quality_calculator.calculate_quality(
             scene, cast_talents_dc, shoot_modifiers, bloc_db.production_settings if bloc_db else None
         )
@@ -111,12 +110,12 @@ class SceneOrchestrator:
         scene_db.status = 'shot'
         scene_db.weeks_remaining = 0
 
-    def apply_post_production_effects(self, scene_db: SceneDB):
+    def apply_post_production_effects(self, session: Session, scene_db: SceneDB):
         """
         Calculates and applies quality modifiers from post-production choices
         and finalizes the scene for release.
         """
-        bloc_db = self.session.query(ShootingBlocDB).get(scene_db.bloc_id) if scene_db.bloc_id else None
+        bloc_db = session.query(ShootingBlocDB).get(scene_db.bloc_id) if scene_db.bloc_id else None
 
         # We need contributions as a list of dicts for the pure calculator
         current_contributions = [

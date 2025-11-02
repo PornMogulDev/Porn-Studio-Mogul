@@ -30,7 +30,7 @@ class SceneCommandService:
     2. Each public method creates its own session
     3. Use try-except-finally with commit/rollback/close
     4. Helper methods receive session as parameter
-    5. Methods called by TimeService receive session parameter (TimeService manages transaction)
+    5. Methods called by other services (like TimeService) receive session parameter (TimeService manages transaction)
     
     Example Pattern:
         def public_method(self, ...):
@@ -554,7 +554,7 @@ class SceneCommandService:
             logger.error(f"[ERROR] _continue_shoot_scene: Scene ID {scene_id} not found.")
             return
 
-        self.calculation_service.calculate_shoot_results(scene_db, shoot_modifiers)
+        self.calculation_service.calculate_shoot_results(session, scene_db, shoot_modifiers)
 
     def process_weekly_post_production(self, session: Session) -> List[SceneDB]:
         """
@@ -567,6 +567,6 @@ class SceneCommandService:
         for scene_db in editing_scenes_db:
             scene_db.weeks_remaining -= 1
             if scene_db.weeks_remaining <= 0:
-                self.calculation_service.apply_post_production_effects(scene_db)
+                self.calculation_service.apply_post_production_effects(session, scene_db)
                 edited_scenes.append(scene_db)
         return edited_scenes

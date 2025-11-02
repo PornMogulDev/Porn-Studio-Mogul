@@ -441,7 +441,6 @@ class GameController(QObject):
 
         # --- Refactored Calculation Services ---
         self.auto_tag_analyzer = AutoTagAnalyzer(self.data_manager)
-
         self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_service)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
@@ -452,7 +451,7 @@ class GameController(QObject):
         # We resolve it by initializing SceneService first, then SceneEventService,
         # then injecting the event service back into the scene service.
         self.scene_orchestrator = SceneOrchestrator(
-            session_factory, self.data_manager, self.talent_command_service, self.market_service, 
+            self.data_manager, self.talent_command_service, self.market_service, 
             self.scene_calc_config, self.auto_tag_analyzer, self.shoot_results_calculator,
             self.scene_quality_calculator, self.post_production_calculator
         )
