@@ -33,53 +33,59 @@ class GameSessionService:
         """
         # Ensure any previous session is disconnected before starting fresh.
         self.save_manager.db_manager.disconnect()
-
         save_path = self.save_manager.create_new_save_db(LIVE_SESSION_NAME)
-        db_session = self.save_manager.db_manager.get_session()
+        session = self.save_manager.db_manager.get_session()
+        try:
 
-        game_state = GameState(
-            week=1, 
-            year=self.game_constant["starting_year"], 
-            money=self.game_constant["initial_money"]
-        )
+            game_state = GameState(
+                week=1, 
+                year=self.game_constant["starting_year"], 
+                money=self.game_constant["initial_money"]
+            )
 
-        # Initialize GameInfo
-        game_info_data = [
-            GameInfoDB(key='week', value=str(game_state.week)),
-            GameInfoDB(key='year', value=str(game_state.year)),
-            GameInfoDB(key='money', value=str(game_state.money))
-        ]
-        db_session.add_all(game_info_data)
+            # Initialize GameInfo
+            game_info_data = [
+                GameInfoDB(key='week', value=str(game_state.week)),
+                GameInfoDB(key='year', value=str(game_state.year)),
+                GameInfoDB(key='money', value=str(game_state.money))
+            ]
+            session.add_all(game_info_data)
 
-        # Initialize Market Groups
-        all_group_names = [g['name'] for g in self.market_data.get('viewer_groups', [])]
-        for group in self.market_data.get('viewer_groups', []):
-            if name := group.get('name'):
-                market_state = MarketGroupState(name=name)
-                db_session.add(MarketGroupStateDB.from_dataclass(market_state))
-        
-        # Generate initial talent pool
-        initial_talents = self.talent_generator.generate_multiple_talents(150, start_id=1)
-        for talent in initial_talents:
-            for name in all_group_names: talent.popularity[name] = 0.0
-            db_session.add(TalentDB.from_dataclass(talent))
+            # Initialize Market Groups
+            all_group_names = [g['name'] for g in self.market_data.get('viewer_groups', [])]
+            for group in self.market_data.get('viewer_groups', []):
+                if name := group.get('name'):
+                    market_state = MarketGroupState(name=name)
+                    session.add(MarketGroupStateDB.from_dataclass(market_state))
+            
+            # Generate initial talent pool
+            initial_talents = self.talent_generator.generate_multiple_talents(150, start_id=1)
+            for talent in initial_talents:
+                for name in all_group_names: talent.popularity[name] = 0.0
+                session.add(TalentDB.from_dataclass(talent))
 
-        # Create default Go-To List category
-        general_category = GoToListCategoryDB(name="General", is_deletable=False)
-        db_session.add(general_category)
+            # Create default Go-To List category
+            general_category = GoToListCategoryDB(name="General", is_deletable=False)
+            session.add(general_category)
 
-        # Create welcome email
-        welcome_email = EmailMessageDB(
-            subject="Welcome to the Studio!", 
-            body="Welcome to your new studio! Your goal is to become a successful producer.\n\nDesign scenes, cast talent, and make a profit!\n\nGood luck!",
-            week=game_state.week,
-            year=game_state.year,
-            is_read=False
-        )
-        db_session.add(welcome_email)
+            # Create welcome email
+            welcome_email = EmailMessageDB(
+                subject="Welcome to the Studio!", 
+                body="Welcome to your new studio! Your goal is to become a successful producer.\n\nDesign scenes, cast talent, and make a profit!\n\nGood luck!",
+                week=game_state.week,
+                year=game_state.year,
+                is_read=False
+            )
+            session.add(welcome_email)
 
-        db_session.commit()
-        return game_state, db_session, save_path
+            session.commit()
+            return game_state, save_path
+        except Exception as e:
+            logger.error(f"Couldn't create a new game: {e}", exc_info=True)
+            session.rollback()
+            return False
+        finally:
+            session.close()
 
     def load_game(self, save_name: str) -> Optional[tuple[GameState, any, str]]:
         """
@@ -95,9 +101,8 @@ class GameSessionService:
 
             # Step 3: Now that a connection is established, we can safely get the session.
             save_path = self.save_manager.db_manager.db_path
-            db_session = self.save_manager.db_manager.get_session()
             
-            return game_state, db_session, save_path
+            return game_state, save_path
         except FileNotFoundError:
             logger.error(f"Attempted to load a save file that does not exist: {save_name}")
             self.signals.notification_posted.emit(f"Error: Save file '{save_name}' not found.")
@@ -117,18 +122,20 @@ class GameSessionService:
     def save_game(self, save_name: str):
         """Saves the current game session to a named file."""
         # The service is now self-sufficient. It gets the session and path from its own manager.
-        db_session = self.save_manager.db_manager.get_session()
+        session = self.save_manager.db_manager.get_session()
         current_save_path = self.save_manager.db_manager.db_path
 
-        if db_session and current_save_path:
+        if session and current_save_path:
             try:
-                db_session.commit() # Commit any pending changes.
+                session.commit() # Commit any pending changes.
                 self.save_manager.copy_save(current_save_path, save_name)
                 self.signals.saves_changed.emit()
             except Exception as e:
                 logger.error(f"Failed to save game to '{save_name}': {e}")
-                db_session.rollback()
+                session.rollback()
                 self.signals.notification_posted.emit("Error: Could not save the game.")
+            finally:
+                session.close()
 
     def quick_save(self):
         self.save_game(QUICKSAVE_NAME)

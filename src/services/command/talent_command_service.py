@@ -81,7 +81,11 @@ class TalentCommandService:
     def process_weekly_updates(self, session: Session, current_date_val: int, new_year: bool) -> bool:
         """Processes all weekly changes for talents.
         Called from TimeService."""
-        talents_to_update = session.query(TalentDB).options(selectinload(TalentDB.popularity_scores)).all()
+        talents_to_update = session.query(TalentDB).options(
+            selectinload(TalentDB.popularity_scores),
+            selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
+            selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a)
+        ).all()
         if not talents_to_update: return False
 
         decay_rate = 1.0 - self.config.popularity_gain_scalar # Corrected decay

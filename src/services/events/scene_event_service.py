@@ -8,7 +8,7 @@ from data.game_state import Scene, Talent
 from data.data_manager import DataManager
 from services.query.game_query_service import GameQueryService
 from core.game_signals import GameSignals
-from database.db_models import TalentDB, ShootingBlocDB, GameInfoDB, SceneDB
+from database.db_models import TalentDB, TalentChemistryDB, ShootingBlocDB, GameInfoDB, SceneDB
 from services.events.event_conditions import (
     PolicyActiveCondition, PolicyInactiveCondition, CastHasGenderCondition,
     SceneHasTagConceptCondition, CastSizeIsCondition,
@@ -83,7 +83,11 @@ class SceneEventService:
         cast_size = len(cast_talent_ids)
         
         # Pre-fetch all cast TalentDB objects to avoid querying in a loop
-        cast_talents_db = session.query(TalentDB).filter(TalentDB.id.in_(cast_talent_ids)).all()
+        cast_talents_db = session.query(TalentDB).options(
+            selectinload(TalentDB.popularity_scores),
+            selectinload(TalentDB.chemistry_a),
+            selectinload(TalentDB.chemistry_b)
+        ).filter(TalentDB.id.in_(cast_talent_ids)).all()
         
         event_to_trigger = None
         triggering_talent_id = None

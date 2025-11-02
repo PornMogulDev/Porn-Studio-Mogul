@@ -53,6 +53,7 @@ class WeekAdvancementResult:
     """Represents the outcome of a week advancement process."""
     new_week: int
     new_year: int
+    new_money: int
     was_paused: bool = False
     scenes_shot: int = 0
     scenes_edited: int = 0

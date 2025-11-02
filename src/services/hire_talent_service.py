@@ -67,7 +67,11 @@ class HireTalentService:
             bloc_db = session.query(ShootingBlocDB).get(scene_db.bloc_id) if scene_db.bloc_id else None
             
             # --- Step B: Initial Database Query ---
-            query = session.query(TalentDB).options(selectinload(TalentDB.popularity_scores))
+            query = session.query(TalentDB).options(
+                selectinload(TalentDB.popularity_scores),
+                selectinload(TalentDB.chemistry_a),
+                selectinload(TalentDB.chemistry_b)
+            )
             query = query.filter(TalentDB.gender == vp.gender)
             if vp.ethnicity != "Any":
                 query = query.filter(TalentDB.ethnicity == vp.ethnicity)

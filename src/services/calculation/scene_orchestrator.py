@@ -41,7 +41,11 @@ class SceneOrchestrator:
 
         scene = scene_db.to_dataclass(Scene) 
         talent_ids = list(scene.final_cast.values())
-        talents_db = session.query(TalentDB).filter(TalentDB.id.in_(talent_ids)).all()
+        talents_db = session.query(TalentDB).options(
+            selectinload(TalentDB.popularity_scores),
+            selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
+            selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a)
+        ).filter(TalentDB.id.in_(talent_ids)).all()
         cast_talents_dc = [t.to_dataclass(Talent) for t in talents_db]
 
         week_info = session.query(GameInfoDB).filter_by(key='week').one()

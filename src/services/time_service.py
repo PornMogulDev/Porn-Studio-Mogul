@@ -31,6 +31,7 @@ class TimeService:
         try:
             current_week, current_year = self._get_current_time(session)
             current_date_val = current_year * 52 + current_week
+            money_info = session.query(GameInfoDB).filter_by(key='money').one()
         
             # --- 1. Perform all weekly updates ---
             market_changed = self.market_service.recover_all_market_saturation(session)
@@ -51,6 +52,7 @@ class TimeService:
                     session.commit()
                     return WeekAdvancementResult(
                         new_week=current_week, new_year=current_year,
+                        new_money=int(float(money_info.value)),
                         was_paused=True, scenes_shot=scenes_shot_count,
                         market_changed=market_changed
                     )
@@ -70,7 +72,6 @@ class TimeService:
             # --- 2. Persist the new time ---
             week_info = session.query(GameInfoDB).filter_by(key='week').one()
             year_info = session.query(GameInfoDB).filter_by(key='year').one()
-            money_info = session.query(GameInfoDB).filter_by(key='money').one()
             
             week_info.value = str(next_week)
             year_info.value = str(next_year)
@@ -87,6 +88,6 @@ class TimeService:
             logger.error(f"Error during week advancement: {e}", exc_info=True)
             session.rollback()
             # Return current state on failure
-            return WeekAdvancementResult(new_week=current_week, new_year=current_year, new_money=self.game_state.money, was_paused=True)
+            return WeekAdvancementResult(new_week=current_week, new_year=current_year, new_money=int(float(money_info.value)), was_paused=True)
         finally:
             session.close()

@@ -454,7 +454,7 @@ class GameController(QObject):
 
     def new_game_started(self):
         """Initializes a new game session."""
-        self.game_state, _, self.current_save_path = self.game_session_service.start_new_game()
+        self.game_state, self.current_save_path = self.game_session_service.start_new_game()
         self._initialize_services()
         
         # Emit signals to update UI
@@ -464,9 +464,9 @@ class GameController(QObject):
         self.signals.new_game_started.emit()
         self.signals.show_main_window_requested.emit()
         
-    def load_game(self, save_name):
+    def load_game(self, save_name: str):
         """Loads a game session from a file."""
-        self.game_state, _, self.current_save_path = self.game_session_service.load_game(save_name)
+        self.game_state, self.current_save_path = self.game_session_service.load_game(save_name)
         self._initialize_services()
         
         # Emit signals to update UI
@@ -486,7 +486,7 @@ class GameController(QObject):
     def continue_game(self):
         result = self.game_session_service.continue_game()
         if result:
-            self.game_state, _, self.current_save_path = result
+            self.game_state, self.current_save_path = result
             self._initialize_services()
             
             self.signals.money_changed.emit(self.game_state.money)

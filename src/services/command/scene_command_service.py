@@ -9,7 +9,7 @@ from data.game_state import Scene, Talent
 from data.data_manager import DataManager
 from database.db_models import ( SceneDB, VirtualPerformerDB, ActionSegmentDB, SlotAssignmentDB,
                                 TalentDB, GameInfoDB, SceneCastDB, ShootingBlocDB,
-                                 MarketGroupStateDB )
+                                 MarketGroupStateDB, TalentChemistryDB )
 from services.query.game_query_service import GameQueryService
 from services.command.talent_command_service import TalentCommandService
 from services.email_service import EmailService
@@ -424,7 +424,7 @@ class SceneCommandService:
             ).filter(TalentDB.id.in_(talent_ids)).all()
             cast_talents_dc = [t.to_dataclass(Talent) for t in cast_talents_db]
             
-            all_market_states = self.market_service.get_all_market_states()
+            all_market_states = self.query_service.get_all_market_states()
             all_resolved_groups = self.market_service.get_all_resolved_group_data()
 
             # --- 2. DELEGATE CALCULATION ---

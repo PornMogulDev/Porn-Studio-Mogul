@@ -36,7 +36,11 @@ class GameQueryService:
     def get_filtered_talents(self, all_filters: dict) -> List[TalentDB]:
         """Fetches a list of TalentDB objects based on UI filters."""
         with self.session_factory() as session:
-            query = session.query(TalentDB).options(selectinload(TalentDB.popularity_scores))
+            query = session.query(TalentDB).options(
+                selectinload(TalentDB.popularity_scores),
+                selectinload(TalentDB.chemistry_a),
+                selectinload(TalentDB.chemistry_b)
+            )
             
             if name_filter := all_filters.get('name'):
                 query = query.filter(TalentDB.alias.ilike(f"%{name_filter}%"))
@@ -87,8 +91,11 @@ class GameQueryService:
     def get_all_talents_in_go_to_lists(self) -> List[Talent]:
         """Gets all unique talents present in any Go-To List category."""
         with self.session_factory() as session:
-            talents_db = session.query(TalentDB)\
-                .join(GoToListAssignmentDB)\
+            talents_db = session.query(TalentDB).options(
+                selectinload(TalentDB.popularity_scores),
+                selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
+                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a)
+            ).join(GoToListAssignmentDB)\
                 .distinct()\
                 .order_by(TalentDB.alias).all()
             return [t.to_dataclass(Talent) for t in talents_db]
@@ -104,8 +111,11 @@ class GameQueryService:
     def get_talents_in_category(self, category_id: int) -> List[Talent]:
         """Gets all talents within a specific Go-To List category."""
         with self.session_factory() as session:
-            talents_db = session.query(TalentDB)\
-                .join(GoToListAssignmentDB)\
+            talents_db = session.query(TalentDB).options(
+                selectinload(TalentDB.popularity_scores),
+                selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
+                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a)
+            ).join(GoToListAssignmentDB)\
                 .filter(GoToListAssignmentDB.category_id == category_id)\
                 .order_by(TalentDB.alias)\
                 .all()

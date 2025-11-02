@@ -45,9 +45,8 @@ class SaveManager:
         except IOError as e:
             logger.error(f"Error copying save file: {e}")
     
-    def auto_save(self, session):
+    def auto_save(self):
         """Manages rolling autosaves and commits the current session."""
-        session.commit() # Commit changes to the live session.sqlite DB file
         
         # This disconnect is crucial on some systems to release the lock before copying
         live_db_path = self.db_manager.db_path
