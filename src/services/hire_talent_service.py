@@ -3,7 +3,7 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Dict, Optional, List, Set, Union, Tuple
 from collections import defaultdict
-from sqlalchemy.orm import joinedload, selectinload, Session
+from sqlalchemy.orm import joinedload, selectinload
 
 from data.game_state import Talent, Scene, ActionSegment
 from data.data_manager import DataManager

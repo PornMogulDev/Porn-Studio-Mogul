@@ -581,10 +581,6 @@ class GameController(QObject):
         self.email_service.delete_emails(email_ids)
 
     # --- Go-To List Actions (Proxy Methods) ---
-    def add_talent_to_go_to_list(self, talent_id: int):
-        """Adds a talent to the default 'General' Go-To List category via the service."""
-        if not self.go_to_list_service: return
-        self.go_to_list_service.add_talent_to_general_category(talent_id)
 
     def remove_talents_from_go_to_list(self, talent_ids: list[int]):
         if not self.go_to_list_service: return
