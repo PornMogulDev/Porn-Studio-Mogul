@@ -539,6 +539,20 @@ class SceneCommandService:
             # No event. Proceed with the full shooting process.
             self._continue_shoot_scene(session, scene_dc.id, {})
             return False # Indicates the process completed normally
+        
+    def continue_shoot_scene_after_event(self, scene_id: int, shoot_modifiers: Dict) -> bool:
+        """Public method to continue shooting after event resolution."""
+        session = self.session_factory()
+        try:
+            self._continue_shoot_scene(session, scene_id, shoot_modifiers)
+            session.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error continuing shoot for scene {scene_id}: {e}", exc_info=True)
+            session.rollback()
+            return False
+        finally:
+            session.close()
 
     def _continue_shoot_scene(self, session, scene_id: int, shoot_modifiers: Dict):
         """

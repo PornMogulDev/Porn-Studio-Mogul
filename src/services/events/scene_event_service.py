@@ -210,12 +210,12 @@ class SceneEventService:
 
         return talent_map[selected_id].to_dataclass(Talent)
 
-    def _calculate_proportional_cost(self, scene_db: SceneDB, multiplier: float) -> int:
+    def _calculate_proportional_cost(self, session: Session, scene_db: SceneDB, multiplier: float) -> int:
         """Calculates a cost based on the scene's total one-time budget."""
         salary_cost = sum(c.salary for c in scene_db.cast)
         prod_cost_per_scene = 0
         if scene_db.bloc_id:
-            bloc_db = self.session.query(ShootingBlocDB).options(selectinload(ShootingBlocDB.scenes)).get(scene_db.bloc_id)
+            bloc_db = session.query(ShootingBlocDB).options(selectinload(ShootingBlocDB.scenes)).get(scene_db.bloc_id)
             if bloc_db and bloc_db.scenes:
                 num_scenes_in_bloc = len(bloc_db.scenes)
                 if num_scenes_in_bloc > 0:
@@ -228,97 +228,100 @@ class SceneEventService:
         Applies effects of a player's choice, handling its own transaction.
         Returns a tuple: (was_shoot_completed, shoot_modifiers)
         """
-        modifiers = defaultdict(lambda: defaultdict(dict))
-        event_data = self.data_manager.scene_events.get(event_id)
-        if not event_data:
-            logger.error(f"[ERROR] Could not find event data for id: {event_id}")
-            return False, modifiers
-
-        choice_data = next((c for c in event_data.get('choices', []) if c.get('id') == choice_id), None)
-        if not choice_data:
-            logger.error(f"[ERROR] Could not find choice data for id: {choice_id} in event {event_id}")
-            return False, modifiers
-        
-        talent = self.query_service.get_talent_by_id(talent_id)
-        scene_db = self.session.query(SceneDB).options(joinedload(SceneDB.cast)).get(scene_id)
-        
-        # Resolve special targets first
-        other_talent_name = None
-        other_talent_id = None
-        effects = choice_data.get('effects', []) or []
-        if any(eff.get('target') == 'other_talent_in_scene' for eff in effects) and scene_db:
-            cast_ids = [c.talent_id for c in scene_db.cast if c.talent_id != talent_id]
-            if cast_ids:
-                other_talent_id = random.choice(cast_ids)
-                other_talent_db = self.session.query(TalentDB.alias).filter_by(id=other_talent_id).one_or_none()
-                if other_talent_db: other_talent_name = other_talent_db.alias
-        
-        def apply_effects(effects_list: List[Dict]) -> Tuple[bool, bool]:
-            """
-            Internal recursive helper to process effects.
-            Returns: (is_shoot_complete, is_event_chained)
-            """
-            for effect in effects_list:
-                effect_type = effect.get('type')
-                if effect_type == 'add_cost':
-                    cost = 0
-                    if effect.get('cost_type') == 'proportional':
-                        cost = self._calculate_proportional_cost(scene_db, effect.get('amount', 0.0))
-                    else:
-                        cost = effect.get('amount', 0)
-                    if cost > 0:
-                        money_info = self.session.query(GameInfoDB).filter_by(key='money').one()
-                        new_money = int(float(money_info.value)) - cost
-                        money_info.value = str(new_money)
-                        # We don't emit money_changed here; the controller will do it after the week finishes.
-                elif effect_type == 'notification':
-                    message = effect.get('message', '...').replace('{talent_name}', talent.alias if talent else 'N/A')
-                    if other_talent_name: message = message.replace('{other_talent_name}', other_talent_name)
-                    if scene_db: message = message.replace('{scene_title}', scene_db.title)
-                    self.signals.notification_posted.emit(message)
-                elif effect_type == 'cancel_scene':
-                    if not scene_db: continue
-                    cost_multiplier = effect.get('cost_multiplier', 1.0)
-                    # Delete the scene via the scene service. The service handles money changes.
-                    # Pass silent=True because we are sending our own notification here.
-                    self.scene_command_service.delete_scene(scene_id, penalty_percentage=cost_multiplier, silent=True, commit=False)
-                    reason = effect.get('reason', 'Event')
-                    self.signals.notification_posted.emit(f"Scene '{scene_db.title}' cancelled ({reason}).")
-                    return False, False # Shoot is NOT complete, no chained event
-                elif effect_type in ('modify_performer_contribution', 'modify_performer_contribution_random'):
-                    target_id = talent_id if effect.get('target') == 'triggering_talent' else other_talent_id
-                    if target_id:
-                        reason = effect.get('reason', 'Event')
-                        mod_data = {'min_mod': effect.get('min_mod'), 'max_mod': effect.get('max_mod')} if effect_type.endswith('random') else {'modifier': effect.get('modifier')}
-                        mod_data['reason'] = reason
-                        modifiers['performer_mods'][target_id] = mod_data
-                elif effect_type == 'modify_scene_quality':
-                    modifiers['quality_mods']['overall'] = {'modifier': effect.get('modifier', 1.0), 'reason': effect.get('reason', 'Event')}
-                elif effect_type == 'trigger_event':
-                    new_event_id = effect.get('event_id')
-                    if new_event_data := self.data_manager.scene_events.get(new_event_id):
-                        self.signals.interactive_event_triggered.emit(new_event_data, scene_id, talent_id)
-                        return False, True # Shoot is NOT complete, chained event occurred
-                    else:
-                        logger.error(f"[ERROR] Chained event error: Could not find event with id '{new_event_id}'")
-                elif effect_type == 'random_outcome':
-                    outcomes = effect.get('outcomes', [])
-                    if outcomes:
-                        weights = [o.get('chance', 1.0) for o in outcomes]
-                        chosen_outcome = random.choices(outcomes, weights=weights, k=1)[0]
-                        is_complete, is_chained = apply_effects(chosen_outcome.get('effects', []))
-                        if is_chained:
-                            return False, True
-                        if not is_complete:
-                            return False, False
-            return True, False # Shoot is complete, no chained event
-
+        session = self.session_factory
         try:
-            shoot_is_complete, chained_event = apply_effects(effects)
+            modifiers = defaultdict(lambda: defaultdict(dict))
+            event_data = self.data_manager.scene_events.get(event_id)
+            if not event_data:
+                logger.error(f"[ERROR] Could not find event data for id: {event_id}")
+                return False, modifiers
+
+            choice_data = next((c for c in event_data.get('choices', []) if c.get('id') == choice_id), None)
+            if not choice_data:
+                logger.error(f"[ERROR] Could not find choice data for id: {choice_id} in event {event_id}")
+                return False, modifiers
+            
+            talent = self.query_service.get_talent_by_id(talent_id)
+            scene_db = session.query(SceneDB).options(joinedload(SceneDB.cast)).get(scene_id)
+            
+            # Resolve special targets first
+            other_talent_name = None
+            other_talent_id = None
+            effects = choice_data.get('effects', []) or []
+            if any(eff.get('target') == 'other_talent_in_scene' for eff in effects) and scene_db:
+                cast_ids = [c.talent_id for c in scene_db.cast if c.talent_id != talent_id]
+                if cast_ids:
+                    other_talent_id = random.choice(cast_ids)
+                    other_talent_db = session.query(TalentDB.alias).filter_by(id=other_talent_id).one_or_none()
+                    if other_talent_db: other_talent_name = other_talent_db.alias
+            
+            def apply_effects(session: Session, effects_list: List[Dict]) -> Tuple[bool, bool]:
+                """
+                Internal recursive helper to process effects.
+                Returns: (is_shoot_complete, is_event_chained)
+                """
+                for effect in effects_list:
+                    effect_type = effect.get('type')
+                    if effect_type == 'add_cost':
+                        cost = 0
+                        if effect.get('cost_type') == 'proportional':
+                            cost = self._calculate_proportional_cost(session, scene_db, effect.get('amount', 0.0))
+                        else:
+                            cost = effect.get('amount', 0)
+                        if cost > 0:
+                            money_info = session.query(GameInfoDB).filter_by(key='money').one()
+                            new_money = int(float(money_info.value)) - cost
+                            money_info.value = str(new_money)
+                            # We don't emit money_changed here; the controller will do it after the week finishes.
+                    elif effect_type == 'notification':
+                        message = effect.get('message', '...').replace('{talent_name}', talent.alias if talent else 'N/A')
+                        if other_talent_name: message = message.replace('{other_talent_name}', other_talent_name)
+                        if scene_db: message = message.replace('{scene_title}', scene_db.title)
+                        self.signals.notification_posted.emit(message)
+                    elif effect_type == 'cancel_scene':
+                        if not scene_db: continue
+                        cost_multiplier = effect.get('cost_multiplier', 1.0)
+                        # Delete the scene via the scene service. The service handles money changes.
+                        # Pass silent=True because we are sending our own notification here.
+                        self.scene_command_service.delete_scene(scene_id, penalty_percentage=cost_multiplier, silent=True, commit=False)
+                        reason = effect.get('reason', 'Event')
+                        self.signals.notification_posted.emit(f"Scene '{scene_db.title}' cancelled ({reason}).")
+                        return False, False # Shoot is NOT complete, no chained event
+                    elif effect_type in ('modify_performer_contribution', 'modify_performer_contribution_random'):
+                        target_id = talent_id if effect.get('target') == 'triggering_talent' else other_talent_id
+                        if target_id:
+                            reason = effect.get('reason', 'Event')
+                            mod_data = {'min_mod': effect.get('min_mod'), 'max_mod': effect.get('max_mod')} if effect_type.endswith('random') else {'modifier': effect.get('modifier')}
+                            mod_data['reason'] = reason
+                            modifiers['performer_mods'][target_id] = mod_data
+                    elif effect_type == 'modify_scene_quality':
+                        modifiers['quality_mods']['overall'] = {'modifier': effect.get('modifier', 1.0), 'reason': effect.get('reason', 'Event')}
+                    elif effect_type == 'trigger_event':
+                        new_event_id = effect.get('event_id')
+                        if new_event_data := self.data_manager.scene_events.get(new_event_id):
+                            self.signals.interactive_event_triggered.emit(new_event_data, scene_id, talent_id)
+                            return False, True # Shoot is NOT complete, chained event occurred
+                        else:
+                            logger.error(f"[ERROR] Chained event error: Could not find event with id '{new_event_id}'")
+                    elif effect_type == 'random_outcome':
+                        outcomes = effect.get('outcomes', [])
+                        if outcomes:
+                            weights = [o.get('chance', 1.0) for o in outcomes]
+                            chosen_outcome = random.choices(outcomes, weights=weights, k=1)[0]
+                            is_complete, is_chained = apply_effects(chosen_outcome.get('effects', []))
+                            if is_chained:
+                                return False, True
+                            if not is_complete:
+                                return False, False
+                return True, False # Shoot is complete, no chained event
+
+            shoot_is_complete, chained_event = apply_effects(session, effects)
             if not chained_event:
-                self.session.commit()
+                session.commit()
             return shoot_is_complete, modifiers
         except Exception as e:
             logger.error(f"Error resolving event {event_id}: {e}", exc_info=True)
-            self.session.rollback()
+            session.rollback()
             return False, modifiers
+        finally:
+            session.close()

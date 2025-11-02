@@ -173,48 +173,38 @@ class GameController(QObject):
     def advance_week(self):
         if self.game_over: return
 
-        # Pre-flight check for incomplete scenes scheduled for this week
+        # Pre-flight check
         incomplete_scenes = self.query_service.get_incomplete_scenes_for_week(
             self.game_state.week, self.game_state.year
         )
         if incomplete_scenes:
             self.signals.incomplete_scene_check_requested.emit(incomplete_scenes)
-            return  # Stop here, wait for UI to handle and possibly recall this method
+            return
 
-        # --- 1. DELEGATE TO TIME SERVICE ---
-        # The service handles the entire transaction and returns a result object.
+        # Delegate everything to TimeService
         result = self.time_service.advance_week()
 
-        # --- 2. UPDATE GAMESTATE & AUTOSAVE ---
+        # Update local state
         self.game_state.week = result.new_week
         self.game_state.year = result.new_year
-        
-        money_info = self.db_session.query(GameInfoDB).filter_by(key='money').one()
-        self.game_state.money = int(float(money_info.value))
+        self.game_state.money = result.new_money
 
-        # The autosave will now contain the state of the *new* week.
-        self.db_session.commit() # Commit transaction before saving
-        self.save_manager.auto_save(self.db_session)
+        # Autosave with a fresh session (SaveManager handles this)
+        self.save_manager.auto_save()
 
-        # --- 3. EMIT SIGNALS AND HANDLE PAUSES/GAME OVER ---
+        # Handle pauses
         if result.was_paused:
-            # If paused, we only signal changes that already happened. Time/Money have not advanced.
             if result.scenes_shot > 0: self.signals.scenes_changed.emit()
             return
 
-        # Check for game over condition
+        # Check game over
         if self.game_state.money <= self.game_constant.get('game_over_threshold', -5000):
             self.signals.game_over_triggered.emit("bankruptcy")
             return
 
-        # --- 4. EMIT SIGNALS (Order is important!) ---
-        # First, emit the primary signals that establish the new context (time and money).
-        # This allows UI elements like the schedule to update their base state correctly.
+        # Emit signals
         self.signals.time_changed.emit(result.new_week, result.new_year)
         self.signals.money_changed.emit(self.game_state.money)
-
-        # Second, emit signals for specific content changes that happened during the week.
-        # UIs listening to these will now have the correct time context.
         if result.scenes_shot > 0 or result.scenes_edited > 0: self.signals.scenes_changed.emit()
         if result.market_changed: self.signals.market_changed.emit()
         if result.talent_pool_changed: self.signals.talent_pool_changed.emit()
@@ -335,28 +325,23 @@ class GameController(QObject):
     def get_resolved_group_data(self, group_name: str) -> Dict: return self.market_service.get_resolved_group_data(group_name)
 
     def resolve_interactive_event(self, event_id: str, scene_id: int, talent_id: int, choice_id: str) -> None:
-        """
-        Applies the effects of a player's choice from an interactive event
-        and resumes the scene shooting process.
-        """
+        """Orchestrates event resolution and shoot continuation."""
         if not self.scene_event_service or not self.scene_command_service:
-             return
+            return
         
-        # The event service now handles its own transaction and scene deletion.
-        # It returns whether the shoot should continue.
-        shoot_completed, modifiers = self.scene_event_service.resolve_interactive_event(event_id, scene_id, talent_id, choice_id)
+        # Event service handles its own transaction
+        shoot_completed, modifiers = self.scene_event_service.resolve_interactive_event(
+            event_id, scene_id, talent_id, choice_id
+        )
 
         if not shoot_completed:
-            # If the scene was cancelled or a new event was chained, stop here.
-            # The service has already committed its changes or emitted new signals.
+            # Scene cancelled or chained event
             return
 
-        # If the event resolved normally, continue the shoot and commit the results.
-        self.scene_command_service._continue_shoot_scene(scene_id, modifiers)
-        # Commit the results of the shoot itself.
-        self.db_session.commit()
+        # Continue shoot in new transaction
+        self.scene_command_service.continue_shoot_scene_after_event(scene_id, modifiers)
         
-        # After resolving the event, automatically try to continue the week.
+        # Continue the week advancement
         self.advance_week()
 
     def _create_hiring_config(self) -> HiringConfig:
@@ -568,8 +553,8 @@ class GameController(QObject):
         self.email_service.create_email(subject, body)
 
     def get_unread_email_count(self) -> int:
-        if not self.email_service: return 0
-        return self.email_service.get_unread_email_count()
+        if not self.query_service: return 0
+        return self.query_service.get_unread_email_count()
 
     def mark_email_as_read(self, email_id: int):
         if not self.email_service: return
