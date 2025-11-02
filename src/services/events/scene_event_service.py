@@ -228,7 +228,7 @@ class SceneEventService:
         Applies effects of a player's choice, handling its own transaction.
         Returns a tuple: (was_shoot_completed, shoot_modifiers)
         """
-        session = self.session_factory
+        session = self.session_factory()
         try:
             modifiers = defaultdict(lambda: defaultdict(dict))
             event_data = self.data_manager.scene_events.get(event_id)

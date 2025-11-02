@@ -204,7 +204,7 @@ class SceneCommandService:
             session.flush()
 
             for _ in range(num_scenes):
-                self._create_scene_for_bloc(session.bloc_db)
+                self._create_scene_for_bloc(session, bloc_db)
             
             session.commit()
             self.signals.notification_posted.emit(f"Shooting bloc '{name}' planned. Cost: ${cost:,}")
@@ -417,7 +417,11 @@ class SceneCommandService:
             # --- 1. GATHER DATA ---
             scene = scene_db.to_dataclass(Scene)
             talent_ids = list(scene.final_cast.values())
-            cast_talents_db = session.query(TalentDB).filter(TalentDB.id.in_(talent_ids)).all()
+            cast_talents_db = session.query(TalentDB).options(
+                selectinload(TalentDB.popularity_scores),
+                selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
+                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a)
+            ).filter(TalentDB.id.in_(talent_ids)).all()
             cast_talents_dc = [t.to_dataclass(Talent) for t in cast_talents_db]
             
             all_market_states = self.market_service.get_all_market_states()

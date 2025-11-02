@@ -27,7 +27,7 @@ class TimeService:
 
     def advance_week(self) -> WeekAdvancementResult:
         """Orchestrates all weekly game state changes within a single transaction."""
-        session = self.session_factory
+        session = self.session_factory()
         try:
             current_week, current_year = self._get_current_time(session)
             current_date_val = current_year * 52 + current_week
@@ -70,19 +70,23 @@ class TimeService:
             # --- 2. Persist the new time ---
             week_info = session.query(GameInfoDB).filter_by(key='week').one()
             year_info = session.query(GameInfoDB).filter_by(key='year').one()
-            week_info.value, year_info.value = str(next_week), str(next_year)
+            money_info = session.query(GameInfoDB).filter_by(key='money').one()
+            
+            week_info.value = str(next_week)
+            year_info.value = str(next_year)
             
             # --- 3. Commit and return result ---
             session.commit()
             return WeekAdvancementResult(
-                new_week=next_week, new_year=next_year,
-                scenes_shot=scenes_shot_count, scenes_edited=len(edited_scenes),
-                market_changed=market_changed, talent_pool_changed=talent_pool_changed
-            )
+            new_week=next_week, new_year=next_year,
+            new_money=int(float(money_info.value)),
+            scenes_shot=scenes_shot_count, scenes_edited=len(edited_scenes),
+            market_changed=market_changed, talent_pool_changed=talent_pool_changed
+        )
         except Exception as e:
             logger.error(f"Error during week advancement: {e}", exc_info=True)
             session.rollback()
             # Return current state on failure
-            return WeekAdvancementResult(new_week=current_week, new_year=current_year, was_paused=True)
+            return WeekAdvancementResult(new_week=current_week, new_year=current_year, new_money=self.game_state.money, was_paused=True)
         finally:
             session.close()
