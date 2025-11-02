@@ -14,8 +14,96 @@ logger = logging.getLogger(__name__)
 class GameSessionService:
     """
     Manages the game session lifecycle: new, save, load, quit.
-    This service is responsible for initializing the database for a new game
-    and handling file-based save/load operations via the SaveManager.
+    
+    SESSION MANAGEMENT PATTERN: Initialization Operations
+    ======================================================
+    
+    Architecture:
+    -------------
+    This service creates and initializes game databases. It uses temporary
+    sessions for initialization only, then closes them immediately. Future
+    operations by other services will create their own sessions.
+    
+    Key Principles:
+    ---------------
+    1. Use temporary sessions for initialization only
+    2. Close initialization sessions immediately after commit
+    3. Services will create their own sessions later
+    4. Don't return session instances (services have session_factory)
+    5. Use try/except/finally for proper cleanup
+    
+    Pattern Template:
+    -----------------
+    def initialize_game(self) -> tuple[GameState, str]:
+        '''Initialize new game database.'''
+        # Create database file
+        save_path = self.save_manager.create_new_save_db(name)
+        
+        # Create temporary session for initialization
+        session = self.save_manager.db_manager.get_session()
+        try:
+            # Perform all initialization
+            session.add_all([...])
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise
+        finally:
+            session.close()  # Close initialization session
+        
+        # Return state, NOT session (services will create their own)
+        return game_state, save_path
+    
+    Why Close Initialization Session:
+    ---------------------------------
+    1. Initialization is a one-time operation
+    2. Services need fresh sessions from the pool
+    3. Holding a session prevents connection pooling
+    4. Clear lifecycle: init session != operational sessions
+    
+    Old Pattern (incorrect):
+    ------------------------
+    def start_new_game(self) -> tuple[GameState, Session, str]:
+        session = self.save_manager.db_manager.get_session()
+        # ... initialization ...
+        return game_state, session, save_path  # ❌ Returns open session
+    
+    def load_game(self) -> tuple[GameState, Session, str]:
+        # ... load ...
+        return game_state, session, save_path  # ❌ Returns open session
+    
+    # GameController receives session but never uses it
+    self.game_state, _, self.current_save_path = service.start_new_game()
+    #                   ^ Unused session!
+    
+    New Pattern (correct):
+    ----------------------
+    def start_new_game(self) -> tuple[GameState, str]:
+        session = self.save_manager.db_manager.get_session()
+        try:
+            # ... initialization ...
+            session.commit()
+        finally:
+            session.close()  # ✅ Close immediately
+        return game_state, save_path  # ✅ No session returned
+    
+    def load_game(self) -> tuple[GameState, str]:
+        # ... load ...
+        return game_state, save_path  # ✅ No session returned
+    
+    # GameController receives only what it needs
+    self.game_state, self.current_save_path = service.start_new_game()
+    
+    # Services create their own sessions when needed
+    self._initialize_services()  # Services get session_factory
+    
+    Benefits:
+    ---------
+    - No dangling sessions: Clean initialization
+    - Clear API: Methods return only what's needed
+    - Service independence: Each service manages its own sessions
+    - Connection pooling: Sessions return to pool immediately
+    - Easier testing: Can test initialization separately
     """
     def __init__(self, save_manager: SaveManager, data_manager: DataManager,
         signals: GameSignals, talent_generator: TalentGenerator):

@@ -15,7 +15,7 @@ class EmailService:
         self.signals = signals
         self.game_state = game_state
 
-    def create_email(self, subject: str, body: str, commit: bool = True) -> bool:
+    def create_email(self, subject: str, body: str) -> bool:
         """Creates and saves a new email for the current game week."""
         session = self.session_factory()
         try:
@@ -27,9 +27,9 @@ class EmailService:
                 is_read=False
             )
             session.add(new_email)
-            if commit:
-                session.commit()
-                self.signals.emails_changed.emit()
+
+            session.commit()
+            self.signals.emails_changed.emit()
             return True
         except Exception as e:
             logger.error(f"Failed to create email: {e}")

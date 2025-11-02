@@ -261,8 +261,8 @@ class GameController(QObject):
         use_year = year if year is not None else self.game_state.year
         return self.scene_command_service.create_blank_scene(use_week, use_year)
     
-    def delete_scene(self, scene_id: int, silent: bool = False, penalty_percentage: float = 0.0): 
-        self.scene_command_service.delete_scene(scene_id, penalty_percentage, silent)
+    def delete_scene(self, scene_id: int, penalty_percentage: float = 0.0): 
+        self.scene_command_service.delete_scene(scene_id, penalty_percentage)
 
     def update_scene_full(self, scene_data: Scene) -> Dict:
         """Receives a full Scene dataclass from the presenter and updates the database."""

@@ -24,27 +24,126 @@ class SceneCommandService:
     """
     Command service for scene-related database operations.
     
-    SESSION MANAGEMENT PATTERN (Reference Implementation):
-    ------------------------------------------------------
-    1. Store session_factory, NOT a session instance
-    2. Each public method creates its own session
-    3. Use try-except-finally with commit/rollback/close
-    4. Helper methods receive session as parameter
-    5. Methods called by other services (like TimeService) receive session parameter (TimeService manages transaction)
+    SESSION MANAGEMENT PATTERN: Command/Write Operations
+    =====================================================
     
-    Example Pattern:
-        def public_method(self, ...):
-            session = self.session_factory()
-            try:
-                # Do work
-                session.commit()
-                return result
-            except Exception as e:
-                session.rollback()
-                logger.error(...)
-                return error_value
-            finally:
-                session.close()
+    Architecture:
+    -------------
+    This service handles all write operations (create, update, delete) for scenes.
+    Each public method manages its own transaction lifecycle. Some methods can also
+    be called by orchestrators (like TimeService) that manage the transaction.
+    
+    Key Principles:
+    ---------------
+    1. Store session_factory, NOT a session instance
+    2. Public methods create their own sessions
+    3. Always use try/except/finally pattern
+    4. Commit on success, rollback on error, close in finally
+    5. Emit signals AFTER successful commit
+    6. Helper methods receive session from caller
+    
+    Pattern 1: Public Command Method (Creates Own Session)
+    ------------------------------------------------------
+    def public_command(self, ...) -> bool:
+        '''User-initiated command that creates its own transaction.'''
+        session = self.session_factory()
+        try:
+            # Fetch and modify entities
+            scene_db = session.query(SceneDB).get(scene_id)
+            scene_db.status = 'new_status'
+            
+            # Call helper if needed (pass session)
+            self._helper_method(session, scene_db)
+            
+            # Commit transaction
+            session.commit()
+            
+            # Emit signals AFTER commit
+            self.signals.scenes_changed.emit()
+            self.signals.notification_posted.emit("Success!")
+            
+            return True
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error: {e}", exc_info=True)
+            return False
+        finally:
+            session.close()
+    
+    Pattern 2: Helper Method (Receives Session)
+    -------------------------------------------
+    def _helper_method(self, session: Session, scene_db: SceneDB):
+        '''Helper called by public method or orchestrator.'''
+        # Perform modifications using passed session
+        scene_db.field = new_value
+        # NO commit, NO close - caller handles it
+    
+    Pattern 3: Orchestrator-Called Method (Receives Session)
+    --------------------------------------------------------
+    def process_step(self, session: Session, ...) -> bool:
+        '''Called by TimeService during week advancement.'''
+        # Perform operations using passed session
+        items = session.query(Model).filter(...).all()
+        for item in items:
+            item.field = new_value
+        
+        # NO commit, NO close - orchestrator handles it
+        return success
+    
+    When to Create Session vs Receive Session:
+    ------------------------------------------
+    CREATE session if:
+    - Method is called directly by controller/UI
+    - Operation is independent and self-contained
+    - Need immediate feedback (commit/rollback)
+    
+    RECEIVE session if:
+    - Method is called by an orchestrator (TimeService)
+    - Operation is part of a larger transaction
+    - Need atomicity with other operations
+    
+    Error Handling:
+    ---------------
+    - Catch specific exceptions when possible
+    - Always rollback on error
+    - Log errors with exc_info=True for stack traces
+    - Return error indicator (False, None, empty dict)
+    - Let orchestrators handle their own error recovery
+    
+    Signal Emission:
+    ----------------
+    IMPORTANT: Always emit signals AFTER commit!
+    
+    # Correct
+    session.commit()
+    self.signals.scenes_changed.emit()
+    
+    # Wrong - UI updates before data is committed
+    self.signals.scenes_changed.emit()
+    session.commit()
+    
+    Benefits:
+    ---------
+    - Transaction per operation: Clean boundaries
+    - Error isolation: Failures don't affect other operations
+    - Flexible: Can be called standalone or as part of orchestration
+    - Clear ownership: Method that creates session owns it
+    - UI consistency: Signals only after successful commits
+    
+    Examples in This Service:
+    -------------------------
+    Public Commands (Create Session):
+    - cast_talent_for_role() - User casts talent
+    - create_shooting_bloc() - User creates bloc
+    - delete_scene() - User deletes scene
+    
+    Orchestrator-Called (Receive Session):
+    - shoot_scene(session, scene_db) - Called by TimeService
+    - process_weekly_post_production(session) - Called by TimeService
+    
+    Helpers (Receive Session):
+    - _cast_talent_for_role_internal() - Called by public method
+    - _create_scene_for_bloc() - Called by public method
     """
     
     def __init__(self, session_factory, signals: GameSignals, data_manager: DataManager, query_service: GameQueryService, 
@@ -245,7 +344,7 @@ class SceneCommandService:
         finally:
             session.close()
 
-    def delete_scene(self, scene_id: int, penalty_percentage: float = 0.0, silent: bool = False, commit: bool = True) -> bool:
+    def delete_scene(self, scene_id: int, penalty_percentage: float = 0.0) -> bool:
         session = self.session_factory()
         try:
             scene_db = session.query(SceneDB).options(selectinload(SceneDB.cast)).get(scene_id)
@@ -264,10 +363,8 @@ class SceneCommandService:
                     self.signals.money_changed.emit(new_money)
             
             session.delete(scene_db)
-            if commit:
-                session.commit()
-            if not silent:
-                self.signals.notification_posted.emit(f"Scene '{scene_title}' has been deleted.")
+            session.commit()
+            self.signals.notification_posted.emit(f"Scene '{scene_title}' has been deleted.")
             self.signals.scenes_changed.emit()
             return True
         except Exception as e:
