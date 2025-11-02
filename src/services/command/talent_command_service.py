@@ -1,7 +1,7 @@
 import logging
 from itertools import combinations
 from sqlalchemy import tuple_
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, Session
 from typing import List
 
 from core.game_signals import GameSignals
@@ -15,14 +15,14 @@ logger = logging.getLogger(__name__)
 class TalentCommandService:
     """Manages all state changes (writes/commands) related to talents."""
 
-    def __init__(self, db_session, signals: GameSignals, config: SceneCalculationConfig, talent_logic_helper: TalentLogicHelper):
-        self.session = db_session
+    def __init__(self, signals: GameSignals, config: SceneCalculationConfig, talent_logic_helper: TalentLogicHelper):
         self.signals = signals
         self.config = config
         self.talent_logic_helper = talent_logic_helper
 
-    def discover_and_create_chemistry(self, cast_talents: List[Talent], commit: bool = False):
-        """Checks for new chemistry pairs and creates them in the database."""
+    def discover_and_create_chemistry(self, session: Session, cast_talents: List[Talent]):
+        """Checks for new chemistry pairs during a scene shot and creates them in the database.
+        Called from SceneOrchestrator"""
         if len(cast_talents) < 2:
             return
 
@@ -31,12 +31,11 @@ class TalentCommandService:
         if not all_possible_pairs:
             return
 
-        existing_pairs_query = self.session.query(TalentChemistryDB.talent_a_id, TalentChemistryDB.talent_b_id).filter(
+        existing_pairs_query = session.query(TalentChemistryDB.talent_a_id, TalentChemistryDB.talent_b_id).filter(
             tuple_(TalentChemistryDB.talent_a_id, TalentChemistryDB.talent_b_id).in_(all_possible_pairs)
         )
         existing_pairs = {tuple(sorted(pair)) for pair in existing_pairs_query.all()}
 
-        new_chems_added = False
         for t1, t2 in combinations(cast_talents, 2):
             id1, id2 = sorted((t1.id, t2.id))
             if (id1, id2) in existing_pairs:
@@ -44,15 +43,7 @@ class TalentCommandService:
 
             initial_score = 0
             new_chem = TalentChemistryDB(talent_a_id=id1, talent_b_id=id2, chemistry_score=initial_score)
-            self.session.add(new_chem)
-            new_chems_added = True
-        
-        if commit and new_chems_added:
-            try:
-                self.session.commit()
-            except Exception as e:
-                logger.error(f"Failed to create new chemistry: {e}", exc_info=True)
-                self.session.rollback()
+            session.add(new_chem)
 
     def _calculate_new_popularity_score(self, current_pop: float, interest_score: float) -> float:
         """Calculates the popularity gain with diminishing returns."""
@@ -65,17 +56,16 @@ class TalentCommandService:
             new_pop = base_gain
         return min(100.0, new_pop)
 
-    def update_popularity_from_scene(self, scene_id: int, commit: bool = False):
-        """Updates the popularity for all cast members of a released scene."""
-        # Note: This method queries the DB, which is acceptable for a command
-        # service as it needs the current state to calculate the new state.
-        scene_db = self.session.query(SceneDB).options(selectinload(SceneDB.cast)).get(scene_id)
+    def update_popularity_from_scene(self, session: Session, scene_id: int):
+        """Updates the popularity for all cast members of a released scene.
+        Called from SceneCommandService."""
+        scene_db = session.query(SceneDB).options(selectinload(SceneDB.cast)).get(scene_id)
         if not (scene_db and scene_db.viewer_group_interest): return
         
         talent_ids = [c.talent_id for c in scene_db.cast]
         if not talent_ids: return
 
-        talents = self.session.query(TalentDB).options(selectinload(TalentDB.popularity_scores)).filter(TalentDB.id.in_(talent_ids)).all()
+        talents = session.query(TalentDB).options(selectinload(TalentDB.popularity_scores)).filter(TalentDB.id.in_(talent_ids)).all()
         
         for talent_db in talents:
             pop_map = {p.market_group_name: p for p in talent_db.popularity_scores}
@@ -86,18 +76,12 @@ class TalentCommandService:
                 else:
                     initial_score = self._calculate_new_popularity_score(0.0, interest_score)
                     new_pop_entry = TalentPopularityDB(talent_id=talent_db.id, market_group_name=group_name, score=initial_score)
-                    self.session.add(new_pop_entry)
+                    session.add(new_pop_entry)
 
-        if commit:
-            try:
-                self.session.commit()
-            except Exception as e:
-                logger.error(f"Failed to update talent popularity for scene {scene_id}: {e}", exc_info=True)
-                self.session.rollback()
-
-    def process_weekly_updates(self, current_date_val: int, new_year: bool) -> bool:
-        """Processes all weekly changes for talents."""
-        talents_to_update = self.session.query(TalentDB).options(selectinload(TalentDB.popularity_scores)).all()
+    def process_weekly_updates(self, session: Session, current_date_val: int, new_year: bool) -> bool:
+        """Processes all weekly changes for talents.
+        Called from TimeService."""
+        talents_to_update = session.query(TalentDB).options(selectinload(TalentDB.popularity_scores)).all()
         if not talents_to_update: return False
 
         decay_rate = 1.0 - self.config.popularity_gain_scalar # Corrected decay

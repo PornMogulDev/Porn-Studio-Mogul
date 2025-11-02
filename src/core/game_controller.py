@@ -429,7 +429,7 @@ class GameController(QObject):
         # --- CQRS Services ---
         self.query_service = GameQueryService(session_factory)
         self.talent_command_service = TalentCommandService(
-            session_factory, self.signals, self.scene_calc_config, self.talent_logic_helper
+            self.signals, self.scene_calc_config, self.talent_logic_helper
         )
         # --- Services ---
         self.hiring_config = self._create_hiring_config()
@@ -579,11 +579,6 @@ class GameController(QObject):
     def delete_emails(self, email_ids: list[int]):
         if not self.email_service: return
         self.email_service.delete_emails(email_ids)
-
-    def discover_and_create_chemistry_from_cast(self, cast_talents: List[Talent]):
-        """Proxy method to create chemistry links after a scene is shot."""
-        if not self.talent_command_service: return
-        self.talent_command_service.discover_and_create_chemistry(cast_talents, commit=False)
 
     # --- Go-To List Actions (Proxy Methods) ---
     def add_talent_to_go_to_list(self, talent_id: int):

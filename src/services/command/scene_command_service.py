@@ -430,7 +430,7 @@ class SceneCommandService:
 
             # --- 3. APPLY RESULTS ---
             revenue = revenue_result.total_revenue
-            self.talent_command_service.update_popularity_from_scene(scene_id)  
+            self.talent_command_service.update_popularity_from_scene(session, scene_id)  
     
             # Market Discovery Logic
             discovery_threshold = self.data_manager.game_config.get("market_discovery_interest_threshold", 1.5)
