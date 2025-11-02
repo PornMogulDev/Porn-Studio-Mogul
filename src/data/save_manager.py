@@ -242,9 +242,44 @@ class SaveManager:
         return sorted(saves, key=lambda x: x['date'], reverse=True)
     
     def cleanup_session_file(self):
-        """Deletes the temporary live session database file if it exists."""
+        """Deletes the temporary live session database file if it exists.
+        
+        Uses retry logic to handle Windows file locking delays.
+        """
+        import time
+        
         session_path = self.get_save_path(LIVE_SESSION_NAME)
-        if session_path.exists():
-            self.db_manager.disconnect() # Ensure no locks are held
-            session_path.unlink()
-            logger.info("Cleaned up stale session.sqlite file.")
+        if not session_path.exists():
+            return
+        
+        # Ensure database is disconnected
+        self.db_manager.disconnect()
+        
+        # Retry logic for Windows file handle delays
+        max_retries = 5
+        retry_delay = 0.1  # 100ms
+        
+        for attempt in range(max_retries):
+            try:
+                # Small delay to let OS release file handles
+                if attempt > 0:
+                    time.sleep(retry_delay * attempt)  # Exponential backoff
+                
+                session_path.unlink()
+                logger.info("Cleaned up session.sqlite file")
+                return
+                
+            except PermissionError as e:
+                if attempt < max_retries - 1:
+                    logger.debug(f"Retry {attempt + 1}/{max_retries}: File still locked, retrying...")
+                    continue
+                else:
+                    # Final attempt failed - log but don't crash
+                    logger.warning(
+                        f"Could not delete session.sqlite after {max_retries} attempts. "
+                        f"File may be locked by another process. It will be cleaned up on next startup."
+                    )
+                    return
+            except Exception as e:
+                logger.error(f"Unexpected error cleaning up session file: {e}", exc_info=True)
+                return

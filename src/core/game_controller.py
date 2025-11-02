@@ -50,6 +50,7 @@ class GameController(QObject):
         
         self.db_session = None
         self.current_save_path = None 
+        self._graceful_shutdown_in_progress = False  # Track if shutdown is through menu 
         
         self.game_constant = self.data_manager.game_config
         self.tag_definitions = self.data_manager.tag_definitions
@@ -509,41 +510,94 @@ class GameController(QObject):
     def return_to_main_menu(self, exit_save: bool):
         """
         Handles returning to the main menu from an active game.
-        Services manage their own sessions, so we only need to handle exit save and disconnect.
+        This is a graceful shutdown where exit save should be honored.
         """
         if self.current_save_path:
-            # Only perform an exit save if the game is active and not over.
-            self.game_session_service.handle_exit_save(exit_save)
+            # Mark as graceful shutdown (menu-initiated)
+            self._graceful_shutdown_in_progress = True
             
-            # Disconnect from the database
-            self.save_manager.db_manager.disconnect()
-            self.current_save_path = None
-            self.save_manager.cleanup_session_file()
+            # Perform exit save if requested and game is active
+            if exit_save and not self.game_over:
+                self.game_session_service.handle_exit_save(exit_save)
+            
+            # Clean up session
+            self._cleanup_game_session()
 
         if self.game_over:
             self.game_over = False  # Reset state for the start screen
 
+        self._graceful_shutdown_in_progress = False
         self.signals.show_start_screen_requested.emit()
 
     def quit_game(self, exit_save=False):
-        self.game_session_service.handle_exit_save(exit_save)
+        """
+        Handles quitting the game through the menu.
+        This is a graceful shutdown where exit save should be honored.
+        """
+        if self.current_save_path:
+            # Mark as graceful shutdown (menu-initiated)
+            self._graceful_shutdown_in_progress = True
+            
+            # Perform exit save if requested and game is active
+            if exit_save and not self.game_over:
+                self.game_session_service.handle_exit_save(exit_save)
+            
+            # Clean up session before quitting
+            self._cleanup_game_session()
+        
+        self._graceful_shutdown_in_progress = False
         self.signals.quit_game_requested.emit()
 
+    def _cleanup_game_session(self):
+        """
+        Internal helper to properly clean up an active game session.
+        Disconnects from database and removes session.sqlite file.
+        """
+        try:
+            # Close any lingering sessions
+            if self.db_session:
+                self.db_session.close()
+                self.db_session = None
+            
+            # Disconnect from database to release file locks
+            self.save_manager.db_manager.disconnect()
+            
+            # Small delay on Windows to ensure file handle is released
+            import time
+            time.sleep(0.1)
+            
+            # Clean up session file
+            self.save_manager.cleanup_session_file()
+            
+            # Clear save path
+            self.current_save_path = None
+            
+            logger.info("Game session cleaned up successfully")
+        except Exception as e:
+            logger.error(f"Error during session cleanup: {e}", exc_info=True)
+    
     def handle_application_shutdown(self):
         """
         Performs final cleanup when the application is closing.
-        This is typically called from the main window's closeEvent.
+        
+        This is called from closeEvent() and handles two scenarios:
+        1. Graceful shutdown: User quit through menu (exit save already handled)
+        2. Forced shutdown: User closed window via X/Alt+F4 (no exit save)
         """
-        if self.db_session:
-            self.db_session.close()
-        self.save_manager.db_manager.disconnect()
-        self.save_manager.cleanup_session_file()
+        # Only clean up if we haven't already done so in a graceful shutdown
+        if self.current_save_path and not self._graceful_shutdown_in_progress:
+            logger.info("Forced shutdown detected - cleaning up without exit save")
+            self._cleanup_game_session()
+        elif self._graceful_shutdown_in_progress:
+            logger.info("Graceful shutdown - session already cleaned up")
+        
+        # Reset flag for next time
+        self._graceful_shutdown_in_progress = False
 
     def handle_game_over(self):
         self.game_over = True
         self.signals.show_start_screen_requested.emit()
 
-    def check_for_saves(self) -> bool:
         return self.save_manager.has_saves()
         
     # --- Other Methods ---

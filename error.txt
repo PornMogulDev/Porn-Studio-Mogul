@@ -1,89 +1,15 @@
-2025-11-02 18:32:20,884 - app.application - CRITICAL - Unhandled exception caught by excepthook
+2025-11-02 19:48:40,078 - app.application - CRITICAL - Unhandled exception caught by excepthook
 Traceback (most recent call last):
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\presenters\talent_tab_presenter.py", line 122, in on_standard_filters_changed
-    self.view.update_talent_list(talents_passing_skills)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\tabs\talent_tab.py", line 93, in update_talent_list
-    self.talent_model.update_data(talents)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\models\talent_table_model.py", line 103, in update_data
-    talent_obj=talent_obj.to_dataclass(Talent) if hasattr(talent_obj, 'to_dataclass') else talent_obj,
-               ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\database\db_models.py", line 56, in to_dataclass
-    for chem in self.chemistry_a:
-                ^^^^^^^^^^^^^^^^
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\attributes.py", line 569, in __get__
-    return self.impl.get(state, dict_)  # type: ignore[no-any-return]
-           ~~~~~~~~~~~~~^^^^^^^^^^^^^^
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\attributes.py", line 1096, in get
-    value = self._fire_loader_callables(state, key, passive)
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\attributes.py", line 1131, in _fire_loader_callables
-    return self.callable_(state, passive)
-           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\strategies.py", line 922, in _load_for_state
-    raise orm_exc.DetachedInstanceError(
-    ...<3 lines>...
-    )
-sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <TalentDB at 0x2b08e2bad50> is not bound to a Session; lazy load operation of attribute 'chemistry_a' cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
-beginResetModel called on TalentTableModel(0x2b08ae56cb0) without calling endResetModel first
-2025-11-02 18:32:21,655 - app.application - CRITICAL - Unhandled exception caught by excepthook
-Traceback (most recent call last):
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\presenters\talent_tab_presenter.py", line 122, in on_standard_filters_changed
-    self.view.update_talent_list(talents_passing_skills)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\tabs\talent_tab.py", line 93, in update_talent_list
-    self.talent_model.update_data(talents)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\models\talent_table_model.py", line 103, in update_data
-    talent_obj=talent_obj.to_dataclass(Talent) if hasattr(talent_obj, 'to_dataclass') else talent_obj,
-               ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\database\db_models.py", line 56, in to_dataclass
-    for chem in self.chemistry_a:
-                ^^^^^^^^^^^^^^^^
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\attributes.py", line 569, in __get__
-    return self.impl.get(state, dict_)  # type: ignore[no-any-return]
-           ~~~~~~~~~~~~~^^^^^^^^^^^^^^
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\attributes.py", line 1096, in get
-    value = self._fire_loader_callables(state, key, passive)
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\attributes.py", line 1131, in _fire_loader_callables
-    return self.callable_(state, passive)
-           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\strategies.py", line 922, in _load_for_state
-    raise orm_exc.DetachedInstanceError(
-    ...<3 lines>...
-    )
-sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <TalentDB at 0x2b08e2bad50> is not bound to a Session; lazy load operation of attribute 'chemistry_a' cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
-2025-11-02 18:32:35,046 - app.application - CRITICAL - Unhandled exception caught by excepthook
-Traceback (most recent call last):
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\presenters\scene_planner_presenter.py", line 344, in on_hire_for_role
-    result = self.ui_manager.show_role_casting_dialog(self.working_scene.id, vp_id)
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\ui_manager.py", line 239, in show_role_casting_dialog
-    _ = RoleCastingPresenter(self.controller, dialog, scene_id, vp_id)
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\presenters\role_casting_presenter.py", line 21, in __init__
-    self._load_initial_data()
-    ~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\presenters\role_casting_presenter.py", line 38, in _load_initial_data
-    self.view.update_talent_table(self._talent_with_demand)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\dialogs\role_casting_dialog.py", line 75, in update_talent_table
-    self.talent_model.update_data(talent_data)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\ui\models\talent_table_model.py", line 103, in update_data
-    talent_obj=talent_obj.to_dataclass(Talent) if hasattr(talent_obj, 'to_dataclass') else talent_obj,
-               ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
-  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\database\db_models.py", line 56, in to_dataclass
-    for chem in self.chemistry_a:
-                ^^^^^^^^^^^^^^^^
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\attributes.py", line 569, in __get__
-    return self.impl.get(state, dict_)  # type: ignore[no-any-return]
-           ~~~~~~~~~~~~~^^^^^^^^^^^^^^
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\attributes.py", line 1096, in get
-    value = self._fire_loader_callables(state, key, passive)
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\attributes.py", line 1131, in _fire_loader_callables
-    return self.callable_(state, passive)
-           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
-  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\orm\strategies.py", line 922, in _load_for_state
-    raise orm_exc.DetachedInstanceError(
-    ...<3 lines>...
-    )
-sqlalchemy.orm.exc.DetachedInstanceError: Parent instance <TalentDB at 0x2b0bf598410> is not bound to a Session; lazy load operation of attribute 'chemistry_a' cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\app\application.py", line 136, in closeEvent
+    self.controller.handle_application_shutdown()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\core\game_controller.py", line 540, in handle_application_shutdown
+    self.save_manager.cleanup_session_file()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "c:\Users\Gen\Documents\PSM\Game\hire_talent\0.4.6\src\data\save_manager.py", line 249, in cleanup_session_file
+    session_path.unlink()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Gen\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 746, in unlink
+    os.unlink(self)
+    ~~~~~~~~~^^^^^^
+PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\Gen\\PSM\\saves\\session.sqlite'
