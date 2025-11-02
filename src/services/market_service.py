@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, List
+from sqlalchemy.orm import Session
 
 from database.db_models import MarketGroupStateDB
 from data.game_state import MarketGroupState, Scene
@@ -7,20 +8,14 @@ from data.game_state import MarketGroupState, Scene
 logger = logging.getLogger(__name__)
 
 class MarketService:
-    def __init__(self, db_session, market_group_resolver, tag_definitions: dict, config):
-        self.session = db_session
+    def __init__(self, market_group_resolver, tag_definitions: dict, config):
         self.resolver = market_group_resolver
         self.tag_definitions = tag_definitions
         self.config = config
 
-    def get_all_market_states(self) -> Dict[str, MarketGroupState]:
-        """Fetches all market group dynamic states from the database."""
-        results = self.session.query(MarketGroupStateDB).all()
-        return {r.name: r.to_dataclass(MarketGroupState) for r in results}
-
-    def recover_all_market_saturation(self) -> bool:
+    def recover_all_market_saturation(self, session: Session) -> bool:
         market_changed = False
-        market_groups_db = self.session.query(MarketGroupStateDB).all()
+        market_groups_db = session.query(MarketGroupStateDB).all()
         for group_db in market_groups_db:
             if group_db.current_saturation < 1.0:
                 saturation_deficit = 1.0 - group_db.current_saturation

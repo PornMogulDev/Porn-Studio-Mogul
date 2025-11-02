@@ -4,10 +4,10 @@ from typing import List, Dict, Optional
 from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy import or_
 
-from data.game_state import Talent, Scene, ShootingBloc
+from data.game_state import Talent, Scene, ShootingBloc, MarketGroupState, EmailMessage
 from database.db_models import (TalentDB, TalentChemistryDB, SceneDB, ShootingBlocDB, 
                                 SceneCastDB, ActionSegmentDB, GoToListAssignmentDB,
-                                GoToListCategoryDB )
+                                GoToListCategoryDB, MarketGroupStateDB, EmailMessageDB )
 
 logger = logging.getLogger(__name__)
 
@@ -187,3 +187,25 @@ class GameQueryService:
         cast_vp_ids = {c.virtual_performer_id for c in scene_db.cast}
         uncast_roles = [{'id': vp.id, 'name': vp.name} for vp in scene_db.virtual_performers if vp.id not in cast_vp_ids]
         return sorted(uncast_roles, key=lambda x: x['name'])
+    
+    # --- Market ---
+
+    def get_all_market_states(self) -> Dict[str, MarketGroupState]:
+        """Fetches all market group dynamic states from the database."""
+        results = self.session.query(MarketGroupStateDB).all()
+        return {r.name: r.to_dataclass(MarketGroupState) for r in results}
+    
+    # --- Email ---
+
+    def get_all_emails(self) -> List[EmailMessage]:
+        """Fetches all emails, sorted by most recent."""
+        emails_db = self.session.query(EmailMessageDB).order_by(
+            EmailMessageDB.year.desc(), 
+            EmailMessageDB.week.desc(), 
+            EmailMessageDB.id.desc()
+        ).all()
+        return [e.to_dataclass(EmailMessage) for e in emails_db]
+
+    def get_unread_email_count(self) -> int:
+        """Returns the count of unread emails."""
+        return self.session.query(EmailMessageDB).filter_by(is_read=False).count()

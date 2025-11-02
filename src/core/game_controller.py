@@ -131,8 +131,8 @@ class GameController(QObject):
         return self.query_service.get_shot_scenes()
         
     def get_all_market_states(self) -> Dict[str, MarketGroupState]:
-        if not self.market_service: return {}
-        return self.market_service.get_all_market_states()
+        if not self.query_service: return {}
+        return self.query_service.get_all_market_states()
         
     def get_scene_history_for_talent(self, talent_id: int) -> List[Scene]:
         if not self.query_service: return []
@@ -166,8 +166,8 @@ class GameController(QObject):
         return self.query_service.get_talent_categories(talent_id)
 
     def get_all_emails(self) -> List[EmailMessage]:
-        if not self.email_service: return []
-        return self.email_service.get_all_emails()
+        if not self.query_service: return []
+        return self.query_service.get_all_emails()
 
     # --- Game Logic ---
     def advance_week(self):
@@ -421,7 +421,7 @@ class GameController(QObject):
         # Services will create their own sessions as needed for each operation
         session_factory = self.save_manager.db_manager.get_session_factory()
         
-        self.market_service = MarketService(session_factory, self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
+        self.market_service = MarketService(self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.scene_calc_config = self._create_scene_calculation_config()
         # --- Pure Logic Helpers ---
         self.talent_logic_helper = TalentLogicHelper(self.scene_calc_config)

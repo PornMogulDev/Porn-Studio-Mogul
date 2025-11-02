@@ -10,26 +10,14 @@ logger = logging.getLogger(__name__)
 class EmailService:
     """Manages all database operations related to emails."""
 
-    def __init__(self, db_session, signals: GameSignals, game_state: GameState):
-        self.session = db_session
+    def __init__(self, session_factory, signals: GameSignals, game_state: GameState):
+        self.session_factory = session_factory
         self.signals = signals
         self.game_state = game_state
 
-    def get_all_emails(self) -> List[EmailMessage]:
-        """Fetches all emails, sorted by most recent."""
-        emails_db = self.session.query(EmailMessageDB).order_by(
-            EmailMessageDB.year.desc(), 
-            EmailMessageDB.week.desc(), 
-            EmailMessageDB.id.desc()
-        ).all()
-        return [e.to_dataclass(EmailMessage) for e in emails_db]
-
-    def get_unread_email_count(self) -> int:
-        """Returns the count of unread emails."""
-        return self.session.query(EmailMessageDB).filter_by(is_read=False).count()
-
     def create_email(self, subject: str, body: str, commit: bool = True) -> bool:
         """Creates and saves a new email for the current game week."""
+        session = self.session_factory()
         try:
             new_email = EmailMessageDB(
                 subject=subject, 
@@ -38,41 +26,49 @@ class EmailService:
                 year=self.game_state.year, 
                 is_read=False
             )
-            self.session.add(new_email)
+            session.add(new_email)
             if commit:
-                self.session.commit()
+                session.commit()
                 self.signals.emails_changed.emit()
             return True
         except Exception as e:
             logger.error(f"Failed to create email: {e}")
-            self.session.rollback()
+            session.rollback()
             return False
+        finally:
+            session.close()
 
     def mark_email_as_read(self, email_id: int):
         """Marks a single email as read."""
+        session = self.session_factory()
         try:
-            email_db = self.session.query(EmailMessageDB).get(email_id)
+            email_db = session.query(EmailMessageDB).get(email_id)
             if email_db and not email_db.is_read:
                 email_db.is_read = True
-                self.session.commit()
+                session.commit()
                 self.signals.emails_changed.emit()
         except Exception as e:
             logger.error(f"Failed to mark email {email_id} as read: {e}")
-            self.session.rollback()
+            session.rollback()
+        finally:
+            session.close()
 
     def delete_emails(self, email_ids: list[int]):
         """Deletes a list of emails by their IDs."""
         if not email_ids:
             return
+        session = self.session_factory()
         try:
-            self.session.query(EmailMessageDB).filter(
+            session.query(EmailMessageDB).filter(
                 EmailMessageDB.id.in_(email_ids)
             ).delete(synchronize_session=False)
-            self.session.commit()
+            session.commit()
             self.signals.emails_changed.emit()
         except Exception as e:
             logger.error(f"Failed to delete emails: {e}")
-            self.session.rollback()
+            session.rollback()
+        finally:
+            session.close()
 
     def create_market_discovery_email(self, scene_title: str, discoveries: Dict[str, List[str]], commit: bool = True):
         """Creates a formatted email summarizing market discoveries from a scene release."""
