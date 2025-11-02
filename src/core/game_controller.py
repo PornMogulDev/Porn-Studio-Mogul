@@ -416,25 +416,28 @@ class GameController(QObject):
         )
 
     def _initialize_services(self):
-        if not self.db_session:
-            return
-        self.market_service = MarketService(self.db_session, self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
+        """Initialize all game services with the session factory."""
+        # Get the session factory from the database manager
+        # Services will create their own sessions as needed for each operation
+        session_factory = self.save_manager.db_manager.get_session_factory()
+        
+        self.market_service = MarketService(session_factory, self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.scene_calc_config = self._create_scene_calculation_config()
         # --- Pure Logic Helpers ---
         self.talent_logic_helper = TalentLogicHelper(self.scene_calc_config)
         self.availability_checker = TalentAvailabilityChecker(self.data_manager, self._create_hiring_config())
         # --- CQRS Services ---
-        self.query_service = GameQueryService(self.db_session)
+        self.query_service = GameQueryService(session_factory)
         self.talent_command_service = TalentCommandService(
-            self.db_session, self.signals, self.scene_calc_config, self.talent_logic_helper
+            session_factory, self.signals, self.scene_calc_config, self.talent_logic_helper
         )
         # --- Services ---
         self.hiring_config = self._create_hiring_config()
-        self.hire_talent_service = HireTalentService(self.db_session, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
+        self.hire_talent_service = HireTalentService(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
         self.role_performance_service = RolePerformanceService()
-        self.player_settings_service = PlayerSettingsService(self.db_session, self.signals) 
-        self.go_to_list_service = GoToListService(self.db_session, self.signals)
-        self.email_service = EmailService(self.db_session, self.signals, self.game_state)
+        self.player_settings_service = PlayerSettingsService(session_factory, self.signals) 
+        self.go_to_list_service = GoToListService(session_factory, self.signals)
+        self.email_service = EmailService(session_factory, self.signals, self.game_state)
 
         # --- Refactored Calculation Services ---
         self.auto_tag_analyzer = AutoTagAnalyzer(self.data_manager)
@@ -449,25 +452,25 @@ class GameController(QObject):
         # We resolve it by initializing SceneService first, then SceneEventService,
         # then injecting the event service back into the scene service.
         self.scene_orchestrator = SceneOrchestrator(
-            self.db_session, self.data_manager, self.talent_command_service, self.market_service, 
+            session_factory, self.data_manager, self.talent_command_service, self.market_service, 
             self.scene_calc_config, self.auto_tag_analyzer, self.shoot_results_calculator,
             self.scene_quality_calculator, self.post_production_calculator
         )
         self.scene_command_service = SceneCommandService(
-            self.db_session, self.signals, self.data_manager, self.query_service, self.talent_command_service,
+            session_factory, self.signals, self.data_manager, self.query_service, self.talent_command_service,
             self.market_service, self.email_service, self.scene_orchestrator, self.revenue_calculator
         )
         self.scene_event_service = SceneEventService(
-            self.db_session, self.signals, self.data_manager, self.query_service, self.scene_command_service
+            session_factory, self.signals, self.data_manager, self.query_service, self.scene_command_service
         )
         self.scene_command_service.event_service = self.scene_event_service
-        self.time_service = TimeService(self.db_session, self.signals, self.scene_command_service, self.talent_command_service, self.market_service)
+        self.time_service = TimeService(session_factory, self.signals, self.scene_command_service, self.talent_command_service, self.market_service)
 
     # --- Game Session Management (Delegated to GameSessionService) ---
 
     def new_game_started(self):
         """Initializes a new game session."""
-        self.game_state, self.db_session, self.current_save_path = self.game_session_service.start_new_game()
+        self.game_state, _, self.current_save_path = self.game_session_service.start_new_game()
         self._initialize_services()
         
         # Emit signals to update UI
@@ -479,7 +482,7 @@ class GameController(QObject):
         
     def load_game(self, save_name):
         """Loads a game session from a file."""
-        self.game_state, self.db_session, self.current_save_path = self.game_session_service.load_game(save_name)
+        self.game_state, _, self.current_save_path = self.game_session_service.load_game(save_name)
         self._initialize_services()
         
         # Emit signals to update UI
@@ -499,7 +502,7 @@ class GameController(QObject):
     def continue_game(self):
         result = self.game_session_service.continue_game()
         if result:
-            self.game_state, self.db_session, self.current_save_path = result
+            self.game_state, _, self.current_save_path = result
             self._initialize_services()
             
             self.signals.money_changed.emit(self.game_state.money)
@@ -515,23 +518,22 @@ class GameController(QObject):
     def quick_load(self):
         result = self.game_session_service.quick_load()
         if result:
-            self.game_state, self.db_session, self.current_save_path = result
+            self.game_state, _, self.current_save_path = result
             self._initialize_services()
             self.signals.show_main_window_requested.emit()
 
     def return_to_main_menu(self, exit_save: bool):
         """
         Handles returning to the main menu from an active game.
-        This method is now the single source of truth for session cleanup in this context.
+        Services manage their own sessions, so we only need to handle exit save and disconnect.
         """
-        if self.db_session:
+        if self.current_save_path:
             # Only perform an exit save if the game is active and not over.
             self.game_session_service.handle_exit_save(exit_save)
             
-            # Execute the shutdown sequence in the correct order.
-            self.db_session.close()
-            self.db_session = None
+            # Disconnect from the database
             self.save_manager.db_manager.disconnect()
+            self.current_save_path = None
             self.save_manager.cleanup_session_file()
 
         if self.game_over:
