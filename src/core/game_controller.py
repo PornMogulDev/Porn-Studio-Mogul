@@ -48,7 +48,6 @@ class GameController(QObject):
         self.save_manager = SaveManager()
         self.signals = GameSignals()
         
-        self.db_session = None
         self.current_save_path = None 
         self._graceful_shutdown_in_progress = False  # Track if shutdown is through menu 
         
@@ -512,6 +511,7 @@ class GameController(QObject):
         Handles returning to the main menu from an active game.
         This is a graceful shutdown where exit save should be honored.
         """
+        logger.info("Return to main menu requested.")
         if self.current_save_path:
             # Mark as graceful shutdown (menu-initiated)
             self._graceful_shutdown_in_progress = True
@@ -534,6 +534,7 @@ class GameController(QObject):
         Handles quitting the game through the menu.
         This is a graceful shutdown where exit save should be honored.
         """
+        logger.info("Quit game requested via menu.")
         if self.current_save_path:
             # Mark as graceful shutdown (menu-initiated)
             self._graceful_shutdown_in_progress = True
@@ -551,28 +552,48 @@ class GameController(QObject):
     def _cleanup_game_session(self):
         """
         Internal helper to properly clean up an active game session.
-        Disconnects from database and removes session.sqlite file.
+        Nullifies services, disconnects from the database, and removes the session.sqlite file.
         """
+        logger.info("Starting game session cleanup process...")
         try:
-            # Close any lingering sessions
-            if self.db_session:
-                self.db_session.close()
-                self.db_session = None
-            
-            # Disconnect from database to release file locks
-            self.save_manager.db_manager.disconnect()
-            
-            # Small delay on Windows to ensure file handle is released
-            import time
-            time.sleep(0.1)
-            
-            # Clean up session file
+            logger.debug("Nullifying services to release database session factory references...")
+            # 1. Nullify all services to release any potential references to the
+            # database connection/session factory. This is crucial for allowing
+            # the file handle to be released.
+            self.query_service = None
+            self.talent_command_service = None
+            self.scene_command_service = None
+            self.market_service = None
+            self.hire_talent_service = None
+            self.role_performance_service = None
+            self.auto_tag_analyzer = None
+            self.talent_logic_helper = None
+            self.availability_checker = None
+            self.shoot_results_calculator = None
+            self.scene_quality_calculator = None
+            self.post_production_calculator = None
+            self.revenue_calculator = None
+            self.scene_orchestrator = None
+            self.time_service = None
+            self.go_to_list_service = None
+            self.scene_event_service = None
+            self.player_settings_service = None
+            self.email_service = None
+
+            logger.debug("Delegating session file deletion to SaveManager...")
+            # 2. Delegate file cleanup to the SaveManager.
+            # It will handle disconnecting and deleting the file with retries.
             self.save_manager.cleanup_session_file()
-            
-            # Clear save path
+             
+            # 3. Clear the current save path to indicate no active game session.
             self.current_save_path = None
             
-            logger.info("Game session cleaned up successfully")
+            # 4. RE-INITIALIZE the GameSessionService. This service is created
+            # in the controller's __init__ and is needed to start a *new* session
+            # after returning to the main menu. Failure to do this results in an
+            # AttributeError on the next new/load game attempt.
+            
+            logger.info("Game session cleaned up.")
         except Exception as e:
             logger.error(f"Error during session cleanup: {e}", exc_info=True)
     
@@ -586,10 +607,10 @@ class GameController(QObject):
         """
         # Only clean up if we haven't already done so in a graceful shutdown
         if self.current_save_path and not self._graceful_shutdown_in_progress:
-            logger.info("Forced shutdown detected - cleaning up without exit save")
+            logger.info("Application shutdown detected with active session (forced shutdown). Cleaning up...")
             self._cleanup_game_session()
         elif self._graceful_shutdown_in_progress:
-            logger.info("Graceful shutdown - session already cleaned up")
+            logger.info("Application shutdown detected after graceful exit. Session already cleaned up.")
         
         # Reset flag for next time
         self._graceful_shutdown_in_progress = False

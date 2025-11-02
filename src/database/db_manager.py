@@ -1,9 +1,12 @@
+import logging
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from pathlib import Path
 
 from database.db_models import Base
+
+logger = logging.getLogger(__name__)
 
 class DBManager:
     """
@@ -78,7 +81,8 @@ class DBManager:
     def disconnect(self):
         """Disposes of the engine connection."""
         if self.engine:
-            self.engine.dispose()
+            logger.debug(f"Disposing of engine for database: {self.db_path}")
+            self.engine.dispose() # This is the crucial step to close all connections
             self.engine = None
-            self.SessionLocal = None
+            self.session_factory = None
             self.db_path = None

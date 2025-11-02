@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
+import gc  # <--- IMPORT GARBAGE COLLECTOR
 
 from data.game_state import *
 from database.db_manager import DBManager
@@ -243,43 +244,64 @@ class SaveManager:
     
     def cleanup_session_file(self):
         """Deletes the temporary live session database file if it exists.
-        
-        Uses retry logic to handle Windows file locking delays.
+        This method is the single point of truth for session cleanup. It
+        disconnects the database and then attempts to delete the file with
+        retries to handle OS-level file locking delays.
         """
         import time
         
         session_path = self.get_save_path(LIVE_SESSION_NAME)
         if not session_path.exists():
+            logger.debug("cleanup_session_file called, but no session.sqlite exists. Nothing to do.")
             return
-        
-        # Ensure database is disconnected
-        self.db_manager.disconnect()
-        
-        # Retry logic for Windows file handle delays
+
+        logger.info(f"Attempting to clean up session file: {session_path}")
+
+        # 1. Disconnect from the database and release all file handles.
+        # This is the most critical step. We nullify the DBManager, which holds
+        # the SQLAlchemy engine and connection pool, and then explicitly call
+        # the garbage collector. This is the most reliable way to force the
+        # release of the underlying file handle on Windows.
+        if self.db_manager:
+            logger.debug("Disconnecting and destroying DBManager instance to release file lock...")
+            self.db_manager.disconnect()
+            self.db_manager = None # Encourage garbage collection
+            logger.debug("Forcing garbage collection to release file handles...")
+            gc.collect() # <--- FORCE garbage collection
+
+        # 2. Add a small, initial delay. This is crucial on Windows to give
+        # the OS time to actually release the file handle after disconnect.
+        logger.debug("Waiting 100ms for OS to release file handle...")
+        time.sleep(0.1)
+
+        # 3. Retry deleting the file with increasing backoff.
         max_retries = 5
-        retry_delay = 0.1  # 100ms
-        
-        for attempt in range(max_retries):
+        retry_delay = 0.1
+        deleted = False
+
+        for attempt in range(max_retries):            
             try:
-                # Small delay to let OS release file handles
-                if attempt > 0:
-                    time.sleep(retry_delay * attempt)  # Exponential backoff
-                
                 session_path.unlink()
-                logger.info("Cleaned up session.sqlite file")
-                return
-                
-            except PermissionError as e:
+                logger.info("Successfully deleted session.sqlite.")
+                deleted = True
+                break # Exit the loop on success
+
+            except PermissionError:
                 if attempt < max_retries - 1:
-                    logger.debug(f"Retry {attempt + 1}/{max_retries}: File still locked, retrying...")
-                    continue
+                    logger.warning(f"Attempt {attempt + 1}/{max_retries} to delete session.sqlite failed (PermissionError). Retrying...")
+                    time.sleep(retry_delay * (2 ** attempt)) # Exponential backoff
                 else:
-                    # Final attempt failed - log but don't crash
-                    logger.warning(
-                        f"Could not delete session.sqlite after {max_retries} attempts. "
-                        f"File may be locked by another process. It will be cleaned up on next startup."
-                    )
-                    return
+                    logger.error(f"Could not delete session.sqlite after {max_retries} attempts. File remains locked.")
             except Exception as e:
                 logger.error(f"Unexpected error cleaning up session file: {e}", exc_info=True)
-                return
+                break # Exit loop on other errors
+
+        if not deleted:
+            logger.error(
+                f"FATAL: Could not delete session.sqlite after {max_retries} attempts. "
+                "File is locked. The application may be unstable on next new game."
+            )
+
+        # 4. Re-initialize the DBManager for future operations (e.g., starting a new game).
+        logger.debug("Re-initializing DBManager for future use.")
+        self.db_manager = DBManager()
