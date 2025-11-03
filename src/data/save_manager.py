@@ -23,99 +23,17 @@ AUTOSAVE_COUNT = 4
 class SaveManager:
     """
     Manages game save/load operations and database file management.
-    
-    SESSION MANAGEMENT PATTERN: File Operations (No Session Required)
-    ==================================================================
-    
-    Architecture:
-    -------------
-    This service performs file-level operations on SQLite database files.
-    It does NOT need sessions for file copying/moving operations, but uses
-    temporary sessions for initialization and metadata reading.
-    
-    Key Principles:
-    ---------------
-    1. File operations (copy/move/delete) do NOT require sessions
-    2. Disconnect from database before file operations to release locks
-    3. Reconnect after file operations for future use
-    4. Use temporary sessions for initialization only
-    5. Assume all changes are committed before calling file operations
-    
-    Pattern 1: File Operations (autosave, quicksave, copy)
-    ------------------------------------------------------
-    def file_operation(self):
-        '''Operations on database files.'''
-        # Get the path (no session needed)
-        db_path = self.db_manager.db_path
-        
-        # Disconnect to release file locks
-        self.db_manager.disconnect()
-        
-        try:
-            # Perform file operations (copy, move, delete)
-            shutil.copyfile(source, destination)
-        finally:
-            # Reconnect for future operations
-            self.db_manager.connect_to_db(db_path)
-    
-    Pattern 2: Initialization with Temporary Session
-    -------------------------------------------------
-    def load_game(self, save_name: str) -> GameState:
-        '''Load metadata from save file.'''
-        # Copy file (no session)
-        shutil.copyfile(source, destination)
-        
-        # Connect and create temporary session
-        self.db_manager.connect_to_db(destination)
-        session = self.db_manager.get_session()
-        
-        try:
-            # Read metadata
-            game_info = session.query(GameInfoDB).all()
-            # Process data
-            state = GameState(...)
-        finally:
-            session.close()  # Close temporary session
-        
-        # Services will create their own sessions later
-        return state
-    
-    Autosave Integration with Session Factory Pattern:
-    --------------------------------------------------
-    The autosave() method works seamlessly with the new pattern:
-    
-    1. TimeService.advance_week() creates session, commits, closes
-    2. GameController.advance_week() calls save_manager.auto_save()
-    3. auto_save() assumes database is already committed
-    4. auto_save() disconnects, copies file, reconnects
-    5. No session parameter needed!
-    
-    Old Pattern (broken):
-    ---------------------
-    def advance_week(self):
-        result = self.time_service.advance_week()
-        self.save_manager.auto_save(session)  # ❌ What session?
-    
-    New Pattern (correct):
-    ----------------------
-    def advance_week(self):
-        # TimeService commits and closes its session internally
-        result = self.time_service.advance_week()
-        
-        # auto_save just copies the committed database file
-        self.save_manager.auto_save()  # ✅ No session needed!
-    
-    Benefits:
-    ---------
-    - Clear separation: file operations vs database operations
-    - No session confusion: file ops don't need sessions
-    - Lock safety: disconnect before file operations
-    - Works with session factory: assumes committed state
     """
     def __init__(self):
         Path(SAVE_DIR).mkdir(exist_ok=True)
         self.db_manager = DBManager()
         self.cleanup_session_file()
+    
+    def get_current_session_path(self) -> Optional[str]:
+        """Returns the path to the currently active database file, if any."""
+        if self.db_manager:
+            return self.db_manager.db_path
+        return None
 
     def get_save_path(self, save_name: str) -> Path:
         return Path(SAVE_DIR) / f"{save_name}.sqlite"

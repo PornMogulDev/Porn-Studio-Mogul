@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, Tuple
 
 from data.game_state import GameState, MarketGroupState
 from data.save_manager import SaveManager, LIVE_SESSION_NAME, QUICKSAVE_NAME, EXITSAVE_NAME
@@ -14,96 +14,6 @@ logger = logging.getLogger(__name__)
 class GameSessionService:
     """
     Manages the game session lifecycle: new, save, load, quit.
-    
-    SESSION MANAGEMENT PATTERN: Initialization Operations
-    ======================================================
-    
-    Architecture:
-    -------------
-    This service creates and initializes game databases. It uses temporary
-    sessions for initialization only, then closes them immediately. Future
-    operations by other services will create their own sessions.
-    
-    Key Principles:
-    ---------------
-    1. Use temporary sessions for initialization only
-    2. Close initialization sessions immediately after commit
-    3. Services will create their own sessions later
-    4. Don't return session instances (services have session_factory)
-    5. Use try/except/finally for proper cleanup
-    
-    Pattern Template:
-    -----------------
-    def initialize_game(self) -> tuple[GameState, str]:
-        '''Initialize new game database.'''
-        # Create database file
-        save_path = self.save_manager.create_new_save_db(name)
-        
-        # Create temporary session for initialization
-        session = self.save_manager.db_manager.get_session()
-        try:
-            # Perform all initialization
-            session.add_all([...])
-            session.commit()
-        except Exception as e:
-            session.rollback()
-            raise
-        finally:
-            session.close()  # Close initialization session
-        
-        # Return state, NOT session (services will create their own)
-        return game_state, save_path
-    
-    Why Close Initialization Session:
-    ---------------------------------
-    1. Initialization is a one-time operation
-    2. Services need fresh sessions from the pool
-    3. Holding a session prevents connection pooling
-    4. Clear lifecycle: init session != operational sessions
-    
-    Old Pattern (incorrect):
-    ------------------------
-    def start_new_game(self) -> tuple[GameState, Session, str]:
-        session = self.save_manager.db_manager.get_session()
-        # ... initialization ...
-        return game_state, session, save_path  # ❌ Returns open session
-    
-    def load_game(self) -> tuple[GameState, Session, str]:
-        # ... load ...
-        return game_state, session, save_path  # ❌ Returns open session
-    
-    # GameController receives session but never uses it
-    self.game_state, _, self.current_save_path = service.start_new_game()
-    #                   ^ Unused session!
-    
-    New Pattern (correct):
-    ----------------------
-    def start_new_game(self) -> tuple[GameState, str]:
-        session = self.save_manager.db_manager.get_session()
-        try:
-            # ... initialization ...
-            session.commit()
-        finally:
-            session.close()  # ✅ Close immediately
-        return game_state, save_path  # ✅ No session returned
-    
-    def load_game(self) -> tuple[GameState, str]:
-        # ... load ...
-        return game_state, save_path  # ✅ No session returned
-    
-    # GameController receives only what it needs
-    self.game_state, self.current_save_path = service.start_new_game()
-    
-    # Services create their own sessions when needed
-    self._initialize_services()  # Services get session_factory
-    
-    Benefits:
-    ---------
-    - No dangling sessions: Clean initialization
-    - Clear API: Methods return only what's needed
-    - Service independence: Each service manages its own sessions
-    - Connection pooling: Sessions return to pool immediately
-    - Easier testing: Can test initialization separately
     """
     def __init__(self, save_manager: SaveManager, data_manager: DataManager,
         signals: GameSignals, talent_generator: TalentGenerator):
@@ -114,7 +24,7 @@ class GameSessionService:
         self.game_constant = self.data_manager.game_config
         self.market_data = self.data_manager.market_data
         
-    def start_new_game(self) -> tuple[GameState, any, str]:
+    def start_new_game(self) -> Optional[Tuple[GameState, str]]:
         """
         Creates a new game database, initializes it with starting data,
         and returns the essential state for the controller.
@@ -171,11 +81,11 @@ class GameSessionService:
         except Exception as e:
             logger.error(f"Couldn't create a new game: {e}", exc_info=True)
             session.rollback()
-            return False
+            return None
         finally:
             session.close()
 
-    def load_game(self, save_name: str) -> Optional[tuple[GameState, any, str]]:
+    def load_game(self, save_name: str) -> Optional[Tuple[GameState, str]]:
         """
         Loads a game from a save file by copying it to the live session.
         Returns the essential game state for the controller.
@@ -188,7 +98,7 @@ class GameSessionService:
             game_state = self.save_manager.load_game(save_name)
 
             # Step 3: Now that a connection is established, we can safely get the session.
-            save_path = self.save_manager.db_manager.db_path
+            save_path = self.save_manager.get_current_session_path()
             
             return game_state, save_path
         except FileNotFoundError:
@@ -200,7 +110,7 @@ class GameSessionService:
             self.signals.notification_posted.emit("A critical error occurred while loading the game.")
             return None
 
-    def continue_game(self) -> Optional[tuple[GameState, any, str]]:
+    def continue_game(self) -> Optional[Tuple[GameState, str]]:
         """Loads the most recent save file."""
         latest_save = self.save_manager.load_latest_save()
         if latest_save:
@@ -211,7 +121,7 @@ class GameSessionService:
         """Saves the current game session to a named file."""
         # The service is now self-sufficient. It gets the session and path from its own manager.
         session = self.save_manager.db_manager.get_session()
-        current_save_path = self.save_manager.db_manager.db_path
+        current_save_path = self.save_manager.get_current_session_path()
 
         if session and current_save_path:
             try:
@@ -229,7 +139,7 @@ class GameSessionService:
         self.save_game(QUICKSAVE_NAME)
         self.signals.notification_posted.emit("Game quick saved!")
 
-    def quick_load(self) -> Optional[tuple[GameState, any, str]]:
+    def quick_load(self) -> Optional[Tuple[GameState, str]]:
         if self.save_manager.quick_load_exists():
             self.signals.notification_posted.emit("Game quick loaded!")
             return self.load_game(QUICKSAVE_NAME)
@@ -245,5 +155,9 @@ class GameSessionService:
 
     def handle_exit_save(self, exit_save: bool):
         """Handles saving the game on exit if requested."""
-        if exit_save and self.save_manager.db_manager.db_path:
+        if exit_save and self.save_manager.get_current_session_path():
              self.save_game(EXITSAVE_NAME)
+
+    def has_saves(self) -> bool:
+        """Checks if any save files exist."""
+        return self.save_manager.has_saves()

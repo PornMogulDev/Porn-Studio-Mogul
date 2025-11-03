@@ -4,6 +4,7 @@ from typing import Optional, TYPE_CHECKING
 from core.game_signals import GameSignals
 from data.data_manager import DataManager
 from data.save_manager import SaveManager
+from data.game_state import GameState
 from services.email_service import EmailService
 from services.game_session_service import GameSessionService
 from services.go_to_list_service import GoToListService
@@ -71,7 +72,7 @@ class ServiceContainer:
         self.player_settings_service: Optional[PlayerSettingsService] = None
         self.email_service: Optional[EmailService] = None
 
-    def initialize_and_populate_services(self, controller: 'GameController'):
+    def initialize_and_populate_services(self, controller: 'GameController', game_state: GameState):
         """
         Creates all service instances and injects them into the controller.
         This is the main entry point for starting a game session's services.
@@ -95,7 +96,7 @@ class ServiceContainer:
         self.role_performance_service = RolePerformanceService()
         self.player_settings_service = PlayerSettingsService(session_factory, self.signals)
         self.go_to_list_service = GoToListService(session_factory, self.signals)
-        self.email_service = EmailService(session_factory, self.signals, controller.game_state)
+        self.email_service = EmailService(session_factory, self.signals, game_state)
         self.auto_tag_analyzer = AutoTagAnalyzer(self.data_manager)
         self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_service)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)

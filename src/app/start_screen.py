@@ -107,7 +107,7 @@ class MenuScreen(QWidget):
         self.refresh_button_states()
 
     def refresh_button_states(self):
-        has_saves = self.controller.save_manager.has_saves()
+        has_saves = self.controller.check_for_saves()
         
         self.continue_game_btn.setEnabled(has_saves)
         self.load_game_btn.setEnabled(has_saves)

@@ -288,28 +288,30 @@ class GameController(QObject):
 
     def new_game_started(self):
         """Initializes a new game session."""
-        self.game_state, self.current_save_path = self.game_session_service.start_new_game()
-        self.service_container.initialize_and_populate_services(self)
-        
-        # Emit signals to update UI
-        self.signals.money_changed.emit(self.game_state.money)
-        self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
-        self.signals.talent_pool_changed.emit()
-        self.signals.new_game_started.emit()
-        self.signals.show_main_window_requested.emit()
+        result = self.game_session_service.start_new_game()
+        if result:
+            self.game_state, self.current_save_path = result
+            self.service_container.initialize_and_populate_services(self, self.game_state)
+            
+            self.signals.money_changed.emit(self.game_state.money)
+            self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
+            self.signals.talent_pool_changed.emit()
+            self.signals.new_game_started.emit()
+            self.signals.show_main_window_requested.emit()
         
     def load_game(self, save_name: str):
         """Loads a game session from a file."""
-        self.game_state, self.current_save_path = self.game_session_service.load_game(save_name)
-        self.service_container.initialize_and_populate_services(self)
-        
-        # Emit signals to update UI
-        self.signals.money_changed.emit(self.game_state.money)
-        self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
-        self.signals.scenes_changed.emit()
-        self.signals.talent_pool_changed.emit()
-        self.signals.emails_changed.emit()
-        self.signals.show_main_window_requested.emit()
+        result = self.game_session_service.load_game(save_name)
+        if result:
+            self.game_state, self.current_save_path = result
+            self.service_container.initialize_and_populate_services(self, self.game_state)
+            
+            self.signals.money_changed.emit(self.game_state.money)
+            self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
+            self.signals.scenes_changed.emit()
+            self.signals.talent_pool_changed.emit()
+            self.signals.emails_changed.emit()
+            self.signals.show_main_window_requested.emit()
 
     def save_game(self, save_name: str):
         self.game_session_service.save_game(save_name)
@@ -321,7 +323,7 @@ class GameController(QObject):
         result = self.game_session_service.continue_game()
         if result:
             self.game_state, self.current_save_path = result
-            self.service_container.initialize_and_populate_services(self)
+            self.service_container.initialize_and_populate_services(self, self.game_state)
             
             self.signals.money_changed.emit(self.game_state.money)
             self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
@@ -336,76 +338,44 @@ class GameController(QObject):
     def quick_load(self):
         result = self.game_session_service.quick_load()
         if result:
-            self.game_state, _, self.current_save_path = result
-            self.service_container.initialize_and_populate_services(self)
+            self.game_state, self.current_save_path = result
+            self.service_container.initialize_and_populate_services(self, self.game_state)
+            self.signals.money_changed.emit(self.game_state.money)
+            self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
+            self.signals.scenes_changed.emit()
+            self.signals.talent_pool_changed.emit()
+            self.signals.emails_changed.emit()
             self.signals.show_main_window_requested.emit()
 
     def return_to_main_menu(self, exit_save: bool):
-        """
-        Handles returning to the main menu from an active game.
-        This is a graceful shutdown where exit save should be honored.
-        """
-        logger.info("Return to main menu requested.")
-        if self.current_save_path:
-            # Mark as graceful shutdown (menu-initiated)
-            self._graceful_shutdown_in_progress = True
-            
-            # Perform exit save if requested and game is active
-            if exit_save and not self.game_over:
-                self.game_session_service.handle_exit_save(exit_save)
-            
-            # Clean up session
-            self.service_container.cleanup_services(self)
-
-        if self.game_over:
-            self.game_over = False  # Reset state for the start screen
-
-        self._graceful_shutdown_in_progress = False
+        self._graceful_shutdown_in_progress = True
+        self.game_session_service.handle_exit_save(exit_save and not self.game_over)
+        self.service_container.cleanup_services(self)
+        self.current_save_path = None
+        self.game_over = False
+        self._graceful_shutdown_in_progress = False # Reset for next session
         self.signals.show_start_screen_requested.emit()
 
-    def quit_game(self, exit_save=False):
-        """
-        Handles quitting the game through the menu.
-        This is a graceful shutdown where exit save should be honored.
-        """
-        logger.info("Quit game requested via menu.")
-        if self.current_save_path:
-            # Mark as graceful shutdown (menu-initiated)
-            self._graceful_shutdown_in_progress = True
-            
-            # Perform exit save if requested and game is active
-            if exit_save and not self.game_over:
-                self.game_session_service.handle_exit_save(exit_save)
-            
-            # Clean up session before quitting
-            self.service_container.cleanup_services(self)
-        
-        self._graceful_shutdown_in_progress = False
+    def quit_game(self, exit_save: bool = False):
+        self._graceful_shutdown_in_progress = True
+        self.game_session_service.handle_exit_save(exit_save and not self.game_over)
+        self.service_container.cleanup_services(self)
+        self._graceful_shutdown_in_progress = False # Reset
         self.signals.quit_game_requested.emit()
     
     def handle_application_shutdown(self):
-        """
-        Performs final cleanup when the application is closing.
-        
-        This is called from closeEvent() and handles two scenarios:
-        1. Graceful shutdown: User quit through menu (exit save already handled)
-        2. Forced shutdown: User closed window via X/Alt+F4 (no exit save)
-        """
-        # Only clean up if we haven't already done so in a graceful shutdown
         if self.current_save_path and not self._graceful_shutdown_in_progress:
-            logger.info("Application shutdown detected with active session (forced shutdown). Cleaning up...")
             self.service_container.cleanup_services(self)
-        elif self._graceful_shutdown_in_progress:
-            logger.info("Application shutdown detected after graceful exit. Session already cleaned up.")
-        
-        # Reset flag for next time
-        self._graceful_shutdown_in_progress = False
 
     def handle_game_over(self):
         self.game_over = True
-        self.signals.show_start_screen_requested.emit()
+        self.service_container.cleanup_services(self)
+        self.current_save_path = None
+        self.signals.game_over_triggered.emit("Your studio has gone bankrupt.")
 
-        return self.save_manager.has_saves()
+    def check_for_saves(self) -> bool:
+        """Checks if any save files exist to enable 'Continue' button."""
+        return self.game_session_service.has_saves()
         
     # --- Other Methods ---
 
