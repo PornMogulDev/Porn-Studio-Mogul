@@ -3,13 +3,29 @@ This module defines dataclasses used as standardized "result objects" or
 Data Transfer Objects (DTOs) for the scene calculation refactoring.
 
 These models decouple the pure calculation logic from the database persistence
-layer. Calculators will receive game state dataclasses (e.g., Scene, Talent)
+layer. Services and Calculators will receive game state dataclasses (e.g., Scene, Talent)
 and return these result objects. The orchestrator service will then use these
 results to update the database models.
 """
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
+from enum import Enum, auto
+
+class EventAction(Enum):
+    """Defines the next action to be taken after an event choice is resolved."""
+    CONTINUE_SHOOT = auto()
+    CANCEL_SCENE = auto()
+    CHAIN_EVENT = auto()
+
+@dataclass(frozen=True)
+class EventResolutionResult:
+    """Represents the outcome of resolving an interactive event choice."""
+    next_action: EventAction
+    shoot_modifiers: Dict = field(default_factory=dict)
+    notification: Optional[str] = None
+    chained_event_payload: Optional[Dict] = None # For CHAIN_EVENT action
+    cancellation_penalty: float = 0.0 # For CANCEL_SCENE action
 
 @dataclass(frozen=True)
 class FatigueResult:

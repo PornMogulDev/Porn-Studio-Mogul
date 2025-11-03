@@ -20,7 +20,8 @@ from services.calculation.shoot_results_calculator import ShootResultsCalculator
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.command.scene_command_service import SceneCommandService
 from services.command.talent_command_service import TalentCommandService
-from services.events.scene_event_service import SceneEventService
+from services.command.scene_event_command_service import SceneEventCommandService
+from services.events.scene_event_trigger_service import SceneEventTriggerService
 from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
@@ -70,7 +71,8 @@ class ServiceContainer:
         self.scene_orchestrator: Optional[SceneOrchestrator] = None
         self.time_service: Optional[TimeService] = None
         self.go_to_list_service: Optional[GoToListService] = None
-        self.scene_event_service: Optional[SceneEventService] = None
+        self.scene_event_trigger_service: Optional[SceneEventTriggerService] = None
+        self.scene_event_command_service: Optional[SceneEventCommandService] = None
         self.player_settings_service: Optional[PlayerSettingsService] = None
         self.email_service: Optional[EmailService] = None
 
@@ -110,14 +112,13 @@ class ServiceContainer:
             self.scene_calc_config, self.auto_tag_analyzer, self.shoot_results_calculator,
             self.scene_quality_calculator, self.post_production_calculator
         )
+        self.scene_event_trigger_service = SceneEventTriggerService(self.data_manager)
         self.scene_command_service = SceneCommandService(
             session_factory, self.signals, self.data_manager, self.query_service, self.talent_command_service,
-            self.market_service, self.email_service, self.scene_orchestrator, self.revenue_calculator
+            self.market_service, self.email_service, self.scene_orchestrator, self.revenue_calculator,
+            self.scene_event_trigger_service
         )
-        self.scene_event_service = SceneEventService(
-            session_factory, self.signals, self.data_manager, self.query_service, self.scene_command_service
-        )
-        self.scene_command_service.event_service = self.scene_event_service
+        self.scene_event_command_service = SceneEventCommandService(session_factory, self.data_manager, self.query_service)
         self.time_service = TimeService(session_factory, self.signals, self.scene_command_service, self.talent_command_service, self.market_service)
 
         # --- Populate Controller ---
@@ -151,7 +152,7 @@ class ServiceContainer:
         controller.talent_query_service = self.talent_query_service
         controller.time_service = self.time_service
         controller.go_to_list_service = self.go_to_list_service
-        controller.scene_event_service = self.scene_event_service
+        controller.scene_event_command_service = self.scene_event_command_service
         controller.player_settings_service = self.player_settings_service
         controller.email_service = self.email_service
         # Inject other services as needed by the controller
@@ -167,7 +168,7 @@ class ServiceContainer:
         controller.talent_query_service = None
         controller.time_service = None
         controller.go_to_list_service = None
-        controller.scene_event_service = None
+        controller.scene_event_command_service = None
         controller.player_settings_service = None
         controller.email_service = None
 
@@ -192,7 +193,8 @@ class ServiceContainer:
         self.scene_orchestrator = None
         self.time_service = None
         self.go_to_list_service = None
-        self.scene_event_service = None
+        self.scene_event_trigger_service = None
+        self.scene_event_command_service = None
         self.player_settings_service = None
         self.email_service = None
 

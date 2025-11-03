@@ -13,7 +13,7 @@ from database.db_models import ( SceneDB, VirtualPerformerDB, ActionSegmentDB, S
 from services.query.game_query_service import GameQueryService
 from services.command.talent_command_service import TalentCommandService
 from services.email_service import EmailService
-from services.events.scene_event_service import SceneEventService
+from services.events.scene_event_trigger_service import SceneEventTriggerService
 from services.market_service import MarketService
 from services.calculation.scene_orchestrator import SceneOrchestrator
 from services.calculation.revenue_calculator import RevenueCalculator
@@ -23,133 +23,12 @@ logger = logging.getLogger(__name__)
 class SceneCommandService:
     """
     Command service for scene-related database operations.
-    
-    SESSION MANAGEMENT PATTERN: Command/Write Operations
-    =====================================================
-    
-    Architecture:
-    -------------
-    This service handles all write operations (create, update, delete) for scenes.
-    Each public method manages its own transaction lifecycle. Some methods can also
-    be called by orchestrators (like TimeService) that manage the transaction.
-    
-    Key Principles:
-    ---------------
-    1. Store session_factory, NOT a session instance
-    2. Public methods create their own sessions
-    3. Always use try/except/finally pattern
-    4. Commit on success, rollback on error, close in finally
-    5. Emit signals AFTER successful commit
-    6. Helper methods receive session from caller
-    
-    Pattern 1: Public Command Method (Creates Own Session)
-    ------------------------------------------------------
-    def public_command(self, ...) -> bool:
-        '''User-initiated command that creates its own transaction.'''
-        session = self.session_factory()
-        try:
-            # Fetch and modify entities
-            scene_db = session.query(SceneDB).get(scene_id)
-            scene_db.status = 'new_status'
-            
-            # Call helper if needed (pass session)
-            self._helper_method(session, scene_db)
-            
-            # Commit transaction
-            session.commit()
-            
-            # Emit signals AFTER commit
-            self.signals.scenes_changed.emit()
-            self.signals.notification_posted.emit("Success!")
-            
-            return True
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Error: {e}", exc_info=True)
-            return False
-        finally:
-            session.close()
-    
-    Pattern 2: Helper Method (Receives Session)
-    -------------------------------------------
-    def _helper_method(self, session: Session, scene_db: SceneDB):
-        '''Helper called by public method or orchestrator.'''
-        # Perform modifications using passed session
-        scene_db.field = new_value
-        # NO commit, NO close - caller handles it
-    
-    Pattern 3: Orchestrator-Called Method (Receives Session)
-    --------------------------------------------------------
-    def process_step(self, session: Session, ...) -> bool:
-        '''Called by TimeService during week advancement.'''
-        # Perform operations using passed session
-        items = session.query(Model).filter(...).all()
-        for item in items:
-            item.field = new_value
-        
-        # NO commit, NO close - orchestrator handles it
-        return success
-    
-    When to Create Session vs Receive Session:
-    ------------------------------------------
-    CREATE session if:
-    - Method is called directly by controller/UI
-    - Operation is independent and self-contained
-    - Need immediate feedback (commit/rollback)
-    
-    RECEIVE session if:
-    - Method is called by an orchestrator (TimeService)
-    - Operation is part of a larger transaction
-    - Need atomicity with other operations
-    
-    Error Handling:
-    ---------------
-    - Catch specific exceptions when possible
-    - Always rollback on error
-    - Log errors with exc_info=True for stack traces
-    - Return error indicator (False, None, empty dict)
-    - Let orchestrators handle their own error recovery
-    
-    Signal Emission:
-    ----------------
-    IMPORTANT: Always emit signals AFTER commit!
-    
-    # Correct
-    session.commit()
-    self.signals.scenes_changed.emit()
-    
-    # Wrong - UI updates before data is committed
-    self.signals.scenes_changed.emit()
-    session.commit()
-    
-    Benefits:
-    ---------
-    - Transaction per operation: Clean boundaries
-    - Error isolation: Failures don't affect other operations
-    - Flexible: Can be called standalone or as part of orchestration
-    - Clear ownership: Method that creates session owns it
-    - UI consistency: Signals only after successful commits
-    
-    Examples in This Service:
-    -------------------------
-    Public Commands (Create Session):
-    - cast_talent_for_role() - User casts talent
-    - create_shooting_bloc() - User creates bloc
-    - delete_scene() - User deletes scene
-    
-    Orchestrator-Called (Receive Session):
-    - shoot_scene(session, scene_db) - Called by TimeService
-    - process_weekly_post_production(session) - Called by TimeService
-    
-    Helpers (Receive Session):
-    - _cast_talent_for_role_internal() - Called by public method
-    - _create_scene_for_bloc() - Called by public method
     """
     
     def __init__(self, session_factory, signals: GameSignals, data_manager: DataManager, query_service: GameQueryService, 
              talent_command_service: TalentCommandService, market_service: MarketService, 
-             email_service: EmailService, calculation_service: 'SceneOrchestrator',
-             revenue_calculator: RevenueCalculator):
+             email_service: EmailService, calculation_service: 'SceneOrchestrator', revenue_calculator: RevenueCalculator,
+             scene_event_trigger_service: SceneEventTriggerService):
         self.session_factory = session_factory
         self.signals = signals
         self.data_manager = data_manager
@@ -159,7 +38,7 @@ class SceneCommandService:
         self.email_service = email_service
         self.calculation_service = calculation_service
         self.revenue_calculator = revenue_calculator
-        self.event_service = None # Late-binding
+        self.scene_event_trigger_service = scene_event_trigger_service
 
     # --- CRUD and Logic Methods ---
     def _cast_talent_for_role_internal(self, session: Session, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int) -> Optional[Dict]:
@@ -597,7 +476,7 @@ class SceneCommandService:
         ).get(scene_db.id)
         scene_dc = hydrated_scene_db.to_dataclass(Scene)
         
-        event_payload = self.event_service.check_for_shoot_event(session, scene_dc)
+        event_payload = self.scene_event_trigger_service.check_for_shoot_event(session, scene_dc)
 
         if event_payload:
             # An event occurred. Emit signal and stop. Controller will resume.

@@ -20,13 +20,14 @@ from services.query.talent_query_service import TalentQueryService
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_command_service import SceneCommandService
+from services.command.scene_event_command_service import SceneEventCommandService
 from services.market_service import MarketService
-from services.events.scene_event_service import SceneEventService
 from services.time_service import TimeService
 from services.go_to_list_service import GoToListService
 from services.game_session_service import GameSessionService
 from services.player_settings_service import PlayerSettingsService
 from services.email_service import EmailService
+from services.models.results import EventAction
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ class GameController(QObject):
         self.talent_demand_calculator: Optional[TalentDemandCalculator] = None
         self.time_service: Optional[TimeService] = None
         self.go_to_list_service: Optional[GoToListService] = None
-        self.scene_event_service: Optional[SceneEventService] = None
+        self.scene_event_command_service: Optional[SceneEventCommandService] = None
         self.player_settings_service: Optional[PlayerSettingsService] = None
         self.email_service: Optional[EmailService] = None
         
@@ -268,23 +269,34 @@ class GameController(QObject):
 
     def resolve_interactive_event(self, event_id: str, scene_id: int, talent_id: int, choice_id: str) -> None:
         """Orchestrates event resolution and shoot continuation."""
-        if not self.scene_event_service or not self.scene_command_service:
+        if not self.scene_event_command_service or not self.scene_command_service:
             return
         
-        # Event service handles its own transaction
-        shoot_completed, modifiers = self.scene_event_service.resolve_interactive_event(
+        # 1. Delegate resolution to the command service. It returns a result DTO.
+        result = self.scene_event_command_service.resolve_interactive_event(
             event_id, scene_id, talent_id, choice_id
         )
 
-        if not shoot_completed:
-            # Scene cancelled or chained event
-            return
+        # 2. Post a notification if the result included one.
+        if result.notification:
+            self.signals.notification_posted.emit(result.notification)
 
-        # Continue shoot in new transaction
-        self.scene_command_service.continue_shoot_scene_after_event(scene_id, modifiers)
+        # 3. Orchestrate the next action based on the result DTO.
+        if result.next_action == EventAction.CANCEL_SCENE:
+            # The controller, not the event service, calls the scene command service.
+            self.scene_command_service.delete_scene(scene_id, result.cancellation_penalty)
+            self.advance_week() # Continue the week after cancellation.
         
-        # Continue the week advancement
-        self.advance_week()
+        elif result.next_action == EventAction.CHAIN_EVENT:
+            # The controller, not the event service, emits the signal for the new event.
+            payload = result.chained_event_payload
+            self.signals.interactive_event_triggered.emit(
+                payload['event_data'], payload['scene_id'], payload['talent_id']
+            )
+
+        elif result.next_action == EventAction.CONTINUE_SHOOT:
+            self.scene_command_service.continue_shoot_scene_after_event(scene_id, result.shoot_modifiers)
+            self.advance_week() # Continue the week after a successful shoot.
 
     # --- Game Session Management (Delegated to GameSessionService) ---
 
