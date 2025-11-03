@@ -23,7 +23,7 @@ class TalentAvailabilityChecker:
         self.data_manager = data_manager
         self.config = config
 
-    def _get_vp_role_context(self, scene: Scene, vp_id: int) -> tuple[Set[str], Dict[str, Set[str]]]:
+    def get_vp_role_context(self, scene: Scene, vp_id: int) -> tuple[Set[str], Dict[str, Set[str]]]:
         """
         Parses the scene's expanded segments once to extract all role context for a VP.
         """
@@ -54,7 +54,7 @@ class TalentAvailabilityChecker:
             return AvailabilityResult(False, f"Refuses scenes with more than {talent.max_scene_partners} partners.")
 
         # Check 2: Hard Limits
-        role_action_tags, roles_by_tag = self._get_vp_role_context(scene, vp_id)
+        role_action_tags, roles_by_tag = self.get_vp_role_context(scene, vp_id)
         for full_tag_name in role_action_tags:
             tag_def = self.data_manager.tag_definitions.get(full_tag_name)
             base_name = tag_def.get('name') if tag_def else full_tag_name

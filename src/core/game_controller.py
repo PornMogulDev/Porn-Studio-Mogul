@@ -17,6 +17,7 @@ from database.db_models import *
 from services.query.tag_query_service import TagQueryService
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
+from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_command_service import SceneCommandService
 from services.market_service import MarketService
@@ -63,6 +64,7 @@ class GameController(QObject):
         self.scene_command_service: Optional[SceneCommandService] = None
         self.market_service: Optional[MarketService] = None
         self.talent_query_service: Optional[TalentQueryService] = None
+        self.talent_demand_calculator: Optional[TalentDemandCalculator] = None
         self.time_service: Optional[TimeService] = None
         self.go_to_list_service: Optional[GoToListService] = None
         self.scene_event_service: Optional[SceneEventService] = None
@@ -238,7 +240,7 @@ class GameController(QObject):
         return self.scene_command_service.update_scene_full(scene_data)
 
     def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int) -> int:
-        return self.talent_query_service.calculate_talent_demand(talent_id, scene_id, vp_id)
+        return self.talent_demand_calculator.calculate_talent_demand(talent_id, scene_id, vp_id)
 
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int):
         self.scene_command_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)

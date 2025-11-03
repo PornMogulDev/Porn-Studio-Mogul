@@ -17,6 +17,7 @@ from services.calculation.revenue_calculator import RevenueCalculator
 from services.calculation.scene_orchestrator import SceneOrchestrator
 from services.calculation.scene_quality_calculator import SceneQualityCalculator
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
+from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.command.scene_command_service import SceneCommandService
 from services.command.talent_command_service import TalentCommandService
 from services.events.scene_event_service import SceneEventService
@@ -57,6 +58,7 @@ class ServiceContainer:
         self.scene_command_service: Optional[SceneCommandService] = None
         self.market_service: Optional[MarketService] = None
         self.talent_query_service: Optional[TalentQueryService] = None
+        self.talent_demand_calculator: Optional[TalentDemandCalculator] = None
         self.role_performance_calculator: Optional[RolePerformanceCalculator] = None
         self.auto_tag_analyzer: Optional[AutoTagAnalyzer] = None
         self.talent_affinity_calculator: Optional[TalentAffinityCalculator] = None
@@ -92,7 +94,8 @@ class ServiceContainer:
         self.query_service = GameQueryService(session_factory)
         self.tag_query_service = TagQueryService(self.data_manager)
         self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
-        self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
+        self.talent_demand_calculator = TalentDemandCalculator(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
+        self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.talent_demand_calculator, self.query_service, self.hiring_config, self.availability_checker)
         self.role_performance_calculator = RolePerformanceCalculator()
         self.player_settings_service = PlayerSettingsService(session_factory, self.signals)
         self.go_to_list_service = GoToListService(session_factory, self.signals)
@@ -144,6 +147,7 @@ class ServiceContainer:
         controller.talent_command_service = self.talent_command_service
         controller.scene_command_service = self.scene_command_service
         controller.market_service = self.market_service
+        controller.talent_demand_calculator = self.talent_demand_calculator
         controller.talent_query_service = self.talent_query_service
         controller.time_service = self.time_service
         controller.go_to_list_service = self.go_to_list_service
@@ -159,6 +163,7 @@ class ServiceContainer:
         controller.talent_command_service = None
         controller.scene_command_service = None
         controller.market_service = None
+        controller.talent_demand_calculator = None
         controller.talent_query_service = None
         controller.time_service = None
         controller.go_to_list_service = None
@@ -174,6 +179,7 @@ class ServiceContainer:
         self.talent_command_service = None
         self.scene_command_service = None
         self.market_service = None
+        self.talent_demand_calculator = None
         self.talent_query_service = None
         self.role_performance_calculator = None
         self.auto_tag_analyzer = None
