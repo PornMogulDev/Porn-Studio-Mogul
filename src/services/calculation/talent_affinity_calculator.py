@@ -3,7 +3,7 @@ from typing import Dict
 from data.game_state import Talent
 from services.models.configs import SceneCalculationConfig
 
-class TalentLogicHelper:
+class TalentAffinityCalculator:
     """A pure calculation service for talent-related logic."""
 
     def __init__(self, config: SceneCalculationConfig):

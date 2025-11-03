@@ -12,8 +12,8 @@ from database.db_models import (
 )
 from services.query.game_query_service import GameQueryService
 from services.models.configs import HiringConfig
-from services.utils.role_performance_service import RolePerformanceService
-from services.utils.talent_availability_checker import TalentAvailabilityChecker
+from services.calculation.role_performance_calculator import RolePerformanceCalculator
+from services.calculation.talent_availability_checker import TalentAvailabilityChecker
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +156,7 @@ class TalentQueryService:
                     slot_def = next((s for s in slots if s['role'] == role), None)
                     if not slot_def: 
                         continue
-                    final_mod = RolePerformanceService.get_final_modifier('demand_modifier', slot_def, segment, role)
+                    final_mod = RolePerformanceCalculator.get_final_modifier('demand_modifier', slot_def, segment, role)
                     max_demand_mod = max(max_demand_mod, final_mod)
         return max_demand_mod
 

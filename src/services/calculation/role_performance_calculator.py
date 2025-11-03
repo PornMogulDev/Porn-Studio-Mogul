@@ -1,6 +1,6 @@
 from data.game_state import ActionSegment
 
-class RolePerformanceService:
+class RolePerformanceCalculator:
     """
     A pure calculation service that determines modifiers for a talent's role
     based on the context of a scene segment (e.g., number of partners).

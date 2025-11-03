@@ -5,7 +5,7 @@ from typing import List, Tuple
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
 from services.models.configs import SceneCalculationConfig
-from services.utils.role_performance_service import RolePerformanceService
+from services.calculation.role_performance_calculator import RolePerformanceCalculator
 from services.models.results import TalentShootOutcome, FatigueResult
 
 logger = logging.getLogger(__name__)
@@ -16,10 +16,10 @@ class ShootResultsCalculator:
     fatigue, skill gains, and experience gains.
     """
     def __init__(self, data_manager: DataManager, config: SceneCalculationConfig,
-                 role_perf_service: RolePerformanceService):
+                 role_perf_calculator: RolePerformanceCalculator):
         self.data_manager = data_manager
         self.config = config
-        self.role_performance_service = role_perf_service
+        self.role_performance_calculator = role_perf_calculator
 
     def calculate_talent_outcomes(
         self, scene: Scene, talents: List[Talent], current_week: int, current_year: int
@@ -89,7 +89,7 @@ class ShootResultsCalculator:
                 slot_def = next((s for s in slots if s['role'] == role), None)
                 if not slot_def: continue
 
-                final_mod = self.role_performance_service.get_final_modifier(
+                final_mod = self.role_performance_calculator.get_final_modifier(
                     'stamina_modifier', slot_def, segment, role
                 )
                 cost = segment_runtime * final_mod

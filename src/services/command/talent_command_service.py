@@ -8,17 +8,17 @@ from core.game_signals import GameSignals
 from data.game_state import Talent
 from services.models.configs import SceneCalculationConfig
 from database.db_models import SceneDB,TalentDB, TalentPopularityDB, TalentChemistryDB
-from services.utils.talent_logic_helper import TalentLogicHelper
+from services.calculation.talent_affinity_calculator import TalentAffinityCalculator
 
 logger = logging.getLogger(__name__)
 
 class TalentCommandService:
     """Manages all state changes (writes/commands) related to talents."""
 
-    def __init__(self, signals: GameSignals, config: SceneCalculationConfig, talent_logic_helper: TalentLogicHelper):
+    def __init__(self, signals: GameSignals, config: SceneCalculationConfig, talent_affinity_calculator: TalentAffinityCalculator):
         self.signals = signals
         self.config = config
-        self.talent_logic_helper = talent_logic_helper
+        self.talent_affinity_calculator = talent_affinity_calculator
 
     def discover_and_create_chemistry(self, session: Session, cast_talents: List[Talent]):
         """Checks for new chemistry pairs during a scene shot and creates them in the database.
@@ -101,7 +101,7 @@ class TalentCommandService:
             if new_year:
                 talent.age += 1
                 talent_obj = talent.to_dataclass(Talent)
-                new_affinities = self.talent_logic_helper.recalculate_talent_age_affinities(talent_obj)
+                new_affinities = self.talent_affinity_calculator.recalculate_talent_age_affinities(talent_obj)
                 talent.tag_affinities = new_affinities
         
         return True

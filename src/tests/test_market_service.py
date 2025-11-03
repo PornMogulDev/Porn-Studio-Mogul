@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 from types import SimpleNamespace
 import json
 
-from services.market_group_resolver import MarketGroupResolver
+from services.calculation.market_group_resolver import MarketGroupResolver
 from services.market_service import MarketService
 from data.game_state import Scene, MarketGroupState, ActionSegment
 from database.db_models import Base, MarketGroupStateDB

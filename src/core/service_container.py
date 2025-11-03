@@ -24,10 +24,10 @@ from services.models.configs import HiringConfig, MarketConfig, SceneCalculation
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
 from services.query.tag_query_service import TagQueryService
-from services.utils.market_group_resolver import MarketGroupResolver
-from services.utils.role_performance_service import RolePerformanceService
-from services.utils.talent_availability_checker import TalentAvailabilityChecker
-from services.utils.talent_logic_helper import TalentLogicHelper
+from services.calculation.market_group_resolver import MarketGroupResolver
+from services.calculation.role_performance_calculator import RolePerformanceCalculator
+from services.calculation.talent_availability_checker import TalentAvailabilityChecker
+from services.calculation.talent_affinity_calculator import TalentAffinityCalculator
 
 if TYPE_CHECKING:
     from core.game_controller import GameController
@@ -57,9 +57,9 @@ class ServiceContainer:
         self.scene_command_service: Optional[SceneCommandService] = None
         self.market_service: Optional[MarketService] = None
         self.talent_query_service: Optional[TalentQueryService] = None
-        self.role_performance_service: Optional[RolePerformanceService] = None
+        self.role_performance_calculator: Optional[RolePerformanceCalculator] = None
         self.auto_tag_analyzer: Optional[AutoTagAnalyzer] = None
-        self.talent_logic_helper: Optional[TalentLogicHelper] = None
+        self.talent_affinity_calculator: Optional[TalentAffinityCalculator] = None
         self.availability_checker: Optional[TalentAvailabilityChecker] = None
         self.shoot_results_calculator: Optional[ShootResultsCalculator] = None
         self.scene_quality_calculator: Optional[SceneQualityCalculator] = None
@@ -87,18 +87,18 @@ class ServiceContainer:
         # --- Create Services ---
         market_resolver = MarketGroupResolver(self.data_manager.market_data)
         self.market_service = MarketService(market_resolver, self.data_manager.tag_definitions, config=self.market_config)
-        self.talent_logic_helper = TalentLogicHelper(self.scene_calc_config)
+        self.talent_affinity_calculator = TalentAffinityCalculator(self.scene_calc_config)
         self.availability_checker = TalentAvailabilityChecker(self.data_manager, self.hiring_config)
         self.query_service = GameQueryService(session_factory)
         self.tag_query_service = TagQueryService(self.data_manager)
-        self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_logic_helper)
+        self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
         self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
-        self.role_performance_service = RolePerformanceService()
+        self.role_performance_calculator = RolePerformanceCalculator()
         self.player_settings_service = PlayerSettingsService(session_factory, self.signals)
         self.go_to_list_service = GoToListService(session_factory, self.signals)
         self.email_service = EmailService(session_factory, self.signals, game_state)
         self.auto_tag_analyzer = AutoTagAnalyzer(self.data_manager)
-        self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_service)
+        self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_calculator)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
         self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
@@ -175,9 +175,9 @@ class ServiceContainer:
         self.scene_command_service = None
         self.market_service = None
         self.talent_query_service = None
-        self.role_performance_service = None
+        self.role_performance_calculator = None
         self.auto_tag_analyzer = None
-        self.talent_logic_helper = None
+        self.talent_affinity_calculator = None
         self.availability_checker = None
         self.shoot_results_calculator = None
         self.scene_quality_calculator = None
