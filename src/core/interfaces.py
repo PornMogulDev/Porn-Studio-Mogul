@@ -5,7 +5,7 @@ from data.game_state import (
     Scene, Talent, ShootingBloc, MarketGroupState,
     EmailMessage
 )
-from services.hire_talent_service import HireTalentService
+from services.query.talent_query_service import TalentQueryService
 from data.data_manager import DataManager
 from data.settings_manager import SettingsManager
 from ui.theme_manager import ThemeManager, Theme
@@ -18,7 +18,7 @@ class IGameController(Protocol):
 
     # --- Properties presenters need ---
     @property
-    def hire_talent_service(self) -> HireTalentService: ...
+    def talent_query_service(self) -> TalentQueryService: ...
 
     @property
     def tag_definitions(self) -> Dict: ...

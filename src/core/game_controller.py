@@ -16,25 +16,14 @@ from database.db_models import *
 
 from services.query.tag_query_service import TagQueryService
 from services.query.game_query_service import GameQueryService
+from services.query.talent_query_service import TalentQueryService
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_command_service import SceneCommandService
-from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig
-from services.utils.market_group_resolver import MarketGroupResolver
-from services.utils.role_performance_service import RolePerformanceService
-from services.utils.talent_availability_checker import TalentAvailabilityChecker
-from services.utils.talent_logic_helper import TalentLogicHelper
-from services.calculation.scene_orchestrator import SceneOrchestrator
 from services.market_service import MarketService
-from services.hire_talent_service import HireTalentService
 from services.events.scene_event_service import SceneEventService
 from services.time_service import TimeService
 from services.go_to_list_service import GoToListService
 from services.game_session_service import GameSessionService
-from services.calculation.auto_tag_analyzer import AutoTagAnalyzer
-from services.calculation.shoot_results_calculator import ShootResultsCalculator
-from services.calculation.scene_quality_calculator import SceneQualityCalculator
-from services.calculation.post_production_calculator import PostProductionCalculator
-from services.calculation.revenue_calculator import RevenueCalculator
 from services.player_settings_service import PlayerSettingsService
 from services.email_service import EmailService
 
@@ -73,7 +62,7 @@ class GameController(QObject):
         self.talent_command_service: Optional[TalentCommandService] = None
         self.scene_command_service: Optional[SceneCommandService] = None
         self.market_service: Optional[MarketService] = None
-        self.hire_talent_service: Optional[HireTalentService] = None
+        self.talent_query_service: Optional[TalentQueryService] = None
         self.time_service: Optional[TimeService] = None
         self.go_to_list_service: Optional[GoToListService] = None
         self.scene_event_service: Optional[SceneEventService] = None
@@ -249,7 +238,7 @@ class GameController(QObject):
         return self.scene_command_service.update_scene_full(scene_data)
 
     def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int) -> int:
-        return self.hire_talent_service.calculate_talent_demand(talent_id, scene_id, vp_id)
+        return self.talent_query_service.calculate_talent_demand(talent_id, scene_id, vp_id)
 
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int):
         self.scene_command_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)

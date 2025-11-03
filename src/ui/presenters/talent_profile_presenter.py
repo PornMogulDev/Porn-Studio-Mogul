@@ -145,7 +145,7 @@ class TalentProfilePresenter(QObject):
     def refresh_available_roles(self):
         """Fetches and updates the list of available roles for the current talent."""
         if not self.current_talent_id: return
-        available_roles = self.controller.hire_talent_service.find_available_roles_for_talent(self.current_talent_id)
+        available_roles = self.controller.talent_query_service.find_available_roles_for_talent(self.current_talent_id)
         self.view.hiring_widget.update_available_roles(available_roles)
 
     @pyqtSlot(list)

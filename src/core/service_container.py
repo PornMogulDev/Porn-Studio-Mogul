@@ -7,7 +7,6 @@ from data.save_manager import SaveManager
 from services.email_service import EmailService
 from services.game_session_service import GameSessionService
 from services.go_to_list_service import GoToListService
-from services.hire_talent_service import HireTalentService
 from services.market_service import MarketService
 from services.player_settings_service import PlayerSettingsService
 from services.time_service import TimeService
@@ -22,6 +21,7 @@ from services.command.talent_command_service import TalentCommandService
 from services.events.scene_event_service import SceneEventService
 from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig
 from services.query.game_query_service import GameQueryService
+from services.query.talent_query_service import TalentQueryService
 from services.query.tag_query_service import TagQueryService
 from services.utils.market_group_resolver import MarketGroupResolver
 from services.utils.role_performance_service import RolePerformanceService
@@ -55,7 +55,7 @@ class ServiceContainer:
         self.talent_command_service: Optional[TalentCommandService] = None
         self.scene_command_service: Optional[SceneCommandService] = None
         self.market_service: Optional[MarketService] = None
-        self.hire_talent_service: Optional[HireTalentService] = None
+        self.talent_query_service: Optional[TalentQueryService] = None
         self.role_performance_service: Optional[RolePerformanceService] = None
         self.auto_tag_analyzer: Optional[AutoTagAnalyzer] = None
         self.talent_logic_helper: Optional[TalentLogicHelper] = None
@@ -91,7 +91,7 @@ class ServiceContainer:
         self.query_service = GameQueryService(session_factory)
         self.tag_query_service = TagQueryService(self.data_manager)
         self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_logic_helper)
-        self.hire_talent_service = HireTalentService(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
+        self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
         self.role_performance_service = RolePerformanceService()
         self.player_settings_service = PlayerSettingsService(session_factory, self.signals)
         self.go_to_list_service = GoToListService(session_factory, self.signals)
@@ -143,7 +143,7 @@ class ServiceContainer:
         controller.talent_command_service = self.talent_command_service
         controller.scene_command_service = self.scene_command_service
         controller.market_service = self.market_service
-        controller.hire_talent_service = self.hire_talent_service
+        controller.talent_query_service = self.talent_query_service
         controller.time_service = self.time_service
         controller.go_to_list_service = self.go_to_list_service
         controller.scene_event_service = self.scene_event_service
@@ -158,7 +158,7 @@ class ServiceContainer:
         controller.talent_command_service = None
         controller.scene_command_service = None
         controller.market_service = None
-        controller.hire_talent_service = None
+        controller.talent_query_service = None
         controller.time_service = None
         controller.go_to_list_service = None
         controller.scene_event_service = None
@@ -173,7 +173,7 @@ class ServiceContainer:
         self.talent_command_service = None
         self.scene_command_service = None
         self.market_service = None
-        self.hire_talent_service = None
+        self.talent_query_service = None
         self.role_performance_service = None
         self.auto_tag_analyzer = None
         self.talent_logic_helper = None
