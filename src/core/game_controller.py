@@ -420,10 +420,6 @@ class GameController(QObject):
         
     # --- Other Methods ---
 
-    def create_email(self, subject: str, body: str):
-        if not self.email_service: return
-        self.email_service.create_email(subject, body)
-
     def get_unread_email_count(self) -> int:
         if not self.query_service: return 0
         return self.query_service.get_unread_email_count()

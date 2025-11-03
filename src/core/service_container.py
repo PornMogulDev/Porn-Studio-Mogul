@@ -194,7 +194,9 @@ class ServiceContainer:
         game_config = self.data_manager.game_config
 
         self.market_config = MarketConfig(
-            saturation_recovery_rate=game_config.get("market_saturation_recovery_rate", 0.05)
+            saturation_recovery_rate=game_config.get("market_saturation_recovery_rate", 0.05),
+            discovery_interest_threshold=game_config.get("market_discovery_interest_threshold", 1.5),
+            discoveries_per_scene=game_config.get("market_discoveries_per_scene", 2)
         )
 
         self.hiring_config = HiringConfig(

@@ -542,55 +542,17 @@ class SceneCommandService:
             revenue = revenue_result.total_revenue
             self.talent_command_service.update_popularity_from_scene(session, scene_id)  
     
-            # Market Discovery Logic
-            discovery_threshold = self.data_manager.game_config.get("market_discovery_interest_threshold", 1.5)
-            num_to_discover = self.data_manager.game_config.get("market_discoveries_per_scene", 2)
-    
-            all_new_discoveries = DefaultDict(list)
-            market_did_change = False
-    
-            for group_name, interest in revenue_result.viewer_group_interest.items():
-                if interest < discovery_threshold:
-                    continue
-                    
-                market_state_db = session.query(MarketGroupStateDB).get(group_name)
-                if not market_state_db: continue
-                
-                # Find which sentiments contributed most to this scene for this group
-                potential_discoveries = self.market_service.get_potential_discoveries(scene, group_name)
-                
-                current_discovered = market_state_db.discovered_sentiments
-                
-                newly_discovered_count = 0
-
-                # Shuffle to add randomness, then sort by impact
-                random.shuffle(potential_discoveries)
-                potential_discoveries.sort(key=lambda x: x['impact'], reverse=True)
-
-                for item in potential_discoveries:
-                    if newly_discovered_count >= num_to_discover: break
-                    
-                    sentiment_type = item['type']
-                    tag_name = item['tag']
-                    
-                    # Check if we already know this one
-                    if tag_name not in current_discovered.get(sentiment_type, []):
-                        if sentiment_type not in current_discovered:
-                            current_discovered[sentiment_type] = []
-                        current_discovered[sentiment_type].append(tag_name)
-                        all_new_discoveries[group_name].append(tag_name)
-                        newly_discovered_count += 1
-                        market_did_change = True
-                
-                if newly_discovered_count > 0:
-                    market_state_db.discovered_sentiments = current_discovered
-                    flag_modified(market_state_db, "discovered_sentiments")
-
-            # Update market saturation
-            for group_name, cost in revenue_result.market_saturation_updates.items():
-                market_state_db = session.query(MarketGroupStateDB).get(group_name)
-                if market_state_db:
-                    market_state_db.current_saturation = max(0, market_state_db.current_saturation - cost)
+            # --- Delegate Market Updates to MarketService ---
+            # 1. Process discoveries
+            discoveries = self.market_service.process_discoveries_from_release(
+                session, scene, revenue_result.viewer_group_interest
+            )
+            market_did_change = bool(discoveries)
+            
+            # 2. Update saturation
+            self.market_service.update_saturation_from_release(
+                session, revenue_result.market_saturation_updates
+            )
         
             scene_db.revenue = revenue
             scene_db.status = 'released'
@@ -601,9 +563,9 @@ class SceneCommandService:
             new_money = int(float(money_info.value)) + revenue
             money_info.value = str(new_money)
 
-            # Pass the email service in via __init__ and call it
-            if discoveries := dict(all_new_discoveries):
-                self.email_service.create_market_discovery_email(scene.title, discoveries, commit=False)
+            # Create discovery email within this transaction
+            if discoveries:
+                self.email_service.create_market_discovery_email(session, scene.title, discoveries)
 
             session.commit()
 

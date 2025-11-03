@@ -1,4 +1,6 @@
 import logging
+import random
+from collections import defaultdict
 from typing import Dict, List
 from sqlalchemy.orm import Session
 
@@ -60,3 +62,54 @@ class MarketService:
                 discoveries.append({'type': 'action_sentiments', 'tag': tag, 'impact': abs(act_prefs[tag] - 1.0)})
 
         return discoveries
+    
+    def process_discoveries_from_release(
+        self,
+        session: Session,
+        scene: Scene,
+        viewer_group_interest: Dict[str, float]
+    ) -> Dict[str, List[str]]:
+        """
+        Processes market sentiment discoveries after a scene release.
+        Operates within the caller's transaction.
+        Returns a dictionary of newly discovered sentiments.
+        """
+        discovery_threshold = self.config.discovery_interest_threshold
+        num_to_discover = self.config.discoveries_per_scene
+        all_new_discoveries = defaultdict(list)
+
+        for group_name, interest in viewer_group_interest.items():
+            if interest < discovery_threshold:
+                continue
+
+            market_state_db = session.query(MarketGroupStateDB).get(group_name)
+            if not market_state_db: continue
+
+            potential_discoveries = self.get_potential_discoveries(scene, group_name)
+            current_discovered = market_state_db.discovered_sentiments
+            newly_discovered_count = 0
+
+            random.shuffle(potential_discoveries)
+            potential_discoveries.sort(key=lambda x: x['impact'], reverse=True)
+
+            for item in potential_discoveries:
+                if newly_discovered_count >= num_to_discover: break
+                sentiment_type, tag_name = item['type'], item['tag']
+
+                if tag_name not in current_discovered.get(sentiment_type, []):
+                    current_discovered.setdefault(sentiment_type, []).append(tag_name)
+                    all_new_discoveries[group_name].append(tag_name)
+                    newly_discovered_count += 1
+
+        return dict(all_new_discoveries)
+
+    def update_saturation_from_release(
+        self,
+        session: Session,
+        market_saturation_updates: Dict[str, float]
+    ):
+        """Updates market saturation based on release results. Operates within the caller's transaction."""
+        for group_name, cost in market_saturation_updates.items():
+            market_state_db = session.query(MarketGroupStateDB).get(group_name)
+            if market_state_db:
+                market_state_db.current_saturation = max(0, market_state_db.current_saturation - cost)

@@ -15,28 +15,16 @@ class EmailService:
         self.signals = signals
         self.game_state = game_state
 
-    def create_email(self, subject: str, body: str) -> bool:
-        """Creates and saves a new email for the current game week."""
-        session = self.session_factory()
-        try:
-            new_email = EmailMessageDB(
-                subject=subject, 
-                body=body, 
-                week=self.game_state.week, 
-                year=self.game_state.year, 
-                is_read=False
-            )
-            session.add(new_email)
-
-            session.commit()
-            self.signals.emails_changed.emit()
-            return True
-        except Exception as e:
-            logger.error(f"Failed to create email: {e}")
-            session.rollback()
-            return False
-        finally:
-            session.close()
+    def _create_email(self, session, subject: str, body: str):
+        """Internal helper that adds an email to the session without committing."""
+        new_email = EmailMessageDB(
+            subject=subject,
+            body=body,
+            week=self.game_state.week,
+            year=self.game_state.year,
+            is_read=False
+        )
+        session.add(new_email)
 
     def mark_email_as_read(self, email_id: int):
         """Marks a single email as read."""
@@ -70,20 +58,20 @@ class EmailService:
         finally:
             session.close()
 
-    def create_market_discovery_email(self, scene_title: str, discoveries: Dict[str, List[str]], commit: bool = True):
-        """Creates a formatted email summarizing market discoveries from a scene release."""
+    def create_market_discovery_email(self, session, scene_title: str, discoveries: Dict[str, List[str]]):
+        """
+        Creates a formatted email for market discoveries within an existing transaction.
+        This is an Orchestrated Method. The caller is responsible for the commit.
+        """
         if not discoveries:
             return
 
         subject = f"Market Research Results: '{scene_title}'"
         body = "Our analysis of the release of your recent scene has yielded new market insights.\n\n"
         for group_name, tags in discoveries.items():
-            body += f"<b>{group_name}:</b>\n"
-            # Using a more robust formatting for list items
+            body += f"<b>{group_name}:</b>"
             tag_list = "".join([f"<li>Discovered preference for '<b>{tag}</b>'</li>" for tag in sorted(tags)])
             body += f"<ul>{tag_list}</ul>"
-        
-        body += "\nThis information has been added to our market intelligence reports."
-        
-        # Call create_email but control the commit based on the context
-        self.create_email(subject, body, commit=commit)
+        body += "This information has been added to our market intelligence reports."
+
+        self._create_email(session, subject, body)

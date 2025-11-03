@@ -20,6 +20,8 @@ class HiringConfig:
 @dataclass(frozen=True)
 class MarketConfig:
     saturation_recovery_rate: float
+    discovery_interest_threshold: float = 1.5
+    discoveries_per_scene: int = 2
 
 @dataclass(frozen=True)
 class SceneCalculationConfig:
