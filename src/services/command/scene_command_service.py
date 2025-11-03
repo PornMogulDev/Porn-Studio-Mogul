@@ -286,12 +286,21 @@ class SceneCommandService:
         
         return int(settings_cost + policies_cost)
     
-    def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], cost: int, name: str, policies: List[str]) -> bool:
+    def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str]) -> bool:
         """Creates a new ShootingBloc and its associated blank scenes in the database."""
         session = self.session_factory()
         try:
             money_info = session.query(GameInfoDB).filter_by(key='money').one()
             current_money = int(float(money_info.value))
+
+            # --- Authoritative cost calculation AND validation ---
+            cost = self.calculate_shooting_bloc_cost(num_scenes, settings, policies)
+
+            if current_money < cost:
+                # Emit failure signal directly from the authoritative service
+                self.signals.notification_posted.emit(f"Not enough money. Cost: ${cost:,}, Have: ${current_money:,}")
+                return False
+
             new_money = current_money - cost
             money_info.value = str(new_money)
 

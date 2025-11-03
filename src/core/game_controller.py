@@ -3,6 +3,7 @@ from typing import List, Dict, Optional, Tuple, Set
 from PyQt6.QtCore import QObject
 from sqlalchemy import func
 
+from core.service_container import ServiceContainer
 from core.game_signals import GameSignals
 from core.interfaces import IGameController
 from data.game_state import *
@@ -13,6 +14,7 @@ from data.settings_manager import SettingsManager
 from ui.theme_manager import Theme, ThemeManager
 from database.db_models import *
 
+from services.query.tag_query_service import TagQueryService
 from services.query.game_query_service import GameQueryService
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_command_service import SceneCommandService
@@ -39,22 +41,24 @@ from services.email_service import EmailService
 logger = logging.getLogger(__name__)
 
 class GameController(QObject):
-    def __init__(self, settings_manager: SettingsManager, data_manager: DataManager, theme_manager: ThemeManager):
+    def __init__(self, settings_manager: SettingsManager, data_manager: DataManager, theme_manager: ThemeManager,
+                 save_manager: SaveManager, signals: GameSignals, service_container: ServiceContainer):
         super().__init__()
         self.settings_manager = settings_manager
         self.data_manager = data_manager
         self.theme_manager = theme_manager
+        self.save_manager = save_manager
+        self.signals = signals
+        self.service_container = service_container
         self.game_state = GameState()
-        self.save_manager = SaveManager()
-        self.signals = GameSignals()
         
         self.current_save_path = None 
         self._graceful_shutdown_in_progress = False  # Track if shutdown is through menu 
         
         self.game_constant = self.data_manager.game_config
-        self.tag_definitions = self.data_manager.tag_definitions
         self.market_data = self.data_manager.market_data
         self.affinity_data = self.data_manager.affinity_data
+        self.tag_definitions = self.data_manager.tag_definitions
         self.generator_data = self.data_manager.generator_data
         self.talent_archetypes = self.data_manager.talent_archetypes
         self.help_topics = self.data_manager.help_topics
@@ -63,31 +67,18 @@ class GameController(QObject):
         
         self.game_session_service = GameSessionService(self.save_manager, self.data_manager, self.signals, self.talent_generator)
 
-        self.hiring_config = None
-        self.scene_calc_config = None
-        self.talent_config = None
-        self.query_service = None
-        self.talent_command_service = None
-        self.scene_command_service = None
-        self.market_service = None
-        self.hire_talent_service = None
-        self.role_performance_service = None
-        self.auto_tag_analyzer = None
-        self.talent_logic_helper = None
-        self.availability_checker = None
-        self.shoot_results_calculator = None
-        self.scene_quality_calculator = None
-        self.post_production_calculator = None
-        self.revenue_calculator = None
-        self.scene_orchestrator = None
-        self.time_service = None
-        self.go_to_list_service = None
-        self.scene_event_service = None
-        self.player_settings_service = None
-        self.email_service = None
-
-        self.market_config = MarketConfig(saturation_recovery_rate=self.data_manager.game_config.get("market_saturation_recovery_rate", 0.05))
-        self.market_resolver = MarketGroupResolver(self.data_manager.market_data)
+       # --- Service Properties (will be populated by ServiceContainer) ---
+        self.query_service: Optional[GameQueryService] = None
+        self.tag_query_service: Optional['TagQueryService'] = None # Forward ref if needed
+        self.talent_command_service: Optional[TalentCommandService] = None
+        self.scene_command_service: Optional[SceneCommandService] = None
+        self.market_service: Optional[MarketService] = None
+        self.hire_talent_service: Optional[HireTalentService] = None
+        self.time_service: Optional[TimeService] = None
+        self.go_to_list_service: Optional[GoToListService] = None
+        self.scene_event_service: Optional[SceneEventService] = None
+        self.player_settings_service: Optional[PlayerSettingsService] = None
+        self.email_service: Optional[EmailService] = None
         
         self._cached_thematic_tags_data = None
         self._cached_physical_tags_data = None
@@ -238,18 +229,7 @@ class GameController(QObject):
         Calculates the cost authoritatively and creates a shooting bloc.
         This version does NOT accept a 'cost' parameter from the UI.
         """
-        if not self.scene_command_service: return False
-
-        # --- Authoritative server-side cost calculation ---
-        final_cost = self.scene_command_service.calculate_shooting_bloc_cost(num_scenes, settings, policies)
-        
-        if self.game_state.money < final_cost:
-            self.signals.notification_posted.emit(f"Not enough money. Cost: ${final_cost:,}, Have: ${self.game_state.money:,}")
-            return False
-        
-        final_name = name.strip() if name.strip() else f"{year} W{week} Shoot"
-        
-        return self.scene_command_service.create_shooting_bloc(week, year, num_scenes, settings, final_cost, final_name, policies)
+        return self.scene_command_service.create_shooting_bloc(week, year, num_scenes, settings, name, policies)
     
     def calculate_shooting_bloc_cost(self, num_scenes: int, settings: Dict, policies: List[str]) -> int:
         """Proxy method for the UI to get a cost estimate from the authoritative service."""
@@ -284,43 +264,14 @@ class GameController(QObject):
             return
         self.scene_command_service.cast_talent_for_multiple_roles(talent_id, roles)
 
-    def _get_tags_for_planner_by_type(self, tag_type: str) -> Tuple[List[Dict], Set[str], Set[str]]:
-        """Helper method to get and process tags of a specific type."""
-        tags, categories, orientations = [], set(), set()
-        for full_name, tag_data in self.tag_definitions.items():
-            if tag_data.get('type') == tag_type:
-                cats_raw = tag_data.get('categories', [])
-                cats = [cats_raw] if isinstance(cats_raw, str) else cats_raw
-                categories.update(cats)
-                
-                if orientation := tag_data.get('orientation'):
-                    orientations.add(orientation)
-                
-                tag_data_with_name = tag_data.copy()
-                tag_data_with_name['full_name'] = full_name
-
-                # Special handling for Action tags
-                if tag_type == 'Action':
-                    count = sum(slot.get('count', slot.get('min_count', 0)) for slot in tag_data.get('slots', []))
-                    tag_data_with_name['participant_count'] = count
-
-                tags.append(tag_data_with_name)
-        return (tags, categories, orientations)
-
     def get_thematic_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
-        if not self._cached_thematic_tags_data:
-            self._cached_thematic_tags_data = self._get_tags_for_planner_by_type('Thematic')
-        return self._cached_thematic_tags_data
+        return self.tag_query_service.get_tags_for_planner('Thematic')
 
     def get_physical_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
-        if not self._cached_physical_tags_data:
-            self._cached_physical_tags_data = self._get_tags_for_planner_by_type('Physical')
-        return self._cached_physical_tags_data
+        return self.tag_query_service.get_tags_for_planner('Physical')
 
     def get_action_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
-        if not self._cached_action_tags_data:
-            self._cached_action_tags_data = self._get_tags_for_planner_by_type('Action')
-        return self._cached_action_tags_data
+        return self.tag_query_service.get_tags_for_planner('Action')
 
     def get_resolved_group_data(self, group_name: str) -> Dict: return self.market_service.get_resolved_group_data(group_name)
 
@@ -344,118 +295,12 @@ class GameController(QObject):
         # Continue the week advancement
         self.advance_week()
 
-    def _create_hiring_config(self) -> HiringConfig:
-        """Creates the HiringConfig object from the data manager."""
-        return HiringConfig(
-            concurrency_default_limit=self.data_manager.game_config.get("hiring_concurrency_default_limit", 99),
-            refusal_threshold=self.data_manager.game_config.get("talent_refusal_threshold", 0.2),
-            orientation_refusal_threshold=self.data_manager.game_config.get("talent_orientation_refusal_threshold", 0.1),
-            pickiness_popularity_scalar=self.data_manager.game_config.get("pickiness_popularity_scalar", 0.05),
-            pickiness_ambition_scalar=self.data_manager.game_config.get("pickiness_ambition_scalar", 0.1),
-            base_talent_demand=self.data_manager.game_config.get("base_talent_demand", 400),
-            demand_perf_divisor=self.data_manager.game_config.get("hiring_demand_perf_divisor", 200.0),
-            median_ambition=self.data_manager.game_config.get("median_ambition_level", 5),
-            ambition_demand_divisor=self.data_manager.game_config.get("ambition_to_demand_divisor", 5.0),
-            popularity_demand_scalar=self.data_manager.game_config.get("popularity_to_demand_scalar", 0.001),
-            minimum_talent_demand=self.data_manager.game_config.get("minimum_talent_demand", 100)
-        )
-    
-    def _create_scene_calculation_config(self) -> SceneCalculationConfig:
-        """Creates the SceneCalculationConfig object from the data manager."""
-        game_config = self.data_manager.game_config
-        # Convert string keys from JSON to int keys for DS weights
-        ds_weights_str_keys = game_config.get("scene_quality_ds_weights", {})
-        ds_weights_int_keys = {int(k): v for k, v in ds_weights_str_keys.items()}
-        
-        return SceneCalculationConfig(
-            stamina_to_pool_multiplier=game_config.get("stamina_to_pool_multiplier", 5),
-            base_fatigue_weeks=game_config.get("base_fatigue_weeks", 2),
-            in_scene_penalty_scalar=game_config.get("in_scene_penalty_scalar", 0.4),
-            fatigue_penalty_scalar=game_config.get("fatigue_penalty_scalar", 0.3),
-            maximum_skill_level=game_config.get("maximum_skill_level", 100.0),
-            scene_quality_base_acting_weight=game_config.get("scene_quality_base_acting_weight", 0.3),
-            scene_quality_min_acting_weight=game_config.get("scene_quality_min_acting_weight", 0.2),
-            scene_quality_max_acting_weight=game_config.get("scene_quality_max_acting_weight", 0.8),
-            protagonist_contribution_weight=game_config.get("protagonist_contribution_weight", 1.25),
-            chemistry_performance_scalar=game_config.get("chemistry_performance_scalar", 0.125),
-            scene_quality_ds_weights=ds_weights_int_keys,
-            scene_quality_min_performance_modifier=game_config.get("scene_quality_min_performance_modifier", 0.1),
-            scene_quality_auto_tag_default_quality=game_config.get("scene_quality_auto_tag_default_quality", 100.0),
-            base_release_revenue=game_config.get("base_release_revenue", 50000),
-            star_power_revenue_scalar=game_config.get("star_power_revenue_scalar", 0.005),
-            saturation_spend_rate=game_config.get("saturation_spend_rate", 0.15),
-            default_sentiment_multiplier=game_config.get("default_sentiment_multiplier", 1.0),
-            revenue_weight_focused_physical_tag=game_config.get("revenue_weight_focused_physical_tag", 5.0),
-            revenue_weight_default_action_appeal=game_config.get("revenue_weight_default_action_appeal", 10.0),
-            revenue_weight_auto_tag=game_config.get("revenue_weight_auto_tag", 1.5),
-            revenue_penalties=game_config.get("revenue_penalties", {}),
-            skill_gain_base_rate=game_config.get("skill_gain_base_rate", 0.02),
-            skill_gain_curve_steepness=game_config.get("skill_gain_curve_steepness", 1.5),
-            exp_gain_base_rate=game_config.get("experience_gain_base_rate", 0.05),
-            exp_gain_curve_steepness=game_config.get("experience_gain_curve_steepness", 2.0),
-            ds_skill_gain_base_rate=game_config.get("ds_skill_gain_base_rate", 0.015),
-            ds_skill_gain_disposition_multiplier=game_config.get("ds_skill_gain_disposition_multiplier", 1.5),
-            ds_skill_gain_dynamic_level_multipliers={int(k): v for k, v in game_config.get("ds_skill_gain_dynamic_level_multipliers", {}).items()},
-            age_based_affinity_rules=game_config.get("age_based_affinity_rules", []),
-            popularity_gain_scalar=game_config.get("popularity_gain_scalar", 0.05)
-        )
-
-    def _initialize_services(self):
-        """Initialize all game services with the session factory."""
-        # Get the session factory from the database manager
-        # Services will create their own sessions as needed for each operation
-        session_factory = self.save_manager.db_manager.get_session_factory()
-        
-        self.market_service = MarketService(self.market_resolver, self.data_manager.tag_definitions, config=self.market_config)
-        self.scene_calc_config = self._create_scene_calculation_config()
-        # --- Pure Logic Helpers ---
-        self.talent_logic_helper = TalentLogicHelper(self.scene_calc_config)
-        self.availability_checker = TalentAvailabilityChecker(self.data_manager, self._create_hiring_config())
-        # --- CQRS Services ---
-        self.query_service = GameQueryService(session_factory)
-        self.talent_command_service = TalentCommandService(
-            self.signals, self.scene_calc_config, self.talent_logic_helper
-        )
-        # --- Services ---
-        self.hiring_config = self._create_hiring_config()
-        self.hire_talent_service = HireTalentService(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
-        self.role_performance_service = RolePerformanceService()
-        self.player_settings_service = PlayerSettingsService(session_factory, self.signals) 
-        self.go_to_list_service = GoToListService(session_factory, self.signals)
-        self.email_service = EmailService(session_factory, self.signals, self.game_state)
-
-        # --- Refactored Calculation Services ---
-        self.auto_tag_analyzer = AutoTagAnalyzer(self.data_manager)
-        self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_service)
-        self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
-        self.post_production_calculator = PostProductionCalculator(self.data_manager)
-        self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
-
-        # --- High-level Orchestration Services ---
-        # Note: SceneService and SceneEventService have a circular dependency.
-        # We resolve it by initializing SceneService first, then SceneEventService,
-        # then injecting the event service back into the scene service.
-        self.scene_orchestrator = SceneOrchestrator(
-            self.data_manager, self.talent_command_service, self.market_service, 
-            self.scene_calc_config, self.auto_tag_analyzer, self.shoot_results_calculator,
-            self.scene_quality_calculator, self.post_production_calculator
-        )
-        self.scene_command_service = SceneCommandService(
-            session_factory, self.signals, self.data_manager, self.query_service, self.talent_command_service,
-            self.market_service, self.email_service, self.scene_orchestrator, self.revenue_calculator
-        )
-        self.scene_event_service = SceneEventService(
-            session_factory, self.signals, self.data_manager, self.query_service, self.scene_command_service
-        )
-        self.scene_command_service.event_service = self.scene_event_service
-        self.time_service = TimeService(session_factory, self.signals, self.scene_command_service, self.talent_command_service, self.market_service)
-
     # --- Game Session Management (Delegated to GameSessionService) ---
 
     def new_game_started(self):
         """Initializes a new game session."""
         self.game_state, self.current_save_path = self.game_session_service.start_new_game()
-        self._initialize_services()
+        self.service_container.initialize_and_populate_services(self)
         
         # Emit signals to update UI
         self.signals.money_changed.emit(self.game_state.money)
@@ -467,7 +312,7 @@ class GameController(QObject):
     def load_game(self, save_name: str):
         """Loads a game session from a file."""
         self.game_state, self.current_save_path = self.game_session_service.load_game(save_name)
-        self._initialize_services()
+        self.service_container.initialize_and_populate_services(self)
         
         # Emit signals to update UI
         self.signals.money_changed.emit(self.game_state.money)
@@ -487,7 +332,7 @@ class GameController(QObject):
         result = self.game_session_service.continue_game()
         if result:
             self.game_state, self.current_save_path = result
-            self._initialize_services()
+            self.service_container.initialize_and_populate_services(self)
             
             self.signals.money_changed.emit(self.game_state.money)
             self.signals.time_changed.emit(self.game_state.week, self.game_state.year)
@@ -503,7 +348,7 @@ class GameController(QObject):
         result = self.game_session_service.quick_load()
         if result:
             self.game_state, _, self.current_save_path = result
-            self._initialize_services()
+            self.service_container.initialize_and_populate_services(self)
             self.signals.show_main_window_requested.emit()
 
     def return_to_main_menu(self, exit_save: bool):
@@ -521,7 +366,7 @@ class GameController(QObject):
                 self.game_session_service.handle_exit_save(exit_save)
             
             # Clean up session
-            self._cleanup_game_session()
+            self.service_container.cleanup_services(self)
 
         if self.game_over:
             self.game_over = False  # Reset state for the start screen
@@ -544,58 +389,10 @@ class GameController(QObject):
                 self.game_session_service.handle_exit_save(exit_save)
             
             # Clean up session before quitting
-            self._cleanup_game_session()
+            self.service_container.cleanup_services(self)
         
         self._graceful_shutdown_in_progress = False
         self.signals.quit_game_requested.emit()
-
-    def _cleanup_game_session(self):
-        """
-        Internal helper to properly clean up an active game session.
-        Nullifies services, disconnects from the database, and removes the session.sqlite file.
-        """
-        logger.info("Starting game session cleanup process...")
-        try:
-            logger.debug("Nullifying services to release database session factory references...")
-            # 1. Nullify all services to release any potential references to the
-            # database connection/session factory. This is crucial for allowing
-            # the file handle to be released.
-            self.query_service = None
-            self.talent_command_service = None
-            self.scene_command_service = None
-            self.market_service = None
-            self.hire_talent_service = None
-            self.role_performance_service = None
-            self.auto_tag_analyzer = None
-            self.talent_logic_helper = None
-            self.availability_checker = None
-            self.shoot_results_calculator = None
-            self.scene_quality_calculator = None
-            self.post_production_calculator = None
-            self.revenue_calculator = None
-            self.scene_orchestrator = None
-            self.time_service = None
-            self.go_to_list_service = None
-            self.scene_event_service = None
-            self.player_settings_service = None
-            self.email_service = None
-
-            logger.debug("Delegating session file deletion to SaveManager...")
-            # 2. Delegate file cleanup to the SaveManager.
-            # It will handle disconnecting and deleting the file with retries.
-            self.save_manager.cleanup_session_file()
-             
-            # 3. Clear the current save path to indicate no active game session.
-            self.current_save_path = None
-            
-            # 4. RE-INITIALIZE the GameSessionService. This service is created
-            # in the controller's __init__ and is needed to start a *new* session
-            # after returning to the main menu. Failure to do this results in an
-            # AttributeError on the next new/load game attempt.
-            
-            logger.info("Game session cleaned up.")
-        except Exception as e:
-            logger.error(f"Error during session cleanup: {e}", exc_info=True)
     
     def handle_application_shutdown(self):
         """
@@ -608,7 +405,7 @@ class GameController(QObject):
         # Only clean up if we haven't already done so in a graceful shutdown
         if self.current_save_path and not self._graceful_shutdown_in_progress:
             logger.info("Application shutdown detected with active session (forced shutdown). Cleaning up...")
-            self._cleanup_game_session()
+            self.service_container.cleanup_services(self)
         elif self._graceful_shutdown_in_progress:
             logger.info("Application shutdown detected after graceful exit. Session already cleaned up.")
         

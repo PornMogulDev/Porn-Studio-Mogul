@@ -4,10 +4,13 @@ from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtCore import pyqtSlot, QSize
 
 from data.data_manager import DataManager
+from data.save_manager import SaveManager
+from data.settings_manager import SettingsManager
+from core.service_container import ServiceContainer
+from core.game_signals import GameSignals
 from core.game_controller import GameController
 from app.start_screen import MenuScreen
 from app.main_window import MainGameWindow
-from data.settings_manager import SettingsManager
 from ui.theme_manager import ThemeManager 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from utils.paths import LOG_DIR, LOG_FILE
@@ -85,9 +88,17 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         apply_theme(self.settings_manager, self.theme_manager)
         self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
 
+        # --- Create long-lived application components ---
         self.data_manager = DataManager()
+        self.signals = GameSignals()
+        self.save_manager = SaveManager()
 
-        self.controller = GameController(self.settings_manager, self.data_manager, self.theme_manager)
+        # --- Create the Composition Root for services ---
+        self.service_container = ServiceContainer(self.data_manager, self.save_manager, self.signals)
+
+        # --- Create the Controller (Façade) ---
+        self.controller = GameController(self.settings_manager, self.data_manager, self.theme_manager,
+                                         self.save_manager, self.signals, self.service_container)
 
         self.start_screen = MenuScreen(self.controller)
         self.main_window = MainGameWindow(self.controller)
