@@ -109,7 +109,7 @@ class GoToListService:
                 return 0
             
             # Find which of the given talents are already in the category
-            existing_assignments_query = self.session.query(GoToListAssignmentDB.talent_id).filter(
+            existing_assignments_query = session.query(GoToListAssignmentDB.talent_id).filter(
                 GoToListAssignmentDB.category_id == category_id,
                 GoToListAssignmentDB.talent_id.in_(talent_ids)
             )
@@ -141,7 +141,7 @@ class GoToListService:
 
     def remove_talents_from_category(self, talent_ids: List[int], category_id: int) -> int:
         """Removes a list of talents from a specific category. Returns the number of talents removed."""
-        session = self.session_factory
+        session = self.session_factory()
         try:
             if not talent_ids:
                 return 0
@@ -168,7 +168,7 @@ class GoToListService:
     
     def remove_talents_from_all_categories(self, talent_ids: List[int]) -> bool:
         """Removes talents from ALL Go-To List categories. Returns True if any were removed."""
-        session = self.session_factory
+        session = self.session_factory()
         try:
             if not talent_ids:
                 return False

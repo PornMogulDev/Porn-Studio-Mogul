@@ -23,28 +23,32 @@ class PlayerSettingsService:
 
     # --- Tag Favorites System ---
 
+    def _get_favorite_tags_from_db(self, session: Session, tag_type: str) -> List[str]:
+        """Internal worker. Fetches favorite tags from the DB using a provided session."""
+        key = f"favorite_{tag_type}_tags"
+        fav_info = session.query(GameInfoDB).filter_by(key=key).first()
+        if fav_info and fav_info.value:
+            try:
+                return json.loads(fav_info.value)
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Could not parse favorites JSON for key '{key}'. Value: {fav_info.value}")
+        return []
+
     def get_favorite_tags(self, tag_type: str) -> List[str]:
         """
-        Fetches the list of favorite tags for a given type. Read-only operations
-        can safely use the 'with' statement for clean session management.
+        Fetches the list of favorite tags for a given type. Manages its own
+        session and uses a cache for performance.
         """
         key = f"favorite_{tag_type}_tags"
         if key in self._cache:
             return self._cache[key]
-            
-        with self.session_factory() as session:
-            # ... (rest of the get method is fine) ...
-            fav_info = session.query(GameInfoDB).filter_by(key=key).first()
-            if fav_info and fav_info.value:
-                try:
-                    favs = json.loads(fav_info.value)
-                    self._cache[key] = favs
-                    return favs
-                except (json.JSONDecodeError, TypeError):
-                    logger.warning(f"Could not parse favorites JSON for key '{key}'. Value: {fav_info.value}")
-            
-            self._cache[key] = []
-            return []
+        session = self.session_factory()
+        try:
+            favs = self._get_favorite_tags_from_db(session, tag_type)
+            self._cache[key] = favs
+            return favs
+        finally:
+            session.close()
 
     def _set_favorite_tags_internal(self, session: Session, tag_type: str, favs_list: List[str]):
         """
@@ -70,17 +74,16 @@ class PlayerSettingsService:
         """Adds or removes a tag from the favorites list. Manages its own transaction."""
         session = self.session_factory()
         try:
-            # Note: We must get current favs *before* creating the session
-            # to avoid using a different session for the read.
-            # A better way is to pass the session to the get method. For simplicity,
-            # we'll use the cached or freshly loaded value.
-            current_favs = self.get_favorite_tags(tag_type).copy()
+            # Perform the read and write inside the same transaction for atomicity.
+            # We use the internal DB method, bypassing the cache for the most current data.
+            current_favs = self._get_favorite_tags_from_db(session, tag_type)
             
             if tag_name in current_favs:
                 current_favs.remove(tag_name)
             else:
                 current_favs.append(tag_name) 
             
+            # Now call the internal set method with the same session.
             self._set_favorite_tags_internal(session, tag_type, current_favs)
             
             session.commit()
