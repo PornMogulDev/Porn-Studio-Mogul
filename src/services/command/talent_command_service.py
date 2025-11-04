@@ -78,6 +78,25 @@ class TalentCommandService:
                     new_pop_entry = TalentPopularityDB(talent_id=talent_db.id, market_group_name=group_name, score=initial_score)
                     session.add(new_pop_entry)
 
+    def _apply_popularity_decay(self, talent: TalentDB, decay_rate: float):
+        """Applies a weekly decay to a talent's popularity scores."""
+        for pop_entry in talent.popularity_scores:
+            pop_entry.score *= decay_rate
+
+    def _update_fatigue_status(self, talent: TalentDB, current_date_val: int):
+        """Checks and resets a talent's fatigue if the recovery period has passed."""
+        if talent.fatigue > 0:
+            fatigue_end_val = talent.fatigue_end_year * 52 + talent.fatigue_end_week
+            if current_date_val >= fatigue_end_val:
+                talent.fatigue, talent.fatigue_end_week, talent.fatigue_end_year = 0, 0, 0
+
+    def _apply_new_year_updates(self, talent: TalentDB):
+        """Applies annual updates to a talent, such as aging and recalculating affinities."""
+        talent.age += 1
+        talent_obj = talent.to_dataclass(Talent)
+        new_affinities = self.talent_affinity_calculator.recalculate_talent_age_affinities(talent_obj)
+        talent.tag_affinities = new_affinities
+    
     def process_weekly_updates(self, session: Session, current_date_val: int, new_year: bool) -> bool:
         """Processes all weekly changes for talents.
         Called from TimeService."""
@@ -90,18 +109,10 @@ class TalentCommandService:
 
         decay_rate = 1.0 - self.config.popularity_gain_scalar # Corrected decay
         for talent in talents_to_update:
-            for pop_entry in talent.popularity_scores:
-                pop_entry.score *= decay_rate
-            
-            if talent.fatigue > 0:
-                fatigue_end_val = talent.fatigue_end_year * 52 + talent.fatigue_end_week
-                if current_date_val >= fatigue_end_val:
-                    talent.fatigue, talent.fatigue_end_week, talent.fatigue_end_year = 0, 0, 0
+            self._apply_popularity_decay(talent, decay_rate)
+            self._update_fatigue_status(talent, current_date_val)
             
             if new_year:
-                talent.age += 1
-                talent_obj = talent.to_dataclass(Talent)
-                new_affinities = self.talent_affinity_calculator.recalculate_talent_age_affinities(talent_obj)
-                talent.tag_affinities = new_affinities
+                self._apply_new_year_updates(talent)
         
         return True
