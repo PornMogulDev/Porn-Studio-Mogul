@@ -22,7 +22,7 @@ class TalentCommandService:
 
     def discover_and_create_chemistry(self, session: Session, cast_talents: List[Talent]):
         """Checks for new chemistry pairs during a scene shot and creates them in the database.
-        Called from SceneOrchestrator"""
+        Called from SceneProcessingService"""
         if len(cast_talents) < 2:
             return
 

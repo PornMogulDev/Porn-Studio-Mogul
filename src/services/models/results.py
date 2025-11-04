@@ -58,6 +58,13 @@ class SceneRevenueResult:
     market_saturation_updates: Dict[str, float] # Maps group_name to its saturation cost for this scene
 
 @dataclass(frozen=True)
+class ShootCalculationResult:
+    """Consolidated results from all pure shoot calculators."""
+    talent_outcomes: List[TalentShootOutcome]
+    quality_result: SceneQualityResult
+    discovered_tags: List[str]
+
+@dataclass(frozen=True)
 class PostProductionResult:
     """Represents the outcome of applying post-production effects."""
     new_tag_qualities: Dict[str, float]

@@ -14,7 +14,7 @@ from services.time_service import TimeService
 from services.calculation.auto_tag_analyzer import AutoTagAnalyzer
 from services.calculation.post_production_calculator import PostProductionCalculator
 from services.calculation.revenue_calculator import RevenueCalculator
-from services.calculation.scene_orchestrator import SceneOrchestrator
+from services.command.scene_processing_service import SceneProcessingService
 from services.calculation.scene_quality_calculator import SceneQualityCalculator
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
@@ -68,7 +68,7 @@ class ServiceContainer:
         self.scene_quality_calculator: Optional[SceneQualityCalculator] = None
         self.post_production_calculator: Optional[PostProductionCalculator] = None
         self.revenue_calculator: Optional[RevenueCalculator] = None
-        self.scene_orchestrator: Optional[SceneOrchestrator] = None
+        self.scene_processing_service: Optional[SceneProcessingService] = None
         self.time_service: Optional[TimeService] = None
         self.go_to_list_service: Optional[GoToListService] = None
         self.scene_event_trigger_service: Optional[SceneEventTriggerService] = None
@@ -107,15 +107,15 @@ class ServiceContainer:
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
         self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
-        self.scene_orchestrator = SceneOrchestrator(
-            self.data_manager, self.talent_command_service, self.market_service,
-            self.scene_calc_config, self.auto_tag_analyzer, self.shoot_results_calculator,
+        self.scene_processing_service = SceneProcessingService(
+            self.data_manager, self.talent_command_service, self.scene_calc_config,
+            self.auto_tag_analyzer, self.shoot_results_calculator,
             self.scene_quality_calculator, self.post_production_calculator
         )
         self.scene_event_trigger_service = SceneEventTriggerService(self.data_manager)
         self.scene_command_service = SceneCommandService(
             session_factory, self.signals, self.data_manager, self.query_service, self.talent_command_service,
-            self.market_service, self.email_service, self.scene_orchestrator, self.revenue_calculator,
+            self.market_service, self.email_service, self.scene_processing_service, self.revenue_calculator,
             self.scene_event_trigger_service
         )
         self.scene_event_command_service = SceneEventCommandService(session_factory, self.data_manager, self.query_service)
@@ -190,7 +190,7 @@ class ServiceContainer:
         self.scene_quality_calculator = None
         self.post_production_calculator = None
         self.revenue_calculator = None
-        self.scene_orchestrator = None
+        self.scene_processing_service = None
         self.time_service = None
         self.go_to_list_service = None
         self.scene_event_trigger_service = None

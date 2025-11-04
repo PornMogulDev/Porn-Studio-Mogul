@@ -12,11 +12,12 @@ from database.db_models import ( SceneDB, VirtualPerformerDB, ActionSegmentDB, S
                                  MarketGroupStateDB, TalentChemistryDB )
 from services.query.game_query_service import GameQueryService
 from services.command.talent_command_service import TalentCommandService
+from services.command.scene_processing_service import SceneProcessingService
 from services.email_service import EmailService
 from services.events.scene_event_trigger_service import SceneEventTriggerService
 from services.market_service import MarketService
-from services.calculation.scene_orchestrator import SceneOrchestrator
 from services.calculation.revenue_calculator import RevenueCalculator
+from services.models.results import ShootCalculationResult
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class SceneCommandService:
     
     def __init__(self, session_factory, signals: GameSignals, data_manager: DataManager, query_service: GameQueryService, 
              talent_command_service: TalentCommandService, market_service: MarketService, 
-             email_service: EmailService, calculation_service: 'SceneOrchestrator', revenue_calculator: RevenueCalculator,
+             email_service: EmailService, scene_processing_service: SceneProcessingService, revenue_calculator: RevenueCalculator,
              scene_event_trigger_service: SceneEventTriggerService):
         self.session_factory = session_factory
         self.signals = signals
@@ -36,7 +37,7 @@ class SceneCommandService:
         self.talent_command_service = talent_command_service
         self.market_service = market_service
         self.email_service = email_service
-        self.calculation_service = calculation_service
+        self.scene_processing_service = scene_processing_service
         self.revenue_calculator = revenue_calculator
         self.scene_event_trigger_service = scene_event_trigger_service
 
@@ -519,7 +520,14 @@ class SceneCommandService:
             logger.error(f"[ERROR] _continue_shoot_scene: Scene ID {scene_id} not found.")
             return
 
-        self.calculation_service.calculate_shoot_results(session, scene_db, shoot_modifiers)
+        # Step 1: Prepare for the shoot (deduct costs, discover chemistry)
+        self.scene_processing_service.prepare_for_shoot_calculation(session, scene_db)
+
+        # Step 2: Run all pure calculations and get a clean result object
+        shoot_result = self.scene_processing_service.run_shoot_calculations(session, scene_db, shoot_modifiers)
+
+        # Step 3: Apply the calculation results to the database
+        self.scene_processing_service.apply_shoot_calculation_results(session, scene_db, shoot_result)
 
     def process_weekly_post_production(self, session: Session) -> List[SceneDB]:
         """
@@ -532,6 +540,6 @@ class SceneCommandService:
         for scene_db in editing_scenes_db:
             scene_db.weeks_remaining -= 1
             if scene_db.weeks_remaining <= 0:
-                self.calculation_service.apply_post_production_effects(session, scene_db)
+                self.scene_processing_service.apply_post_production_effects(session, scene_db)
                 edited_scenes.append(scene_db)
         return edited_scenes
