@@ -21,23 +21,59 @@ class GameQueryService:
     def get_filtered_talents(self, all_filters: dict) -> List[TalentDB]:
         """Fetches a list of TalentDB objects based on UI filters."""
         with self.session_factory() as session:
+            # Only load popularity_scores, skip unused chemistry relationships
             query = session.query(TalentDB).options(
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a),
                 selectinload(TalentDB.chemistry_b)
             )
             
-            if name_filter := all_filters.get('name'):
+            # Support both 'name' and 'text' keys for name filtering
+            if name_filter := (all_filters.get('name') or all_filters.get('text')):
                 query = query.filter(TalentDB.alias.ilike(f"%{name_filter}%"))
+            
             if gender_filter := all_filters.get('gender'):
                 if gender_filter != 'Any':
                     query = query.filter(TalentDB.gender == gender_filter)
-            if ethnicity_filter := all_filters.get('ethnicity'):
+            
+            # Support list-based filters for advanced dialog
+            if ethnicities := all_filters.get('ethnicities'):
+                if isinstance(ethnicities, list) and ethnicities:
+                    query = query.filter(TalentDB.ethnicity.in_(ethnicities))
+            elif ethnicity_filter := all_filters.get('ethnicity'):
                 if ethnicity_filter != 'Any':
                     query = query.filter(TalentDB.ethnicity == ethnicity_filter)
-            if boob_cup_filter := all_filters.get('boob_cup'):
+            
+            if boob_cups := all_filters.get('boob_cups'):
+                if isinstance(boob_cups, list) and boob_cups:
+                    query = query.filter(TalentDB.boob_cup.in_(boob_cups))
+            elif boob_cup_filter := all_filters.get('boob_cup'):
                 if boob_cup_filter != 'Any':
                     query = query.filter(TalentDB.boob_cup == boob_cup_filter)
+            
+            # Add age filter support
+            if age_min := all_filters.get('age_min'):
+                if age_min > 18:  # Only filter if not the minimum value
+                    query = query.filter(TalentDB.age >= age_min)
+            if age_max := all_filters.get('age_max'):
+                if age_max < 99:  # Only filter if not the maximum value
+                    query = query.filter(TalentDB.age <= age_max)
+            
+            # Add dick size filter support
+            if dick_min := all_filters.get('dick_size_min'):
+                if dick_min > 0:  # Only filter if not the minimum value
+                    query = query.filter(TalentDB.dick_size >= dick_min)
+            if dick_max := all_filters.get('dick_size_max'):
+                if dick_max < 20:  # Only filter if not the maximum value
+                    query = query.filter(TalentDB.dick_size <= dick_max)
+            
+            # Go-To List filtering
+            if all_filters.get('go_to_list_only'):
+                query = query.join(GoToListAssignmentDB)
+                category_id = all_filters.get('go_to_category_id')
+                if category_id and category_id != -1:  # -1 is sentinel for 'Any'
+                    query = query.filter(GoToListAssignmentDB.category_id == category_id)
+                query = query.distinct()
 
             return query.order_by(TalentDB.alias).all()
 
