@@ -3,14 +3,15 @@ from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
 
 from data.game_state import Talent
 from database.db_models import TalentDB
-from utils.formatters import format_orientation, format_dick_size, get_fuzzed_skill_range, format_skill_range
+from utils.formatters import format_orientation, format_dick_size, format_skill_range
 from ui.models.talent_view_model import TalentViewModel
+from ui.presenters.talent_filter_cache import TalentFilterCache
 
 class TalentTableModel(QAbstractTableModel):
     def __init__(self, settings_manager, boob_cup_order: List[str], mode: str = 'default', parent=None):
         super().__init__(parent)
-        # Store raw data instead of pre-calculated ViewModels
-        self.raw_data: List[Union[TalentDB, dict]] = []
+        # Store raw data: either TalentFilterCache or dict (for casting mode)
+        self.raw_data: List[Union[TalentFilterCache, dict]] = []
         # Cache for lazy-loaded ViewModels (row_index -> ViewModel)
         self._viewmodel_cache: Dict[int, TalentViewModel] = {}
         self.settings_manager = settings_manager
@@ -67,10 +68,11 @@ class TalentTableModel(QAbstractTableModel):
             return self.headers[section]
         return None
 
-    def update_data(self, new_data: List[Union[TalentDB, dict]]):
+    def update_data(self, new_data: List[Union[TalentFilterCache, TalentDB, dict]]):
         """
         Stores raw data and clears the ViewModel cache.
         ViewModels are now created lazily on-demand when rows are accessed.
+        Accepts TalentFilterCache items (with pre-calculated fuzzing) or dict for casting mode.
         """
         self.beginResetModel()
         self.raw_data = new_data
@@ -82,6 +84,7 @@ class TalentTableModel(QAbstractTableModel):
         """
         Lazily creates and caches a ViewModel for the given row.
         This is called on-demand when data() is invoked for visible rows.
+        Now uses pre-calculated fuzzing from TalentFilterCache when available.
         """
         if row in self._viewmodel_cache:
             return self._viewmodel_cache[row]
@@ -92,33 +95,38 @@ class TalentTableModel(QAbstractTableModel):
         item = self.raw_data[row]
         unit_system = self.settings_manager.get_setting("unit_system", "imperial")
         
+        # Handle casting mode (dict with 'talent' and 'demand')
         if self.mode == 'casting':
+            # Casting mode gets raw TalentDB in dict format (not cached)
             talent_obj = item['talent']
             demand = item['demand']
+            # Need to calculate fuzzing for casting mode since it's not cached
+            from utils.formatters import get_fuzzed_skill_range
+            perf_fuzzed = get_fuzzed_skill_range(talent_obj.performance, talent_obj.experience, talent_obj.id)
+            act_fuzzed = get_fuzzed_skill_range(talent_obj.acting, talent_obj.experience, talent_obj.id)
+            stam_fuzzed = get_fuzzed_skill_range(talent_obj.stamina, talent_obj.experience, talent_obj.id)
+            dom_fuzzed = get_fuzzed_skill_range(talent_obj.dom_skill, talent_obj.experience, talent_obj.id)
+            sub_fuzzed = get_fuzzed_skill_range(talent_obj.sub_skill, talent_obj.experience, talent_obj.id)
+            popularity = round(sum(p.score for p in talent_obj.popularity_scores) if talent_obj.popularity_scores else 0)
         else:
-            talent_obj = item
+            # Default mode: item is TalentFilterCache with pre-calculated values
+            cache_item = item
+            talent_obj = cache_item.talent_db
             demand = 0
+            # Use pre-calculated fuzzing from cache (eliminates duplicate calculation!)
+            perf_fuzzed = cache_item.perf_range
+            act_fuzzed = cache_item.act_range
+            stam_fuzzed = cache_item.stam_range
+            dom_fuzzed = cache_item.dom_range
+            sub_fuzzed = cache_item.sub_range
+            popularity = cache_item.popularity
 
-        # --- Calculate all fuzzed skills and their sort/display values ONCE ---
-        perf_fuzzed = get_fuzzed_skill_range(talent_obj.performance, talent_obj.experience, talent_obj.id)
-        act_fuzzed = get_fuzzed_skill_range(talent_obj.acting, talent_obj.experience, talent_obj.id)
-        stam_fuzzed = get_fuzzed_skill_range(talent_obj.stamina, talent_obj.experience, talent_obj.id)
-        dom_fuzzed = get_fuzzed_skill_range(talent_obj.dom_skill, talent_obj.experience, talent_obj.id)
-        sub_fuzzed = get_fuzzed_skill_range(talent_obj.sub_skill, talent_obj.experience, talent_obj.id)
-
+        # Extract sort keys from fuzzed values
         perf_sort = perf_fuzzed if isinstance(perf_fuzzed, int) else perf_fuzzed[0]
         act_sort = act_fuzzed if isinstance(act_fuzzed, int) else act_fuzzed[0]
         stam_sort = stam_fuzzed if isinstance(stam_fuzzed, int) else stam_fuzzed[0]
         dom_sort = dom_fuzzed if isinstance(dom_fuzzed, int) else dom_fuzzed[0]
         sub_sort = sub_fuzzed if isinstance(sub_fuzzed, int) else sub_fuzzed[0]
-
-        # --- Calculate popularity ---
-        if hasattr(talent_obj, 'popularity_scores'): # TalentDB object
-            popularity = round(sum(p.score for p in talent_obj.popularity_scores) if talent_obj.popularity_scores else 0)
-        elif hasattr(talent_obj, 'popularity'): # Talent dataclass
-            popularity = round(sum(talent_obj.popularity.values()))
-        else:
-            popularity = 0
 
         # --- Create the ViewModel with all pre-calculated values ---
         vm = TalentViewModel(

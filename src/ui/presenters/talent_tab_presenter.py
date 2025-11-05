@@ -55,21 +55,31 @@ class TalentTabPresenter(QObject):
         """
         Calculates fuzzed ranges for ALL talents ONCE and stores them.
         This is the core of the performance optimization.
+        Now calculates ALL 5 skills + popularity to eliminate duplicate work in table model.
         """
         # Fetch all talents from DB. Using a throwaway filter to get the full list.
         self._all_talents_for_filtering = self.controller.get_filtered_talents({})
         self._talent_filter_cache.clear()
 
         for t_db in self._all_talents_for_filtering:
+            # Calculate all 5 fuzzed skill ranges
             perf_fuzzed = get_fuzzed_skill_range(t_db.performance, t_db.experience, t_db.id)
             act_fuzzed = get_fuzzed_skill_range(t_db.acting, t_db.experience, t_db.id)
             stam_fuzzed = get_fuzzed_skill_range(t_db.stamina, t_db.experience, t_db.id)
+            dom_fuzzed = get_fuzzed_skill_range(t_db.dom_skill, t_db.experience, t_db.id)
+            sub_fuzzed = get_fuzzed_skill_range(t_db.sub_skill, t_db.experience, t_db.id)
+            
+            # Pre-calculate popularity
+            popularity = round(sum(p.score for p in t_db.popularity_scores) if t_db.popularity_scores else 0)
 
             self._talent_filter_cache[t_db.id] = TalentFilterCache(
                 talent_db=t_db,
                 perf_range=(perf_fuzzed, perf_fuzzed) if isinstance(perf_fuzzed, int) else perf_fuzzed,
                 act_range=(act_fuzzed, act_fuzzed) if isinstance(act_fuzzed, int) else act_fuzzed,
-                stam_range=(stam_fuzzed, stam_fuzzed) if isinstance(stam_fuzzed, int) else stam_fuzzed
+                stam_range=(stam_fuzzed, stam_fuzzed) if isinstance(stam_fuzzed, int) else stam_fuzzed,
+                dom_range=(dom_fuzzed, dom_fuzzed) if isinstance(dom_fuzzed, int) else dom_fuzzed,
+                sub_range=(sub_fuzzed, sub_fuzzed) if isinstance(sub_fuzzed, int) else sub_fuzzed,
+                popularity=popularity
             )
         self._cache_is_dirty = False
 
@@ -93,6 +103,18 @@ class TalentTabPresenter(QObject):
         if not (talent_min_stam <= user_max_stam and talent_max_stam >= user_min_stam):
             return False
 
+        # Dominance
+        user_min_dom, user_max_dom = filters.get('dominance_min', 0), filters.get('dominance_max', 100)
+        talent_min_dom, talent_max_dom = cache_item.dom_range
+        if not (talent_min_dom <= user_max_dom and talent_max_dom >= user_min_dom):
+            return False
+
+        # Submission
+        user_min_sub, user_max_sub = filters.get('submission_min', 0), filters.get('submission_max', 100)
+        talent_min_sub, talent_max_sub = cache_item.sub_range
+        if not (talent_min_sub <= user_max_sub and talent_max_sub >= user_min_sub):
+            return False
+
         return True
 
     @pyqtSlot()
@@ -106,20 +128,20 @@ class TalentTabPresenter(QObject):
             self._build_filter_cache()
 
         # Step 2: Apply fast database-side filters.
-        db_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina'))}
+        db_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission'))}
         talents_from_db = self.controller.get_filtered_talents(db_filters)
 
         # Step 3: Apply slow Python-side filters using the pre-calculated cache.
-        final_talent_ids = {t_db.id for t_db in talents_from_db}
-        
-        # This list comprehension is now extremely fast.
-        talents_passing_skills = [
-            cache_item.talent_db
-            for talent_id, cache_item in self._talent_filter_cache.items()
-            if talent_id in final_talent_ids and self._talent_passes_cached_skill_filters(cache_item, all_filters)
+        # Iterate over the filtered DB results (Proposal 3 optimization)
+        # Pass cache items (with pre-calculated fuzzing) instead of raw TalentDB objects
+        cache_items_passing_skills = [
+            self._talent_filter_cache[t_db.id]
+            for t_db in talents_from_db
+            if t_db.id in self._talent_filter_cache and 
+               self._talent_passes_cached_skill_filters(self._talent_filter_cache[t_db.id], all_filters)
         ]
         
-        self.view.update_talent_list(talents_passing_skills)
+        self.view.update_talent_list(cache_items_passing_skills)
 
     @pyqtSlot(list, QPoint)
     def on_context_menu_requested(self, talents: List[Talent], pos: QPoint):
