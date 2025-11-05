@@ -16,3 +16,9 @@ class TalentFilterCache:
     sub_range: Tuple[int, int]
     # Pre-calculated popularity
     popularity: int
+
+
+@dataclass
+class CastingTalentCache(TalentFilterCache):
+    """Extends TalentFilterCache with role-specific demand for casting dialogs."""
+    demand: int  # Role-specific demand/cost

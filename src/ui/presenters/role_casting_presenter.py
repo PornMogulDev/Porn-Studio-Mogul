@@ -1,9 +1,11 @@
 from PyQt6.QtCore import QObject, pyqtSlot
 from PyQt6.QtWidgets import QDialog
-from typing import TYPE_CHECKING, List, Dict
+from typing import TYPE_CHECKING, List
 
 from core.interfaces import IGameController
 from data.game_state import Talent
+from utils.formatters import get_fuzzed_skill_range
+from ui.presenters.talent_filter_cache import CastingTalentCache
 
 if TYPE_CHECKING:
     from ui.dialogs.role_casting_dialog import RoleCastingDialog
@@ -16,7 +18,7 @@ class RoleCastingPresenter(QObject):
         self.scene_id = scene_id
         self.vp_id = vp_id
 
-        self._talent_with_demand: List[Dict] = []
+        self._casting_cache: List[CastingTalentCache] = []
         self._connect_signals()
         self._load_initial_data()
 
@@ -25,17 +27,42 @@ class RoleCastingPresenter(QObject):
         self.view.hire_requested.connect(self._on_hire_requested)
     
     def _load_initial_data(self):
-        # This single call gets all talent who are eligible and willing
-        eligible_talent = self.controller.talent_query_service.get_eligible_talent_for_role(
+        """Loads eligible talents and builds a cache with pre-calculated fuzzing and demand."""
+        # Get all TalentDB objects who are eligible and willing
+        eligible_talents_db = self.controller.talent_query_service.get_eligible_talent_for_role(
              self.scene_id, self.vp_id
          )
-        self._talent_with_demand = []
-        for talent in eligible_talent:
-            cost = self.controller.calculate_talent_demand(talent.id, self.scene_id, self.vp_id)
-            self._talent_with_demand.append({'talent': talent, 'demand': cost})
+        
+        # Build CastingTalentCache objects with all pre-calculated values
+        self._casting_cache = []
+        for t_db in eligible_talents_db:
+            # Calculate all 5 fuzzed skill ranges
+            perf_fuzzed = get_fuzzed_skill_range(t_db.performance, t_db.experience, t_db.id)
+            act_fuzzed = get_fuzzed_skill_range(t_db.acting, t_db.experience, t_db.id)
+            stam_fuzzed = get_fuzzed_skill_range(t_db.stamina, t_db.experience, t_db.id)
+            dom_fuzzed = get_fuzzed_skill_range(t_db.dom_skill, t_db.experience, t_db.id)
+            sub_fuzzed = get_fuzzed_skill_range(t_db.sub_skill, t_db.experience, t_db.id)
+            
+            # Pre-calculate popularity
+            popularity = round(sum(p.score for p in t_db.popularity_scores) if t_db.popularity_scores else 0)
+            
+            # Calculate role-specific demand
+            demand = self.controller.calculate_talent_demand(t_db.id, self.scene_id, self.vp_id)
+            
+            cache_item = CastingTalentCache(
+                talent_db=t_db,
+                perf_range=(perf_fuzzed, perf_fuzzed) if isinstance(perf_fuzzed, int) else perf_fuzzed,
+                act_range=(act_fuzzed, act_fuzzed) if isinstance(act_fuzzed, int) else act_fuzzed,
+                stam_range=(stam_fuzzed, stam_fuzzed) if isinstance(stam_fuzzed, int) else stam_fuzzed,
+                dom_range=(dom_fuzzed, dom_fuzzed) if isinstance(dom_fuzzed, int) else dom_fuzzed,
+                sub_range=(sub_fuzzed, sub_fuzzed) if isinstance(sub_fuzzed, int) else sub_fuzzed,
+                popularity=popularity,
+                demand=demand
+            )
+            self._casting_cache.append(cache_item)
 
         self._load_role_details()
-        self.view.update_talent_table(self._talent_with_demand)
+        self.view.update_talent_table(self._casting_cache)
 
     def _load_role_details(self):
         role_details = self.controller.talent_query_service.get_role_details_for_ui(self.scene_id, self.vp_id)
@@ -52,19 +79,23 @@ class RoleCastingPresenter(QObject):
 
     @pyqtSlot(str)
     def _on_name_filter_changed(self, text: str):
+        """Filters the cached talent list by name."""
         text_lower = text.lower()
         if not text_lower:
-            self.view.update_talent_table(self._talent_with_demand)
+            self.view.update_talent_table(self._casting_cache)
             return
         
-        filtered_list = [
-            data for data in self._talent_with_demand
-            if text_lower in data['talent'].alias.lower()
+        filtered_cache = [
+            cache_item for cache_item in self._casting_cache
+            if text_lower in cache_item.talent_db.alias.lower()
         ]
-        self.view.update_talent_table(filtered_list)
+        self.view.update_talent_table(filtered_cache)
         
     @pyqtSlot(object)
     def _on_hire_requested(self, talent: Talent):
-        cost = self.controller.calculate_talent_demand(talent.id, self.scene_id, self.vp_id)
+        """Handles hiring - finds the cached demand instead of recalculating."""
+        # Find the cached demand for this talent
+        cache_item = next((c for c in self._casting_cache if c.talent_db.id == talent.id), None)
+        cost = cache_item.demand if cache_item else self.controller.calculate_talent_demand(talent.id, self.scene_id, self.vp_id)
         self.controller.cast_talent_for_virtual_performer(talent.id, self.scene_id, self.vp_id, cost)
         self.view.accept()
