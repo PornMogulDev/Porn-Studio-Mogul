@@ -76,10 +76,10 @@ class ScenesTab(QWidget):
             self.controller.release_scene(selected_scene.id)
         elif selected_scene.status == 'shot':
             # This is handled by the double-click/details dialog
-            self.uimanager.show_shot_scene_details(selected_scene)
+            self.uimanager.show_shot_scene_details(selected_scene.id)
             
     def view_scene_details(self, proxy_index):
         source_index = self.proxy_model.mapToSource(proxy_index)
         scene = self.source_model.data(source_index, Qt.ItemDataRole.UserRole)
         if scene:
-            self.uimanager.show_shot_scene_details(scene)
+            self.uimanager.show_shot_scene_details(scene.id)

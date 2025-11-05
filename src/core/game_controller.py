@@ -93,6 +93,9 @@ class GameController(QObject):
         return [b['name'] for b in self.generator_data.get('boob_cups', [])]
 
     # --- UI Data Access Methods ---
+    def get_talent_by_id(self, talent_id: int) -> Optional[Talent]:
+        if not self.query_service: return None
+        return self.query_service.get_talent_by_id(talent_id)
     def get_filtered_talents(self, filters: dict) -> List[Talent]:
         if not self.query_service: return []
         return self.query_service.get_filtered_talents(filters)

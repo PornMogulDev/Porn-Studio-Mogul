@@ -11,63 +11,6 @@ from database.db_models import (TalentDB, TalentChemistryDB, SceneDB, ShootingBl
 class GameQueryService:
     """
     A unified, read-only service for fetching game data for the UI.
-    
-    SESSION MANAGEMENT PATTERN: Query/Read-Only Operations
-    ========================================================
-    
-    Architecture:
-    -------------
-    This service follows the "session factory" pattern where each method creates
-    its own session, performs queries, and automatically closes the session.
-    
-    Key Principles:
-    ---------------
-    1. Store session_factory, NOT a session instance
-    2. Each method creates its own session using 'with' statement (context manager)
-    3. Session is automatically closed when exiting the 'with' block
-    4. No explicit commit needed for read-only operations
-    5. Convert DB models to dataclasses BEFORE session closes
-    
-    Pattern Template:
-    -----------------
-    def query_method(self, ...) -> List[DataClass]:
-        '''Single query operation.'''
-        with self.session_factory() as session:
-            results = session.query(ModelDB).options(
-                # CRITICAL: Use eager loading for relationships
-                selectinload(ModelDB.relationship_a),
-                selectinload(ModelDB.relationship_b).joinedload(RelatedDB.nested)
-            ).filter(...).all()
-            
-            # Convert to dataclasses while session is still open
-            return [r.to_dataclass(DataClass) for r in results]
-        # Session auto-closed here, returns to pool
-    
-    Eager Loading Pattern:
-    ----------------------
-    Always eagerly load relationships that will be accessed in to_dataclass():
-    
-    - Use selectinload() for one-to-many relationships (separate query)
-    - Use joinedload() for many-to-one relationships (single JOIN query)
-    - Chain joinedload() after selectinload() for nested relationships
-    
-    Example (TalentDB with chemistry relationships):
-        session.query(TalentDB).options(
-            selectinload(TalentDB.popularity_scores),
-            selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
-            selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a)
-        )
-    
-    This prevents DetachedInstanceError when to_dataclass() tries to access
-    lazy-loaded relationships after the session is closed.
-    
-    Benefits:
-    ---------
-    - No session leaks (automatic cleanup)
-    - No shared state between operations
-    - Better error isolation
-    - Thread-safe by design
-    - Connection pooling handles concurrency
     """
 
     def __init__(self, session_factory):

@@ -94,8 +94,8 @@ class UIManager:
     def close_all_dialogs(self):
         """
         Closes and clears all managed dialog instances.
-+        This should be called when returning to the main menu to prevent
-       orphaned windows.
+        This should be called when returning to the main menu to prevent
+        orphaned windows.
         """
         dialog_list = []
         dialog_list.extend(self._dialog_instances.values())
@@ -207,18 +207,17 @@ class UIManager:
             del self._open_scene_dialogs[scene_id]
             logger.info(f"Closed and untracked Scene Planner for scene ID: {scene_id}.")
 
-    def show_shot_scene_details(self, scene: Scene):
+    def show_shot_scene_details(self, scene_id: int):
         """
         Shows a modeless Shot Scene Details dialog. If one for the given
         scene is already open, it brings it to the front.
         """
-        scene_id = scene.id
         if scene_id in self._open_shot_scene_dialogs:
             dialog = self._open_shot_scene_dialogs[scene_id]
             dialog.raise_()
             dialog.activateWindow()
         else:
-            dialog = ShotSceneDetailsDialog(scene, self.controller, self.parent_widget)
+            dialog = ShotSceneDetailsDialog(scene_id, self.controller, self.parent_widget)
             dialog.destroyed.connect(lambda obj=None, s_id=scene_id: self._on_shot_scene_dialog_closed(s_id))
             self._open_shot_scene_dialogs[scene_id] = dialog
             dialog.show()
