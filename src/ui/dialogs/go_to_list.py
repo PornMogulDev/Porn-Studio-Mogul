@@ -6,7 +6,6 @@ from PyQt6.QtWidgets import (
 )
 from data.game_state import Talent
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
-### MODIFIED: Import the presenter and the shared sentinel value
 from ui.presenters.go_to_list_presenter import GoToListPresenter, ALL_TALENTS_ID
 
 class GoToTalentListModel(QAbstractListModel):
@@ -41,9 +40,6 @@ class GoToTalentListModel(QAbstractListModel):
 
 class GoToTalentDialog(GeometryManagerMixin, QDialog):
     """A dialog to view and manage Go-To talent list categories."""
-    # ### MODIFIED: The sentinel value is now imported from the presenter.
-    # ALL_TALENTS_ID is now imported.
-
     def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
         self.presenter: GoToListPresenter | None = None # Initialize to None
@@ -60,7 +56,6 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         # which is perfectly fine.
         self._restore_geometry()
 
-    # --- NEW METHOD ---
     def set_presenter(self, presenter: GoToListPresenter):
         """Sets the presenter for the dialog and triggers initial data load."""
         self.presenter = presenter
@@ -109,7 +104,7 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         close_btn.clicked.connect(self.accept)
 
     def connect_signals(self):
-        # ### MODIFIED: Only connect UI widget signals. Controller signals are handled by the presenter.
+        # Only connect UI widget signals. Controller signals are handled by the presenter.
         self.category_list.currentItemChanged.connect(self.on_category_selected)
         
         self.new_category_btn.clicked.connect(self.create_new_category)
@@ -120,7 +115,7 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         self.talent_list_view.doubleClicked.connect(self.show_talent_profile)
         self.talent_list_view.customContextMenuRequested.connect(self.show_talent_list_context_menu)
 
-    ### NEW: Method for the presenter to update the category list.
+    # Method for the presenter to update the category list.
     def display_categories(self, categories: list[dict], selected_id: int):
         self.category_list.blockSignals(True)
         self.category_list.clear()
@@ -152,12 +147,10 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
             # Explicitly trigger selection logic for the null state
             self.on_category_selected(None)
 
-    ### NEW: Method for the presenter to update the talent list.
     def display_talents(self, talents: list[Talent]):
         self.talent_model.update_data(talents)
 
     def on_category_selected(self, current_item: QListWidgetItem | None):
-        ### MODIFIED: This method now only reports the selection to the presenter.
         if not current_item:
             self.presenter.select_category(None)
             return
@@ -165,20 +158,18 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         category_id = current_item.data(Qt.ItemDataRole.UserRole)
         self.presenter.select_category(category_id)
     
-    ### MODIFIED: Button state logic is gone. This method just applies the state given by the presenter.
     def update_button_states(self, states: dict):
         self.remove_btn.setEnabled(states.get('remove_enabled', False))
         self.rename_category_btn.setEnabled(states.get('rename_enabled', False))
         self.delete_category_btn.setEnabled(states.get('delete_enabled', False))
 
     def create_new_category(self):
-        ### MODIFIED: Delegates the action to the presenter after getting user input.
         name, ok = QInputDialog.getText(self, "New Category", "Enter category name:")
         if ok and name.strip():
             self.presenter.create_category(name.strip())
 
     def rename_selected_category(self):
-        ### MODIFIED: Gets current data from the presenter and delegates the action.
+        # Gets current data from the presenter and delegates the action.
         current_cat_info = self.presenter.get_current_category_info()
         if not current_cat_info:
             return
@@ -188,7 +179,7 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
             self.presenter.rename_current_category(new_name.strip())
 
     def delete_selected_category(self):
-        ### MODIFIED: Gets current data from the presenter and delegates the action.
+        # Gets current data from the presenter and delegates the action.
         current_cat_info = self.presenter.get_current_category_info()
         if not current_cat_info or not current_cat_info.get('is_deletable'):
             return
@@ -202,13 +193,12 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
             self.presenter.delete_current_category()
 
     def show_talent_profile(self, index: QModelIndex):
-        ### MODIFIED: Delegates the action to the presenter.
         if not index.isValid(): return
         if talent := self.talent_model.data(index, Qt.ItemDataRole.UserRole):
             self.presenter.show_talent_profile(talent)
 
     def show_talent_list_context_menu(self, pos: QPoint):
-        ### MODIFIED: Builds the menu from a simple model provided by the presenter.
+        # Builds the menu from a simple model provided by the presenter.
         selected_indexes = self.talent_list_view.selectionModel().selectedIndexes()
         if not selected_indexes:
             return
@@ -250,7 +240,6 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         menu.exec(global_pos)
 
     def remove_selected_talents(self):
-        ### MODIFIED: Delegates the action to the presenter.
         selected_indexes = self.talent_list_view.selectionModel().selectedIndexes()
         if not selected_indexes: return
             

@@ -1,0 +1,127 @@
+# Architectural Guide: The Model-View-Presenter (MVP) Pattern
+
+This document serves as the official guide for developing and refactoring UI components. It captures the lessons learned from refactoring key dialogs and establishes the best practices to ensure a maintainable, testable, and robust application.
+1. Core Philosophy: Separation of Concerns
+
+We use the MVP pattern to enforce a strict separation of responsibilities:
+
+    Model: The single source of truth for all application data and business logic.
+
+        Implementation: The GameController (as a facade) and the various Services (SceneCommandService, GameQueryService, etc.).
+
+    View: A "dumb" component responsible only for displaying data and capturing user input.
+
+        Implementation: Qt QDialog, QWidget, QMainWindow subclasses.
+
+        Rule: A View must not contain any logic. It receives data and renders it. It captures a button click and tells the Presenter "the user clicked OK." It knows nothing about what that means.
+
+    Presenter: The "brain" or intermediary that orchestrates everything.
+
+        Implementation: Custom QObject subclasses.
+
+        Rule: The Presenter fetches data from the Model, formats it for display (creating "View Models"), and gives it to the View. It receives events from the View ("user wants to save") and translates them into commands for the Model.
+
+2. The Assembler: The Role of the UIManager
+
+A View does not know about the Model, and the Model does not know about the View. To connect them, we use a central assembler.
+
+    Responsibility: The UIManager is responsible for instantiating both the View and the Presenter and linking them together.
+
+    Why? This decouples the View from the Presenter's creation. It allows for consistent lifecycle management and prevents Views from having to know the specific arguments their Presenters need. It is the cornerstone of our architecture.
+
+3. The Golden Rule: Lifecycle Management
+
+This is the most critical aspect of our architecture, and getting it wrong leads to crashes.
+
+    Initial (Incorrect) Assumption: The problem was a "zombie presenter" that failed to disconnect from a global signal (scenes_changed) when its dialog was closed. We thought simply adding disconnect() in the view's closeEvent() was the fix.
+
+    The Reality: The disconnect() call was already in place but was insufficient. The crash is a race condition. The View (a C++ object) can be destroyed by Qt almost instantly after closeEvent(). The Presenter (a Python object) lingers in memory, kept alive by the global signal's reference to its method. If the signal fires in the brief moment after the View is destroyed but before the Presenter is garbage-collected, the Presenter tries to call a method on its now-deleted view attribute, causing a RuntimeError crash.
+
+    The Definitive Solution: We must tie the Presenter's lifecycle directly to the View's using Qt's parent-child hierarchy. When a QObject (the Presenter) is parented to another QObject (the View), Qt guarantees that the child will be destroyed when the parent is destroyed. This is deterministic and eliminates the race condition entirely.
+
+This is the required pattern for all modeless or singleton dialogs managed by the UIManager.
+
+1. UIManager: Creates and Links
+The manager instantiates both objects and sets the parent of the presenter to be the dialog.
+code Python
+
+    
+# In ui_manager.py
+def show_shot_scene_details(self, scene_id: int):
+    # ... check if already open ...
+    
+    # 1. Create the View (no presenter logic in its __init__)
+    dialog = ShotSceneDetailsDialog(self.controller, self.parent_widget)
+    
+    # 2. Create the Presenter, passing the dialog as its parent.
+    presenter = ShotSceneDetailsPresenter(scene_id, self.controller, dialog, parent=dialog)
+    
+    # 3. Link them via a setter.
+    dialog.set_presenter(presenter)
+    
+    # ... manage instance and show ...
+
+  
+
+2. The View: Accepts a Presenter
+The View's constructor is simplified. It no longer creates its own Presenter.
+code Python
+
+    
+# In a view file, e.g., shot_scene_details_dialog.py
+class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
+    def __init__(self, controller, parent=None):
+        super().__init__(parent)
+        self.presenter = None # Initialized to None
+        # ... setup UI ...
+
+    def set_presenter(self, presenter: ShotSceneDetailsPresenter):
+        self.presenter = presenter
+        # Trigger the initial data load AFTER the link is established.
+        QTimer.singleShot(0, self.presenter.load_initial_data)
+
+  
+
+3. The Presenter: Is a QObject
+The Presenter must inherit from QObject and call its super().__init__ to participate in the parent-child system.
+code Python
+
+    
+# In a presenter file, e.g., shot_scene_details_presenter.py
+from PyQt6.QtCore import QObject
+
+class ShotSceneDetailsPresenter(QObject):
+    def __init__(self, scene_id: int, controller: IGameController, view, parent=None):
+        super().__init__(parent) # This is the crucial line.
+        self.scene_id = scene_id
+        self.controller = controller
+        self.view = view
+        # ... connect to signals ...
+
+  
+
+4. Architectural Patterns & Best Practices
+
+    When to Use: For any non-modal window that can exist while the main application is used (e.g., ShotSceneDetailsDialog, GoToTalentDialog, TalentProfileWindow).
+
+    How it Works: Follow the "Robust Lifecycles" implementation pattern described above. The UIManager is responsible for creation, linking, and tracking the instance to prevent duplicates.
+
+    When to Use: For simple, modal dialogs that block the application until they are closed (e.g., ShootingBlocDialog).
+
+    How it Works: Because the dialog's lifecycle is short and synchronous (dialog.exec()), it's acceptable for the View to create its own Presenter in its __init__. The risk of "zombie" objects is negligible.
+
+    The Scenario: A user has the ScenePlanner open. They hire the final talent for the scene, which causes the scene's status to change from casting to scheduled in the backend. The ScenePlanner is now "stale" and should no longer be editable. If the user closes it, the presenter's save_on_close logic rightfully triggers a warning because the scene is now locked.
+
+    The Solution: The Presenter must be a good listener.
+
+        The Presenter subscribes to relevant global signals (e.g., scenes_changed).
+
+        The signal handler (_on_scene_changed) re-fetches the data for its specific object (e.g., its scene).
+
+        It compares the new state with the old state.
+
+        If the state has changed in a way that impacts the UI (like becoming locked), the Presenter calls a method on the View to update its state (e.g., self.view.set_read_only_mode()). This provides immediate feedback to the user and prevents invalid actions.
+
+    When creating a View/Presenter pair, always pass a simple identifier (e.g., scene_id: int) rather than a complex data object (scene: Scene). The Presenter is responsible for using the ID to fetch the full, fresh object from the Model. This prevents stale data and avoids potential SQLAlchemy session errors.
+
+    A Presenter should not pass raw data objects to the View. Instead, it should process the raw data and package it into simple dataclasses containing pre-formatted strings, colors, and boolean flags. This creates a clean contract and keeps all formatting logic out of the View.

@@ -19,6 +19,7 @@ from ui.dialogs.interactive_event_dialog import InteractiveEventDialog
 from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.shot_scene_details_dialog import ShotSceneDetailsDialog
+from ui.presenters.shot_scene_details_presenter import ShotSceneDetailsPresenter
 from ui.dialogs.game_menu_dialog import GameMenuDialog, ExitDialog
 from ui.dialogs.shooting_bloc_dialog import ShootingBlocDialog
 
@@ -222,13 +223,23 @@ class UIManager:
         """
         Shows a modeless Shot Scene Details dialog. If one for the given
         scene is already open, it brings it to the front.
+        This method manages the creation of both the View and the Presenter.
         """
         if scene_id in self._open_shot_scene_dialogs:
             dialog = self._open_shot_scene_dialogs[scene_id]
             dialog.raise_()
             dialog.activateWindow()
         else:
-            dialog = ShotSceneDetailsDialog(scene_id, self.controller, self.parent_widget)
+            # UIManager creates both, ensuring a clear ownership hierarchy.
+            dialog = ShotSceneDetailsDialog(self.controller, self.parent_widget)
+            
+            # The presenter is parented to the dialog. When the dialog is destroyed by Qt,
+            # the presenter will be destroyed with it, reliably cleaning up signals.
+            presenter = ShotSceneDetailsPresenter(scene_id, self.controller, dialog, parent=dialog)
+            
+            # We use a setter to link them after creation.
+            dialog.set_presenter(presenter)
+            
             dialog.destroyed.connect(lambda obj=None, s_id=scene_id: self._on_shot_scene_dialog_closed(s_id))
             self._open_shot_scene_dialogs[scene_id] = dialog
             dialog.show()

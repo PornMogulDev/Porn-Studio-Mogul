@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
+from PyQt6.QtCore import QObject
 
 from data.game_state import Scene
 from core.interfaces import IGameController
@@ -28,8 +29,9 @@ class PostProductionViewModel:
     is_visible: bool
     options: List[EditingOptionViewModel] = field(default_factory=list)
 
-class ShotSceneDetailsPresenter:
-    def __init__(self, scene_id: int, controller: IGameController, view):
+class ShotSceneDetailsPresenter(QObject):
+    def __init__(self, scene_id: int, controller: IGameController, view, parent=None):
+        super().__init__(parent)
         self.scene_id = scene_id
         self.controller = controller
         self.view = view

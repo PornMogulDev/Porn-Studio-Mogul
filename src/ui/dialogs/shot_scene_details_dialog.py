@@ -9,11 +9,11 @@ from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.shot_scene_details_presenter import ShotSceneDetailsPresenter
 
 class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
-    def __init__(self, scene_id: int, controller, parent=None):
+    def __init__(self, controller, parent=None):
         super().__init__(parent)
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
-        self.presenter = ShotSceneDetailsPresenter(scene_id, controller, self)
+        self.presenter = None 
 
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         
@@ -24,6 +24,10 @@ class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
         self.setup_ui()
         self._restore_geometry()
 
+    def set_presenter(self, presenter: ShotSceneDetailsPresenter):
+        """Links the dialog with its presenter and triggers initial data load."""
+        self.presenter = presenter
+        # Defer the initial load until the presenter is fully set up.
         QTimer.singleShot(0, self.presenter.load_initial_data)
 
     def setup_ui(self):
