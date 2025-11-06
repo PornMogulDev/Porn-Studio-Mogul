@@ -17,6 +17,7 @@ from services.email_service import EmailService
 from services.events.scene_event_trigger_service import SceneEventTriggerService
 from services.market_service import MarketService
 from services.calculation.revenue_calculator import RevenueCalculator
+from services.calculation.bloc_cost_calculator import BlocCostCalculator
 from services.models.results import ShootCalculationResult
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ class SceneCommandService:
     def __init__(self, session_factory, signals: GameSignals, data_manager: DataManager, query_service: GameQueryService, 
              talent_command_service: TalentCommandService, market_service: MarketService, 
              email_service: EmailService, scene_processing_service: SceneProcessingService, revenue_calculator: RevenueCalculator,
-             scene_event_trigger_service: SceneEventTriggerService):
+             scene_event_trigger_service: SceneEventTriggerService, bloc_cost_calculator: BlocCostCalculator):
         self.session_factory = session_factory
         self.signals = signals
         self.data_manager = data_manager
@@ -40,6 +41,7 @@ class SceneCommandService:
         self.scene_processing_service = scene_processing_service
         self.revenue_calculator = revenue_calculator
         self.scene_event_trigger_service = scene_event_trigger_service
+        self.bloc_cost_calculator = bloc_cost_calculator
 
     # --- CRUD and Logic Methods ---
     def _cast_talent_for_role_internal(self, session: Session, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int) -> Optional[Dict]:
@@ -131,40 +133,7 @@ class SceneCommandService:
     
     def calculate_shooting_bloc_cost(self, num_scenes: int, settings: Dict[str, str], policies: List[str]) -> int:
         """Calculates the authoritative cost for creating a shooting bloc."""
-        total_cost_per_scene = 0
-
-        # Special handling for Camera cost
-        cam_equip_tier_name = settings.get("Camera Equipment")
-        cam_setup_tier_name = settings.get("Camera Setup")
-        
-        equip_cost = 0
-        if cam_equip_tier_name:
-            tiers = self.data_manager.production_settings_data.get("Camera Equipment", [])
-            tier_info = next((t for t in tiers if t['tier_name'] == cam_equip_tier_name), None)
-            if tier_info:
-                equip_cost = tier_info.get('cost_per_scene', 0)
-
-        setup_multiplier = 1.0
-        if cam_setup_tier_name:
-            tiers = self.data_manager.production_settings_data.get("Camera Setup", [])
-            tier_info = next((t for t in tiers if t['tier_name'] == cam_setup_tier_name), None)
-            if tier_info:
-                setup_multiplier = tier_info.get('cost_multiplier', 1.0)
-        
-        total_cost_per_scene += equip_cost * setup_multiplier
-
-        # Add costs from all other standard categories
-        for category, tier_name in settings.items():
-            if category in ["Camera Equipment", "Camera Setup"]: continue
-            tiers = self.data_manager.production_settings_data.get(category, [])
-            tier_info = next((t for t in tiers if t['tier_name'] == tier_name), None)
-            if tier_info:
-                total_cost_per_scene += tier_info.get('cost_per_scene', 0)
-        settings_cost = total_cost_per_scene * num_scenes
-
-        policies_cost = sum(self.data_manager.on_set_policies_data.get(p_id, {}).get('cost_per_bloc', 0) for p_id in policies)
-        
-        return int(settings_cost + policies_cost)
+        return self.bloc_cost_calculator.calculate_shooting_bloc_cost(num_scenes, settings, policies)
     
     def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str]) -> bool:
         """Creates a new ShootingBloc and its associated blank scenes in the database."""
@@ -174,12 +143,7 @@ class SceneCommandService:
             current_money = int(float(money_info.value))
 
             # --- Authoritative cost calculation AND validation ---
-            cost = self.calculate_shooting_bloc_cost(num_scenes, settings, policies)
-
-            if current_money < cost:
-                # Emit failure signal directly from the authoritative service
-                self.signals.notification_posted.emit(f"Not enough money. Cost: ${cost:,}, Have: ${current_money:,}")
-                return False
+            cost = self.bloc_cost_calculator.calculate_shooting_bloc_cost(num_scenes, settings, policies)
 
             new_money = current_money - cost
             money_info.value = str(new_money)

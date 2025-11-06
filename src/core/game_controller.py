@@ -18,6 +18,7 @@ from services.query.tag_query_service import TagQueryService
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
+from services.calculation.bloc_cost_calculator import BlocCostCalculator
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_command_service import SceneCommandService
 from services.command.scene_event_command_service import SceneEventCommandService
@@ -66,6 +67,7 @@ class GameController(QObject):
         self.market_service: Optional[MarketService] = None
         self.talent_query_service: Optional[TalentQueryService] = None
         self.talent_demand_calculator: Optional[TalentDemandCalculator] = None
+        self.bloc_cost_calculator: Optional[BlocCostCalculator] = None
         self.time_service: Optional[TimeService] = None
         self.go_to_list_service: Optional[GoToListService] = None
         self.scene_event_command_service: Optional[SceneEventCommandService] = None
@@ -96,6 +98,7 @@ class GameController(QObject):
     def get_talent_by_id(self, talent_id: int) -> Optional[Talent]:
         if not self.query_service: return None
         return self.query_service.get_talent_by_id(talent_id)
+    
     def get_filtered_talents(self, filters: dict) -> List[Talent]:
         if not self.query_service: return []
         return self.query_service.get_filtered_talents(filters)
@@ -228,8 +231,8 @@ class GameController(QObject):
     
     def calculate_shooting_bloc_cost(self, num_scenes: int, settings: Dict, policies: List[str]) -> int:
         """Proxy method for the UI to get a cost estimate from the authoritative service."""
-        if not self.scene_command_service: return 0
-        return self.scene_command_service.calculate_shooting_bloc_cost(num_scenes, settings, policies)
+        if not self.bloc_cost_calculator: return 0
+        return self.bloc_cost_calculator.calculate_shooting_bloc_cost(num_scenes, settings, policies)
 
     def create_blank_scene(self, week: Optional[int] = None, year: Optional[int] = None) -> int:
         use_week = week if week is not None else self.game_state.week

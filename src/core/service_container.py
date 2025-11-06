@@ -30,6 +30,7 @@ from services.calculation.market_group_resolver import MarketGroupResolver
 from services.calculation.role_performance_calculator import RolePerformanceCalculator
 from services.calculation.talent_availability_checker import TalentAvailabilityChecker
 from services.calculation.talent_affinity_calculator import TalentAffinityCalculator
+from services.calculation.bloc_cost_calculator import BlocCostCalculator
 
 if TYPE_CHECKING:
     from core.game_controller import GameController
@@ -59,6 +60,7 @@ class ServiceContainer:
         self.scene_command_service: Optional[SceneCommandService] = None
         self.market_service: Optional[MarketService] = None
         self.talent_query_service: Optional[TalentQueryService] = None
+        self.bloc_cost_calculator: Optional[BlocCostCalculator] = None
         self.talent_demand_calculator: Optional[TalentDemandCalculator] = None
         self.role_performance_calculator: Optional[RolePerformanceCalculator] = None
         self.auto_tag_analyzer: Optional[AutoTagAnalyzer] = None
@@ -97,6 +99,7 @@ class ServiceContainer:
         self.tag_query_service = TagQueryService(self.data_manager)
         self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
         self.talent_demand_calculator = TalentDemandCalculator(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
+        self.bloc_cost_calculator = BlocCostCalculator(self.data_manager)
         self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.talent_demand_calculator, self.query_service, self.hiring_config, self.availability_checker)
         self.role_performance_calculator = RolePerformanceCalculator()
         self.player_settings_service = PlayerSettingsService(session_factory, self.signals)
@@ -116,7 +119,7 @@ class ServiceContainer:
         self.scene_command_service = SceneCommandService(
             session_factory, self.signals, self.data_manager, self.query_service, self.talent_command_service,
             self.market_service, self.email_service, self.scene_processing_service, self.revenue_calculator,
-            self.scene_event_trigger_service
+            self.scene_event_trigger_service, self.bloc_cost_calculator
         )
         self.scene_event_command_service = SceneEventCommandService(session_factory, self.data_manager, self.query_service)
         self.time_service = TimeService(session_factory, self.signals, self.scene_command_service, self.talent_command_service, self.market_service)
@@ -149,6 +152,7 @@ class ServiceContainer:
         controller.scene_command_service = self.scene_command_service
         controller.market_service = self.market_service
         controller.talent_demand_calculator = self.talent_demand_calculator
+        controller.bloc_cost_calculator = self.bloc_cost_calculator
         controller.talent_query_service = self.talent_query_service
         controller.time_service = self.time_service
         controller.go_to_list_service = self.go_to_list_service
@@ -165,6 +169,7 @@ class ServiceContainer:
         controller.scene_command_service = None
         controller.market_service = None
         controller.talent_demand_calculator = None
+        controller.bloc_cost_calculator = None
         controller.talent_query_service = None
         controller.time_service = None
         controller.go_to_list_service = None
@@ -176,11 +181,11 @@ class ServiceContainer:
         """Sets all service references on this container to None."""
         self.query_service = None
         self.tag_query_service = None
-        # ... and so on for all services ...
         self.talent_command_service = None
         self.scene_command_service = None
         self.market_service = None
         self.talent_demand_calculator = None
+        self.bloc_cost_calculator
         self.talent_query_service = None
         self.role_performance_calculator = None
         self.auto_tag_analyzer = None
