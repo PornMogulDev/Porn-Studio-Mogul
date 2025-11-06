@@ -5,15 +5,15 @@ from PyQt6.QtWidgets import (
     QAbstractItemView, QDialogButtonBox, QInputDialog, QMessageBox, QWidget, QMenu
 )
 from data.game_state import Talent
-from ui.windows.talent_profile_window import TalentProfileWindow
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
+### MODIFIED: Import the presenter and the shared sentinel value
+from ui.presenters.go_to_list_presenter import GoToListPresenter, ALL_TALENTS_ID
 
 class GoToTalentListModel(QAbstractListModel):
     """A model for displaying a list of talents."""
     def __init__(self, talents: list[Talent] = None, parent=None):
         super().__init__(parent)
         self.talents = talents or []
-        self.defaultSize = QSize(600, 500)
 
     def data(self, index: QModelIndex, role: int):
         if not index.isValid():
@@ -41,23 +41,30 @@ class GoToTalentListModel(QAbstractListModel):
 
 class GoToTalentDialog(GeometryManagerMixin, QDialog):
     """A dialog to view and manage Go-To talent list categories."""
-    ALL_TALENTS_ID = -1 # Sentinel value for the "All Talents" view
+    # ### MODIFIED: The sentinel value is now imported from the presenter.
+    # ALL_TALENTS_ID is now imported.
 
-    def __init__(self, controller, ui_manager, parent=None):
+    def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
-        self.controller = controller
-        self.ui_manager = ui_manager
-        self.settings_manager = self.controller.settings_manager
+        self.presenter: GoToListPresenter | None = None # Initialize to None
+        self.settings_manager = settings_manager # Mixin needs this
         
         self.setWindowTitle("Go-To Talent Categories")
         self.setMinimumSize(600, 500)
-        self.setup_ui()
+        self.defaultSize = QSize(600, 500)
         
+        self.setup_ui()
         self.connect_signals()
         
-        # Initial population
-        self.refresh_categories()
+        # Geometry is restored here, before the presenter initializes,
+        # which is perfectly fine.
         self._restore_geometry()
+
+    # --- NEW METHOD ---
+    def set_presenter(self, presenter: GoToListPresenter):
+        """Sets the presenter for the dialog and triggers initial data load."""
+        self.presenter = presenter
+        self.presenter.initialize()
 
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
@@ -88,7 +95,6 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         self.talent_model = GoToTalentListModel()
         self.talent_list_view.setModel(self.talent_model)
         self.talent_list_view.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        # --- NEW: Enable context menu ---
         self.talent_list_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         right_layout.addWidget(self.talent_list_view)
         
@@ -97,13 +103,13 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         close_btn = button_box.addButton(QDialogButtonBox.StandardButton.Close)
         right_layout.addWidget(button_box)
         
-        # Add panes to main layout
         main_layout.addWidget(left_pane, 2)
         main_layout.addWidget(right_pane, 3)
         
         close_btn.clicked.connect(self.accept)
 
     def connect_signals(self):
+        # ### MODIFIED: Only connect UI widget signals. Controller signals are handled by the presenter.
         self.category_list.currentItemChanged.connect(self.on_category_selected)
         
         self.new_category_btn.clicked.connect(self.create_new_category)
@@ -112,117 +118,97 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         
         self.remove_btn.clicked.connect(self.remove_selected_talents)
         self.talent_list_view.doubleClicked.connect(self.show_talent_profile)
-        # --- NEW: Connect context menu signal ---
         self.talent_list_view.customContextMenuRequested.connect(self.show_talent_list_context_menu)
 
-        self.controller.signals.go_to_categories_changed.connect(self.refresh_categories)
-        self.controller.signals.go_to_list_changed.connect(self.refresh_current_talent_list)
-
-    def refresh_categories(self):
-        current_selection_id = None
-        if current_item := self.category_list.currentItem():
-            data = current_item.data(Qt.ItemDataRole.UserRole)
-            current_selection_id = data if isinstance(data, int) else data.get('id')
-
+    ### NEW: Method for the presenter to update the category list.
+    def display_categories(self, categories: list[dict], selected_id: int):
         self.category_list.blockSignals(True)
         self.category_list.clear()
 
         all_item = QListWidgetItem("All Talents")
-        all_item.setData(Qt.ItemDataRole.UserRole, self.ALL_TALENTS_ID)
+        all_item.setData(Qt.ItemDataRole.UserRole, ALL_TALENTS_ID)
         self.category_list.addItem(all_item)
         
-        categories = self.controller.get_go_to_list_categories()
         for cat in categories:
             item = QListWidgetItem(cat['name'])
-            item.setData(Qt.ItemDataRole.UserRole, cat)
+            item.setData(Qt.ItemDataRole.UserRole, cat['id'])
             self.category_list.addItem(item)
             
         self.category_list.blockSignals(False)
 
         item_to_select = None
-        if current_selection_id is not None:
-            for i in range(self.category_list.count()):
-                item = self.category_list.item(i)
-                item_data = item.data(Qt.ItemDataRole.UserRole)
-                item_id = item_data if isinstance(item_data, int) else item_data.get('id')
-                if item_id == current_selection_id:
-                    item_to_select = item
-                    break
+        for i in range(self.category_list.count()):
+            item = self.category_list.item(i)
+            item_id = item.data(Qt.ItemDataRole.UserRole)
+            if item_id == selected_id:
+                item_to_select = item
+                break
         
         if item_to_select:
             self.category_list.setCurrentItem(item_to_select)
         elif self.category_list.count() > 0:
             self.category_list.setCurrentRow(0)
         else:
+            # Explicitly trigger selection logic for the null state
             self.on_category_selected(None)
 
-    def on_category_selected(self, current_item: QListWidgetItem):
+    ### NEW: Method for the presenter to update the talent list.
+    def display_talents(self, talents: list[Talent]):
+        self.talent_model.update_data(talents)
+
+    def on_category_selected(self, current_item: QListWidgetItem | None):
+        ### MODIFIED: This method now only reports the selection to the presenter.
         if not current_item:
-            self.talent_model.update_data([])
-            self.update_button_states()
+            self.presenter.select_category(None)
             return
 
-        category_data = current_item.data(Qt.ItemDataRole.UserRole)
-        talents = []
-        if category_data == self.ALL_TALENTS_ID:
-            talents = self.controller.get_go_to_list_talents()
-        elif isinstance(category_data, dict) and (category_id := category_data.get('id')):
-            talents = self.controller.get_talents_in_go_to_category(category_id)
-        
-        sorted_talents = sorted(talents, key=lambda t: t.alias)
-        self.talent_model.update_data(sorted_talents)
-        self.update_button_states()
+        category_id = current_item.data(Qt.ItemDataRole.UserRole)
+        self.presenter.select_category(category_id)
     
-    def refresh_current_talent_list(self):
-        """Refreshes the talent list for the currently selected category without changing selection."""
-        self.on_category_selected(self.category_list.currentItem())
-
-    def update_button_states(self):
-        selected_item = self.category_list.currentItem()
-        is_real_category, is_deletable = False, False
-        
-        if selected_item and isinstance(data := selected_item.data(Qt.ItemDataRole.UserRole), dict):
-            is_real_category = True
-            is_deletable = data.get('is_deletable', False)
-
-        self.remove_btn.setEnabled(is_real_category)
-        self.rename_category_btn.setEnabled(is_real_category)
-        self.delete_category_btn.setEnabled(is_deletable)
+    ### MODIFIED: Button state logic is gone. This method just applies the state given by the presenter.
+    def update_button_states(self, states: dict):
+        self.remove_btn.setEnabled(states.get('remove_enabled', False))
+        self.rename_category_btn.setEnabled(states.get('rename_enabled', False))
+        self.delete_category_btn.setEnabled(states.get('delete_enabled', False))
 
     def create_new_category(self):
+        ### MODIFIED: Delegates the action to the presenter after getting user input.
         name, ok = QInputDialog.getText(self, "New Category", "Enter category name:")
         if ok and name.strip():
-            self.controller.create_go_to_list_category(name)
+            self.presenter.create_category(name.strip())
 
     def rename_selected_category(self):
-        item = self.category_list.currentItem()
-        if not item or not isinstance(data := item.data(Qt.ItemDataRole.UserRole), dict):
+        ### MODIFIED: Gets current data from the presenter and delegates the action.
+        current_cat_info = self.presenter.get_current_category_info()
+        if not current_cat_info:
             return
         
-        new_name, ok = QInputDialog.getText(self, "Rename Category", "Enter new name:", text=data.get('name'))
-        if ok and new_name.strip() and new_name.strip() != data.get('name'):
-            self.controller.rename_go_to_list_category(data.get('id'), new_name)
+        new_name, ok = QInputDialog.getText(self, "Rename Category", "Enter new name:", text=current_cat_info.get('name'))
+        if ok and new_name.strip() and new_name.strip() != current_cat_info.get('name'):
+            self.presenter.rename_current_category(new_name.strip())
 
     def delete_selected_category(self):
-        item = self.category_list.currentItem()
-        if not item or not isinstance(data := item.data(Qt.ItemDataRole.UserRole), dict) or not data.get('is_deletable'):
+        ### MODIFIED: Gets current data from the presenter and delegates the action.
+        current_cat_info = self.presenter.get_current_category_info()
+        if not current_cat_info or not current_cat_info.get('is_deletable'):
             return
 
         reply = QMessageBox.question(self, "Confirm Delete",
-                                     f"Are you sure you want to delete the category '{data.get('name')}'?\n"
+                                     f"Are you sure you want to delete the category '{current_cat_info.get('name')}'?\n"
                                      "All talent assignments to this category will be removed.",
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                      QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
-            self.controller.delete_go_to_list_category(data.get('id'))
+            self.presenter.delete_current_category()
 
     def show_talent_profile(self, index: QModelIndex):
+        ### MODIFIED: Delegates the action to the presenter.
         if not index.isValid(): return
         if talent := self.talent_model.data(index, Qt.ItemDataRole.UserRole):
-            self.ui_manager.show_talent_profile(talent)
+            self.presenter.show_talent_profile(talent)
 
-    # --- NEW METHOD ---
     def show_talent_list_context_menu(self, pos: QPoint):
+        ### MODIFIED: Builds the menu from a simple model provided by the presenter.
         selected_indexes = self.talent_list_view.selectionModel().selectedIndexes()
         if not selected_indexes:
             return
@@ -230,17 +216,18 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         selected_talent_ids = [self.talent_model.data(index, Qt.ItemDataRole.UserRole).id 
                                for index in selected_indexes]
         
+        # Get the menu structure from the presenter
+        menu_model = self.presenter.get_context_menu_model()
         menu = QMenu(self)
-        all_categories = self.controller.get_go_to_list_categories()
 
         # --- "Add to..." Sub-menu ---
         add_menu = menu.addMenu("Add Selected to Category...")
-        if all_categories:
-            for category in sorted(all_categories, key=lambda c: c['name']):
-                action = QAction(category['name'], self)
+        if add_model := menu_model.get('add_to'):
+            for category_data in add_model:
+                action = QAction(category_data['name'], self)
                 action.triggered.connect(
-                    lambda checked=False, t_ids=selected_talent_ids, c_id=category['id']: 
-                    self.controller.add_talents_to_go_to_category(t_ids, c_id)
+                    lambda checked=False, t_ids=selected_talent_ids, c_id=category_data['id']: 
+                    self.presenter.add_talents_to_category(t_ids, c_id)
                 )
                 add_menu.addAction(action)
         else:
@@ -248,12 +235,12 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
 
         # --- "Remove from..." Sub-menu ---
         remove_menu = menu.addMenu("Remove Selected from Category...")
-        if all_categories:
-            for category in sorted(all_categories, key=lambda c: c['name']):
-                action = QAction(category['name'], self)
+        if remove_model := menu_model.get('remove_from'):
+            for category_data in remove_model:
+                action = QAction(category_data['name'], self)
                 action.triggered.connect(
-                    lambda checked=False, t_ids=selected_talent_ids, c_id=category['id']: 
-                    self.controller.remove_talents_from_go_to_category(t_ids, c_id)
+                    lambda checked=False, t_ids=selected_talent_ids, c_id=category_data['id']: 
+                    self.presenter.remove_talents_from_category(t_ids, c_id)
                 )
                 remove_menu.addAction(action)
         else:
@@ -263,11 +250,7 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         menu.exec(global_pos)
 
     def remove_selected_talents(self):
-        """Removes selected talents from the currently selected category."""
-        category_item = self.category_list.currentItem()
-        if not category_item or not isinstance(data := category_item.data(Qt.ItemDataRole.UserRole), dict):
-            return
-            
+        ### MODIFIED: Delegates the action to the presenter.
         selected_indexes = self.talent_list_view.selectionModel().selectedIndexes()
         if not selected_indexes: return
             
@@ -275,4 +258,10 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
                          for index in selected_indexes if self.talent_model.data(index, Qt.ItemDataRole.UserRole)]
         
         if ids_to_remove:
-            self.controller.remove_talents_from_go_to_category(ids_to_remove, data.get('id'))
+            self.presenter.remove_talents_from_current_category(ids_to_remove)
+
+    def closeEvent(self, event):
+            """Ensures presenter disconnects from global signals when the dialog is closed."""
+            if self.presenter:
+                self.presenter.disconnect_signals()
+            super().closeEvent(event)

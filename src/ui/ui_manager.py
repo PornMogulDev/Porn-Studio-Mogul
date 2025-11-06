@@ -12,6 +12,7 @@ from ui.windows.talent_profile_window import TalentProfileWindow
 from ui.dialogs.role_casting_dialog import RoleCastingDialog
 from ui.presenters.role_casting_presenter import RoleCastingPresenter
 from ui.dialogs.go_to_list import GoToTalentDialog
+from ui.presenters.go_to_list_presenter import GoToListPresenter
 from ui.dialogs.help_dialog import HelpDialog
 from ui.dialogs.incomplete_scheduled_scene import IncompleteCastingDialog
 from ui.dialogs.interactive_event_dialog import InteractiveEventDialog
@@ -40,6 +41,11 @@ class UIManager:
                 self.controller, *args, **kwargs, parent=self.parent_widget
             )
         return self._dialog_instances[dialog_name]
+    
+    def _on_dialog_closed(self, dialog_name: str):
+        if dialog_name in self._dialog_instances:
+            del self._dialog_instances[dialog_name]
+            logger.info(f"Closed and untracked dialog: {dialog_name}.")
 
     def show_game_menu(self):
         dialog = self._get_dialog(GameMenuDialog)
@@ -48,10 +54,14 @@ class UIManager:
     def show_go_to_list(self):
         dialog_name = GoToTalentDialog.__name__
         if dialog_name not in self._dialog_instances:
-            # Pass self (the UIManager instance) to the dialog for profile handling
-            self._dialog_instances[dialog_name] = GoToTalentDialog(
-                self.controller, self, parent=self.parent_widget
-            )
+            dialog = GoToTalentDialog(self.controller.settings_manager, parent=self.parent_widget)
+            presenter = GoToListPresenter(self.controller, dialog, self, parent=dialog)
+            dialog.set_presenter(presenter) # Use a setter for clarity
+            
+            # Connect the destroyed signal to our cleanup slot.
+            dialog.destroyed.connect(lambda obj=None, d_name=dialog_name: self._on_dialog_closed(d_name))
+
+            self._dialog_instances[dialog_name] = dialog
         
         dialog = self._dialog_instances[dialog_name]
         dialog.show()
