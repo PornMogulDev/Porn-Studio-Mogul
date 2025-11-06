@@ -214,13 +214,16 @@ class GameController(QObject):
         self.signals.notification_posted.emit(f"'{result['title']}' released! Revenue: +${result['revenue']:,}")
         self.signals.scenes_changed.emit()
         self.signals.money_changed.emit(result['new_money'])
+        self.signals.market_changed.emit()
 
         if result['market_changed']:
             # The emails_changed signal is now emitted by the EmailService itself,
             # so we don't need to call it here.
             for group_name in result['discoveries']:
                 self.signals.notification_posted.emit(f"New market insights gained for '{group_name}'!")
-            self.signals.market_changed.emit()
+            # We are emitting this anyway at the moment.
+            # When we move to a "gradual release" we will update this.
+            # self.signals.market_changed.emit()
             
     def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str]) -> bool:
         """
