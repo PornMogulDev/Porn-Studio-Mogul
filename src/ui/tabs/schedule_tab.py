@@ -1,35 +1,30 @@
-from PyQt6.QtCore import Qt
+from typing import List
+from PyQt6.QtCore import Qt, pyqtSignal, QModelIndex
 from PyQt6.QtWidgets import (
-QWidget, QVBoxLayout, QHBoxLayout, QTreeView, QPushButton,
-QLabel, QSpinBox, QHeaderView
+    QWidget, QVBoxLayout, QHBoxLayout, QTreeView, QPushButton,
+    QLabel, QSpinBox
 )
 from PyQt6.QtGui import QStandardItemModel, QStandardItem
-from PyQt6.QtWidgets import QDialog
 
-from data.game_state import Scene
+from ui.view_models import ScheduleWeekViewModel
 from ui.widgets.help_button import HelpButton
 
 class ScheduleTab(QWidget):
-    def __init__(self, controller, ui_manager):
-        super().__init__()
-        self.controller = controller
-        self.ui_manager = ui_manager
-        # Local state to hold authoritative time from signals
-        self.current_game_week = controller.game_state.week
-        self.current_game_year = controller.game_state.year
+    """
+    A "dumb" view for displaying the weekly shooting schedule. It renders
+    data provided by the ScheduleTabPresenter and emits signals for user actions.
+    """
+    # Signals emitted to the presenter
+    year_changed = pyqtSignal(int)
+    plan_bloc_requested = pyqtSignal()
+    item_double_clicked = pyqtSignal(dict)
+    help_requested = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.model = None
         self.setup_ui()
     
-        # --- Connections ---
-        self.controller.signals.scenes_changed.connect(self.refresh_schedule)
-        self.controller.signals.time_changed.connect(self._on_time_changed)
-        self.help_btn.help_requested.connect(self.controller.signals.show_help_requested)
-        self.year_spinbox.valueChanged.connect(self.refresh_schedule)
-        self.plan_scene_btn.clicked.connect(self.plan_shooting_bloc)
-        self.tree_view.doubleClicked.connect(self.handle_double_click)
-        
-        # Initial setup
-        self._on_time_changed(self.controller.game_state.week, self.controller.game_state.year)
-
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
 
@@ -37,6 +32,7 @@ class ScheduleTab(QWidget):
         menu_bar = QVBoxLayout()
         self.help_btn = HelpButton("schedule", self)
         menu_bar.addWidget(self.help_btn)
+        
         top_bar = QHBoxLayout()
         self.plan_scene_btn = QPushButton("Plan Shooting Bloc")
         top_bar.addWidget(self.plan_scene_btn)
@@ -44,6 +40,7 @@ class ScheduleTab(QWidget):
         top_bar.addWidget(QLabel("Viewing Year:"))
         self.year_spinbox = QSpinBox()
         top_bar.addWidget(self.year_spinbox)
+        
         menu_bar.addLayout(top_bar)
         main_layout.addLayout(menu_bar)
 
@@ -55,91 +52,61 @@ class ScheduleTab(QWidget):
         self.tree_view.setEditTriggers(QTreeView.EditTrigger.NoEditTriggers)
         main_layout.addWidget(self.tree_view)
         
-    def _on_time_changed(self, new_week: int, new_year: int):
-        """Slot to handle time changes, updating the year selector and refreshing the view."""
-        self.current_game_week = new_week
-        self.current_game_year = new_year
+        # --- Signal Connections (View -> Presenter) ---
+        self.year_spinbox.valueChanged.connect(self.year_changed)
+        self.plan_scene_btn.clicked.connect(self.plan_bloc_requested)
+        self.tree_view.doubleClicked.connect(self._on_item_double_clicked)
+        self.help_btn.help_requested.connect(self.help_requested)
 
-        # Block signals to prevent valueChanged from triggering a second refresh
+    def update_year_selector(self, year: int, year_range_min: int, year_range_max: int):
+        """Updates the year spinbox with a new value and range."""
+        # Block signals to prevent the valueChanged signal from firing
+        # while we programmatically set the value.
         self.year_spinbox.blockSignals(True)
         
-        # Update the range and value only if the year has actually changed.
-        # This is more efficient and correct for year-end rollovers.
-        if self.year_spinbox.value() != new_year:
-            self.year_spinbox.setRange(new_year, new_year + 10)
-            self.year_spinbox.setValue(new_year)
+        self.year_spinbox.setRange(year_range_min, year_range_max)
+        self.year_spinbox.setValue(year)
         
         self.year_spinbox.blockSignals(False)
 
-        # Always refresh the schedule to show the new week's state
-        self.refresh_schedule()
+    def get_selected_year(self) -> int:
+        """Allows the presenter to query the currently selected year."""
+        return self.year_spinbox.value()
 
-    def refresh_schedule(self):
+    def display_schedule(self, schedule_data: List[ScheduleWeekViewModel]):
+        """
+        Clears and rebuilds the entire schedule tree view from a list of
+        view model objects.
+        """
         self.model.clear()
-        current_week = self.current_game_week
-        viewing_year = self.year_spinbox.value()
         
-        all_blocs = self.controller.get_blocs_for_schedule_view(viewing_year)
-        blocs_by_week = {}
-        for bloc in all_blocs:
-            week = bloc.scheduled_week
-            if week not in blocs_by_week: blocs_by_week[week] = []
-            blocs_by_week[week].append(bloc)
-
-        start_week = current_week if viewing_year == self.current_game_year else 1
-        
-        for week_num in range(start_week, 53):
-            week_item = QStandardItem(f"Week {week_num}")
+        for week_vm in schedule_data:
+            week_item = QStandardItem(week_vm.display_text)
             week_item.setEditable(False)
-            week_item.setData({'type': 'week_header', 'week': week_num, 'year': viewing_year}, Qt.ItemDataRole.UserRole)
+            week_item.setData(week_vm.user_data, Qt.ItemDataRole.UserRole)
 
-            if week_num in blocs_by_week:
-                # Iterate through blocs in the week
-                for bloc in sorted(blocs_by_week[week_num], key=lambda b: b.id):
-                    scene_count = len(bloc.scenes)
-                    plural_s = 's' if scene_count > 1 else ''
-                    bloc_item = QStandardItem(f"Shooting Bloc ({scene_count} scene{plural_s})")
-                    bloc_item.setData({'type': 'bloc', 'data': bloc}, Qt.ItemDataRole.UserRole)
-                    
-                    prod_settings_tooltip = "\n".join(
-                        f"  - {cat.replace('_', ' ').title()}: {tier}" 
-                        for cat, tier in bloc.production_settings.items()
-                    )
-                    bloc_item.setToolTip(f"Production Settings:\n{prod_settings_tooltip}")
+            for bloc_vm in week_vm.blocs:
+                bloc_item = QStandardItem(bloc_vm.display_text)
+                bloc_item.setToolTip(bloc_vm.tooltip)
+                bloc_item.setData(bloc_vm.user_data, Qt.ItemDataRole.UserRole)
 
-                    # Iterate through scenes within the bloc
-                    for scene in sorted(bloc.scenes, key=lambda s: s.title):
-                        status_text = scene.display_status
-                        scene_item = QStandardItem(f"  - {scene.title} [{status_text}]")
-                        scene_item.setToolTip(f"'{scene.title}' - Status: {status_text}")
-                        scene_item.setData({'type': 'scene', 'data': scene}, Qt.ItemDataRole.UserRole)
-                        bloc_item.appendRow(scene_item)
-                    
-                    week_item.appendRow(bloc_item)
+                for scene_vm in bloc_vm.scenes:
+                    scene_item = QStandardItem(scene_vm.display_text)
+                    scene_item.setToolTip(scene_vm.tooltip)
+                    scene_item.setData(scene_vm.user_data, Qt.ItemDataRole.UserRole)
+                    bloc_item.appendRow(scene_item)
+                
+                week_item.appendRow(bloc_item)
             
             self.model.appendRow(week_item)
+            
         self.tree_view.expandAll()
 
-    def plan_shooting_bloc(self):
-        """Opens the dialog to plan a new shooting bloc."""
-        # Delegate dialog creation to the UIManager for consistency.
-        # Defaults to the current game week/year.
-        self.ui_manager.show_shooting_bloc_dialog(self.current_game_week, self.current_game_year)
-
-    def handle_double_click(self, index):
+    def _on_item_double_clicked(self, index: QModelIndex):
+        """
+        Internal slot to handle a double-click. It extracts the item data
+        and emits a signal for the presenter to handle the logic.
+        """
         item = self.model.itemFromIndex(index)
-        item_data = item.data(Qt.ItemDataRole.UserRole) if item else None
-        if not isinstance(item_data, dict): return
-        item_type = item_data.get('type')
-
-        if item_type == 'scene':
-            scene = item_data.get('data')
-            if isinstance(scene, Scene):
-                self.ui_manager.show_scene_planner(scene.id)
-        
-        elif item_type == 'week_header':
-            week = item_data.get('week')
-            year = item_data.get('year')
-            if week and year:
-                # Delegate dialog creation for a specific week to the UIManager.
-                self.ui_manager.show_shooting_bloc_dialog(week, year)
+        if item and (item_data := item.data(Qt.ItemDataRole.UserRole)):
+            self.item_double_clicked.emit(item_data)

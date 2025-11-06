@@ -51,3 +51,26 @@ class MarketGroupViewModel:
     physical_sentiments: List[SentimentViewModel] = field(default_factory=list)
     action_sentiments: List[SentimentViewModel] = field(default_factory=list)
     spillover_details: List[Tuple[str, str]] = field(default_factory=list)
+
+# --- SCHEDULE TAB ---
+@dataclass
+class ScheduleSceneViewModel:
+    """Holds display data for a single scene in the schedule tree."""
+    display_text: str
+    tooltip: str
+    user_data: dict # e.g., {'type': 'scene', 'id': 123}
+
+@dataclass
+class ScheduleBlocViewModel:
+    """Holds display data for a shooting bloc, including its scenes."""
+    display_text: str
+    tooltip: str
+    user_data: dict # e.g., {'type': 'bloc', 'id': 45}
+    scenes: List[ScheduleSceneViewModel] = field(default_factory=list)
+
+@dataclass
+class ScheduleWeekViewModel:
+    """Holds display data for a week, including its shooting blocs."""
+    display_text: str
+    user_data: dict # e.g., {'type': 'week_header', 'week': 1, 'year': 1}
+    blocs: List[ScheduleBlocViewModel] = field(default_factory=list)

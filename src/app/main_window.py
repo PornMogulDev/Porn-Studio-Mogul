@@ -12,6 +12,7 @@ from ui.tabs.schedule_tab import ScheduleTab
 from ui.tabs.market_tab import MarketTab
 from ui.presenters.market_tab_presenter import MarketTabPresenter
 from ui.presenters.talent_tab_presenter import TalentTabPresenter
+from ui.presenters.schedule_tab_presenter import ScheduleTabPresenter
 from ui.widgets.detachable_tab_widget import DetachableTabWidget
 from ui.widgets.main_window.top_bar_widget import TopBarWidget
 from ui.widgets.main_window.bottom_bar_widget import BottomBarWidget
@@ -52,7 +53,9 @@ class MainGameWindow(QWidget):
         self.hire_presenter = TalentTabPresenter(self.controller, self.hire_tab, self.ui_manager)
 
         self.scenes_tab = ScenesTab(self.controller, self.ui_manager)
-        self.schedule_tab = ScheduleTab(self.controller, self.ui_manager)
+
+        self.schedule_tab = ScheduleTab()
+        self.schedule_tab_presenter = ScheduleTabPresenter(self.controller, self.schedule_tab, self.ui_manager, parent=self.schedule_tab)
 
         self.market_tab = MarketTab()
         self.market_tab_presenter = MarketTabPresenter(self.controller, self.market_tab, parent=self.market_tab)
@@ -104,8 +107,12 @@ class MainGameWindow(QWidget):
             self.hire_presenter.view.refresh_from_state()
 
         self.scenes_tab.refresh_view()
-        self.schedule_tab._on_time_changed(self.controller.game_state.week, self.controller.game_state.year)
-        self.market_tab_presenter.load_initial_data()
+        
+        if self.schedule_tab_presenter:
+            self.schedule_tab_presenter.load_initial_data()
+        
+        if self.market_tab_presenter:
+            self.market_tab_presenter.load_initial_data()
 
     def game_over_ui(self, reason: str):
         self.setEnabled(False) 
