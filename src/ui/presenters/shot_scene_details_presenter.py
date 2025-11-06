@@ -3,7 +3,7 @@ from PyQt6.QtCore import QObject
 
 from data.game_state import Scene
 from core.interfaces import IGameController
-from ui.presenters.view_models import FinancialViewModel, EditingOptionViewModel, PostProductionViewModel
+from ui.view_models import FinancialViewModel, EditingOptionViewModel, PostProductionViewModel
 from utils.scene_summary_builder import prepare_summary_data
 
 class ShotSceneDetailsPresenter(QObject):

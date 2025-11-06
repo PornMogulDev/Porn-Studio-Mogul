@@ -126,7 +126,7 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         self.stacked_widget.setCurrentWidget(self.start_screen)
 
     def show_main_window(self):
-        self.main_window.refresh_all_ui() 
+        self.main_window.load_ui() 
         self.stacked_widget.setCurrentWidget(self.main_window)
 
     @pyqtSlot(str)

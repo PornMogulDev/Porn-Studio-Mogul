@@ -1,0 +1,53 @@
+from dataclasses import dataclass, field
+from typing import List, Tuple, Optional
+
+# --- SHOT SCENE DETAILS ---
+@dataclass
+class FinancialViewModel:
+    """Holds all pre-formatted strings for the financial summary."""
+    expenses_html: str
+    revenue_html: str
+    profit_html: str
+    market_interest_html: str
+
+@dataclass
+class EditingOptionViewModel:
+    """Holds data for a single post-production editing option."""
+    tier_id: str
+    name: str
+    tooltip: str
+    info_text: str
+    is_checked: bool
+
+@dataclass
+class PostProductionViewModel:
+    """Holds all data needed to build the post-production tab."""
+    is_visible: bool
+    options: List[EditingOptionViewModel] = field(default_factory=list)
+
+# --- MARKET TAB ---
+@dataclass
+class SentimentViewModel:
+    """
+    Holds display-ready data for a single sentiment (tag preference).
+    This allows the view to be "dumb" and just render what it's given.
+    """
+    label: str # The tag name, or "???" if undiscovered.
+    value_str: str # The pre-formatted value (e.g., "+0.25", "1.50x"), or "" if undiscovered.
+    color: Optional[str]# The hex color code for the value (e.g., "#00FF00"), or None.
+
+@dataclass
+class MarketGroupViewModel:
+    """
+    Holds all the processed and formatted data required to display the
+    details of a single market viewer group.
+    """
+    is_visible: bool = True
+    title: str = ""
+    attributes: List[Tuple[str, str]] = field(default_factory=list)
+    orientation_sentiments: List[SentimentViewModel] = field(default_factory=list)
+    dom_sub_sentiments: List[SentimentViewModel] = field(default_factory=list)
+    thematic_sentiments: List[SentimentViewModel] = field(default_factory=list)
+    physical_sentiments: List[SentimentViewModel] = field(default_factory=list)
+    action_sentiments: List[SentimentViewModel] = field(default_factory=list)
+    spillover_details: List[Tuple[str, str]] = field(default_factory=list)

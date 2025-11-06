@@ -7,7 +7,7 @@ from data.save_manager import SaveManager
 from data.game_state import GameState
 from services.email_service import EmailService
 from services.game_session_service import GameSessionService
-from services.go_to_list_service import GoToListService
+from services.command.go_to_list_service import GoToListService
 from services.market_service import MarketService
 from services.player_settings_service import PlayerSettingsService
 from services.time_service import TimeService

@@ -5,11 +5,12 @@ from PyQt6.QtWidgets import (
     QMessageBox, QTabWidget, QWidget, QVBoxLayout,
 )
 
+from core.notifications_manager import NotificationManager
 from ui.tabs.talent_tab import HireWindow
 from ui.tabs.scenes_tab import ScenesTab
 from ui.tabs.schedule_tab import ScheduleTab
-from core.notifications_manager import NotificationManager
 from ui.tabs.market_tab import MarketTab
+from ui.presenters.market_tab_presenter import MarketTabPresenter
 from ui.presenters.talent_tab_presenter import TalentTabPresenter
 from ui.widgets.detachable_tab_widget import DetachableTabWidget
 from ui.widgets.main_window.top_bar_widget import TopBarWidget
@@ -31,7 +32,6 @@ class MainGameWindow(QWidget):
         # --- Signal Connections ---
         self.controller.signals.notification_posted.connect(self.notification_manager.show_notification)
         self.controller.signals.game_over_triggered.connect(self.game_over_ui)
-        self.controller.signals.market_changed.connect(self.market_tab.refresh_view)
         self.controller.signals.incomplete_scene_check_requested.connect(self.ui_manager.handle_incomplete_scenes)
         self.controller.signals.interactive_event_triggered.connect(self.ui_manager.show_interactive_event)
         self.controller.signals.show_help_requested.connect(self.ui_manager.show_help)
@@ -53,7 +53,9 @@ class MainGameWindow(QWidget):
 
         self.scenes_tab = ScenesTab(self.controller, self.ui_manager)
         self.schedule_tab = ScheduleTab(self.controller, self.ui_manager)
-        self.market_tab = MarketTab(self.controller)
+
+        self.market_tab = MarketTab()
+        self.market_tab_presenter = MarketTabPresenter(self.controller, self.market_tab, parent=self.market_tab)
 
         tabs.addTab(self.schedule_tab, "Schedule")
         tabs.addTab(self.hire_tab, "Talent")
@@ -93,7 +95,7 @@ class MainGameWindow(QWidget):
         quick_load_action.triggered.connect(self.controller.quick_load)
         self.addAction(quick_load_action)
 
-    def refresh_all_ui(self):
+    def load_ui(self):
         """Pulls all current data from the controller and updates the entire UI."""
         self.top_bar.update_initial_state()
         self.bottom_bar.update_initial_state()
@@ -103,7 +105,7 @@ class MainGameWindow(QWidget):
 
         self.scenes_tab.refresh_view()
         self.schedule_tab._on_time_changed(self.controller.game_state.week, self.controller.game_state.year)
-        self.market_tab.refresh_view()
+        self.market_tab_presenter.load_initial_data()
 
     def game_over_ui(self, reason: str):
         self.setEnabled(False) 

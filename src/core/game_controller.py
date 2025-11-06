@@ -24,7 +24,7 @@ from services.command.scene_command_service import SceneCommandService
 from services.command.scene_event_command_service import SceneEventCommandService
 from services.market_service import MarketService
 from services.time_service import TimeService
-from services.go_to_list_service import GoToListService
+from services.command.go_to_list_service import GoToListService
 from services.game_session_service import GameSessionService
 from services.player_settings_service import PlayerSettingsService
 from services.email_service import EmailService
