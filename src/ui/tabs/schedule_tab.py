@@ -6,10 +6,7 @@ QLabel, QSpinBox, QHeaderView
 from PyQt6.QtGui import QStandardItemModel, QStandardItem
 from PyQt6.QtWidgets import QDialog
 
-from ui.dialogs.scene_dialog import SceneDialog
-from ui.dialogs.shooting_bloc_dialog import ShootingBlocDialog
-from data.game_state import Scene, ShootingBloc
-from ui.presenters.scene_planner_presenter import ScenePlannerPresenter # Import the presenter
+from data.game_state import Scene
 from ui.widgets.help_button import HelpButton
 
 class ScheduleTab(QWidget):
@@ -125,8 +122,9 @@ class ScheduleTab(QWidget):
 
     def plan_shooting_bloc(self):
         """Opens the dialog to plan a new shooting bloc."""
-        dialog = ShootingBlocDialog(self.controller, self.controller.settings_manager, self)
-        dialog.exec()
+        # Delegate dialog creation to the UIManager for consistency.
+        # Defaults to the current game week/year.
+        self.ui_manager.show_shooting_bloc_dialog(self.current_game_week, self.current_game_year)
 
     def handle_double_click(self, index):
         item = self.model.itemFromIndex(index)
@@ -142,6 +140,6 @@ class ScheduleTab(QWidget):
         elif item_type == 'week_header':
             week = item_data.get('week')
             year = item_data.get('year')
-            dialog = ShootingBlocDialog(self.controller, self.controller.settings_manager, self)
-            dialog.set_schedule(week, year)
-            dialog.exec()
+            if week and year:
+                # Delegate dialog creation for a specific week to the UIManager.
+                self.ui_manager.show_shooting_bloc_dialog(week, year)

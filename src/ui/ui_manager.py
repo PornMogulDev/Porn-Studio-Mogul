@@ -19,6 +19,7 @@ from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.shot_scene_details_dialog import ShotSceneDetailsDialog
 from ui.dialogs.game_menu_dialog import GameMenuDialog, ExitDialog
+from ui.dialogs.shooting_bloc_dialog import ShootingBlocDialog
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +227,17 @@ class UIManager:
         if scene_id in self._open_shot_scene_dialogs:
             del self._open_shot_scene_dialogs[scene_id]
             logger.info(f"Closed and untracked Shot Scene Details for scene ID: {scene_id}.")
+
+    def show_shooting_bloc_dialog(self, week: int, year: int) -> bool:
+        """
+        Shows a modal dialog to plan a new shooting bloc for a specific week.
+        Returns True if the user confirms and the bloc is created, False otherwise.
+        """
+        # Since this dialog is modal and its presenter is self-contained,
+        # we don't need complex tracking like with modeless dialogs.
+        dialog = ShootingBlocDialog(self.controller)
+        dialog.set_schedule(week, year)
+        return dialog.exec() == QDialog.DialogCode.Accepted
 
     def show_role_casting_dialog(self, scene_id: int, vp_id: int) -> int:
         """
