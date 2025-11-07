@@ -11,7 +11,7 @@ from data.game_state import Talent, Scene
 from ui.widgets.help_button import HelpButton
 from ui.models.talent_table_model import TalentTableModel
 
-class HireWindow(QWidget):
+class TalentTab(QWidget):
     standard_filters_changed = pyqtSignal(dict)
     show_role_info_requested = pyqtSignal(int, int) # scene_id, vp_id
     clear_role_info_requested = pyqtSignal()

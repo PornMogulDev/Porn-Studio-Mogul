@@ -1,11 +1,13 @@
 from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QSortFilterProxyModel
 from typing import List
 from data.game_state import Scene
+from ui.view_models import SceneViewModel
 
 class SceneSortFilterProxyModel(QSortFilterProxyModel):
     """
     Custom proxy model to handle sorting specific columns numerically
-    instead of lexicographically.
+    instead of lexicographically. It operates on the raw Scene object
+    stored in the UserRole of the source model.
     """
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -15,10 +17,12 @@ class SceneSortFilterProxyModel(QSortFilterProxyModel):
     def setSourceModel(self, sourceModel: QAbstractTableModel):
         """Cache column indexes when the source model is set."""
         super().setSourceModel(sourceModel)
-        if sourceModel:
+        if sourceModel and hasattr(sourceModel, '_headers'):
             try:
-                self._date_col_idx = sourceModel._headers.index("Date")
-                self._revenue_col_idx = sourceModel._headers.index("Revenue")
+                # Assuming the headers are consistent in SceneTableModel
+                headers = sourceModel._headers
+                self._date_col_idx = headers.index("Date")
+                self._revenue_col_idx = headers.index("Revenue")
             except (AttributeError, ValueError):
                 self._date_col_idx = -1
                 self._revenue_col_idx = -1
@@ -27,9 +31,9 @@ class SceneSortFilterProxyModel(QSortFilterProxyModel):
         source_model = self.sourceModel()
         col = left.column()
 
-        # Get the underlying Scene objects for comparison
-        left_scene = source_model.data(left, Qt.ItemDataRole.UserRole)
-        right_scene = source_model.data(right, Qt.ItemDataRole.UserRole)
+        # Get the underlying raw Scene objects for comparison
+        left_scene: Scene = source_model.data(left, Qt.ItemDataRole.UserRole)
+        right_scene: Scene = source_model.data(right, Qt.ItemDataRole.UserRole)
 
         if not left_scene or not right_scene:
             return super().lessThan(left, right)
@@ -40,7 +44,7 @@ class SceneSortFilterProxyModel(QSortFilterProxyModel):
             right_date_val = right_scene.scheduled_year * 52 + right_scene.scheduled_week
             return left_date_val < right_date_val
         
-        # --- NEW: Check for Revenue column ---
+        # --- Check for Revenue column ---
         elif col == self._revenue_col_idx:
             # Treat N/A (non-released scenes) as 0 for sorting purposes
             left_revenue = left_scene.revenue if left_scene.status == 'released' else 0
@@ -52,44 +56,48 @@ class SceneSortFilterProxyModel(QSortFilterProxyModel):
 
 
 class SceneTableModel(QAbstractTableModel):
-    def __init__(self, scenes: List[Scene] = None, controller=None, parent=None):
+    """
+    A "dumb" table model that displays pre-processed SceneViewModel data.
+    It holds both the view models for display and the raw data for sorting/filtering.
+    """
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self._scenes = scenes or []
+        self._scenes_vm: List[SceneViewModel] = []
+        self._raw_scenes: List[Scene] = []
         self._headers = ["Title", "Status", "Date", "Revenue", "Cast"]
-        self.controller = controller
 
     def rowCount(self, parent=QModelIndex()):
-        return len(self._scenes)
+        return len(self._scenes_vm)
 
     def columnCount(self, parent=QModelIndex()):
         return len(self._headers)
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
-        if not index.isValid() or not self.controller: return None
-        scene = self._scenes[index.row()]
+        if not index.isValid():
+            return None
+        
+        row = index.row()
         col = index.column()
 
+        if row >= len(self._scenes_vm):
+            return None
+
+        vm = self._scenes_vm[row]
+
         if role == Qt.ItemDataRole.DisplayRole:
-            if col == 0: return scene.title
-            elif col == 1: return scene.display_status
-            elif col == 2:
-                if scene.scheduled_year == -1 or scene.scheduled_week == -1: return "Unscheduled"
-                return f"W{scene.scheduled_week}, {scene.scheduled_year}"
-            elif col == 3:
-                if scene.status == 'released': return f"${scene.revenue:,}"
-                return "N/A"
-            elif col == 4:
-                if not scene.final_cast:
-                    return f"({len(scene.virtual_performers)} roles uncast)"
-                
-                talent_aliases = []
-                for talent_id in scene.final_cast.values():
-                    talent = self.controller.query_service.get_talent_by_id(talent_id)
-                    talent_aliases.append(talent.alias if talent else f"ID {talent_id}?")
-                return ", ".join(talent_aliases)
+            if col == 0: return vm.title
+            elif col == 1: return vm.display_status
+            elif col == 2: return vm.date_str
+            elif col == 3: return vm.revenue_str
+            elif col == 4: return vm.cast_str
         
+        # The UserRole provides the raw Scene object, which is used by the
+        # SceneSortFilterProxyModel for accurate numerical sorting.
         if role == Qt.ItemDataRole.UserRole:
-            return scene
+            if row < len(self._raw_scenes):
+                return self._raw_scenes[row]
+            return None
+            
         return None
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
@@ -97,7 +105,11 @@ class SceneTableModel(QAbstractTableModel):
             return self._headers[section]
         return None
 
-    def setScenes(self, scenes: List[Scene]):
+    def update_data(self, scenes_vm: List[SceneViewModel], raw_scenes: List[Scene]):
+        """
+        Receives new data from the presenter and refreshes the model.
+        """
         self.beginResetModel()
-        self._scenes = scenes
+        self._scenes_vm = scenes_vm
+        self._raw_scenes = raw_scenes
         self.endResetModel()

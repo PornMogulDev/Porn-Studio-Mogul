@@ -7,12 +7,13 @@ from ui.view_models import FinancialViewModel, EditingOptionViewModel, PostProdu
 from utils.scene_summary_builder import prepare_summary_data
 
 class ShotSceneDetailsPresenter(QObject):
-    def __init__(self, scene_id: int, controller: IGameController, view, parent=None):
+    def __init__(self, scene_id: int, controller: IGameController, view, initial_tab: Optional[str] = None, parent=None):
         super().__init__(parent)
         self.scene_id = scene_id
         self.controller = controller
         self.view = view
         self.scene: Optional[Scene] = None
+        self.initial_tab = initial_tab
         
         self.controller.signals.scenes_changed.connect(self._on_scene_changed)
 
@@ -28,6 +29,8 @@ class ShotSceneDetailsPresenter(QObject):
         self.scene = self.controller.get_scene_for_planner(self.scene_id)
         if self.scene:
             self.view.populate_data()
+            if self.initial_tab:
+                self.view.set_active_tab(self.initial_tab)
         else:
             self.view.reject() # Scene not found, close dialog
 

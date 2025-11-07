@@ -74,3 +74,15 @@ class ScheduleWeekViewModel:
     display_text: str
     user_data: dict # e.g., {'type': 'week_header', 'week': 1, 'year': 1}
     blocs: List[ScheduleBlocViewModel] = field(default_factory=list)
+
+# --- SCENES TAB ---
+@dataclass
+class SceneViewModel:
+    """Holds all pre-formatted, display-ready data for a single scene in the table."""
+    scene_id: int
+    status: str
+    title: str
+    display_status: str
+    date_str: str
+    revenue_str: str
+    cast_str: str

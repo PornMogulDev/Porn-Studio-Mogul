@@ -6,13 +6,14 @@ from PyQt6.QtWidgets import (
 )
 
 from core.notifications_manager import NotificationManager
-from ui.tabs.talent_tab import HireWindow
+from ui.tabs.talent_tab import TalentTab
 from ui.tabs.scenes_tab import ScenesTab
 from ui.tabs.schedule_tab import ScheduleTab
 from ui.tabs.market_tab import MarketTab
-from ui.presenters.market_tab_presenter import MarketTabPresenter
 from ui.presenters.talent_tab_presenter import TalentTabPresenter
+from ui.presenters.scenes_tab_presenter import ScenesTabPresenter
 from ui.presenters.schedule_tab_presenter import ScheduleTabPresenter
+from ui.presenters.market_tab_presenter import MarketTabPresenter
 from ui.widgets.detachable_tab_widget import DetachableTabWidget
 from ui.widgets.main_window.top_bar_widget import TopBarWidget
 from ui.widgets.main_window.bottom_bar_widget import BottomBarWidget
@@ -25,7 +26,7 @@ class MainGameWindow(QWidget):
         super().__init__()
         self.controller = controller
         self.ui_manager = UIManager(controller, self)
-        self.hire_presenter = None
+        self.talent_tab_presenter = None
         self.setup_ui()
         self.notification_manager = NotificationManager(self, controller)
         self._create_actions()
@@ -49,10 +50,11 @@ class MainGameWindow(QWidget):
         # --- Tabs ---
         tabs = DetachableTabWidget(self.controller.settings_manager)
         
-        self.hire_tab = HireWindow()
-        self.hire_presenter = TalentTabPresenter(self.controller, self.hire_tab, self.ui_manager)
+        self.talent_tab = TalentTab()
+        self.talent_tab_presenter = TalentTabPresenter(self.controller, self.talent_tab, self.ui_manager)
 
-        self.scenes_tab = ScenesTab(self.controller, self.ui_manager)
+        self.scenes_tab = ScenesTab()
+        self.scenes_tab_presenter = ScenesTabPresenter(self.controller, self.scenes_tab, self.ui_manager, parent=self.scenes_tab)
 
         self.schedule_tab = ScheduleTab()
         self.schedule_tab_presenter = ScheduleTabPresenter(self.controller, self.schedule_tab, self.ui_manager, parent=self.schedule_tab)
@@ -61,7 +63,7 @@ class MainGameWindow(QWidget):
         self.market_tab_presenter = MarketTabPresenter(self.controller, self.market_tab, parent=self.market_tab)
 
         tabs.addTab(self.schedule_tab, "Schedule")
-        tabs.addTab(self.hire_tab, "Talent")
+        tabs.addTab(self.talent_tab, "Talent")
         tabs.addTab(self.scenes_tab, "Scenes")
         tabs.addTab(self.market_tab, "Market")
         
@@ -103,10 +105,11 @@ class MainGameWindow(QWidget):
         self.top_bar.update_initial_state()
         self.bottom_bar.update_initial_state()
 
-        if self.hire_presenter:
-            self.hire_presenter.view.refresh_from_state()
+        if self.talent_tab_presenter:
+            self.talent_tab_presenter.view.refresh_from_state()
 
-        self.scenes_tab.refresh_view()
+        if self.scenes_tab_presenter:
+            self.scenes_tab_presenter.load_initial_data()
         
         if self.schedule_tab_presenter:
             self.schedule_tab_presenter.load_initial_data()

@@ -1,32 +1,37 @@
+from typing import List, Optional
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableView,
     QAbstractItemView, QHeaderView
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal, QModelIndex
+
+from data.game_state import Scene
 from ui.models.scene_model import SceneTableModel, SceneSortFilterProxyModel
-from ui.dialogs.shot_scene_details_dialog import ShotSceneDetailsDialog
+from ui.view_models import SceneViewModel
 
 class ScenesTab(QWidget):
-    def __init__(self, controller, uimanager):
-        super().__init__()
-        self.controller = controller
-        self.uimanager = uimanager
-        self.source_model = SceneTableModel(controller=self.controller)
+    """
+    A "dumb" view for displaying shot and released scenes. It renders data
+    provided by the ScenesTabPresenter and emits signals for user actions.
+    """
+    # Signals emitted to the presenter
+    selection_changed = pyqtSignal(object)       # Emits selected Scene object or None
+    manage_button_clicked = pyqtSignal(object)   # Emits selected Scene object
+    item_double_clicked = pyqtSignal(int)        # Emits scene_id
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.source_model = SceneTableModel()
         self.proxy_model = SceneSortFilterProxyModel()
         self.proxy_model.setSourceModel(self.source_model)
         self.setup_ui()
-        
-        self.controller.signals.scenes_changed.connect(self.refresh_view)
-        self.scene_table.doubleClicked.connect(self.view_scene_details)
-        self.manage_scene_btn.clicked.connect(self.manage_scene)
-        self.scene_table.selectionModel().selectionChanged.connect(self.update_button_states)
-        self.refresh_view()
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
         self.scene_table = QTableView()
         self.scene_table.setModel(self.proxy_model)
         self.scene_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.scene_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.scene_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.scene_table.setSortingEnabled(True)
         self.scene_table.horizontalHeader().setStretchLastSection(True)
@@ -40,46 +45,47 @@ class ScenesTab(QWidget):
         button_layout.addStretch()
         layout.addLayout(button_layout)
 
-    def refresh_view(self):
-        shot_scenes = self.controller.get_shot_scenes()
-        self.source_model.setScenes(shot_scenes)
-        self.update_button_states()
+        # --- Signal Connections (View -> Presenter) ---
+        self.scene_table.doubleClicked.connect(self._on_item_double_clicked)
+        self.manage_scene_btn.clicked.connect(self._on_manage_button_clicked)
+        self.scene_table.selectionModel().selectionChanged.connect(self._on_selection_changed)
+        
+        # Initial state
+        self.manage_scene_btn.setEnabled(False)
 
-    def _get_selected_scene(self):
+    def update_scene_list(self, scene_vms: List[SceneViewModel], raw_scenes: List[Scene]):
+        """Receives new data from the presenter and updates the table model."""
+        self.source_model.update_data(scene_vms, raw_scenes)
+
+    def update_button_state(self, text: str, is_enabled: bool):
+        """A simple "setter" method for the presenter to control the main action button."""
+        self.manage_scene_btn.setText(text)
+        self.manage_scene_btn.setEnabled(is_enabled)
+        
+    def _get_selected_scene(self) -> Optional[Scene]:
+        """Helper method to get the currently selected raw Scene object from the model."""
         selected_indexes = self.scene_table.selectionModel().selectedRows()
-        if len(selected_indexes) != 1: return None
-        source_index = self.proxy_model.mapToSource(selected_indexes[0])
+        if not selected_indexes:
+            return None
+            
+        proxy_index = selected_indexes[0]
+        source_index = self.proxy_model.mapToSource(proxy_index)
         return self.source_model.data(source_index, Qt.ItemDataRole.UserRole)
 
-    def update_button_states(self):
+    def _on_selection_changed(self):
+        """Internal slot that fires when selection changes and notifies the presenter."""
         selected_scene = self._get_selected_scene()
-        if not selected_scene:
-            self.manage_scene_btn.setEnabled(False)
-            self.manage_scene_btn.setText("Release Selected Scene")
-            return
+        self.selection_changed.emit(selected_scene)
 
-        if selected_scene.status == 'ready_to_release':
-            self.manage_scene_btn.setEnabled(True)
-            self.manage_scene_btn.setText("Release Scene")
-        elif selected_scene.status == 'shot':
-            self.manage_scene_btn.setEnabled(True)
-            self.manage_scene_btn.setText("Manage Post-Production")
-        else:
-            self.manage_scene_btn.setEnabled(False)
-            self.manage_scene_btn.setText("Release Selected Scene")
-
-    def manage_scene(self): 
+    def _on_manage_button_clicked(self):
+        """Internal slot that notifies the presenter when the action button is clicked."""
         selected_scene = self._get_selected_scene()
-        if not selected_scene: return
-        
-        if selected_scene.status == 'ready_to_release':
-            self.controller.release_scene(selected_scene.id)
-        elif selected_scene.status == 'shot':
-            # This is handled by the double-click/details dialog
-            self.uimanager.show_shot_scene_details(selected_scene.id)
-            
-    def view_scene_details(self, proxy_index):
+        if selected_scene:
+            self.manage_button_clicked.emit(selected_scene)
+
+    def _on_item_double_clicked(self, proxy_index: QModelIndex):
+        """Internal slot that notifies the presenter of a double-click event."""
         source_index = self.proxy_model.mapToSource(proxy_index)
         scene = self.source_model.data(source_index, Qt.ItemDataRole.UserRole)
         if scene:
-            self.uimanager.show_shot_scene_details(scene.id)
+            self.item_double_clicked.emit(scene.id)

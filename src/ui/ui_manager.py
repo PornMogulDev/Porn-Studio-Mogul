@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QDialog, QWidget
@@ -219,7 +220,7 @@ class UIManager:
             del self._open_scene_dialogs[scene_id]
             logger.info(f"Closed and untracked Scene Planner for scene ID: {scene_id}.")
 
-    def show_shot_scene_details(self, scene_id: int):
+    def show_shot_scene_details(self, scene_id: int, initial_tab: Optional[str] = None):
         """
         Shows a modeless Shot Scene Details dialog. If one for the given
         scene is already open, it brings it to the front.
@@ -235,7 +236,7 @@ class UIManager:
             
             # The presenter is parented to the dialog. When the dialog is destroyed by Qt,
             # the presenter will be destroyed with it, reliably cleaning up signals.
-            presenter = ShotSceneDetailsPresenter(scene_id, self.controller, dialog, parent=dialog)
+            presenter = ShotSceneDetailsPresenter(scene_id, self.controller, dialog, initial_tab=initial_tab, parent=dialog)
             
             # We use a setter to link them after creation.
             dialog.set_presenter(presenter)

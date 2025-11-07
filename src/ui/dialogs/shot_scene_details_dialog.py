@@ -107,6 +107,14 @@ class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
         # --- Dynamic Post-Production Tab ---
         self._setup_post_production_tab()
 
+    def set_active_tab(self, tab_name: str):
+        """Finds a tab by its text and sets it as the current tab."""
+        tab_name_lower = tab_name.lower()
+        for i in range(self.tabs.count()):
+            if self.tabs.tabText(i).lower() == tab_name_lower:
+                self.tabs.setCurrentIndex(i)
+                break
+
     def _setup_post_production_tab(self):
         """Creates or updates the post-production tab based on scene status."""
         # If the tab exists, remove it before rebuilding to ensure it's fresh

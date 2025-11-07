@@ -2,7 +2,7 @@ from typing import Union, Tuple, TYPE_CHECKING, List, Dict, Optional
 from PyQt6.QtCore import QObject, pyqtSlot, QPoint
 
 from core.interfaces import IGameController
-from ui.tabs.talent_tab import HireWindow
+from ui.tabs.talent_tab import TalentTab
 from ui.dialogs.talent_filter_dialog import TalentFilterDialog
 from data.game_state import Talent
 from database.db_models import TalentDB
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from ui.ui_manager import UIManager
 
 class TalentTabPresenter(QObject):
-    def __init__(self, controller: IGameController, view: HireWindow, ui_manager: 'UIManager'):
+    def __init__(self, controller: IGameController, view: TalentTab, ui_manager: 'UIManager'):
         super().__init__()
         self.controller = controller
         self.view = view
