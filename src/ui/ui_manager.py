@@ -6,10 +6,11 @@ from PyQt6.QtWidgets import QApplication, QDialog, QWidget
 
 from data.game_state import Talent, Scene
 from ui.dialogs.email_dialog import EmailDialog
+from ui.presenters.email_presenter import EmailPresenter
 from ui.dialogs.scene_dialog import SceneDialog
-from ui.presenters.talent_profile_presenter import TalentProfilePresenter
 from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
 from ui.windows.talent_profile_window import TalentProfileWindow
+from ui.presenters.talent_profile_presenter import TalentProfilePresenter
 from ui.dialogs.role_casting_dialog import RoleCastingDialog
 from ui.presenters.role_casting_presenter import RoleCastingPresenter
 from ui.dialogs.go_to_list import GoToTalentDialog
@@ -71,7 +72,18 @@ class UIManager:
         dialog.activateWindow()
 
     def show_inbox(self):
-        dialog = self._get_dialog(EmailDialog)
+        dialog_name = EmailDialog.__name__
+        if dialog_name not in self._dialog_instances:
+            dialog = EmailDialog(self.controller.settings_manager, parent=self.parent_widget)
+            presenter = EmailPresenter(self.controller, dialog, parent=dialog)
+            dialog.set_presenter(presenter) # Use a setter for clarity
+            
+            # Connect the destroyed signal to our cleanup slot.
+            dialog.destroyed.connect(lambda obj=None, d_name=dialog_name: self._on_dialog_closed(d_name))
+
+            self._dialog_instances[dialog_name] = dialog
+        
+        dialog = self._dialog_instances[dialog_name]
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()

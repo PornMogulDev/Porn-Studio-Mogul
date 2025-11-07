@@ -95,3 +95,19 @@ class SettingsViewModel:
     theme: str
     font_family: str
     font_size: int
+
+# --- EMAIL DIALOG ---
+@dataclass
+class EmailListItemViewModel:
+    """Holds display-ready data for a single item in the email list."""
+    id: int
+    subject: str
+    is_bold: bool # Represents the 'is_read' state visually
+
+@dataclass
+class EmailContentViewModel:
+    """Holds the formatted content for the email details pane."""
+    is_visible: bool = True
+    subject: str = "Subject: (Select a message)"
+    date_str: str = "Date:"
+    body: str = ""

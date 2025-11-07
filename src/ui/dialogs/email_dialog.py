@@ -1,38 +1,40 @@
+from typing import List, Optional
 from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
-    QTextEdit, QLabel, QPushButton, QDialogButtonBox, QMessageBox,
+    QTextEdit, QLabel, QPushButton, QDialogButtonBox
 )
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, QTimer
 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.help_button import HelpButton
 from ui.widgets.revert_geometry_button import RestoreGeometryButton
+from ui.view_models import EmailListItemViewModel, EmailContentViewModel
+from ui.presenters.email_presenter import EmailPresenter
 
 class EmailDialog(GeometryManagerMixin, QDialog):
-    def __init__(self, controller, parent=None):
+    # --- Signals for the Presenter ---
+    email_selected = pyqtSignal(object) # object allows None
+    delete_requested = pyqtSignal(list)
+    help_requested = pyqtSignal(str)
+
+    def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
-        self.controller = controller
-        self.settings_manager = self.controller.settings_manager
-        # REMOVED: No longer need to fetch the theme here, it's handled globally.
-        # theme_name = self.settings_manager.get_setting("theme", "dark")
-        # self.current_theme = self.controller.theme_manager.get_theme(theme_name)
+        self.settings_manager = settings_manager
+        self.presenter: Optional[EmailPresenter] = None
+        
         self.setWindowTitle("Inbox")
         self.defaultSize = QSize(600, 500)
 
         self.setup_ui()
         self.connect_signals()
-        
-        self.refresh_ui()
-
         self._restore_geometry()
 
-        # After the UI is built and populated, we can set the initial state.
-        # First, check if there are any items to prevent an error.
-        if self.email_list_widget.count() > 0:
-            # Programmatically select the first item in the list (index 0).
-            self.email_list_widget.setCurrentRow(0)
-            # Explicitly give the list widget keyboard focus.
-            self.email_list_widget.setFocus()
+    def set_presenter(self, presenter: EmailPresenter):
+        """Links this view to its presenter and triggers the initial data load."""
+        self.presenter = presenter
+        # Trigger the initial data load after the event loop starts, ensuring
+        # the view is fully constructed and visible.
+        QTimer.singleShot(0, self.presenter.load_initial_data)
 
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
@@ -69,8 +71,6 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         # Assign an object name for QSS targeting
         self.date_label.setObjectName("emailDateLabel")
         
-        # REMOVED: All inline setStyleSheet calls. The global QSS will handle this.
-        
         self.body_text = QTextEdit()
         self.body_text.setReadOnly(True)
         
@@ -87,80 +87,70 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         close_button_box.rejected.connect(self.reject)
 
     def connect_signals(self):
-        self.email_list_widget.currentItemChanged.connect(self.on_email_selected)
+        self.email_list_widget.currentItemChanged.connect(self._on_email_selection_changed)
         self.email_list_widget.selectionModel().selectionChanged.connect(self.update_button_state)
-        self.controller.signals.emails_changed.connect(self.refresh_ui)
-        self.delete_btn.clicked.connect(self.delete_selected_emails)
-        self.help_btn.help_requested.connect(self.controller.signals.show_help_requested)
+        self.delete_btn.clicked.connect(self._on_delete_clicked)
+        self.help_btn.help_requested.connect(self.help_requested)
 
-    def refresh_ui(self):
-        """Repopulates the list and maintains selection if possible."""
-        current_email_obj = None
-        if current_item := self.email_list_widget.currentItem():
-            current_email_obj = current_item.data(Qt.ItemDataRole.UserRole)
-
+    def update_email_list(self, emails: List[EmailListItemViewModel], selected_id: Optional[int]):
+        """
+        Clears and repopulates the email list from a list of view models.
+        This is a 'dumb' renderer commanded by the presenter.
+        """
+        self.email_list_widget.blockSignals(True)
         self.email_list_widget.clear()
-        
-        # Fetch emails directly from the controller's DB query method
-        all_emails = self.controller.get_all_emails()
 
         item_to_reselect = None
-        for email in all_emails:
-            item = QListWidgetItem(email.subject)
-            # Store the entire object for easy access later
-            item.setData(Qt.ItemDataRole.UserRole, email) 
+        for vm in emails:
+            item = QListWidgetItem(vm.subject)
+            item.setData(Qt.ItemDataRole.UserRole, vm.id) 
             
-            if not email.is_read:
+            if vm.is_bold:
                 font = item.font()
                 font.setBold(True)
                 item.setFont(font)
             
             self.email_list_widget.addItem(item)
-            if current_email_obj and email.id == current_email_obj.id:
+            if selected_id and vm.id == selected_id:
                 item_to_reselect = item
+
+        self.email_list_widget.blockSignals(False)
 
         if item_to_reselect:
             self.email_list_widget.setCurrentItem(item_to_reselect)
-        else:
-            self.clear_details()
-            self.update_button_state()
-
-    def on_email_selected(self, current_item, previous_item):
-        if not current_item:
-            self.clear_details()
-            return
-            
-        # Get the full email object directly from the item data
-        email_obj = current_item.data(Qt.ItemDataRole.UserRole)
+        elif self.email_list_widget.count() > 0:
+            self.email_list_widget.setCurrentRow(0)
         
-        if email_obj:
-            self.subject_label.setText(f"Subject: {email_obj.subject}")
-            self.date_label.setText(f"Date: Week {email_obj.week}, {email_obj.year}")
-            self.body_text.setPlainText(email_obj.body)
-            
-            # If it was unread, mark it as read
-            if not email_obj.is_read:
-                self.controller.mark_email_as_read(email_obj.id)
-                # The connected signal will trigger refresh_ui to update the font.
+        self.update_button_state()
+        self.email_list_widget.setFocus()
+
+    def display_email_content(self, vm: EmailContentViewModel):
+        """Updates the details pane with data from a view model."""
+        self.subject_label.setText(vm.subject)
+        self.date_label.setText(vm.date_str)
+        self.body_text.setPlainText(vm.body)
 
     def update_button_state(self):
+        """Updates the enabled state of buttons based on UI state."""
         self.delete_btn.setEnabled(len(self.email_list_widget.selectedItems()) > 0)
 
-    def delete_selected_emails(self):
+    def _on_email_selection_changed(self, current_item: QListWidgetItem, previous_item: QListWidgetItem):
+        """
+        Internal slot to capture a selection change and emit a signal with the
+        email's ID to the presenter.
+        """
+        email_id = None
+        if current_item:
+            email_id = current_item.data(Qt.ItemDataRole.UserRole)
+        self.email_selected.emit(email_id)
+
+    def _on_delete_clicked(self):
+        """
+        Internal slot to gather selected email IDs and emit a signal to the presenter.
+        """
         selected_items = self.email_list_widget.selectedItems()
         if not selected_items:
             return
-            
-        reply = QMessageBox.question(self, "Confirm Delete", 
-                                     f"Are you sure you want to delete {len(selected_items)} message(s)?",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                     QMessageBox.StandardButton.No)
         
-        if reply == QMessageBox.StandardButton.Yes:
-            ids_to_delete = [item.data(Qt.ItemDataRole.UserRole).id for item in selected_items]
-            self.controller.delete_emails(ids_to_delete)
-
-    def clear_details(self):
-        self.subject_label.setText("Subject: (Select a message)")
-        self.date_label.setText("Date:")
-        self.body_text.clear()
+        ids_to_delete = [item.data(Qt.ItemDataRole.UserRole) for item in selected_items]
+        self.delete_requested.emit(ids_to_delete)
