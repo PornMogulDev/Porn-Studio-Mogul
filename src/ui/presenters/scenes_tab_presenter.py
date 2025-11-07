@@ -82,30 +82,30 @@ class ScenesTabPresenter(QObject):
         return view_models
 
     @pyqtSlot(object)
-    def on_selection_changed(self, selected_scene: Optional[Scene]):
+    def on_selection_changed(self, selected_vm: Optional[SceneViewModel]):
         """Updates the state of the main action button based on the selected scene."""
-        if not selected_scene:
+        if not selected_vm:
             self.view.update_button_state("Release Selected Scene", is_enabled=False)
             return
 
-        if selected_scene.status == 'ready_to_release':
+        if selected_vm.status == 'ready_to_release':
             self.view.update_button_state("Release Scene", is_enabled=True)
-        elif selected_scene.status == 'shot':
+        elif selected_vm.status == 'shot':
             self.view.update_button_state("Manage Post-Production", is_enabled=True)
         else:
             self.view.update_button_state("Release Selected Scene", is_enabled=False)
 
     @pyqtSlot(object)
-    def on_manage_button_clicked(self, selected_scene: Scene):
+    def on_manage_button_clicked(self, selected_vm: SceneViewModel):
         """Handles the logic when the main action button is clicked."""
-        if not selected_scene:
+        if not selected_vm:
             return
         
-        if selected_scene.status == 'ready_to_release':
-            self.controller.release_scene(selected_scene.id)
-        elif selected_scene.status == 'shot':
+        if selected_vm.status == 'ready_to_release':
+            self.controller.release_scene(selected_vm.scene_id)
+        elif selected_vm.status == 'shot':
             # This action opens the same details dialog as a double-click.
-            self.ui_manager.show_shot_scene_details(selected_scene.id, initial_tab="post-production")
+            self.ui_manager.show_shot_scene_details(selected_vm.scene_id, initial_tab="post-production")
 
     @pyqtSlot(int)
     def on_item_double_clicked(self, scene_id: int):

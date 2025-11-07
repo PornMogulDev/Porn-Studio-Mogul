@@ -113,3 +113,9 @@ class SceneTableModel(QAbstractTableModel):
         self._scenes_vm = scenes_vm
         self._raw_scenes = raw_scenes
         self.endResetModel()
+
+    def get_view_model_by_row(self, row: int) -> SceneViewModel | None:
+        """Allows external components like the view to get the ViewModel for a given row."""
+        if 0 <= row < len(self._scenes_vm):
+            return self._scenes_vm[row]
+        return None
