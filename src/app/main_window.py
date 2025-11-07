@@ -17,15 +17,14 @@ from ui.presenters.market_tab_presenter import MarketTabPresenter
 from ui.widgets.detachable_tab_widget import DetachableTabWidget
 from ui.widgets.main_window.top_bar_widget import TopBarWidget
 from ui.widgets.main_window.bottom_bar_widget import BottomBarWidget
-from ui.ui_manager import UIManager
 
 logger = logging.getLogger(__name__)
 
 class MainGameWindow(QWidget):
-    def __init__(self, controller):
+    def __init__(self, controller, ui_manager):
         super().__init__()
         self.controller = controller
-        self.ui_manager = UIManager(controller, self)
+        self.ui_manager = ui_manager
         self.talent_tab_presenter = None
         self.setup_ui()
         self.notification_manager = NotificationManager(self, controller)

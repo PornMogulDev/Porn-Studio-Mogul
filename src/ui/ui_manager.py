@@ -84,8 +84,9 @@ class UIManager:
         dialog = SaveLoadDialog(self.controller, mode=mode, parent=self.parent_widget)
         dialog.exec()
 
-    def show_settings(self):
-        dialog = self._get_dialog(SettingsDialog)
+    def show_settings_dialog(self):
+        # Since the dialog is modal and self-contained, we create a new instance each time.
+        dialog = SettingsDialog(self.controller, self.parent_widget)
         dialog.exec()
 
     def show_exit_dialog(self):

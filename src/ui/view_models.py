@@ -86,3 +86,12 @@ class SceneViewModel:
     date_str: str
     revenue_str: str
     cast_str: str
+
+# --- SETTINGS DIALOG ---
+@dataclass
+class SettingsViewModel:
+    """Holds the initial state of settings to populate the dialog."""
+    unit_system: str
+    theme: str
+    font_family: str
+    font_size: int

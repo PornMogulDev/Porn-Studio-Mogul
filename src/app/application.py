@@ -11,6 +11,7 @@ from core.game_signals import GameSignals
 from core.game_controller import GameController
 from app.start_screen import MenuScreen
 from app.main_window import MainGameWindow
+from ui.ui_manager import UIManager
 from ui.theme_manager import ThemeManager 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from utils.paths import LOG_DIR, LOG_FILE
@@ -99,9 +100,10 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         # --- Create the Controller (Façade) ---
         self.controller = GameController(self.settings_manager, self.data_manager, self.theme_manager,
                                          self.save_manager, self.signals, self.service_container)
-
-        self.start_screen = MenuScreen(self.controller)
-        self.main_window = MainGameWindow(self.controller)
+        self.ui_manager = UIManager(self.controller, self)
+        
+        self.start_screen = MenuScreen(self.controller, self.ui_manager)
+        self.main_window = MainGameWindow(self.controller, self.ui_manager)
 
         self.stacked_widget = QStackedWidget()
         self.stacked_widget.addWidget(self.start_screen)
@@ -120,8 +122,7 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         self._restore_geometry()
 
     def show_start_screen(self):
-        if self.main_window and self.main_window.ui_manager:
-            self.main_window.ui_manager.close_all_dialogs()
+        self.ui_manager.close_all_dialogs()
         self.start_screen.refresh_button_states()
         self.stacked_widget.setCurrentWidget(self.start_screen)
 

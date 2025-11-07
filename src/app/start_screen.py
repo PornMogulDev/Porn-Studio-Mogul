@@ -1,11 +1,8 @@
 import logging
-from pathlib import Path
-from PyQt6.QtCore import QSize, Qt, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtWidgets import ( QDialog, QLabel, QPushButton, QSizePolicy, 
                              QVBoxLayout, QWidget, QTextEdit, QGridLayout,
                               QDialogButtonBox )
-from PyQt6.QtSvgWidgets import QSvgWidget
 
 from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
@@ -29,9 +26,10 @@ class MenuButton(QPushButton):
         return QSize(250, 60)"""
 
 class MenuScreen(QWidget):
-    def __init__(self, controller):
+    def __init__(self, controller, ui_manager):
         super().__init__()
         self.controller = controller
+        self.ui_manager = ui_manager
 
         # --- Main Layout ---
         main_layout = QVBoxLayout(self)
@@ -66,7 +64,7 @@ class MenuScreen(QWidget):
 
         # --- Left Buttons ---
         settings_btn = MenuButton("Settings")
-        settings_btn.clicked.connect(self.show_settings_dialog) 
+        settings_btn.clicked.connect(self.ui_manager.show_settings_dialog) 
         editor_btn = MenuButton("Editor")
         editor_btn.setEnabled(False)
         acknowledge_btn = MenuButton("Acknowledgements")
@@ -117,11 +115,6 @@ class MenuScreen(QWidget):
         dialog.save_selected.connect(self.controller.load_game)
         dialog.exec()
     
-    def show_settings_dialog(self):
-        """Creates and shows the settings dialog."""
-        dialog = SettingsDialog(self.controller, self)
-        dialog.exec()
-
     def show_acknowledgements_dialog(self):
         """Creates and shows the acknowledgements dialog."""
         dialog = QDialog(self)
