@@ -91,6 +91,9 @@ class ThemeManager:
         # extra padding to ensure the title text has breathing room.
         # This makes the layout scale correctly with the font.
         groupbox_margin_top = font_size + 10 
+        
+        # Calculate font size for large headers like the email subject
+        subject_font_size = min(font_size + 2, 30)
 
         qss = f"""
             /* --- Global Font & Color Settings --- */
@@ -105,7 +108,7 @@ class ThemeManager:
             QGroupBox {{
                 border: 1px solid {theme.groupbox_border};
                 border-radius: 4px;
-                /* MODIFIED: Using our dynamically calculated margin */
+                /* Using our dynamically calculated margin */
                 margin-top: {groupbox_margin_top}px; 
             }}
             QGroupBox::title {{
@@ -219,6 +222,17 @@ class ThemeManager:
                 background: {theme.background_light};
                 border-color: {theme.accent};
                 border-bottom-color: {theme.background_light}; /* Creates seamless look */
+            }}
+
+            /* --- Specific Component Styling for Email Dialog --- */
+            QLabel#emailSubjectLabel {{
+                font-size: {subject_font_size}pt;
+                font-weight: bold;
+                /* Color is inherited from the global QWidget style */
+            }}
+
+            QLabel#emailDateLabel {{
+                color: {theme.color_neutral};
             }}
         """
         return qss

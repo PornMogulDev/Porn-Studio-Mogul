@@ -13,8 +13,9 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         super().__init__(parent)
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
-        theme_name = self.settings_manager.get_setting("theme", "dark")
-        self.current_theme = self.controller.theme_manager.get_theme(theme_name)
+        # REMOVED: No longer need to fetch the theme here, it's handled globally.
+        # theme_name = self.settings_manager.get_setting("theme", "dark")
+        # self.current_theme = self.controller.theme_manager.get_theme(theme_name)
         self.setWindowTitle("Inbox")
         self.defaultSize = QSize(600, 500)
 
@@ -61,10 +62,14 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         # --- Right Panel (Email Content) ---
         right_panel = QVBoxLayout()
         self.subject_label = QLabel("Subject: (Select a message)")
-        self.subject_label.setStyleSheet("font-size: 14px; font-weight: bold;")
-        
+        # Assign an object name for QSS targeting
+        self.subject_label.setObjectName("emailSubjectLabel")
+
         self.date_label = QLabel("Date:")
-        self.date_label.setStyleSheet(f"color: {self.current_theme.color_neutral};")
+        # Assign an object name for QSS targeting
+        self.date_label.setObjectName("emailDateLabel")
+        
+        # REMOVED: All inline setStyleSheet calls. The global QSS will handle this.
         
         self.body_text = QTextEdit()
         self.body_text.setReadOnly(True)
