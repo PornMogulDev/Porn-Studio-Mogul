@@ -49,7 +49,7 @@ class MenuScreen(QWidget):
         
         version_label = QLabel("0.5.7 (presenters refactor)")
         version_label.setAlignment(Qt.AlignmentFlag.AlignAbsolute | Qt.AlignmentFlag.AlignBottom)
-        title_label.setStyleSheet("font-size: 12pt;") # And for version
+        version_label.setStyleSheet("font-size: 12pt;") # And for version
 
         top_layout.addWidget(title_label, 9)   # Give the title 9 shares of space
         top_layout.addWidget(version_label, 1) # Give it 1 share of space
