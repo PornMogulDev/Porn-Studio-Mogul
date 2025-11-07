@@ -50,7 +50,7 @@ class UIManager:
             logger.info(f"Closed and untracked dialog: {dialog_name}.")
 
     def show_game_menu(self):
-        dialog = self._get_dialog(GameMenuDialog)
+        dialog = self._get_dialog(GameMenuDialog, self)
         dialog.exec()
 
     def show_go_to_list(self):
@@ -82,7 +82,11 @@ class UIManager:
 
     def show_save_load(self, mode: str):
         dialog = SaveLoadDialog(self.controller, mode=mode, parent=self.parent_widget)
-        dialog.exec()
+        if mode == 'load':
+            dialog.save_selected.connect(self.controller.load_game)
+        elif mode == 'save':
+            dialog.save_selected.connect(self.controller.save_game)
+        result = dialog.exec()
 
     def show_settings_dialog(self):
         # Since the dialog is modal and self-contained, we create a new instance each time.

@@ -9,10 +9,11 @@ from ui.dialogs.settings_dialog import SettingsDialog
 
 class GameMenuDialog(GeometryManagerMixin, QDialog):
     """A dialog that serves as the in-game menu."""
-    def __init__(self, controller, parent=None):
+    def __init__(self, controller, ui_manager, parent=None):
         super().__init__(parent)
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
+        self.ui_manager = ui_manager
         self.setWindowTitle("Game Menu")
         self.setup_ui()
         self._restore_geometry()
@@ -40,35 +41,20 @@ class GameMenuDialog(GeometryManagerMixin, QDialog):
         return_to_menu_btn.clicked.connect(self.return_to_menu)
         save_btn.clicked.connect(self.save_game)
         load_btn.clicked.connect(self.load_game)
-        settings_btn.clicked.connect(self.show_settings_dialog)
+        settings_btn.clicked.connect(self.ui_manager.show_settings_dialog)
         quit_btn.clicked.connect(self.quit_game)
 
-    def return_to_menu(self):
-        dialog = ExitDialog(self.controller, parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            exit_save = dialog.get_data()
-            self.controller.return_to_main_menu(exit_save)
-        self.accept() # Close menu after action
-
     def save_game(self):
-        dialog = SaveLoadDialog(self.controller, mode='save', parent=self)
-        dialog.save_selected.connect(self.controller.save_game)
-        dialog.exec()
+        self.ui_manager.show_save_load('save')
 
     def load_game(self):
-        dialog = SaveLoadDialog(self.controller, mode='load', parent=self)
-        dialog.save_selected.connect(self.controller.load_game)
-        dialog.exec()
+        self.ui_manager.show_save_load('load')
 
-    def show_settings_dialog(self):
-        """Creates and shows the settings dialog."""
-        dialog = SettingsDialog(self.controller, self)
-        dialog.exec()
+    def return_to_menu(self):
+        self.ui_manager.show_exit_dialog()
+
     def quit_game(self):
-        dialog = ExitDialog(self.controller, text="Create 'Exit Save' before quitting?", parent=self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            exit_save = dialog.get_data()
-            self.controller.quit_game(exit_save)
+        self.ui_manager.show_quit_dialog()
 
 class ExitDialog(GeometryManagerMixin, QDialog):
     def __init__(self, controller, text="Create 'Exit Save'?", parent=None):

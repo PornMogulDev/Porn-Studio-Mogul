@@ -4,8 +4,6 @@ from PyQt6.QtWidgets import ( QDialog, QLabel, QPushButton, QSizePolicy,
                              QVBoxLayout, QWidget, QTextEdit, QGridLayout,
                               QDialogButtonBox )
 
-from ui.dialogs.save_load_ui import SaveLoadDialog
-from ui.dialogs.settings_dialog import SettingsDialog
 from utils.paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO, F95_LOGO, ACKNOWLEDGEMENTS_FILE
 from ui.widgets.clickable_svg_widget import ClickableSvgWidget
 
@@ -111,9 +109,7 @@ class MenuScreen(QWidget):
         self.load_game_btn.setEnabled(has_saves)
 
     def show_load_dialog(self):
-        dialog = SaveLoadDialog(self.controller, mode='load', parent=self)
-        dialog.save_selected.connect(self.controller.load_game)
-        dialog.exec()
+        self.ui_manager.show_save_load('load')
     
     def show_acknowledgements_dialog(self):
         """Creates and shows the acknowledgements dialog."""
