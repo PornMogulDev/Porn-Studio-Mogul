@@ -11,7 +11,7 @@ from services.command.go_to_list_service import GoToListService
 from services.market_service import MarketService
 from services.player_settings_service import PlayerSettingsService
 from services.time_service import TimeService
-from services.calculation.auto_tag_analyzer import AutoTagAnalyzer
+from services.calculation.tag_validation_checker import TagValidationChecker
 from services.calculation.post_production_calculator import PostProductionCalculator
 from services.calculation.revenue_calculator import RevenueCalculator
 from services.command.scene_processing_service import SceneProcessingService
@@ -63,7 +63,7 @@ class ServiceContainer:
         self.bloc_cost_calculator: Optional[BlocCostCalculator] = None
         self.talent_demand_calculator: Optional[TalentDemandCalculator] = None
         self.role_performance_calculator: Optional[RolePerformanceCalculator] = None
-        self.auto_tag_analyzer: Optional[AutoTagAnalyzer] = None
+        self.tag_validation_checker: Optional[TagValidationChecker] = None
         self.talent_affinity_calculator: Optional[TalentAffinityCalculator] = None
         self.availability_checker: Optional[TalentAvailabilityChecker] = None
         self.shoot_results_calculator: Optional[ShootResultsCalculator] = None
@@ -105,14 +105,14 @@ class ServiceContainer:
         self.player_settings_service = PlayerSettingsService(session_factory, self.signals)
         self.go_to_list_service = GoToListService(session_factory, self.signals)
         self.email_service = EmailService(session_factory, self.signals, game_state)
-        self.auto_tag_analyzer = AutoTagAnalyzer(self.data_manager)
+        self.tag_validation_checker = TagValidationChecker(self.data_manager)
         self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_calculator)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
         self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
         self.scene_processing_service = SceneProcessingService(
             self.data_manager, self.talent_command_service, self.scene_calc_config,
-            self.auto_tag_analyzer, self.shoot_results_calculator,
+            self.tag_validation_checker, self.shoot_results_calculator,
             self.scene_quality_calculator, self.post_production_calculator
         )
         self.scene_event_trigger_service = SceneEventTriggerService(self.data_manager)
@@ -148,6 +148,7 @@ class ServiceContainer:
         """Injects the initialized services into the controller instance."""
         controller.query_service = self.query_service
         controller.tag_query_service = self.tag_query_service
+        controller.tag_validation_checker = self.tag_validation_checker
         controller.talent_command_service = self.talent_command_service
         controller.scene_command_service = self.scene_command_service
         controller.market_service = self.market_service
@@ -165,6 +166,7 @@ class ServiceContainer:
         """Sets all service references on the controller to None."""
         controller.query_service = None
         controller.tag_query_service = None
+        controller.tag_validation_checker = None
         controller.talent_command_service = None
         controller.scene_command_service = None
         controller.market_service = None
@@ -188,7 +190,7 @@ class ServiceContainer:
         self.bloc_cost_calculator
         self.talent_query_service = None
         self.role_performance_calculator = None
-        self.auto_tag_analyzer = None
+        self.tag_validation_checker = None
         self.talent_affinity_calculator = None
         self.availability_checker = None
         self.shoot_results_calculator = None

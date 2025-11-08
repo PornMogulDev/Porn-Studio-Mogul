@@ -249,15 +249,17 @@ class ScenePlannerPresenter(QObject):
         tag_data = item.data(Qt.ItemDataRole.UserRole)
         raw_name = tag_data['full_name'].lstrip("⭐ ")
         self.selected_physical_tag_name = raw_name
-        performers_with_talent_data = []
+        eligible_performers_data = []
         for vp in self.working_scene.virtual_performers:
-            talent = self.get_talent_by_id(self.working_scene.final_cast.get(str(vp.id)))
-            performers_with_talent_data.append({
-                'display_name': talent.alias if talent else vp.name, 'is_cast': talent is not None, 
-                'gender': vp.gender, 'ethnicity': vp.ethnicity, 'vp_id': vp.id
-            })
+            # Check eligibility against the tag definition using the controller
+            if self.controller.is_performer_eligible_for_tag(vp, raw_name):
+                talent = self.get_talent_by_id(self.working_scene.final_cast.get(str(vp.id)))
+                eligible_performers_data.append({
+                    'display_name': talent.alias if talent else vp.name, 'is_cast': talent is not None,
+                    'gender': vp.gender, 'ethnicity': vp.ethnicity, 'vp_id': vp.id
+                })
         assigned_ids = self.working_scene.assigned_tags.get(raw_name, [])
-        self.view.update_physical_assignment_panel(tag_data, performers_with_talent_data, assigned_ids, self.is_design_editable())
+        self.view.update_physical_assignment_panel(tag_data, eligible_performers_data, assigned_ids, self.is_design_editable())
 
     def on_physical_tag_assignment_changed(self, tag_name: str, vp_id: int, is_assigned: bool):
         self.state_editor.update_style_tag_assignment(tag_name, vp_id, is_assigned)

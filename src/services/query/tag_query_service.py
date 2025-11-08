@@ -1,5 +1,5 @@
 
-from typing import List, Dict, Set, Tuple
+from typing import List, Dict, Set, Tuple, Optional
 
 from data.data_manager import DataManager
 
@@ -40,3 +40,7 @@ class TagQueryService:
         result = (tags, categories, orientations)
         self._cached_data[tag_type] = result
         return result
+    
+    def get_tag_definition(self, tag_name: str) -> Optional[Dict]:
+        """Fetches a single tag definition dictionary by its name."""
+        return self.tag_definitions.get(tag_name)

@@ -8,13 +8,64 @@ from data.data_manager import DataManager
 
 logger = logging.getLogger(__name__)
 
-class AutoTagAnalyzer:
+class TagValidationChecker:
     """
     A pure logic class responsible for discovering Physical tags based on
     the composition of a scene's cast.
     """
     def __init__(self, data_manager: DataManager):
         self.data_manager = data_manager
+
+        
+    def is_performer_eligible_for_tag(self, performer, tag_def: Dict) -> bool:
+        """
+        Checks if a single performer (Talent or VirtualPerformer) is eligible to be assigned
+        to a Physical tag, either by matching a profile in a compositional tag or by
+        meeting the top-level requirements of a single-performer tag.
+        """
+        # Case 1: Compositional Tag with a validation rule
+        if validation_rule := tag_def.get('validation_rule'):
+            profiles = validation_rule.get("profiles", [])
+            if not profiles:
+                return True # No specific profiles, so anyone is technically eligible
+
+            for profile in profiles:
+                is_match = True
+                # Check gender
+                if (req_gender := profile.get("gender")) and getattr(performer, 'gender', None) != req_gender:
+                    is_match = False
+                
+                # Check ethnicity
+                if is_match and (req_ethnicity := profile.get("ethnicity")) and getattr(performer, 'ethnicity', None) != req_ethnicity:
+                    is_match = False
+
+                # Check age (safely, as VirtualPerformer won't have it)
+                performer_age = getattr(performer, 'age', None)
+                if is_match and performer_age is not None:
+                    if (min_age := profile.get("min_age")) is not None and performer_age < min_age:
+                        is_match = False
+                    if is_match and (max_age := profile.get("max_age")) is not None and performer_age > max_age:
+                        is_match = False
+
+                # If all checks for this profile passed, the performer is eligible.
+                if is_match:
+                    return True
+
+            # Performer didn't match any profile in the compositional tag
+            return False
+
+        # Case 2: Single-performer Tag (no validation rule, check top-level attributes)
+        else:
+            # Check top-level gender requirement
+            if (req_gender := tag_def.get('gender')) and getattr(performer, 'gender', None) != req_gender:
+                return False
+
+            # Check top-level ethnicity requirement
+            if (req_ethnicity := tag_def.get('ethnicity')) and getattr(performer, 'ethnicity', None) != req_ethnicity:
+                return False
+
+            # All single-performer requirements met (or there were none)
+            return True
 
     def analyze_cast(self, cast_talents: List[Talent], existing_tags: Set[str]) -> List[str]:
         """

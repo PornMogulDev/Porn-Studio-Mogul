@@ -429,7 +429,7 @@ class SceneDialog(GeometryManagerMixin, QDialog):
             if tag_data['full_name'] == selection_name: new_current_item = item
         if new_current_item: self.selected_physical_list.setCurrentItem(new_current_item)
             
-    def update_physical_assignment_panel(self, tag_data: Optional[Dict], performers_with_talent: List[Dict], assigned_vp_ids: List[int], is_editable: bool):
+    def update_physical_assignment_panel(self, tag_data: Optional[Dict], eligible_performers: List[Dict], assigned_vp_ids: List[int], is_editable: bool):
         while self.physical_assignment_layout.count():
             child = self.physical_assignment_layout.takeAt(0)
             if child.widget(): child.widget().deleteLater()
@@ -437,12 +437,6 @@ class SceneDialog(GeometryManagerMixin, QDialog):
 
         self.physical_assignment_group.setVisible(True)
         tag_name = tag_data['full_name']
-        eligible_performers = []
-        for p_data in performers_with_talent:
-             gender_ok = not (req := tag_data.get('gender')) or req == "Any" or p_data['gender'] == req
-             ethnicity_ok = not (req := tag_data.get('ethnicity')) or req == "Any" or p_data['ethnicity'] == req
-             if gender_ok and ethnicity_ok:
-                eligible_performers.append(p_data)
 
         if not eligible_performers:
             label = QLabel("No performer fulfills the requirements for the selected tag.")

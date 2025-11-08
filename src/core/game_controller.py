@@ -17,6 +17,7 @@ from database.db_models import *
 from services.query.tag_query_service import TagQueryService
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
+from services.calculation.tag_validation_checker import TagValidationChecker
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.calculation.bloc_cost_calculator import BlocCostCalculator
 from services.command.talent_command_service import TalentCommandService
@@ -61,7 +62,8 @@ class GameController(QObject):
 
        # --- Service Properties (will be populated by ServiceContainer) ---
         self.query_service: Optional[GameQueryService] = None
-        self.tag_query_service: Optional['TagQueryService'] = None # Forward ref if needed
+        self.tag_query_service: Optional['TagQueryService'] = None
+        self.tag_validation_checker : Optional[TagValidationChecker] = None
         self.talent_command_service: Optional[TalentCommandService] = None
         self.scene_command_service: Optional[SceneCommandService] = None
         self.market_service: Optional[MarketService] = None
@@ -286,6 +288,18 @@ class GameController(QObject):
 
     def get_action_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
         return self.tag_query_service.get_tags_for_planner('Action')
+    
+    def is_performer_eligible_for_tag(self, performer, tag_name: str) -> bool:
+        if not self.tag_validation_checker or not self.tag_query_service:
+            return False
+            
+        # Step 1: Delegate data fetching to the query service
+        tag_def = self.tag_query_service.get_tag_definition(tag_name)
+        if not tag_def:
+            return False
+            
+        # Step 2: Delegate calculation to the calculation service
+        return self.tag_validation_checker.is_performer_eligible_for_tag(performer, tag_def)
 
     def get_resolved_group_data(self, group_name: str) -> Dict: return self.market_service.get_resolved_group_data(group_name)
 

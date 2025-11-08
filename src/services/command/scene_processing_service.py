@@ -9,7 +9,7 @@ from database.db_models import SceneDB, TalentDB, GameInfoDB, ShootingBlocDB, Sc
 from services.command.talent_command_service import TalentCommandService
 from services.models.configs import SceneCalculationConfig
 from services.models.results import ShootCalculationResult
-from services.calculation.auto_tag_analyzer import AutoTagAnalyzer
+from services.calculation.tag_validation_checker import TagValidationChecker
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
 from services.calculation.scene_quality_calculator import SceneQualityCalculator
 from services.calculation.post_production_calculator import PostProductionCalculator
@@ -23,13 +23,13 @@ class SceneProcessingService:
     their results to the database within a transaction managed by a caller service.
     """
     def __init__(self, data_manager: DataManager, talent_command_service: TalentCommandService,
-                 config: SceneCalculationConfig, auto_tag_analyzer: AutoTagAnalyzer,
+                 config: SceneCalculationConfig, tag_validation_checker: TagValidationChecker,
                  shoot_results_calc: ShootResultsCalculator, scene_quality_calc: SceneQualityCalculator,
                  post_prod_calc: PostProductionCalculator):
         self.data_manager = data_manager
         self.talent_command_service = talent_command_service
         self.config = config
-        self.auto_tag_analyzer = auto_tag_analyzer
+        self.tag_validation_checker = tag_validation_checker
         self.shoot_results_calculator = shoot_results_calc
         self.scene_quality_calculator = scene_quality_calc
         self.post_production_calculator = post_prod_calc
@@ -79,7 +79,7 @@ class SceneProcessingService:
         scene.performer_stamina_costs = {str(o.talent_id): o.stamina_cost for o in talent_outcomes}
 
         existing_tags = set(scene.global_tags) | set(scene.assigned_tags.keys())
-        discovered_tags = self.auto_tag_analyzer.analyze_cast(cast_talents_dc, existing_tags)
+        discovered_tags = self.tag_validation_checker.analyze_cast(cast_talents_dc, existing_tags)
         scene.auto_tags = discovered_tags
 
         bloc_db = session.query(ShootingBlocDB).get(scene.bloc_id) if scene.bloc_id else None
