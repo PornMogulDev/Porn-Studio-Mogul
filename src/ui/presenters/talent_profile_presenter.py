@@ -116,7 +116,7 @@ class TalentProfilePresenter(QObject):
         self.view.history_widget.display_scene_history(history, talent.id)
         
         current_theme = self.controller.get_current_theme()
-        chemistry = self.controller.query_service.get_talent_chemistry(talent.id)
+        chemistry = self.controller.get_talent_chemistry(talent.id)
         self.view.chemistry_widget.display_chemistry(chemistry, current_theme)
 
         # Hiring Tab

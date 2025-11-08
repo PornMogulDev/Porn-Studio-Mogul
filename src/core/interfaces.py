@@ -7,6 +7,7 @@ from data.game_state import (
 )
 from services.query.talent_query_service import TalentQueryService
 from data.data_manager import DataManager
+from database.db_models import TalentDB
 from data.settings_manager import SettingsManager
 from ui.theme_manager import ThemeManager, Theme
     
@@ -17,12 +18,6 @@ class IGameController(Protocol):
     """
 
     # --- Properties presenters need ---
-    @property
-    def talent_query_service(self) -> TalentQueryService: ...
-
-    @property
-    def query_service(self) -> TalentQueryService: ...  # Alias for talent_query_service
-
     @property
     def tag_definitions(self) -> Dict: ...
 
@@ -77,6 +72,8 @@ class IGameController(Protocol):
     # --- Hiring ---
     def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int) -> int: ...
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int): ...
+    def get_eligible_talent_for_role(self, scene_id: int, vp_id: int) -> List[TalentDB]: ...
+    def get_role_details_for_ui(self, scene_id: int, vp_id: int) -> Dict: ...
 
     # --- Scene Planner ---
     def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str]) -> bool: ...

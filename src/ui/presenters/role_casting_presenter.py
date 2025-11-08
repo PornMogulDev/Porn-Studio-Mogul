@@ -29,7 +29,7 @@ class RoleCastingPresenter(QObject):
     def _load_initial_data(self):
         """Loads eligible talents and builds a cache with pre-calculated fuzzing and demand."""
         # Get all TalentDB objects who are eligible and willing
-        eligible_talents_db = self.controller.talent_query_service.get_eligible_talent_for_role(
+        eligible_talents_db = self.controller.get_eligible_talent_for_role(
              self.scene_id, self.vp_id
          )
         
@@ -65,7 +65,7 @@ class RoleCastingPresenter(QObject):
         self.view.update_talent_table(self._casting_cache)
 
     def _load_role_details(self):
-        role_details = self.controller.talent_query_service.get_role_details_for_ui(self.scene_id, self.vp_id)
+        role_details = self.controller.get_role_details_for_ui(self.scene_id, self.vp_id)
         html = "<ul>"
         html += f"<li><b>Gender:</b> {role_details.get('gender', 'N/A')}</li>"
         html += f"<li><b>Ethnicity:</b> {role_details.get('ethnicity', 'N/A')}</li>"

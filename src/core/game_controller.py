@@ -136,6 +136,10 @@ class GameController(QObject):
         """Gets a list of uncast roles for a specific scene for UI filters."""
         if not self.query_service: return []
         return self.query_service.get_uncast_roles_for_scene_ui(scene_id)
+    
+    def get_talent_chemistry(self, talent_id: int) -> Dict[int, Dict]:
+        if not self.query_service: return []
+        return self.query_service.get_talent_chemistry(talent_id)
 
     # --- Go-To List Data Access (Proxy Methods) ---
     def get_go_to_list_talents(self) -> List[Talent]:
@@ -250,7 +254,16 @@ class GameController(QObject):
         return self.scene_command_service.update_scene_full(scene_data)
 
     def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int) -> int:
+        if not self.talent_demand_calculator: return 0
         return self.talent_demand_calculator.calculate_talent_demand(talent_id, scene_id, vp_id)
+    
+    def get_eligible_talent_for_role(self, scene_id: int, vp_id: int) -> List[TalentDB]:
+        if not self.talent_query_service: return []
+        return self.talent_query_service.get_eligible_talent_for_role(scene_id, vp_id)
+    
+    def get_role_details_for_ui(self, scene_id: int, vp_id: int) -> Dict:
+        if not self.talent_query_service: return {}
+        return self.talent_query_service.get_role_details_for_ui(scene_id, vp_id)
 
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int):
         self.scene_command_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
