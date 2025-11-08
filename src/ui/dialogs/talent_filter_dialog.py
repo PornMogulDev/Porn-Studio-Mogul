@@ -1,8 +1,9 @@
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
-    QListWidget, QWidget, QRadioButton, QButtonGroup,
-    QFormLayout, QComboBox, QCheckBox, QDialogButtonBox
+    QListWidget, QPushButton, QRadioButton, QButtonGroup,
+    QFormLayout, QComboBox, QCheckBox, QDialogButtonBox,
+    QMessageBox
 )
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.talent_filter_presenter import TalentFilterPresenter
@@ -22,7 +23,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.setWindowTitle("Advanced Talent Filter")
-        self.defaultSize = QSize(650, 850) # Increased height for new sliders
+        self.defaultSize = QSize(650, 950) # Increased height for new sliders
 
         self.all_ethnicities = ethnicities
         self.all_boob_cups = boob_cups
@@ -37,9 +38,39 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.presenter.load_initial_data() # Command the presenter to populate the view
 
         self._restore_geometry()
+    
+    def _populate_presets_combobox(self):
+        """Loads saved preset names into the combobox."""
+        self.preset_combo.clear()
+        presets = self.settings_manager.get_talent_filter_presets()
+        if presets:
+            self.preset_combo.addItems(sorted(presets.keys()))
+        self.preset_combo.setCurrentIndex(-1) # Start with no selection
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
+
+        # --- Filter Presets ---
+        presets_group = QGroupBox("Filter Presets")
+        presets_layout = QHBoxLayout(presets_group)
+
+        presets_layout.addWidget(QLabel("Preset:"))
+        self.preset_combo = QComboBox()
+        self.preset_combo.setEditable(True)
+        self.preset_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.preset_combo.setToolTip("Select a saved preset or type a new name to save.")
+        presets_layout.addWidget(self.preset_combo)
+
+        self.load_preset_button = QPushButton("Load")
+        presets_layout.addWidget(self.load_preset_button)
+
+        self.save_preset_button = QPushButton("Save")
+        presets_layout.addWidget(self.save_preset_button)
+
+        self.delete_preset_button = QPushButton("Delete")
+        presets_layout.addWidget(self.delete_preset_button)
+
+        main_layout.addWidget(presets_group)
 
         # --- Go-To Category Filter ---
         go_to_group = QGroupBox("Go-To List Filter")
@@ -130,10 +161,66 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         button_box.button(QDialogButtonBox.StandardButton.Close).clicked.connect(self.reject)
         main_layout.addWidget(button_box)
 
+    def _on_load_preset_clicked(self):
+            """Loads the selected filter preset into the UI."""
+            preset_name = self.preset_combo.currentText()
+            if not preset_name:
+                return
+
+            presets = self.settings_manager.get_talent_filter_presets()
+            preset_data = presets.get(preset_name)
+
+            if preset_data:
+                self.load_filters(preset_data)
+                QMessageBox.information(self, "Preset Loaded", f"Preset '{preset_name}' has been loaded.")
+            else:
+                QMessageBox.warning(self, "Load Error", f"Could not find preset named '{preset_name}'.")
+
+    def _on_save_preset_clicked(self):
+        """Saves the current filters as a new preset."""
+        preset_name = self.preset_combo.currentText()
+        if not preset_name:
+            QMessageBox.warning(self, "Save Preset", "Please enter a name for the preset.")
+            return
+
+        current_filters = self.gather_current_filters()
+        presets = self.settings_manager.get_talent_filter_presets()
+        presets[preset_name] = current_filters
+        self.settings_manager.set_talent_filter_presets(presets)
+
+        # Repopulate and restore the current name
+        self.preset_combo.blockSignals(True)
+        self._populate_presets_combobox()
+        self.preset_combo.setCurrentText(preset_name)
+        self.preset_combo.blockSignals(False)
+
+        QMessageBox.information(self, "Preset Saved", f"Preset '{preset_name}' has been saved.")
+
+    def _on_delete_preset_clicked(self):
+        """Deletes the selected preset."""
+        preset_name = self.preset_combo.currentText()
+        if not preset_name:
+            return
+
+        reply = QMessageBox.question(self, "Delete Preset",
+                                     f"Are you sure you want to delete the preset '{preset_name}'?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                     QMessageBox.StandardButton.No)
+
+        if reply == QMessageBox.StandardButton.Yes:
+            presets = self.settings_manager.get_talent_filter_presets()
+            if preset_name in presets:
+                del presets[preset_name]
+                self.settings_manager.set_talent_filter_presets(presets)
+                self._populate_presets_combobox()
+
     def connect_signals(self):
         self.go_to_only_checkbox.stateChanged.connect(
             lambda state: self.go_to_toggled.emit(state == Qt.CheckState.Checked.value)
         )
+        self.load_preset_button.clicked.connect(self._on_load_preset_clicked)
+        self.save_preset_button.clicked.connect(self._on_save_preset_clicked)
+        self.delete_preset_button.clicked.connect(self._on_delete_preset_clicked)
 
     def set_category_combo_enabled(self, is_enabled: bool):
         """Public method for the presenter to command UI state changes."""

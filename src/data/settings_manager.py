@@ -51,6 +51,7 @@ class SettingsManager:
             "font_size": 12,
             "talent_profile_layouts": {},
             "talent_profile_last_layout": None,
+            "talent_filter_presets": {},
         }
         self.settings = self._load_settings()
 
@@ -99,6 +100,14 @@ class SettingsManager:
     def set_talent_profile_layouts(self, layouts: dict):
         """Sets the dictionary of saved talent profile layouts."""
         self.set_setting('talent_profile_layouts', layouts)
+
+    def get_talent_filter_presets(self) -> dict:
+        """Returns the dictionary of saved talent filter presets."""
+        return self.get_setting('talent_filter_presets', {}).copy()
+
+    def set_talent_filter_presets(self, presets: dict):
+        """Sets the dictionary of saved talent filter presets."""
+        self.set_setting('talent_filter_presets', presets)
 
     def get_setting(self, key: str, default=None):
         """Retrieves a setting value by its key."""
