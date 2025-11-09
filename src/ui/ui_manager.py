@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QApplication, QDialog, QWidget
 from data.game_state import Talent, Scene
 from ui.dialogs.email_dialog import EmailDialog
 from ui.presenters.email_presenter import EmailPresenter
-from ui.dialogs.scene_dialog import SceneDialog
+from ui.dialogs.scene_planner_dialog import ScenePlannerDialog
 from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
 from ui.windows.talent_profile_window import TalentProfileWindow
 from ui.presenters.talent_profile_presenter import TalentProfilePresenter
@@ -173,7 +173,7 @@ class UIManager:
 
     def show_interactive_event(self, event_data: dict, scene_id: int, talent_id: int):
         scene_data = self.controller.get_scene_for_planner(scene_id)
-        talent_data = self.controller.query_service.get_talent_by_id(talent_id)
+        talent_data = self.controller.get_talent_by_id(talent_id)
         current_money = self.controller.game_state.money
 
         if not scene_data or not talent_data:
@@ -221,7 +221,7 @@ class UIManager:
             # On some platforms, activateWindow is not enough
             QApplication.setActiveWindow(dialog)
         else:
-            dialog = SceneDialog(self.controller, parent=self.parent_widget)
+            dialog = ScenePlannerDialog(self.controller, parent=self.parent_widget)
             presenter = ScenePlannerPresenter(self.controller, scene_id, dialog, self)
             dialog.presenter = presenter
             
@@ -309,7 +309,7 @@ class UIManager:
         window.activateWindow()
     
     def show_talent_profile_by_id(self, talent_id: int):
-        if talent := self.controller.query_service.get_talent_by_id(talent_id):
+        if talent := self.controller.get_talent_by_id(talent_id):
             self.show_talent_profile(talent)
 
     def _on_singleton_profile_closed(self):

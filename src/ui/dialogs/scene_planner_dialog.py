@@ -6,93 +6,22 @@ from PyQt6.QtWidgets import (
     QCheckBox, QMessageBox, QMenu, QTabWidget
 )
 from PyQt6.QtCore import (
-    Qt, pyqtSignal, QTimer, QMimeData, QPoint,
+    Qt, pyqtSignal, QTimer, QPoint,
     QSize
 )
-from PyQt6.QtGui import QDrag, QKeyEvent
+from PyQt6.QtGui import QKeyEvent
 
 from utils.scene_summary_builder import prepare_summary_data
 from ui.widgets.scene_summary_widget import SceneSummaryWidget
-from data.game_state import Scene, ActionSegment
+from ui.widgets.scene_planner.draggable_list_widget import DraggableListWidget
+from ui.widgets.scene_planner.drop_enabled_list_widget import DropEnabledListWidget
+from ui.widgets.scene_planner.action_segment_widget import ActionSegmentItemWidget
+from ui.widgets.scene_planner.slot_assignment_widget import SlotAssignmentWidget
+from data.game_state import ActionSegment
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.help_button import HelpButton
-
-class DraggableListWidget(QListWidget):
-    def __init__(self, parent=None): super().__init__(parent); self.setDragEnabled(True)
-    def startDrag(self, supportedActions):
-        item = self.currentItem()
-        if item:
-            mime_data = QMimeData(); mime_data.setText(item.text()); drag = QDrag(self)
-            drag.setMimeData(mime_data); drag.exec(Qt.DropAction.CopyAction)
-
-class DropEnabledListWidget(QListWidget):
-    item_dropped = pyqtSignal(str)
-    item_delete_requested = pyqtSignal()
-    def __init__(self, parent=None):
-        super().__init__(parent); self.setAcceptDrops(True); self.setDropIndicatorShown(True)
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasText(): event.acceptProposedAction()
-        else: super().dragEnterEvent(event)
-    def dragMoveEvent(self, event):
-        if event.mimeData().hasText(): event.acceptProposedAction()
-        else: super().dragMoveEvent(event)
-    def dropEvent(self, event):
-        if event.mimeData().hasText(): self.item_dropped.emit(event.mimeData().text()); event.acceptProposedAction()
-        else: super().dropEvent(event)
-    def keyPressEvent(self, event: QKeyEvent):
-        if event.key() == Qt.Key.Key_Delete and self.currentItem(): self.item_delete_requested.emit()
-        else: super().keyPressEvent(event)
-
-class ActionSegmentItemWidget(QWidget):
-    parameter_changed = pyqtSignal(int, str, int)
-    def __init__(self, segment: ActionSegment, tag_def: dict, parent=None):
-        super().__init__(parent); self.segment = segment; self.tag_def = tag_def
-        self.setup_ui()
-    def setup_ui(self):
-        layout = QHBoxLayout(self); layout.setContentsMargins(4, 2, 4, 2)
-        param_text = []
-        for role, value in self.segment.parameters.items():
-            param_text.append(f"{value} {role}(s)")
-        label_text = f"{self.segment.tag_name} ({self.segment.runtime_percentage}%)"
-        if param_text: label_text += f" [{', '.join(param_text)}]"
-        layout.addWidget(QLabel(label_text), 1)
-        for slot in self.tag_def.get("slots", []):
-            if "parameterized_by" in slot and slot["parameterized_by"] == "count":
-                role = slot['role']; spinbox = QSpinBox()
-                spinbox.setRange(slot.get('min_count', 1), slot.get('max_count', 10))
-                spinbox.setValue(self.segment.parameters.get(role, 1))
-                spinbox.valueChanged.connect(lambda val, r=role: self.parameter_changed.emit(self.segment.id, r, val))
-                layout.addWidget(QLabel(f"{role}s:"))
-                layout.addWidget(spinbox)
-
-class SlotAssignmentWidget(QWidget):
-    assignment_changed = pyqtSignal(int, str, object) # object allows for None
-    def __init__(self, segment_id: int, slot_id: str, slot_def: dict, parent=None):
-        super().__init__(parent)
-        self.segment_id = segment_id; self.slot_id = slot_id; self.slot_def = slot_def
-        self.setup_ui()
-    def setup_ui(self):
-        layout = QHBoxLayout(self); layout.setContentsMargins(0, 5, 0, 5)
-        label_text = f"<b>{self.slot_def['role']}</b> (Requires: {self.slot_def['gender']})"
-        layout.addWidget(QLabel(label_text)); self.performer_combo = QComboBox(); layout.addWidget(self.performer_combo)
-        self.performer_combo.currentIndexChanged.connect(self._on_selection_change)
-
-    def update_options(self, options: List[tuple], current_vp_id: Optional[int]):
-        self.performer_combo.blockSignals(True)
-        self.performer_combo.clear()
-        self.performer_combo.addItem("Unassigned", -1)
-        for display_name, vp_id in options:
-            self.performer_combo.addItem(display_name, vp_id)
-
-        index = self.performer_combo.findData(current_vp_id)
-        self.performer_combo.setCurrentIndex(index if index != -1 else 0)
-        self.performer_combo.blockSignals(False)
-
-    def _on_selection_change(self):
-        vp_id = self.performer_combo.currentData()
-        self.assignment_changed.emit(self.segment_id, self.slot_id, vp_id if vp_id != -1 else None)
     
-class SceneDialog(GeometryManagerMixin, QDialog):
+class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     # --- Signals for User Actions ---
     view_loaded = pyqtSignal()
     save_requested = pyqtSignal()
@@ -319,7 +248,7 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         return panel
 
     def _connect_signals(self):
-        # General
+        # --- General ---
         self.title_edit.textChanged.connect(self.title_changed)
         self.focus_target_combo.currentTextChanged.connect(self.focus_target_changed)
         self.total_runtime_spinbox.valueChanged.connect(self.total_runtime_changed)
@@ -328,38 +257,55 @@ class SceneDialog(GeometryManagerMixin, QDialog):
         self.button_box.accepted.connect(self.save_requested); self.button_box.rejected.connect(self.cancel_requested)
         self.view_toggle_btn.clicked.connect(self._toggle_view)
         self.delete_button.clicked.connect(self.handle_delete_scene)
-        # Composition
+
+        # --- Composition ---
         self.composition_update_timer = QTimer(self); self.composition_update_timer.setSingleShot(True); self.composition_update_timer.setInterval(300)
         self.composition_update_timer.timeout.connect(self._emit_composition_change)
         self.performer_count_spinbox.valueChanged.connect(self.performer_count_changed)
-        # Thematic
+        
+        # --- Thematic ---
         self.thematic_search_input.textChanged.connect(self.thematic_search_changed)
         self.thematic_filter_btn.clicked.connect(self.thematic_filter_requested)
         self.add_thematic_btn.clicked.connect(lambda: self.add_thematic_tags_requested.emit([item.text() for item in self.available_thematic_list.selectedItems()]))
         self.remove_thematic_btn.clicked.connect(lambda: self.remove_thematic_tags_requested.emit([item.text() for item in self.selected_thematic_list.selectedItems()]))
+        # Add by double click or drop
         self.available_thematic_list.itemDoubleClicked.connect(lambda item: self.add_thematic_tags_requested.emit([item.text()]))
         self.selected_thematic_list.item_dropped.connect(lambda text: self.add_thematic_tags_requested.emit([text]))
+        # Remove by keypress, double click, or drop
         self.selected_thematic_list.item_delete_requested.connect(lambda: self.remove_thematic_tags_requested.emit([self.selected_thematic_list.currentItem().text()]) if self.selected_thematic_list.currentItem() else None)
-        # Physical
+        self.selected_thematic_list.itemDoubleClicked.connect(lambda item: self.remove_thematic_tags_requested.emit([item.text()]))
+        self.available_thematic_list.item_dropped.connect(lambda text: self.remove_thematic_tags_requested.emit([text]))
+        
+        # --- Physical ---
         self.physical_search_input.textChanged.connect(self.physical_search_changed)
         self.physical_filter_btn.clicked.connect(self.physical_filter_requested)
         self.add_physical_btn.clicked.connect(lambda: self.add_physical_tags_requested.emit([item.text() for item in self.available_physical_list.selectedItems()]))
         self.remove_physical_btn.clicked.connect(lambda: self.remove_physical_tags_requested.emit([item.text() for item in self.selected_physical_list.selectedItems()]))
+        # Add by double click or drop
         self.available_physical_list.itemDoubleClicked.connect(lambda item: self.add_physical_tags_requested.emit([item.text()]))
         self.selected_physical_list.item_dropped.connect(lambda text: self.add_physical_tags_requested.emit([text]))
+        # Remove by keypress, double click, or drop
         self.selected_physical_list.item_delete_requested.connect(lambda: self.remove_physical_tags_requested.emit([self.selected_physical_list.currentItem().text()]) if self.selected_physical_list.currentItem() else None)
+        self.selected_physical_list.itemDoubleClicked.connect(lambda item: self.remove_physical_tags_requested.emit([item.text()]))
+        self.available_physical_list.item_dropped.connect(lambda text: self.remove_physical_tags_requested.emit([text]))
         self.selected_physical_list.currentItemChanged.connect(lambda current, _: self.selected_physical_tag_changed.emit(current))
-        # Action
+        
+        # --- Action ---
         self.action_search_input.textChanged.connect(self.action_search_changed)
         self.action_filter_btn.clicked.connect(self.action_filter_requested)
         self.add_action_btn.clicked.connect(lambda: self.add_action_segments_requested.emit([item.text() for item in self.available_actions_list.selectedItems()]))
         self.remove_action_btn.clicked.connect(lambda: self.remove_action_segments_requested.emit([item.data(Qt.ItemDataRole.UserRole) for item in self.selected_actions_list.selectedItems()]))
+        # Add by double click or drop
         self.available_actions_list.itemDoubleClicked.connect(lambda item: self.add_action_segments_requested.emit([item.text()]))
         self.selected_actions_list.item_dropped.connect(lambda text: self.add_action_segments_requested.emit([text]))
+        # Remove by keypress, double click, or drop
         self.selected_actions_list.item_delete_requested.connect(lambda: self.remove_action_segments_requested.emit([self.selected_actions_list.currentItem().data(Qt.ItemDataRole.UserRole)]) if self.selected_actions_list.currentItem() else None)
+        self.selected_actions_list.itemDoubleClicked.connect(lambda item: self.remove_action_segments_requested.emit([item.data(Qt.ItemDataRole.UserRole)]))
+        self.available_actions_list.item_dropped.connect(lambda text: self.remove_action_segments_requested.emit([int(text)]))
         self.selected_actions_list.currentItemChanged.connect(lambda current, _: self.selected_action_segment_changed.emit(current))
         self.runtime_percent_spinbox.valueChanged.connect(self._emit_segment_runtime_change)
-        # Context Menus for Favorites
+        
+        # --- Context Menus for Favorites ---
         for list_widget, tag_type in [(self.available_thematic_list, 'thematic'), (self.selected_thematic_list, 'thematic'),
                                      (self.available_physical_list, 'physical'), (self.selected_physical_list, 'physical'),
                                      (self.available_actions_list, 'action'), (self.selected_actions_list, 'action')]:

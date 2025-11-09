@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QDialog, QMessageBox, QListWidgetItem
 
 from core.interfaces import IGameController
 from data.game_state import Scene, Talent, ShootingBloc
-from ui.dialogs.scene_dialog import SceneDialog
+from ui.dialogs.scene_planner_dialog import ScenePlannerDialog
 from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from utils.scene_summary_builder import prepare_summary_data
 from services.builders.scene_state_editor import SceneStateEditor
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 class ScenePlannerPresenter(QObject):
-    def __init__(self, controller: IGameController, scene_id: int, view: SceneDialog, ui_manager: 'UIManager'):
+    def __init__(self, controller: IGameController, scene_id: int, view: ScenePlannerDialog, ui_manager: 'UIManager'):
         super().__init__(view) # Parent the presenter to the view for lifecycle management
         self.controller = controller
         self.view = view

@@ -67,7 +67,7 @@ class EmailService:
             return
 
         subject = f"Market Research Results: '{scene_title}'"
-        body = "Our analysis of the release of your recent scene has yielded new market insights.\n\n"
+        body = "<p>Our analysis of the release of your recent scene has yielded new market insights.</p>"
         for group_name, tags in discoveries.items():
             body += f"<p><b>{group_name}:</b></p>"
             tag_list = "".join([f"<li>Discovered preference for '<b>{tag}</b>'</li>" for tag in sorted(tags)])
