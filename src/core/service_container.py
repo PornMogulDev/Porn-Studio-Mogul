@@ -5,7 +5,7 @@ from core.game_signals import GameSignals
 from data.data_manager import DataManager
 from data.save_manager import SaveManager
 from data.game_state import GameState
-from services.email_service import EmailService
+from services.command.email_service import EmailService
 from services.game_session_service import GameSessionService
 from services.command.go_to_list_service import GoToListService
 from services.market_service import MarketService

@@ -28,7 +28,7 @@ from services.time_service import TimeService
 from services.command.go_to_list_service import GoToListService
 from services.game_session_service import GameSessionService
 from services.player_settings_service import PlayerSettingsService
-from services.email_service import EmailService
+from services.command.email_service import EmailService
 from services.models.results import EventAction
 
 logger = logging.getLogger(__name__)

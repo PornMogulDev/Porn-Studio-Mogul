@@ -69,9 +69,9 @@ class EmailService:
         subject = f"Market Research Results: '{scene_title}'"
         body = "Our analysis of the release of your recent scene has yielded new market insights.\n\n"
         for group_name, tags in discoveries.items():
-            body += f"<b>{group_name}:</b>"
+            body += f"<p><b>{group_name}:</b></p>"
             tag_list = "".join([f"<li>Discovered preference for '<b>{tag}</b>'</li>" for tag in sorted(tags)])
             body += f"<ul>{tag_list}</ul>"
-        body += "This information has been added to our market intelligence reports."
+        body += "<p>This information has been added to our market intelligence reports.</p>"
 
         self._create_email(session, subject, body)

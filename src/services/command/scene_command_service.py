@@ -13,7 +13,7 @@ from database.db_models import ( SceneDB, VirtualPerformerDB, ActionSegmentDB, S
 from services.query.game_query_service import GameQueryService
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_processing_service import SceneProcessingService
-from services.email_service import EmailService
+from services.command.email_service import EmailService
 from services.events.scene_event_trigger_service import SceneEventTriggerService
 from services.market_service import MarketService
 from services.calculation.revenue_calculator import RevenueCalculator
