@@ -3,6 +3,7 @@ import random
 from collections import defaultdict
 from typing import Dict, List
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from database.db_models import MarketGroupStateDB
 from data.game_state import MarketGroupState, Scene
@@ -77,6 +78,7 @@ class MarketService:
         discovery_threshold = self.config.discovery_interest_threshold
         num_to_discover = self.config.discoveries_per_scene
         all_new_discoveries = defaultdict(list)
+        made_any_discovery = False
 
         for group_name, interest in viewer_group_interest.items():
             if interest < discovery_threshold:
@@ -100,6 +102,10 @@ class MarketService:
                     current_discovered.setdefault(sentiment_type, []).append(tag_name)
                     all_new_discoveries[group_name].append(tag_name)
                     newly_discovered_count += 1
+                    made_any_discovery = True 
+
+            if made_any_discovery:
+                flag_modified(market_state_db, "discovered_sentiments")
 
         return dict(all_new_discoveries)
 
