@@ -97,7 +97,10 @@ class ShotSceneDetailsPresenter(QObject):
             color = theme.color_good if interest > 1.0 else theme.color_bad if interest < 1.0 else theme.text
             line = f"{group}: <font color='{color}'>{interest:.2f}</font>"
             market_interest_lines.append(line)
-        market_interest_html = "<br>".join(market_interest_lines) or "N/A"
+        
+        focus_target_html = f"<b>Focus Target:</b> {self.scene.focus_target}"
+        market_details_html = "<br>".join(market_interest_lines) or "N/A"
+        market_interest_html = f"{focus_target_html}<br><br>{market_details_html}"
 
         return FinancialViewModel(
             expenses_html=expenses_html,
