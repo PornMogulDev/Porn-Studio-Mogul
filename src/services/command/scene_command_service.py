@@ -412,6 +412,8 @@ class SceneCommandService:
                 self.email_service.create_market_discovery_email(session, scene.title, discoveries)
 
             session.commit()
+            if discoveries:
+                self.signals.emails_changed.emit()
 
             return {
                 'discoveries': discoveries, 'revenue': revenue,

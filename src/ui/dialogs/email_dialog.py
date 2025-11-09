@@ -128,7 +128,7 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         """Updates the details pane with data from a view model."""
         self.subject_label.setText(vm.subject)
         self.date_label.setText(vm.date_str)
-        self.body_text.setPlainText(vm.body)
+        self.body_text.setMarkdown(vm.body)
 
     def update_button_state(self):
         """Updates the enabled state of buttons based on UI state."""

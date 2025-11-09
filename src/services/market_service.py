@@ -50,7 +50,7 @@ class MarketService:
                 discoveries.append({'type': 'thematic_sentiments', 'tag': tag, 'impact': abs(thematic_prefs[tag])})
 
         # Physical & Action Tags
-        all_content_tags = set(scene.assigned_tags.keys()) | {seg.tag for seg in scene.action_segments}
+        all_content_tags = set(scene.assigned_tags.keys()) | {seg.tag_name for seg in scene.action_segments}
         phys_prefs = prefs.get('physical_sentiments', {})
         act_prefs = prefs.get('action_sentiments', {})
 

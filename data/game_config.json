@@ -80,7 +80,7 @@
     }
   },
   "default_sentiment_multiplier": 1.0,
-  "market_discovery_interest_threshold": 1.5,
+  "market_discovery_interest_threshold": 0.5,
   "market_discoveries_per_scene": 2,
    "talent_generation": {
     "age": { "min": 18, "max": 61, "weight_start": 1.0, "weight_end": 0.1 },
