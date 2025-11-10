@@ -49,7 +49,7 @@ class TalentProfilePresenter(QObject):
         It fetches the full scene object before calling the UIManager.
         """
         if scene := self.controller.get_scene_for_planner(scene_id):
-            self.uimanager.show_shot_scene_details(scene)
+            self.uimanager.show_shot_scene_details(scene.id)
         else:
             logger.warning(f"Could not find scene with ID {scene_id} to show details.")
 
@@ -116,8 +116,19 @@ class TalentProfilePresenter(QObject):
         self.view.history_widget.display_scene_history(history, talent.id)
         
         current_theme = self.controller.get_current_theme()
-        chemistry = self.controller.get_talent_chemistry(talent.id)
-        self.view.chemistry_widget.display_chemistry(chemistry, current_theme)
+        raw_chemistry_dict = self.controller.get_talent_chemistry(talent.id)
+
+        chemistry_view_model = []
+        for other_talent_id, chem_details in raw_chemistry_dict.items(): 
+            if other_talent := self.controller.get_talent_by_id(other_talent_id):
+                chemistry_view_model.append({
+                    'other_talent_id': other_talent_id,
+                    'other_talent_alias': other_talent.alias,
+                    'score': chem_details['score'] 
+                })
+
+        # Now, pass the correctly structured data to the view.
+        self.view.chemistry_widget.display_chemistry(chemistry_view_model, current_theme)
 
         # Hiring Tab
         self.refresh_available_roles()
