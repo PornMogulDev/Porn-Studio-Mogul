@@ -1,5 +1,6 @@
 from typing import Optional
 from PyQt6.QtCore import QObject
+from PyQt6 import sip
 
 from data.game_state import Scene
 from core.interfaces import IGameController
@@ -162,9 +163,23 @@ class ShotSceneDetailsPresenter(QObject):
         
     def _on_scene_changed(self):
         """Slot to refresh data when a scene changes globally."""
-        fresh_scene = self.controller.get_scene_for_planner(self.scene.id)
+        # Guard against accessing a deleted view (zombie presenter issue)
+        if not self.view or sip.isdeleted(self.view):
+            # View has been destroyed, disconnect to prevent future calls
+            self.disconnect_signals()
+            return
+            
+        fresh_scene = self.controller.get_scene_for_planner(self.scene_id)
         if fresh_scene:
             self.scene = fresh_scene
-            self.view.populate_data()
+            try:
+                self.view.populate_data()
+            except RuntimeError:
+                # View was deleted between the check and the call
+                self.disconnect_signals()
         else:
-            self.view.reject()
+            try:
+                self.view.reject()
+            except RuntimeError:
+                # View was deleted, just disconnect
+                self.disconnect_signals()
