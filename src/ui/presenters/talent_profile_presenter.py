@@ -2,6 +2,7 @@ import logging
 from typing import TYPE_CHECKING
 from collections import defaultdict
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PyQt6 import sip
 
 from data.game_state import Talent
 from core.interfaces import IGameController
@@ -156,8 +157,17 @@ class TalentProfilePresenter(QObject):
     def refresh_available_roles(self):
         """Fetches and updates the list of available roles for the current talent."""
         if not self.current_talent_id: return
+        
+        # Guard against accessing a deleted view (zombie presenter issue)
+        if not self.view or sip.isdeleted(self.view):
+            return
+            
         available_roles = self.controller.talent_query_service.find_available_roles_for_talent(self.current_talent_id)
-        self.view.hiring_widget.update_available_roles(available_roles)
+        try:
+            self.view.hiring_widget.update_available_roles(available_roles)
+        except RuntimeError:
+            # View was deleted between the check and the call
+            pass
 
     @pyqtSlot(list)
     def _on_hire_confirmed(self, roles_to_cast: list):

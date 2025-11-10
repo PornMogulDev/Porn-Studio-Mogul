@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 from PyQt6.QtCore import QObject, pyqtSlot
+from PyQt6 import sip
 
 from core.interfaces import IGameController
 from ui.view_models import (
@@ -61,6 +62,10 @@ class ScheduleTabPresenter(QObject):
         Fetches all schedule data, processes it into a view model, and sends
         it to the view for rendering. This is the core data-to-view pipeline.
         """
+        # Guard against accessing a deleted view
+        if not self.view or sip.isdeleted(self.view):
+            return
+            
         viewing_year = self.view.get_selected_year()
         
         all_blocs = self.controller.get_blocs_for_schedule_view(viewing_year)

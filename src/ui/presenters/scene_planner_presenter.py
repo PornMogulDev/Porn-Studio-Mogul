@@ -2,6 +2,7 @@ import logging
 from typing import Optional, List, Dict, Tuple, Set, TYPE_CHECKING
 from PyQt6.QtCore import Qt, pyqtSlot, QObject
 from PyQt6.QtWidgets import QDialog, QMessageBox, QListWidgetItem
+from PyQt6 import sip
 
 from core.interfaces import IGameController
 from data.game_state import Scene, Talent, ShootingBloc
@@ -462,6 +463,10 @@ class ScenePlannerPresenter(QObject):
         has been modified by an external action (e.g., casting from a
         different dialog).
         """
+        # Guard against accessing a deleted view (zombie presenter issue)
+        if not self.view or sip.isdeleted(self.view):
+            return
+            
         # Re-fetch the scene data from the authoritative source
         fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
 
@@ -471,9 +476,17 @@ class ScenePlannerPresenter(QObject):
         if not fresh_scene:
             # The scene was likely deleted by another process. Close the dialog.
             logger.info(f"Scene {self.working_scene.id} no longer exists. Closing planner.")
-            self.view.close()
+            try:
+                self.view.close()
+            except RuntimeError:
+                # View was deleted, nothing to close
+                pass
             return
             
         # The scene still exists. Reset our local state and refresh the entire view.
         self.state_editor.reset_with_scene(fresh_scene)
-        self._refresh_full_view()
+        try:
+            self._refresh_full_view()
+        except RuntimeError:
+            # View was deleted during refresh
+            pass

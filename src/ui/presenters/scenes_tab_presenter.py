@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, List, Optional
 from PyQt6.QtCore import QObject, pyqtSlot
+from PyQt6 import sip
 
 from core.interfaces import IGameController
 from data.game_state import Scene
@@ -34,6 +35,10 @@ class ScenesTabPresenter(QObject):
     @pyqtSlot()
     def refresh_data(self):
         """Fetches all shot scenes, processes them, and updates the view."""
+        # Guard against accessing a deleted view
+        if not self.view or sip.isdeleted(self.view):
+            return
+            
         raw_scenes = self.controller.get_shot_scenes()
         view_models = self._create_view_models(raw_scenes)
         

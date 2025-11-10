@@ -258,7 +258,6 @@ class UIManager:
             # We use a setter to link them after creation.
             dialog.set_presenter(presenter)
 
-            # --- THIS IS THE KEY FIX ---
             # Connect the dialog's destruction signal directly to the presenter's cleanup method.
             # This is more reliable than relying solely on closeEvent for signal disconnection.
             dialog.destroyed.connect(presenter.disconnect_signals)
