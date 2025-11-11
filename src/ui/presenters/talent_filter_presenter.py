@@ -16,8 +16,22 @@ class TalentFilterPresenter(QObject):
         self.view = view
         
         # Capture a snapshot of the filters as they were when the dialog was opened.
-        # This is the key to the "Reset" functionality.
         self.initial_filters = initial_filters.copy()
+        # Define a hardcoded "factory default" state for the reset functionality.
+        self.default_filters = {
+            'go_to_list_only': False,
+            'go_to_category_id': -1,
+            'gender': 'Any',
+            'age_min': 18, 'age_max': 99,
+            'performance_min': 0, 'performance_max': 100,
+            'acting_min': 0, 'acting_max': 100,
+            'stamina_min': 0, 'stamina_max': 100,
+            'dominance_min': 0, 'dominance_max': 100,
+            'submission_min': 0, 'submission_max': 100,
+            'dick_size_min': 0, 'dick_size_max': 20,
+            'ethnicities': [],
+            'boob_cups': []
+        }
 
         self._connect_signals()
 
@@ -51,7 +65,7 @@ class TalentFilterPresenter(QObject):
         Commands the view to reset its controls to the presenter's stored
         initial state.
         """
-        self.view.load_filters(self.initial_filters)
+        self.view.load_filters(self.default_filters)
     
     @pyqtSlot()
     def on_apply_and_close_requested(self):

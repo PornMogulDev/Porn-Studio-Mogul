@@ -1,7 +1,7 @@
     
-import os
 import sys
 from pathlib import Path
+from platformdirs import user_documents_dir
 
 # Determine if the application is running as a bundled executable.
 # Nuitka uses `__compiled__`, other tools (PyInstaller) use `sys.frozen`.
@@ -36,7 +36,17 @@ def resource_path(relative_path: str | Path) -> Path:
 # It is best practice to store writable files (saves, logs, settings) in a
 # user-specific directory, not next to the application executable. This avoids
 # permission issues on systems where the app is installed in a protected location.
-USER_DATA_ROOT = Path.home() / "PSM"
+def get_user_data_root(app_name="PSM Saves & Config"):
+    try:
+        documents = Path(user_documents_dir())
+        if documents.exists():
+            return documents / app_name
+    except Exception:
+        pass
+    # Fallback
+    return Path.home() / app_name
+
+USER_DATA_ROOT = get_user_data_root()
 
 # --- Base directories for read-only assets and data ---
 # These must use resource_path to handle being bundled inside an executable.

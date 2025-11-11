@@ -30,6 +30,8 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.go_to_categories = go_to_categories
 
         self.setup_ui()
+        # FIX: Populate the presets combobox as soon as the UI is created.
+        self._populate_presets_combobox()
         self.connect_signals()
 
         # --- Presenter Creation ---
@@ -41,11 +43,21 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
     
     def _populate_presets_combobox(self):
         """Loads saved preset names into the combobox."""
+        current_text = self.preset_combo.currentText()
+        self.preset_combo.blockSignals(True) # Prevent signals during repopulation
         self.preset_combo.clear()
         presets = self.settings_manager.get_talent_filter_presets()
         if presets:
             self.preset_combo.addItems(sorted(presets.keys()))
-        self.preset_combo.setCurrentIndex(-1) # Start with no selection
+        
+        # Try to restore the previous selection, if it still exists
+        index = self.preset_combo.findText(current_text)
+        if index != -1:
+            self.preset_combo.setCurrentIndex(index)
+        else:
+            self.preset_combo.setCurrentIndex(-1) # Start with no selection if not found
+        self.preset_combo.blockSignals(False)
+
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -162,19 +174,18 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         main_layout.addWidget(button_box)
 
     def _on_load_preset_clicked(self):
-            """Loads the selected filter preset into the UI."""
-            preset_name = self.preset_combo.currentText()
-            if not preset_name:
-                return
+        """Loads the selected filter preset into the UI."""
+        preset_name = self.preset_combo.currentText()
+        if not preset_name:
+            return
 
-            presets = self.settings_manager.get_talent_filter_presets()
-            preset_data = presets.get(preset_name)
+        presets = self.settings_manager.get_talent_filter_presets()
+        preset_data = presets.get(preset_name)
 
-            if preset_data:
-                self.load_filters(preset_data)
-                QMessageBox.information(self, "Preset Loaded", f"Preset '{preset_name}' has been loaded.")
-            else:
-                QMessageBox.warning(self, "Load Error", f"Could not find preset named '{preset_name}'.")
+        if preset_data:
+            self.load_filters(preset_data)
+        else:
+            QMessageBox.warning(self, "Load Error", f"Could not find preset named '{preset_name}'.")
 
     def _on_save_preset_clicked(self):
         """Saves the current filters as a new preset."""
@@ -188,11 +199,10 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         presets[preset_name] = current_filters
         self.settings_manager.set_talent_filter_presets(presets)
 
-        # Repopulate and restore the current name
-        self.preset_combo.blockSignals(True)
+        # Repopulate to ensure list is sorted and contains the new item.
         self._populate_presets_combobox()
+        # Ensure the new/saved name remains the current text
         self.preset_combo.setCurrentText(preset_name)
-        self.preset_combo.blockSignals(False)
 
         QMessageBox.information(self, "Preset Saved", f"Preset '{preset_name}' has been saved.")
 
