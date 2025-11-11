@@ -1,0 +1,294 @@
+{
+  "nationalities": [
+  { "name": "US", "weight": 47 },
+  { "name": "Russian", "weight": 5 },
+  { "name": "British", "weight": 5 },
+  { "name": "Australian", "weight": 3 },
+  { "name": "Canadian", "weight": 3 },
+  { "name": "Japanese", "weight": 5 },
+  { "name": "Colombian", "weight": 3 },
+  { "name": "Brazilian", "weight": 2 },
+  { "name": "Ukrainian", "weight": 3 },
+  { "name": "French", "weight": 3 },
+  { "name": "Venezuelan", "weight": 2 },
+  { "name": "Mexican", "weight": 1 },
+  { "name": "Argentinian", "weight": 0.05 },
+  { "name": "German", "weight": 3 },
+  { "name": "Spanish", "weight": 3 },
+  { "name": "Italian", "weight": 2 },
+  { "name": "Polish", "weight": 1 },
+  { "name": "Moldovan", "weight": 0.05 },
+  { "name": "Belgian", "weight": 0.05 },
+  { "name": "Hungarian", "weight": 2 },
+  { "name": "Romanian", "weight": 1 },
+  { "name": "Czech", "weight": 3 },
+  { "name": "Dutch", "weight": 0.05 },
+  { "name": "Belarusian", "weight": 0.05 },
+  { "name": "Latvian", "weight": 0.05 }
+],
+"locations_by_nationality": {
+  "US": [
+    { "name": "South West (US)", "weight": 60 },
+    { "name": "South East (US)", "weight": 30 },
+    { "name": "Somewhere Else (US)", "weight": 10 }
+  ],
+  "Russian": [
+    { "name": "Russia", "weight": 60 },
+    { "name": "Czechia", "weight": 20 },
+    { "name": "Germany", "weight": 5 },
+    { "name": "France", "weight": 5 },
+    { "name": "Hungary", "weight": 5 },
+    { "name": "South West (US)", "weight": 5 }
+  ],
+  "Ukrainian": [
+    { "name": "Ukraine", "weight": 40 },
+    { "name": "Russia", "weight": 15 },
+    { "name": "Czechia", "weight": 15 },
+    { "name": "Germany", "weight": 10 },
+    { "name": "France", "weight": 5 },
+    { "name": "Hungary", "weight": 5 },
+    { "name": "South West (US)", "weight": 5 },
+    { "name": "South East (US)", "weight": 5 }
+  ],
+    "British": [
+    { "name": "United Kingdom", "weight": 60 },
+    { "name": "South West (US)", "weight": 25 },
+    { "name": "South East (US)", "weight": 15 }
+  ],
+  "Australian": [
+    { "name": "South West (US)", "weight": 70 },
+    { "name": "South East (US)", "weight": 30 }
+  ],
+  "Canadian": [
+    { "name": "Canada", "weight": 50 },
+    { "name": "South West (US)", "weight": 30 },
+    { "name": "South East (US)", "weight": 20 }
+  ],
+  "Japanese": [
+    { "name": "Japan", "weight": 100 }
+  ],
+  "Colombian": [
+    { "name": "Colombia", "weight": 65 },
+    { "name": "Spain", "weight": 10 },
+    { "name": "South West (US)", "weight": 10 },
+    { "name": "South East (US)", "weight": 15 }
+  ],
+  "Brazilian": [
+    { "name": "Brazil", "weight": 80 },
+    { "name": "Colombia", "weight": 10 },
+    { "name": "South West (US)", "weight": 5 },
+    { "name": "South East (US)", "weight": 5 }
+  ],
+  "Venezuelan": [
+    { "name": "Colombia", "weight": 35 },
+    { "name": "Venezuela", "weight": 10 },
+    { "name": "Brazil", "weight": 10 },
+    { "name": "Spain", "weight": 15 },
+    { "name": "South West (US)", "weight": 10 },
+    { "name": "South East (US)", "weight": 20 }
+  ],
+  "Mexican": [
+    { "name": "Mexico", "weight": 30 },
+    { "name": "South West (US)", "weight": 55 },
+    { "name": "South East (US)", "weight": 15 }
+  ],
+  "Argentinian": [
+    { "name": "Italy", "weight": 25 },
+    { "name": "Argentina", "weight": 20 },
+    { "name": "Spain", "weight": 25 },
+    { "name": "South West (US)", "weight": 15 },
+    { "name": "South East (US)", "weight": 15 }
+  ],
+  "French": [
+    { "name": "France", "weight": 85 },
+    { "name": "South West (US)", "weight": 15 }
+  ],
+  "German": [
+    { "name": "Germany", "weight": 75 },
+    { "name": "Czechia", "weight": 10 },
+    { "name": "South West (US)", "weight": 10 },
+    { "name": "South East (US)", "weight": 5 }
+  ],
+  "Spanish": [
+    { "name": "Spain", "weight": 85 },
+    { "name": "Czechia", "weight": 5 },
+    { "name": "South West (US)", "weight": 5 },
+    { "name": "South East (US)", "weight": 5 }
+  ],
+  "Italian": [
+    { "name": "Italy", "weight": 95 },
+    { "name": "South West (US)", "weight": 5 }
+  ],
+  "Latvian": [
+    { "name": "Russia", "weight": 60 },
+    { "name": "Ukraine", "weight": 10 },
+    { "name": "Czechia", "weight": 15 },
+    { "name": "Germany", "weight": 10 },
+    { "name": "Latvia", "weight": 15 },
+    { "name": "Netherlands", "weight": 5 }
+  ],
+  "Moldovan": [
+    { "name": "Russia", "weight": 60 },
+    { "name": "Ukraine", "weight": 10 },
+    { "name": "Czechia", "weight": 15 },
+    { "name": "Germany", "weight": 10 },
+    { "name": "Moldavia", "weight": 15 },
+    { "name": "Netherlands", "weight": 5 }
+  ],
+  "Belarusian": [
+    { "name": "Russia", "weight": 65 },
+    { "name": "Ukraine", "weight": 10 },
+    { "name": "Czechia", "weight": 15 },
+    { "name": "Germany", "weight": 10 },
+    { "name": "Belarusian", "weight": 10 },
+    { "name": "Netherlands", "weight": 5 }
+  ],
+  "Polish": [
+    { "name": "Poland", "weight": 70 },
+    { "name": "Germany", "weight": 15 },
+    { "name": "Czechia", "weight": 15 }
+  ],
+  "Romanian": [
+    { "name": "Romania", "weight": 25 },
+    { "name": "France", "weight": 15 },
+    { "name": "Czechia", "weight": 20 },
+    { "name": "Germany", "weight": 10 },
+    { "name": "Spain", "weight": 10 },
+    { "name": "Russia", "weight": 10 },
+    { "name": "Hungary", "weight": 5 },
+    { "name": "South West (US)", "weight": 5 }
+  ],
+  "Belgian": [
+    { "name": "Belgium", "weight": 50 },
+    { "name": "France", "weight": 20 },
+    { "name": "Czechia", "weight": 5 },
+    { "name": "Netherlands", "weight": 20 },
+    { "name": "Germany", "weight": 5 }
+  ],
+  "Dutch": [
+    { "name": "Netherlands", "weight": 80 },
+    { "name": "France", "weight": 5 },
+    { "name": "Czechia", "weight": 5 },
+    { "name": "Germany", "weight": 10 }
+  ]
+},
+"ethnicities_by_nationality": {
+  "US": [
+    { "name": "Western European", "weight": 35 },
+    { "name": "Eastern European", "weight": 5 },
+    { "name": "Latin", "weight": 15 },
+    { "name": "Black", "weight": 20 },
+    { "name": "East Asian", "weight": 10 },
+    { "name": "South Asian", "weight": 5 },
+    { "name": "Amerindian", "weight": 5 },
+    { "name": "Arab", "weight": 5 }
+  ],
+  "Japanese": [
+    { "name": "East Asian", "weight": 100 }
+  ],
+  "Canadian": [
+    { "name": "South Asian", "weight": 10 },
+    { "name": "Western European", "weight": 85 },
+    { "name": "Amerindian", "weight": 5 }
+  ],
+  "Australian": [
+    { "name": "Black", "weight": 5 },
+    { "name": "Western European", "weight": 95 }
+  ],
+  "British": [
+    { "name": "South Asian", "weight": 15 },
+    { "name": "Western European", "weight": 70 },
+    { "name": "Arab", "weight": 5 },
+    { "name": "Black", "weight": 10 }
+  ],
+  "French": [
+    { "name": "Southeast Asian", "weight": 10 },
+    { "name": "Western European", "weight": 60 },
+    { "name": "Arab", "weight": 10 },
+    { "name": "Black", "weight": 20 }
+  ],
+  "Colombian": [
+    { "name": "Latin", "weight": 70 },
+    { "name": "Black", "weight": 20 },
+    { "name": "Amerindian", "weight": 10 }
+  ],
+  "Brazilian": [
+    { "name": "Latin", "weight": 70 },
+    { "name": "Black", "weight": 20 },
+    { "name": "Amerindian", "weight": 10 }
+  ],
+  "Venezuelan": [
+    { "name": "Latin", "weight": 80 },
+    { "name": "Amerindian", "weight": 20 }
+  ],
+  "Argentinian": [
+    { "name": "Latin", "weight": 55 },
+    { "name": "Western European", "weight": 40 },
+    { "name": "Amerindian", "weight": 5 }
+  ],
+  "Mexican": [
+    { "name": "Latin", "weight": 90 },
+    { "name": "Amerindian", "weight": 10 }
+  ],
+  "Russian": [
+    { "name": "Eastern European", "weight": 95 },
+    { "name": "Black", "weight": 5 }
+  ],
+  "German": [
+    { "name": "Western European", "weight": 90 },
+    { "name": "Black", "weight": 5 },
+    { "name": "Arab", "weight": 5 }
+  ],
+  "Czech": [
+    { "name": "Western European", "weight": 85 },
+    { "name": "Eastern European", "weight": 10 },
+    { "name": "Black", "weight": 5 }
+  ],
+  "Ukrainian": [
+    { "name": "Eastern European", "weight": 95 },
+    { "name": "Black", "weight": 5 }
+  ],
+  "Hungarian": [
+    { "name": "Eastern European", "weight": 50 },
+    { "name": "Western European", "weight": 45 },
+    { "name": "Black", "weight": 5 }
+  ],
+  "Spanish": [
+    { "name": "Southern European", "weight": 65 },
+    { "name": "Latin", "weight": 25 },
+    { "name": "Arab", "weight": 5 },
+    { "name": "Black", "weight": 5 }
+  ],
+  "Italian": [
+    { "name": "Southern European", "weight": 90 },
+    { "name": "Black", "weight": 10 }
+  ],
+  "Polish": [
+    { "name": "Western European", "weight": 70 },
+    { "name": "Eastern European", "weight": 30 }
+  ],
+  "Romanian": [
+    { "name": "Eastern European", "weight": 70 },
+    { "name": "Western European", "weight": 30 }
+  ],
+  "Latvian": [
+    { "name": "Eastern European", "weight": 100 }
+  ],
+  "Belarusian": [
+    { "name": "Eastern European", "weight": 100 }
+  ],
+  "Dutch": [
+    { "name": "Western European", "weight": 80 },
+    { "name": "Arab", "weight": 10 },
+    { "name": "Black", "weight": 10 }
+  ],
+  "Moldovan": [
+    { "name": "Eastern European", "weight": 100 }
+  ],
+  "Belgian": [
+    { "name": "Western European", "weight": 85 },
+    { "name": "Arab", "weight": 10 },
+    { "name": "Black", "weight": 5 }
+  ]
+}
+}

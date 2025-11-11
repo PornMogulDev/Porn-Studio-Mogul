@@ -1,35 +1,34 @@
 {
   "genders": [
-    { "name": "Male", "weight": 30 },
-    { "name": "Female", "weight": 70 }
+    { "name": "Male", "weight": 35 },
+    { "name": "Female", "weight": 65 }
   ],
   "ethnicities": [
-    { "name": "White", "weight": 30 },
-    { "name": "Black", "weight": 15 },
-    { "name": "Latin", "weight": 15 },
-    { "name": "Asian", "weight": 10 },
-    { "name": "Japanese", "weight": 8 },
-    { "name": "Korean", "weight": 5 },
-    { "name": "Russian", "weight": 8 },
-    { "name": "Thai", "weight": 5 }
+    {
+      "name": "White",
+      "sub_groups": [ "Western European", "Southern European", "Eastern European" ] 
+    },
+    {
+      "name": "Black",
+      "sub_groups": []
+    },
+    {
+      "name": "Latin",
+      "sub_groups": []
+    },
+    {
+      "name": "Arab",
+      "sub_groups": []
+    },
+    {
+      "name": "Amerindian",
+      "sub_groups": []
+    },
+    {
+      "name": "Asian",
+      "sub_groups": [ "South Asian", "East Asian", "Southeast Asian" ]
+    }
   ],
-  "aliases": {
-    "female_first": [
-      "Angel", "Brandi", "Candy", "Destiny", "Eden", "Faith", "Ginger", 
-      "Harmony", "India", "Jenna", "Krystal", "Lacey", "Misty", "Nikki", 
-      "Paris", "Raven", "Savannah", "Tori", "Vixen", "Zoey", "Lexi", 
-      "Cherry", "Skye", "Stormy", "Sunny"
-    ],
-    "male_first": [
-      "Johnny", "Rocco", "Tommy", "Jordi", "Lex", "Nacho", "Mick", "Shane",
-      "Brick", "Gunner", "Wolf", "Spike", "Ace"
-    ],
-    "unisex_last": [
-      "Love", "Sins", "Lust", "Starr", "Fox", "West", "Lee", "Steele", 
-      "Stone", "Wilde", "Savage", "Young", "Danger", "Blaze", "Cross",
-      "Gunn", "Chase", "Redd", "Rivers", "Knight"
-    ]
-  },
   "physiques": [
     { "name": "Skinny", "weight": 15 },
     { "name": "Average", "weight": 30 },
@@ -38,7 +37,7 @@
     { "name": "Chubby", "weight": 15 },
     { "name": "Fat", "weight": 5 }
   ],
-  "boob_cups": [
+  "cup_sizes": [
     { "name": "AA", "weight": 1 },
     { "name":"A", "weight": 10 },
     { "name": "B",  "weight": 24 },

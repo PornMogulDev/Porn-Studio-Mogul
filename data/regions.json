@@ -1,0 +1,28 @@
+{
+"regions": [
+    {
+    "name": "North America",
+    "locations": [ "Mexico", "Canada", "South West (US)", "South East (US)", "Somewhere Else (US)" ]
+    },
+    {
+    "name": "South America",
+    "locations": [ "Colombia", "Brazil", "Venezuela", "Argentina" ]
+    },
+    {
+    "name": "East Asia",
+    "locations": [ "Japan" ]
+    },
+    {
+    "name": "British Isles",
+    "locations": [ "United Kingdom" ]
+    },
+    {
+    "name": "Western Europe",
+    "locations": [ "Spain", "France", "Germany", "Netherlands", "Hungary", "Czechia", "Belgium", "Italy" ]
+    },
+    {
+    "name": "Eastern Europe",
+    "locations": [ "Russia", "Latvia", "Belarus", "Ukraine", "Romania", "Moldavia", "Poland" ]
+    }
+]
+}
