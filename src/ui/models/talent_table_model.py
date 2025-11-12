@@ -17,7 +17,7 @@ class TalentTableModel(QAbstractTableModel):
         self.settings_manager = settings_manager
         self.mode = mode
         self._cup_map = {cup: i for i, cup in enumerate(cup_size_order)} if cup_size_order else {}
-        self.headers = ["Alias", "Age", "Gender", "Orientation", "Ethnicity", "Dick Size", "Cup Size", "Perf.", "Act.", "Dom", "Sub", "Stam.", "Pop."]
+        self.headers = ["Alias", "Age", "Gender", "Orientation", "Ethnicity", "Nationality", "Location", "Dick Size", "Cup Size", "Perf.", "Act.", "Dom", "Sub", "Stam.", "Pop."]
     
         if self.mode == 'casting':
             self.headers.append("Demand")
@@ -40,15 +40,17 @@ class TalentTableModel(QAbstractTableModel):
             if col == 2: return item.gender
             if col == 3: return item.orientation
             if col == 4: return item.ethnicity
-            if col == 5: return item.dick_size
-            if col == 6: return item.cup_size
-            if col == 7: return item.performance
-            if col == 8: return item.acting
-            if col == 9: return item.dom
-            if col == 10: return item.sub
-            if col == 11: return item.stamina
-            if col == 12: return item.popularity
-            if col == 13 and self.mode == 'casting': return item.demand
+            if col == 5: return item.nationality
+            if col == 6: return item.location
+            if col == 7: return item.dick_size
+            if col == 8: return item.cup_size
+            if col == 9: return item.performance
+            if col == 10: return item.acting
+            if col == 11: return item.dom
+            if col == 12: return item.sub
+            if col == 13: return item.stamina
+            if col == 14: return item.popularity
+            if col == 15 and self.mode == 'casting': return item.demand
         
         elif role == Qt.ItemDataRole.UserRole:
             # The ViewModel stores the full Talent dataclass for easy access
@@ -161,6 +163,8 @@ class TalentTableModel(QAbstractTableModel):
             gender=talent_obj.gender,
             orientation=format_orientation(talent_obj.orientation_score, talent_obj.gender),
             ethnicity=talent_obj.ethnicity,
+            nationality=talent_obj.nationality,
+            location=talent_obj.location,
             dick_size=format_dick_size(talent_obj.dick_size, unit_system) if talent_obj.gender == "Male" and talent_obj.dick_size is not None else "N/A",
             cup_size=talent_obj.cup_size if talent_obj.gender == "Female" else "N/A",
             performance=format_skill_range(perf_fuzzed),
@@ -174,6 +178,8 @@ class TalentTableModel(QAbstractTableModel):
             # Sort Keys
             _age_sort=talent_obj.age,
             _orientation_sort=talent_obj.orientation_score,
+            _nationality_sort=talent_obj.nationality if talent_obj.nationality else "",
+            _location_sort=talent_obj.location if talent_obj.location else "",
             _dick_size_sort=talent_obj.dick_size if talent_obj.dick_size is not None else -1,
             _cup_size_sort=self._cup_map.get(talent_obj.cup_size, -1),
             _performance_sort=perf_sort,
@@ -207,15 +213,17 @@ class TalentTableModel(QAbstractTableModel):
             elif column == 2: return vm.gender
             elif column == 3: return vm._orientation_sort
             elif column == 4: return vm.ethnicity
-            elif column == 5: return vm._dick_size_sort
-            elif column == 6: return vm._cup_size_sort
-            elif column == 7: return vm._performance_sort
-            elif column == 8: return vm._acting_sort
-            elif column == 9: return vm._dom_sort
-            elif column == 10: return vm._sub_sort
-            elif column == 11: return vm._stamina_sort
-            elif column == 12: return vm._popularity_sort
-            elif column == 13 and self.mode == 'casting': return vm._demand_sort
+            elif column == 5: return vm._nationality_sort.lower()
+            elif column == 6: return vm._location_sort.lower()
+            elif column == 7: return vm._dick_size_sort
+            elif column == 8: return vm._cup_size_sort
+            elif column == 9: return vm._performance_sort
+            elif column == 10: return vm._acting_sort
+            elif column == 11: return vm._dom_sort
+            elif column == 12: return vm._sub_sort
+            elif column == 13: return vm._stamina_sort
+            elif column == 14: return vm._popularity_sort
+            elif column == 15 and self.mode == 'casting': return vm._demand_sort
             return 0
         
         # Create index list and sort by indices

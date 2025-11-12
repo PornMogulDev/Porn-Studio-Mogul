@@ -64,6 +64,10 @@ def apply_theme(settings_manager: SettingsManager, theme_manager: ThemeManager):
     font_family = settings_manager.font_family
     font_size = settings_manager.font_size
 
+    if theme_name == "system":
+        app.setStyleSheet("") # Clear any existing stylesheet to revert to default
+        return
+
     # 2. Get the theme data object
     current_theme = theme_manager.get_theme(theme_name)
     

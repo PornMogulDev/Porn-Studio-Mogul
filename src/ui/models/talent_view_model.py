@@ -22,6 +22,8 @@ class TalentViewModel:
     gender: str
     orientation: str
     ethnicity: str
+    nationality: str
+    location: str
     dick_size: str
     cup_size: str
     performance: str
@@ -36,6 +38,8 @@ class TalentViewModel:
     # These hold the raw, sortable values corresponding to the display strings above.
     _age_sort: int
     _orientation_sort: int
+    _nationality_sort: str
+    _location_sort: str
     _dick_size_sort: float
     _cup_size_sort: int
     _performance_sort: int

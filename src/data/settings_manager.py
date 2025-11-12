@@ -46,7 +46,7 @@ class SettingsManager:
             "save_on_exit": True,
             "unit_system": "imperial",  # 'imperial' or 'metric'
             "window_geometries": {},
-            "theme": "light",  # 'dark', 'light'
+            "theme": "light",  # 'dark', 'light', 'system'
             "font_family": "Roboto",
             "font_size": 12,
             "talent_profile_layouts": {},

@@ -42,7 +42,6 @@ class CheckableHierarchyTreeView(QTreeView):
         Sets the check state of items in the tree based on a flat list of child names.
         This is a bulk operation, so blocking signals is the most efficient approach.
         """
-        self.model.layoutAboutToBeChanged.emit()
         self.model.blockSignals(True)
         try:
             is_empty_selection = not selected_items
@@ -76,6 +75,7 @@ class CheckableHierarchyTreeView(QTreeView):
                     parent_item.setCheckState(Qt.CheckState.Unchecked)
         finally:
             self.model.blockSignals(False)
+            self._force_update_and_resize()
 
     def get_checked_items(self) -> list:
         """
@@ -101,7 +101,6 @@ class CheckableHierarchyTreeView(QTreeView):
         Internal slot to handle user clicks and synchronize check states.
         Uses blockSignals to prevent recursive calls efficiently.
         """
-        self.model.layoutAboutToBeChanged.emit()
         self.model.blockSignals(True)
         try:
             # Logic for a parent item being checked/unchecked by the user
@@ -111,7 +110,6 @@ class CheckableHierarchyTreeView(QTreeView):
                     child = item.child(i)
                     if child:
                          child.setCheckState(state)
-            
             # Logic for a child item being checked/unchecked by the user
             else:
                 parent = item.parent()
@@ -131,6 +129,12 @@ class CheckableHierarchyTreeView(QTreeView):
                 else:
                     parent.setCheckState(Qt.CheckState.Unchecked)
         finally:
-            self.model.layoutChanged.emit()
-            # It is crucial to always re-enable signals
             self.model.blockSignals(False)
+            self._force_update_and_resize()
+
+    def _force_update_and_resize(self):
+        """Forces a full repaint and resizes the column to prevent text eliding."""
+        # Tells the view to redraw its visible area immediately.
+        self.viewport().update()
+        # Recalculates the optimal width for the content in column 0.
+        self.resizeColumnToContents(0)

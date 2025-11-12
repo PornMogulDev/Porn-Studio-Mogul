@@ -127,7 +127,6 @@ class TalentTabPresenter(QObject):
         if self._cache_is_dirty:
             self._build_filter_cache()
 
-
         # Step 2: Apply fast database-side filters. The dialog now provides the complete,
         db_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission'))}
         talents_from_db = self.controller.get_filtered_talents(db_filters)
