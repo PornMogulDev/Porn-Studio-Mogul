@@ -21,7 +21,7 @@ class GameQueryService:
     def get_filtered_talents(self, all_filters: dict) -> List[TalentDB]:
         """Fetches a list of TalentDB objects based on UI filters."""
         with self.session_factory() as session:
-            # Only load popularity_scores, skip unused chemistry relationships
+            # Eager loading of chemistry relations needed for the talent profile window
             query = session.query(TalentDB).options(
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a),
@@ -44,6 +44,14 @@ class GameQueryService:
                 if ethnicity_filter != 'Any':
                     query = query.filter(TalentDB.ethnicity == ethnicity_filter)
             
+            if nationalities := all_filters.get('nationalities'):
+                if isinstance(nationalities, list) and nationalities:
+                    query = query.filter(TalentDB.nationality.in_(nationalities))
+
+            if locations := all_filters.get('locations'):
+                if isinstance(locations, list) and locations:
+                    query = query.filter(TalentDB.location.in_(locations))
+
             if cup_sizes := all_filters.get('cup_sizes'):
                 if isinstance(cup_sizes, list) and cup_sizes:
                     query = query.filter(TalentDB.cup_size.in_(cup_sizes))

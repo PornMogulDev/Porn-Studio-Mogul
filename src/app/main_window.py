@@ -14,7 +14,7 @@ from ui.presenters.talent_tab_presenter import TalentTabPresenter
 from ui.presenters.scenes_tab_presenter import ScenesTabPresenter
 from ui.presenters.schedule_tab_presenter import ScheduleTabPresenter
 from ui.presenters.market_tab_presenter import MarketTabPresenter
-from ui.widgets.detachable_tab_widget import DetachableTabWidget
+from ui.widgets.main_window.detachable_tab_widget import DetachableTabWidget
 from ui.widgets.main_window.top_bar_widget import TopBarWidget
 from ui.widgets.main_window.bottom_bar_widget import BottomBarWidget
 

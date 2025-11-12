@@ -1,15 +1,16 @@
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QListWidget, QPushButton, QRadioButton, QButtonGroup,
     QFormLayout, QComboBox, QCheckBox, QDialogButtonBox,
     QMessageBox
 )
 
-from ui.widgets.checkable_hierarchy_tree_view import CheckableHierarchyTreeView
+from ui.widgets.talent_filter.collapsible_group_box import CollapsibleGroupBox
+from ui.widgets.talent_filter.checkable_hierarchy_tree_view import CheckableHierarchyTreeView
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.talent_filter_presenter import TalentFilterPresenter
-from ui.widgets.range_filter_widget import RangeFilterWidget
+from ui.widgets.talent_filter.range_filter_widget import RangeFilterWidget
 
 class TalentFilterDialog(GeometryManagerMixin, QDialog):
     # --- Public API and Internal Signals ---
@@ -57,27 +58,27 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
 
-        presets_group = QGroupBox("Filter Presets"); presets_layout = QHBoxLayout(presets_group); presets_layout.addWidget(QLabel("Preset:")); self.preset_combo = QComboBox(); self.preset_combo.setEditable(True); self.preset_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert); self.preset_combo.setToolTip("Select a saved preset or type a new name to save."); presets_layout.addWidget(self.preset_combo); self.load_preset_button = QPushButton("Load"); presets_layout.addWidget(self.load_preset_button); self.save_preset_button = QPushButton("Save"); presets_layout.addWidget(self.save_preset_button); self.delete_preset_button = QPushButton("Delete"); presets_layout.addWidget(self.delete_preset_button); main_layout.addWidget(presets_group)
-        go_to_group = QGroupBox("Go-To List Filter"); go_to_layout = QVBoxLayout(go_to_group); self.go_to_only_checkbox = QCheckBox("Show only talent in Go-To Lists"); go_to_layout.addWidget(self.go_to_only_checkbox); self.category_combo = QComboBox(); self.category_combo.setEnabled(False); self.category_combo.addItem("Any", -1);
+        presets_group = CollapsibleGroupBox("Filter Presets"); presets_layout = QHBoxLayout(presets_group); presets_layout.addWidget(QLabel("Preset:")); self.preset_combo = QComboBox(); self.preset_combo.setEditable(True); self.preset_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert); self.preset_combo.setToolTip("Select a saved preset or type a new name to save."); presets_layout.addWidget(self.preset_combo); self.load_preset_button = QPushButton("Load"); presets_layout.addWidget(self.load_preset_button); self.save_preset_button = QPushButton("Save"); presets_layout.addWidget(self.save_preset_button); self.delete_preset_button = QPushButton("Delete"); presets_layout.addWidget(self.delete_preset_button); main_layout.addWidget(presets_group)
+        go_to_group = CollapsibleGroupBox("Go-To List Filter"); go_to_layout = QVBoxLayout(go_to_group); self.go_to_only_checkbox = QCheckBox("Show only talent in Go-To Lists"); go_to_layout.addWidget(self.go_to_only_checkbox); self.category_combo = QComboBox(); self.category_combo.setEnabled(False); self.category_combo.addItem("Any", -1);
         for category in sorted(self.go_to_categories, key=lambda c: c['name']): self.category_combo.addItem(category['name'], category['id'])
         go_to_layout.addWidget(self.category_combo); main_layout.addWidget(go_to_group)
-        gender_group = QGroupBox("Gender"); gender_layout = QHBoxLayout(gender_group); self.gender_any_radio = QRadioButton("Any"); self.gender_female_radio = QRadioButton("Female"); self.gender_male_radio = QRadioButton("Male"); self.gender_button_group = QButtonGroup(); self.gender_button_group.addButton(self.gender_any_radio); self.gender_button_group.addButton(self.gender_female_radio); self.gender_button_group.addButton(self.gender_male_radio); gender_layout.addWidget(self.gender_any_radio); gender_layout.addWidget(self.gender_female_radio); gender_layout.addWidget(self.gender_male_radio); main_layout.addWidget(gender_group)
-        age_group = QGroupBox("Age Range"); age_layout = QVBoxLayout(age_group); self.age_range = RangeFilterWidget(); self.age_range.set_range(18, 99); age_layout.addWidget(self.age_range); main_layout.addWidget(age_group)
-        skills_group = QGroupBox("Core Skills"); skills_layout = QFormLayout(skills_group); self.perf_range = RangeFilterWidget(); self.perf_range.set_range(0, 100); self.act_range = RangeFilterWidget(); self.act_range.set_range(0, 100); self.stam_range = RangeFilterWidget(); self.stam_range.set_range(0, 100); self.dom_range = RangeFilterWidget(); self.dom_range.set_range(0, 100); self.sub_range = RangeFilterWidget(); self.sub_range.set_range(0, 100); skills_layout.addRow("Performance:", self.perf_range); skills_layout.addRow("Acting:", self.act_range); skills_layout.addRow("Stamina:", self.stam_range); skills_layout.addRow("Dominance:", self.dom_range); skills_layout.addRow("Submission:", self.sub_range); main_layout.addWidget(skills_group)
-        phys_group = QGroupBox("Physical Attributes"); phys_layout = QFormLayout(phys_group); self.dick_range = RangeFilterWidget(); self.dick_range.set_range(0, 20); phys_layout.addRow("Dick Size (in):", self.dick_range); self.cup_list = QListWidget(); self.cup_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection); 
+        gender_group = CollapsibleGroupBox("Gender"); gender_layout = QHBoxLayout(gender_group); self.gender_any_radio = QRadioButton("Any"); self.gender_female_radio = QRadioButton("Female"); self.gender_male_radio = QRadioButton("Male"); self.gender_button_group = QButtonGroup(); self.gender_button_group.addButton(self.gender_any_radio); self.gender_button_group.addButton(self.gender_female_radio); self.gender_button_group.addButton(self.gender_male_radio); gender_layout.addWidget(self.gender_any_radio); gender_layout.addWidget(self.gender_female_radio); gender_layout.addWidget(self.gender_male_radio); main_layout.addWidget(gender_group)
+        age_group = CollapsibleGroupBox("Age Range"); age_layout = QVBoxLayout(age_group); self.age_range = RangeFilterWidget(); self.age_range.set_range(18, 99); age_layout.addWidget(self.age_range); main_layout.addWidget(age_group)
+        skills_group = CollapsibleGroupBox("Core Skills"); skills_layout = QFormLayout(skills_group); self.perf_range = RangeFilterWidget(); self.perf_range.set_range(0, 100); self.act_range = RangeFilterWidget(); self.act_range.set_range(0, 100); self.stam_range = RangeFilterWidget(); self.stam_range.set_range(0, 100); self.dom_range = RangeFilterWidget(); self.dom_range.set_range(0, 100); self.sub_range = RangeFilterWidget(); self.sub_range.set_range(0, 100); skills_layout.addRow("Performance:", self.perf_range); skills_layout.addRow("Acting:", self.act_range); skills_layout.addRow("Stamina:", self.stam_range); skills_layout.addRow("Dominance:", self.dom_range); skills_layout.addRow("Submission:", self.sub_range); main_layout.addWidget(skills_group)
+        phys_group = CollapsibleGroupBox("Physical Attributes"); phys_layout = QFormLayout(phys_group); self.dick_range = RangeFilterWidget(); self.dick_range.set_range(0, 20); phys_layout.addRow("Dick Size (in):", self.dick_range); self.cup_list = QListWidget(); self.cup_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection); 
         for cup in self.all_cup_sizes: self.cup_list.addItem(cup)
         cup_label = QLabel("Cup Size:"); cup_label.setAlignment(Qt.AlignmentFlag.AlignTop); phys_layout.addRow(cup_label, self.cup_list); main_layout.addWidget(phys_group)
-        nationality_group = QGroupBox("Nationality"); nationality_layout = QVBoxLayout(nationality_group); self.nationality_list = QListWidget(); self.nationality_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection); self.nationality_list.addItems(sorted(self.all_nationalities)); nationality_layout.addWidget(self.nationality_list); main_layout.addWidget(nationality_group)
+        nationality_group = CollapsibleGroupBox("Nationality"); nationality_layout = QVBoxLayout(nationality_group); self.nationality_list = QListWidget(); self.nationality_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection); self.nationality_list.addItems(sorted(self.all_nationalities)); nationality_layout.addWidget(self.nationality_list); main_layout.addWidget(nationality_group)
 
         # --- Tree View Setup ---
-        location_group = QGroupBox("Location")
+        location_group = CollapsibleGroupBox("Location")
         location_layout = QVBoxLayout(location_group)
         self.location_tree = CheckableHierarchyTreeView()
         self.location_tree.populate_data(self.locations_by_region)
         location_layout.addWidget(self.location_tree)
         main_layout.addWidget(location_group)
 
-        ethnicity_group = QGroupBox("Ethnicity")
+        ethnicity_group = CollapsibleGroupBox("Ethnicity")
         ethnicity_layout = QVBoxLayout(ethnicity_group)
         self.ethnicity_tree = CheckableHierarchyTreeView()
         self.ethnicity_tree.populate_data(self.ethnicities_hierarchy)
