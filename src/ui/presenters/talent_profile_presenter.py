@@ -135,11 +135,15 @@ class TalentProfilePresenter(QObject):
         self.refresh_available_roles()
 
     def _load_and_display_details(self, talent: Talent):
+        # Create a more descriptive ethnicity string
+        ethnicity_str = talent.ethnicity
+        if talent.primary_ethnicity and talent.ethnicity != talent.primary_ethnicity:
+            ethnicity_str = f"{talent.ethnicity} ({talent.primary_ethnicity})"
         self.view.details_widget.display_basic_info({
             'age': talent.age,
             'gender': talent.gender,
             'orientation': talent.orientation_score,
-            'ethnicity': talent.ethnicity,
+            'ethnicity': ethnicity_str,
             'popularity': round(sum(talent.popularity.values())),
             'fatigue': format_fatigue(talent.fatigue)
         })

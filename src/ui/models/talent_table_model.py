@@ -8,7 +8,7 @@ from ui.models.talent_view_model import TalentViewModel
 from ui.presenters.talent_filter_cache import TalentFilterCache, CastingTalentCache
 
 class TalentTableModel(QAbstractTableModel):
-    def __init__(self, settings_manager, boob_cup_order: List[str], mode: str = 'default', parent=None):
+    def __init__(self, settings_manager, cup_size_order: List[str], mode: str = 'default', parent=None):
         super().__init__(parent)
         # Store raw data: TalentFilterCache, CastingTalentCache, or dict (legacy casting)
         self.raw_data: List[Union[TalentFilterCache, CastingTalentCache, dict]] = []
@@ -16,7 +16,7 @@ class TalentTableModel(QAbstractTableModel):
         self._viewmodel_cache: Dict[int, TalentViewModel] = {}
         self.settings_manager = settings_manager
         self.mode = mode
-        self._cup_map = {cup: i for i, cup in enumerate(boob_cup_order)} if boob_cup_order else {}
+        self._cup_map = {cup: i for i, cup in enumerate(cup_size_order)} if cup_size_order else {}
         self.headers = ["Alias", "Age", "Gender", "Orientation", "Ethnicity", "Dick Size", "Cup Size", "Perf.", "Act.", "Dom", "Sub", "Stam.", "Pop."]
     
         if self.mode == 'casting':
@@ -162,7 +162,7 @@ class TalentTableModel(QAbstractTableModel):
             orientation=format_orientation(talent_obj.orientation_score, talent_obj.gender),
             ethnicity=talent_obj.ethnicity,
             dick_size=format_dick_size(talent_obj.dick_size, unit_system) if talent_obj.gender == "Male" and talent_obj.dick_size is not None else "N/A",
-            cup_size=talent_obj.boob_cup if talent_obj.gender == "Female" else "N/A",
+            cup_size=talent_obj.cup_size if talent_obj.gender == "Female" else "N/A",
             performance=format_skill_range(perf_fuzzed),
             acting=format_skill_range(act_fuzzed),
             dom=format_skill_range(dom_fuzzed),
@@ -175,7 +175,7 @@ class TalentTableModel(QAbstractTableModel):
             _age_sort=talent_obj.age,
             _orientation_sort=talent_obj.orientation_score,
             _dick_size_sort=talent_obj.dick_size if talent_obj.dick_size is not None else -1,
-            _cup_size_sort=self._cup_map.get(talent_obj.boob_cup, -1),
+            _cup_size_sort=self._cup_map.get(talent_obj.cup_size, -1),
             _performance_sort=perf_sort,
             _acting_sort=act_sort,
             _dom_sort=dom_sort,

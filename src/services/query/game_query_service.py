@@ -44,12 +44,12 @@ class GameQueryService:
                 if ethnicity_filter != 'Any':
                     query = query.filter(TalentDB.ethnicity == ethnicity_filter)
             
-            if boob_cups := all_filters.get('boob_cups'):
-                if isinstance(boob_cups, list) and boob_cups:
-                    query = query.filter(TalentDB.boob_cup.in_(boob_cups))
-            elif boob_cup_filter := all_filters.get('boob_cup'):
-                if boob_cup_filter != 'Any':
-                    query = query.filter(TalentDB.boob_cup == boob_cup_filter)
+            if cup_sizes := all_filters.get('cup_sizes'):
+                if isinstance(cup_sizes, list) and cup_sizes:
+                    query = query.filter(TalentDB.cup_size.in_(cup_sizes))
+            elif cup_size_filter := all_filters.get('cup_size'):
+                if cup_size_filter != 'Any':
+                    query = query.filter(TalentDB.cup_size == cup_size_filter)
             
             # Add age filter support
             if age_min := all_filters.get('age_min'):

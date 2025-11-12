@@ -334,7 +334,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         for i, data in enumerate(performers_with_talent):
             row_widget = QWidget(); h_layout = QHBoxLayout(row_widget); h_layout.setContentsMargins(0, 2, 0, 2)
             name_edit = QLineEdit(data['display_name']); gender_combo = QComboBox(); gender_combo.addItems(["Female", "Male"])
-            ethnicity_combo = QComboBox(); ethnicity_combo.addItems(self.available_ethnicities)
+            ethnicity_combo = QComboBox(); ethnicity_combo.addItem("Any"); ethnicity_combo.addItems(self.available_ethnicities)
             disposition_combo = QComboBox(); disposition_combo.addItems(["Switch", "Dom", "Sub"])
             protagonist_checkbox = QCheckBox("Protagonist"); protagonist_checkbox.setToolTip("The talent's performance will have a bigger importance in the scene relative to non-protagonists")
             gender_combo.setCurrentText(data['gender']); ethnicity_combo.setCurrentText(data['ethnicity']); disposition_combo.setCurrentText(data['disposition'])

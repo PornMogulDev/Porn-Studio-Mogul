@@ -121,8 +121,9 @@ class DataManager:
         return dict(affinities)
 
     def _load_generator_data(self) -> Dict[str, Any]:
+        """Loads all data related to talent generation from multiple tables."""
         cursor = self.conn.cursor()
-        data = {}
+        data = defaultdict(dict)
         
         cursor.execute("SELECT category, name, weight FROM generation_weights")
         for row in cursor.fetchall():
@@ -131,14 +132,48 @@ class DataManager:
                 data[category] = []
             data[category].append({"name": row['name'], "weight": row['weight']})
         
-        aliases = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-        cursor.execute("SELECT ethnicity, gender, part, name FROM talent_aliases")
+        # Hierarchical ethnicity definitions
+        cursor.execute("SELECT name, primary_ethnicity FROM ethnicity_definitions")
+        data['ethnicity_definitions'] = {row['name']: row['primary_ethnicity'] for row in cursor.fetchall()}
+        # For UI/logic lookups, create the inverse mapping too
+        primary_to_sub = defaultdict(list)
+        for sub, prim in data['ethnicity_definitions'].items():
+            if sub != prim: # Don't add primary as its own sub
+                primary_to_sub[prim].append(sub)
+        data['primary_ethnicities'] = {k: v for k, v in primary_to_sub.items()}
+        
+        # Nationality data
+        cursor.execute("SELECT name, weight FROM nationalities")
+        data['nationalities'] = [dict(row) for row in cursor.fetchall()]
+
+        cursor.execute("SELECT nationality_name, location_name, weight FROM nationality_locations")
         for row in cursor.fetchall():
-            aliases[row['ethnicity']][row['gender']][row['part']].append(row['name'])
+            nat = row['nationality_name']
+            if nat not in data['locations_by_nationality']:
+                data['locations_by_nationality'][nat] = []
+            data['locations_by_nationality'][nat].append({'name': row['location_name'], 'weight': row['weight']})
+
+        cursor.execute("SELECT nationality_name, ethnicity_name, weight FROM nationality_ethnicities")
+        for row in cursor.fetchall():
+            nat = row['nationality_name']
+            if nat not in data['ethnicities_by_nationality']:
+                data['ethnicities_by_nationality'][nat] = []
+            data['ethnicities_by_nationality'][nat].append({'name': row['ethnicity_name'], 'weight': row['weight']})
             
-        data['aliases'] = json.loads(json.dumps(aliases))
-            
-        return data
+        # Cultural names
+        cursor.execute("SELECT culture_key, gender, part, name FROM cultural_names")
+        for row in cursor.fetchall():
+            key, gender, part, name = row['culture_key'], row['gender'], row['part'], row['name']
+            if key not in data['names_by_culture']:
+                data['names_by_culture'][key] = defaultdict(lambda: defaultdict(list))
+            data['names_by_culture'][key][gender][part].append(name)
+        
+        # Regions
+        cursor.execute("SELECT region_name, location_name FROM region_locations")
+        data['location_to_region'] = {row['location_name']: row['region_name'] for row in cursor.fetchall()}
+
+        # Convert defaultdicts to regular dicts for cleaner access
+        return json.loads(json.dumps(data))
     
     def _load_production_settings(self) -> Dict[str, List[Dict]]:
         cursor = self.conn.cursor()
@@ -217,6 +252,14 @@ class DataManager:
         except json.JSONDecodeError:
             logger.warning(f"Failed to parse help topics file at '{file_path}'. It may be malformed.")
             return {}
+    
+    def get_available_ethnicities(self) -> List[str]:
+        """Returns a sorted list of primary ethnicity groups."""
+        if not self.generator_data: return []
+        return sorted(list(self.generator_data.get('ethnicity_definitions', {}).keys()))
+
+    def get_available_cup_sizes(self) -> List[str]:
+        return [c['name'] for c in self.generator_data.get('cup_sizes', [])]
 
     def close(self):
         """Explicitly close the database connection."""

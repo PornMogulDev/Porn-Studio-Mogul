@@ -22,7 +22,7 @@ class RoleCastingDialog(GeometryManagerMixin, QDialog):
         self.settings_manager = self.controller.settings_manager
         self.talent_model = TalentTableModel(
             settings_manager=self.settings_manager,
-            boob_cup_order=self.controller.get_available_boob_cups(),
+            cup_size_order=self.controller.get_available_cup_sizes(),
             mode='casting'
         )
 

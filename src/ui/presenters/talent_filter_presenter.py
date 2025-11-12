@@ -30,7 +30,7 @@ class TalentFilterPresenter(QObject):
             'submission_min': 0, 'submission_max': 100,
             'dick_size_min': 0, 'dick_size_max': 20,
             'ethnicities': [],
-            'boob_cups': []
+            'cup_sizes': []
         }
 
         self._connect_signals()

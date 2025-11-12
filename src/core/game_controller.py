@@ -89,12 +89,11 @@ class GameController(QObject):
         return self.theme_manager.get_theme(theme_name)
 
     def get_available_ethnicities(self) -> list[str]:
-        if self._available_ethnicities is None:
-            self._available_ethnicities = ["Any"] + sorted([e['name'] for e in self.generator_data.get('ethnicities', [])])
-        return self._available_ethnicities
+        if not self.data_manager: return []
+        return self.data_manager.get_available_ethnicities()
 
-    def get_available_boob_cups(self) -> list[str]:
-        return [b['name'] for b in self.generator_data.get('boob_cups', [])]
+    def get_available_cup_sizes(self) -> list[str]:
+        return self.data_manager.get_available_cup_sizes()
 
     # --- UI Data Access Methods ---
     def get_talent_by_id(self, talent_id: int) -> Optional[Talent]:

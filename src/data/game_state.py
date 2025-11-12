@@ -16,8 +16,9 @@ class EmailMessage:
 
 @dataclass_json
 @dataclass
-class Talent:
-    id: int; alias: str; age: int; ethnicity: str; gender: str
+class Talent: #type: ignore
+    id: int; alias: str; age: int; gender: str
+    nationality: str; location: str; primary_ethnicity: str
     performance: float; acting: float; stamina: float
     dom_skill: float; sub_skill: float
     ambition: int
@@ -27,7 +28,8 @@ class Talent:
     experience: float = 0.0
     chemistry: Dict[int, int] = field(default_factory=dict)
     popularity: Dict[str, float] = field(default_factory=dict)
-    boob_cup: Optional[str] = None
+    ethnicity: Optional[str] = None
+    cup_size: Optional[str] = None
     dick_size: Optional[int] = None
     tag_affinities: Dict[str, int] = field(default_factory=dict)
     fatigue: int = 0

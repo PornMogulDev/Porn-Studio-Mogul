@@ -30,12 +30,12 @@ class TalentTab(QWidget):
         self.advanced_filters = {}
         self.setup_ui()
 
-    def create_model_and_load(self, settings_manager, boob_cup_order: List[str]):
+    def create_model_and_load(self, settings_manager, cup_size_order: List[str]):
         """Called by the presenter to inject dependencies and trigger initial load."""
         if self.talent_model is None:
             self.talent_model = TalentTableModel(
                 settings_manager=settings_manager, 
-                boob_cup_order=boob_cup_order,
+                cup_size_order=cup_size_order,
                 mode='default' # Explicitly use default mode
              )
             self.talent_table_view.setModel(self.talent_model)

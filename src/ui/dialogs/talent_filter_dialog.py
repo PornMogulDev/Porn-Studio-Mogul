@@ -19,14 +19,14 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
     apply_and_close_requested = pyqtSignal()
     go_to_toggled = pyqtSignal(bool)
 
-    def __init__(self, ethnicities: list, boob_cups: list, go_to_categories: list, current_filters: dict, settings_manager, parent=None):
+    def __init__(self, ethnicities: list, cup_sizes: list, go_to_categories: list, current_filters: dict, settings_manager, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.setWindowTitle("Advanced Talent Filter")
         self.defaultSize = QSize(650, 950) # Increased height for new sliders
 
         self.all_ethnicities = ethnicities
-        self.all_boob_cups = boob_cups
+        self.all_cup_sizes = cup_sizes
         self.go_to_categories = go_to_categories
 
         self.setup_ui()
@@ -145,7 +145,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         
         self.cup_list = QListWidget()
         self.cup_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
-        for cup in self.all_boob_cups: self.cup_list.addItem(cup)
+        for cup in self.all_cup_sizes: self.cup_list.addItem(cup)
         cup_label = QLabel("Cup Size:")
         cup_label.setAlignment(Qt.AlignmentFlag.AlignTop)
         phys_layout.addRow(cup_label, self.cup_list)
@@ -261,7 +261,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.dick_range.set_values(filters.get('dick_size_min', 0), filters.get('dick_size_max', 20))
         
         # Lists
-        selected_cups = filters.get('boob_cups', [])
+        selected_cups = filters.get('cup_sizes', [])
         for i in range(self.cup_list.count()):
             item = self.cup_list.item(i)
             item.setSelected(item.text() in selected_cups)
@@ -293,5 +293,5 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
             'submission_min': sub_min, 'submission_max': sub_max,
             'dick_size_min': dick_min, 'dick_size_max': dick_max,
             'ethnicities': [item.text() for item in self.ethnicity_list.selectedItems()],
-            'boob_cups': [item.text() for item in self.cup_list.selectedItems()]
+            'cup_sizes': [item.text() for item in self.cup_list.selectedItems()]
         }

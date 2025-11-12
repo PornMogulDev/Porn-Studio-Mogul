@@ -26,14 +26,64 @@ def create_tables(cursor):
         PRIMARY KEY (category, name)
     )
     """)
-    # This table replaces the old generation_aliases table
+
+    # New tables for nationality-based generation
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS talent_aliases (
-        ethnicity TEXT NOT NULL,
+    CREATE TABLE IF NOT EXISTS nationalities (
+        name TEXT PRIMARY KEY,
+        weight REAL NOT NULL
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS nationality_locations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nationality_name TEXT NOT NULL,
+        location_name TEXT NOT NULL,
+        weight INTEGER NOT NULL,
+        FOREIGN KEY (nationality_name) REFERENCES nationalities (name)
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS nationality_ethnicities (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nationality_name TEXT NOT NULL,
+        ethnicity_name TEXT NOT NULL, -- This is the sub-group, e.g., 'Western European'
+        weight INTEGER NOT NULL,
+        FOREIGN KEY (nationality_name) REFERENCES nationalities (name)
+    )
+    """)
+    
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS cultural_names (
+        culture_key TEXT NOT NULL,
         gender TEXT NOT NULL,
         part TEXT NOT NULL, -- 'first', 'last', or 'single'
         name TEXT NOT NULL,
-        PRIMARY KEY (ethnicity, gender, part, name)
+        PRIMARY KEY (culture_key, gender, part, name)
+    )
+    """)
+    
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS regions (
+        name TEXT PRIMARY KEY
+    )
+    """)
+   
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS region_locations (
+        region_name TEXT NOT NULL,
+        location_name TEXT NOT NULL,
+        PRIMARY KEY (region_name, location_name),
+        FOREIGN KEY (region_name) REFERENCES regions (name)
+    )
+    """)
+    
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS ethnicity_definitions (
+        name TEXT PRIMARY KEY, -- Sub-group, e.g., 'Western European'
+        primary_ethnicity TEXT NOT NULL -- Main group, e.g., 'White'
     )
     """)
     
@@ -172,29 +222,89 @@ def migrate_config(cursor, data):
 
 def migrate_talent_generation(cursor, data):
     print("Migrating talent_generation_data.json...")
-    count = 0
-    for category_name in ["genders", "ethnicities", "physiques", "boob_cups"]:
+    weights_count = 0
+    for category_name in ["genders", "physiques", "cup_sizes"]:
         if category_name in data:
             for item in data[category_name]:
                 cursor.execute("INSERT OR REPLACE INTO generation_weights (category, name, weight) VALUES (?, ?, ?)",
                                (category_name, item['name'], item['weight']))
-                count += 1
-    print(f"{count} talent generation weight entries migrated.")
+                weights_count += 1
+    
+    eth_count = 0
+    for primary_group in data.get("ethnicities", []):
+        primary_name = primary_group['name']
+        if not primary_group.get('sub_groups'): # Handle ethnicities with no sub-groups
+             cursor.execute("INSERT OR REPLACE INTO ethnicity_definitions (name, primary_ethnicity) VALUES (?, ?)",
+                               (primary_name, primary_name))
+             eth_count += 1
+        else:
+            for sub_group_name in primary_group['sub_groups']:
+                cursor.execute("INSERT OR REPLACE INTO ethnicity_definitions (name, primary_ethnicity) VALUES (?, ?)",
+                            (sub_group_name, primary_name))
+                eth_count += 1
+    
+    print(f"{weights_count} talent generation weight entries migrated.")
+    print(f"{eth_count} ethnicity definitions migrated.")
 
-def migrate_aliases(cursor, data):
-    """Migrates the structured aliases from JSON into the talent_aliases table."""
-    print("Migrating aliases_structured.json...")
+def migrate_nationality_data(cursor, data):
+    """Migrates nationality weights, locations, and ethnicities."""
+    print("Migrating nationality_weights.json...")
+    nat_count, loc_count, eth_count = 0, 0, 0
+    for nationality in data['nationalities']:
+        cursor.execute("INSERT OR REPLACE INTO nationalities (name, weight) VALUES (?, ?)", (nationality['name'], nationality['weight']))
+        nat_count += 1
+
+    for nat_name, locations in data['locations_by_nationality'].items():
+        for loc in locations:
+            cursor.execute("INSERT OR REPLACE INTO nationality_locations (nationality_name, location_name, weight) VALUES (?, ?, ?)", (nat_name, loc['name'], loc['weight']))
+            loc_count += 1
+            
+    for nat_name, ethnicities in data['ethnicities_by_nationality'].items():
+        for eth in ethnicities:
+            cursor.execute("INSERT OR REPLACE INTO nationality_ethnicities (nationality_name, ethnicity_name, weight) VALUES (?, ?, ?)", (nat_name, eth['name'], eth['weight']))
+            eth_count += 1
+            
+    print(f"{nat_count} nationalities, {loc_count} nationality locations, and {eth_count} nationality ethnicities migrated.")
+
+def migrate_regions(cursor, data):
+    print("Migrating regions.json...")
+    reg_count, loc_count = 0, 0
+    for region in data['regions']:
+        cursor.execute("INSERT OR REPLACE INTO regions (name) VALUES (?)", (region['name'],))
+        reg_count += 1
+        for location in region['locations']:
+            cursor.execute("INSERT OR REPLACE INTO region_locations (region_name, location_name) VALUES (?, ?)", (region['name'], location))
+            loc_count += 1
+    print(f"{reg_count} regions and {loc_count} region locations migrated.")
+
+def migrate_names(cursor, data):
+    print("Migrating names_by_culture.json...")
     count = 0
-    for ethnicity, genders in data.items():
-        for gender, parts in genders.items():
-            for part, names in parts.items():
-                for name in names:
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO talent_aliases (ethnicity, gender, part, name)
-                        VALUES (?, ?, ?, ?)
-                    """, (ethnicity, gender, part, name))
-                    count += 1
-    print(f"{count} alias entries migrated.")
+    names_data = data['names_by_culture']
+
+    for culture_key, parts_data in names_data.items():
+        for part_key, names in parts_data.items():
+            # Handle shared names like 'last' and 'single' by adding them for both genders
+            if part_key in ("last", "single"):
+                genders = ["Male", "Female"]
+                part = part_key
+                for gender in genders:
+                    for name in names:
+                        cursor.execute("INSERT OR REPLACE INTO cultural_names (culture_key, gender, part, name) VALUES (?, ?, ?, ?)",
+                                       (culture_key, gender, part, name))
+                        count += 1
+            # Handle specific names like 'male_first'
+            elif "_" in part_key:
+                try:
+                    gender_str, part = part_key.split("_", 1)
+                    gender = gender_str.capitalize()  # 'male' -> 'Male'
+                    for name in names:
+                        cursor.execute("INSERT OR REPLACE INTO cultural_names (culture_key, gender, part, name) VALUES (?, ?, ?, ?)",
+                                       (culture_key, gender, part, name))
+                        count += 1
+                except ValueError:
+                    print(f"Warning: Could not parse part_key '{part_key}' in names_by_culture.json. Skipping.")
+    print(f"{count} cultural name entries migrated.")
 
 def migrate_talent_affinities(cursor, data):
     """Migrates all talent affinities into the unified talent_affinities table."""
@@ -416,7 +526,10 @@ def main():
     try:
         migrate_config(cursor, load_json("game_config.json"))
         migrate_talent_generation(cursor, load_json("talent_generation/talent_generation_data.json"))
-        migrate_aliases(cursor, load_json("aliases_structured.json"))
+        migrate_nationality_data(cursor, load_json("talent_generation/nationality_weights.json"))
+        migrate_regions(cursor, load_json("talent_generation/regions.json"))
+        migrate_names(cursor, load_json("talent_generation/names_by_culture.json"))
+
         migrate_talent_affinities(cursor, load_json("talent_generation/talent_affinity_data.json"))
         migrate_market(cursor, load_json("market.json"))
         all_tags = (

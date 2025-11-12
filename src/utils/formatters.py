@@ -46,8 +46,8 @@ def format_physical_attribute(talent: Talent, unit_system: str) -> Tuple[Optiona
         A tuple of (attribute_name, formatted_value). E.g., ("Dick", '7.1"').
         Returns (None, None) if no relevant attribute is present.
     """
-    if talent.gender == "Female" and talent.boob_cup:
-        return "Cup Size", f"{talent.boob_cup}"
+    if talent.gender == "Female" and talent.cup_size:
+        return "Cup Size", f"{talent.cup_size}"
     elif talent.gender == "Male" and talent.dick_size is not None:
         return ("Dick Size", format_dick_size(talent.dick_size, unit_system))
     return None, None

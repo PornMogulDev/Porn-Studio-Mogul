@@ -11,19 +11,20 @@ class TalentGenerator:
         self.genders_data = generator_data.get('genders', [])
         self.alias_data = generator_data.get('aliases', {})
         self.ethnicity_data = generator_data.get('ethnicities', [])
-        self.boob_cup_data = generator_data.get('boob_cups', []) 
+        self.cup_size_data = generator_data.get('cup_sizes', []) 
         self.affinity_data = affinity_data
         self.tag_definitions = tag_definitions
         self.talent_archetypes = talent_archetypes
         self.gen_config = self.game_constant.get("talent_generation", {})
             
-        # A common ethnicity to fall back on if a specific one has no names
-        self.fallback_ethnicity = "White"
-        # Absolute fallback names if the data is missing
-        self.default_names = {
-            "Male": {"first": ["John"], "last": ["Doe"], "single": ["Rocco"]},
-            "Female": {"first": ["Jane"], "last": ["Doe"], "single": ["Angel"]}
-        }
+        # New nationality-based data
+        self.nationalities_data = generator_data.get('nationalities', [])
+        self.locations_by_nationality = generator_data.get('locations_by_nationality', {})
+        self.ethnicities_by_nationality = generator_data.get('ethnicities_by_nationality', {})
+        self.name_data = generator_data.get('names_by_culture', {})
+        self.ethnicity_definitions = generator_data.get('ethnicity_definitions', {})
+        # Fallback names
+        self.default_names = self.name_data.get("default", {})
 
     def _weighted_choice(self, options: List[Dict[str, Any]]) -> str:
         if not options:
@@ -57,52 +58,55 @@ class TalentGenerator:
         """Generates a gender based on weighted choices from data."""
         return self._weighted_choice(self.genders_data)
 
-    def _get_name_list(self, ethnicity: str, gender: str, part: str) -> List[str]:
-        """
-        Safely retrieves a list of names, with fallbacks for missing data.
-        1. Try specific ethnicity.
-        2. Try fallback ethnicity (e.g., 'White').
-        3. Use hardcoded defaults.
-        """
-        try:
-            # 1. Try specific ethnicity
-            names = self.alias_data[ethnicity][gender][part]
-            if names:
-                return names
-        except KeyError:
-            pass # Continue to fallback
+    def _generate_nationality(self) -> str:
+        return self._weighted_choice(self.nationalities_data)
 
+    def _generate_location(self, nationality: str) -> str:
+        locations = self.locations_by_nationality.get(nationality, [])
+        return self._weighted_choice(locations)
+
+    def _generate_ethnicity(self, nationality: str) -> tuple[str, str]:
+        """Returns a tuple of (sub_ethnicity, primary_ethnicity)."""
+        ethnicities = self.ethnicities_by_nationality.get(nationality, [])
+        sub_ethnicity = self._weighted_choice(ethnicities)
+        primary_ethnicity = self.ethnicity_definitions.get(sub_ethnicity, sub_ethnicity) # Fallback to self
+        return sub_ethnicity, primary_ethnicity
+
+    def _get_name_list(self, culture_key: str, gender: str, part: str) -> List[str]:
+        """
+        1. Try specific culture key.
+        2. Use hardcoded defaults.
+        """
         try:
-            # 2. Try fallback ethnicity
-            names = self.alias_data[self.fallback_ethnicity][gender][part]
+            names = self.name_data[culture_key][gender][part]
             if names:
                 return names
         except KeyError:
             pass # Continue to default
 
-        # 3. Use hardcoded defaults
-        return self.default_names[gender][part]
+        return self.default_names.get(gender, {}).get(part, ["Default"])
 
-
-    def _generate_alias(self, gender: str, ethnicity: str) -> str:
+    def _generate_alias(self, gender: str, nationality: str, ethnicity: str) -> str:
         """
         Generates a gender and ethnicity-appropriate alias.
         Can be a single name or a first/last name combo.
         """
+        # Construct culture key, e.g., "us_western_european"
+        nat_key_map = {'US': 'us', 'Japanese': 'japanese', 'Canadian': 'canadian', 'British': 'british',
+                       'French': 'french', 'Colombian': 'colombian', 'Brazilian': 'brazilian',
+                       'Russian': 'russian', 'German': 'german', 'Spanish': 'spanish', 'Italian': 'italian',
+                       'Czech': 'czech', 'Hungarian': 'hungarian'}
+        eth_key = ethnicity.lower().replace(' ', '_')
+        nat_key = nat_key_map.get(nationality, 'default')
+        culture_key = f"{nat_key}_{eth_key}"
         single_name_chance = self.gen_config.get("alias_single_name_chance", 0.15)
         
         if random.random() < single_name_chance:
-            name_list = self._get_name_list(ethnicity, gender, 'single')
+            name_list = self._get_name_list(culture_key, gender, 'single')
             return random.choice(name_list)
         
-        # Otherwise, generate a two-part name
-        first_name_list = self._get_name_list(ethnicity, gender, 'first')
-        
-        # Last names are often more universal. We can pool them for more variety.
-        # For simplicity here, we'll just use the fallback ethnicity's last names.
-        last_name_list = self._get_name_list(self.fallback_ethnicity, gender, 'last')
-        if not last_name_list: # Edge case if even fallback has no last names
-            last_name_list = self.default_names[gender]['last']
+        first_name_list = self._get_name_list(culture_key, gender, 'first')
+        last_name_list = self._get_name_list(culture_key, gender, 'last')
 
         first_name = random.choice(first_name_list)
         last_name = random.choice(last_name_list)
@@ -286,10 +290,13 @@ class TalentGenerator:
         """Generates a single, fully-formed Talent object."""
         # Core attributes
         age = self._generate_age()
-        ethnicity = self._weighted_choice(self.ethnicity_data)
         gender = self._generate_gender()
-        alias = self._generate_alias(gender, ethnicity)
+        nationality = self._generate_nationality()
+        location = self._generate_location(nationality)
+        ethnicity, primary_ethnicity = self._generate_ethnicity(nationality) # ethnicity is the sub-group
         
+        alias = self._generate_alias(gender, nationality, ethnicity)
+
         # Archetype and Personality
         archetype_data = self._assign_archetype()
         orientation_score = self._generate_orientation_score()
@@ -325,13 +332,13 @@ class TalentGenerator:
 
         # Gender-specific attributes & affinities
         tag_affinities = {}
-        boob_cup: Optional[str] = None
+        cup_size: Optional[str] = None
         dick_size: Optional[int] = None
         
         if gender == "Female":
-            boob_cup = self._weighted_choice(self.boob_cup_data)
-            if boob_cup and boob_cup != "N/A":
-                tag_affinities.update(self._calculate_boob_affinities(boob_cup))
+            cup_size = self._weighted_choice(self.cup_size_data)
+            if cup_size and cup_size != "N/A":
+                tag_affinities.update(self._calculate_boob_affinities(cup_size))
         else: # Male
             dick_size = self._generate_dick_size()
             tag_affinities.update(self._calculate_dick_size_affinities(dick_size))
@@ -348,6 +355,9 @@ class TalentGenerator:
             alias=alias,
             age=age,
             ethnicity=ethnicity,
+            primary_ethnicity=primary_ethnicity,
+            nationality=nationality,
+            location=location,
             gender=gender,
             performance=performance,
             acting=acting,
@@ -358,7 +368,7 @@ class TalentGenerator:
             professionalism=professionalism,
             orientation_score=orientation_score,
             disposition_score=disposition_score,
-            boob_cup=boob_cup,
+            cup_size=cup_size,
             dick_size=dick_size,
             tag_affinities=tag_affinities,
             tag_preferences=tag_preferences,

@@ -28,7 +28,7 @@ class TalentTabPresenter(QObject):
         self._connect_signals()
         self.view.create_model_and_load(
             self.controller.settings_manager,
-            self.controller.get_available_boob_cups()
+            self.controller.get_available_cup_sizes()
         )
 
     def _connect_signals(self):
@@ -128,6 +128,20 @@ class TalentTabPresenter(QObject):
             self._build_filter_cache()
 
         # Step 2: Apply fast database-side filters.
+        # Expand ethnicity filters to include sub-groups
+        selected_ethnicities = all_filters.get('ethnicities', [])
+        if selected_ethnicities:
+            # This mapping comes from DataManager, e.g., {'White': ['Western European', ...]}
+            primary_to_sub_map = self.controller.data_manager.generator_data.get('primary_ethnicities', {})
+            
+            expanded_ethnicities = set()
+            for eth in selected_ethnicities:
+                # Add the selected item itself (could be a primary or a sub-group)
+                expanded_ethnicities.add(eth)
+                # If it's a primary group, add all its children
+                if eth in primary_to_sub_map:
+                    expanded_ethnicities.update(primary_to_sub_map[eth])
+            all_filters['ethnicities'] = list(expanded_ethnicities)
         db_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission'))}
         talents_from_db = self.controller.get_filtered_talents(db_filters)
 
@@ -154,7 +168,7 @@ class TalentTabPresenter(QObject):
         if self.filter_dialog is None:
             self.filter_dialog = TalentFilterDialog(
                 ethnicities=self.controller.get_available_ethnicities(),
-                boob_cups=self.controller.get_available_boob_cups(),
+                cup_sizes=self.controller.get_available_cup_sizes(),
                 go_to_categories=self.controller.get_go_to_list_categories(),
                 current_filters=current_filters,
                 settings_manager=self.controller.settings_manager,

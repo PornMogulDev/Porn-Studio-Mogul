@@ -1,0 +1,118 @@
+{
+  "names_by_culture": {
+    "us_western_european": {
+      "male_first": ["James", "Robert", "John", "Michael", "David", "Chris"],
+      "female_first": ["Mary", "Jennifer", "Linda", "Jessica", "Sarah", "Ashley"],
+      "last": ["Smith", "Johnson", "Williams", "Brown", "Jones", "Miller"],
+      "single": ["Rocco", "Chance", "Vegas", "Jett", "Blade"]
+    },
+    "us_eastern_european": {
+      "male_first": ["Dimitri", "Ivan", "Mikhail", "Nikolai", "Alexei"],
+      "female_first": ["Anastasia", "Svetlana", "Katarina", "Natalia", "Olga"],
+      "last": ["Ivanov", "Kowalski", "Petrov", "Novak", "Popov"],
+      "single": ["Nikita", "Sasha", "Misha", "Pasha"]
+    },
+    "us_latin": {
+      "male_first": ["Jose", "Juan", "Carlos", "Manuel", "Luis", "Diego"],
+      "female_first": ["Maria", "Sofia", "Camila", "Isabella", "Valentina"],
+      "last": ["Garcia", "Rodriguez", "Martinez", "Hernandez", "Lopez"],
+      "single": ["Santos", "Diablo", "Loco", "Bandido"]
+    },
+    "us_black": {
+      "male_first": ["Darnell", "Tyrone", "Andre", "Jamal", "Marcus", "Malik"],
+      "female_first": ["Aaliyah", "Shanice", "Ebony", "Jada", "Latoya", "Nia"],
+      "last": ["Jackson", "Washington", "Freeman", "Jefferson", "Williams"],
+      "single": ["Prince", "King", "Cash", "Lexx"]
+    },
+    "us_east_asian": {
+      "male_first": ["Jin", "Kenji", "Daniel", "Wei", "Shin"],
+      "female_first": ["Mei", "Yuki", "Kim", "Linh", "Sakura"],
+      "last": ["Kim", "Lee", "Chen", "Tanaka", "Wong", "Nguyen"],
+      "single": ["Dragon", "Hiro", "Ken"]
+    },
+    "us_south_asian": {
+      "male_first": ["Raj", "Amit", "Sanjay", "Vikram", "Rohan"],
+      "female_first": ["Priya", "Anjali", "Asha", "Lakshmi", "Sunita"],
+      "last": ["Patel", "Singh", "Khan", "Kumar", "Shah"],
+      "single": ["Raja", "Dev"]
+    },
+    "japanese_east_asian": {
+      "male_first": ["Hiroshi", "Kenji", "Takeru", "Yuki", "Haruto"],
+      "female_first": ["Aoi", "Sakura", "Rin", "Yui", "Hina"],
+      "last": ["Sato", "Suzuki", "Takahashi", "Tanaka", "Watanabe"],
+      "single": ["Jiro", "Kazuya", "Shin"]
+    },
+    "canadian_western_european": {
+      "male_first": ["Liam", "Noah", "William", "Lucas", "Ethan"],
+      "female_first": ["Olivia", "Emma", "Charlotte", "Sophia", "Chloe"],
+      "last": ["Martin", "Roy", "Gagnon", "Tremblay", "Lee"],
+      "single": ["Maverick", "Wolf", "Hunter"]
+    },
+    "british_western_european": {
+      "male_first": ["Oliver", "George", "Arthur", "Harry", "Jack"],
+      "female_first": ["Amelia", "Isla", "Ava", "Freya", "Grace"],
+      "last": ["Smith", "Jones", "Taylor", "Brown", "Wilson"],
+      "single": ["Brick", "Sterling", "Milo"]
+    },
+    "french_western_european": {
+      "male_first": ["Lucas", "Louis", "Gabriel", "Adam", "Leo"],
+      "female_first": ["Louise", "Jade", "Emma", "Alice", "Chloe"],
+      "last": ["Martin", "Bernard", "Dubois", "Thomas", "Robert"],
+      "single": ["Pascal", "Pierre", "LeBlanc"]
+    },
+    "colombian_latin": {
+      "male_first": ["Santiago", "Matias", "Sebastian", "Alejandro"],
+      "female_first": ["Salome", "Luciana", "Isabella", "Mariana"],
+      "last": ["Rodriguez", "Gomez", "Gonzalez", "Perez"],
+      "single": ["Papi", "Chulo", "Caliente"]
+    },
+    "brazilian_latin": {
+      "male_first": ["Miguel", "Davi", "Arthur", "Gabriel", "Heitor"],
+      "female_first": ["Helena", "Alice", "Laura", "Manuela", "Valentina"],
+      "last": ["da Silva", "dos Santos", "Pereira", "Oliveira", "de Souza"],
+      "single": ["Moreno", "Carioca", "Gostoso"]
+    },
+    "russian_eastern_european": {
+      "male_first": ["Alexander", "Maxim", "Ivan", "Artem", "Dmitry"],
+      "female_first": ["Sofia", "Maria", "Anna", "Victoria", "Eva"],
+      "last": ["Smirnov", "Ivanov", "Kuznetsov", "Popov", "Petrov"],
+      "single": ["Rasputin", "Stalin", "Ivan"]
+    },
+    "german_western_european": {
+      "male_first": ["Ben", "Paul", "Jonas", "Leon", "Felix"],
+      "female_first": ["Mia", "Hannah", "Emilia", "Sofia", "Lina"],
+      "last": ["Müller", "Schmidt", "Schneider", "Fischer", "Weber"],
+      "single": ["Kaiser", "Wolf", "Gunther"]
+    },
+    "spanish_southern_european": {
+      "male_first": ["Hugo", "Martin", "Lucas", "Mateo", "Leo"],
+      "female_first": ["Lucia", "Sofia", "Martina", "Maria", "Paula"],
+      "last": ["Garcia", "Gonzalez", "Rodriguez", "Fernandez", "Lopez"],
+      "single": ["El Toro", "Matador", "Nacho"]
+    },
+    "italian_southern_european": {
+      "male_first": ["Leonardo", "Francesco", "Alessandro", "Lorenzo", "Mattia"],
+      "female_first": ["Sofia", "Giulia", "Aurora", "Alice", "Ginevra"],
+      "last": ["Rossi", "Russo", "Ferrari", "Esposito", "Bianchi"],
+      "single": ["Vito", "Gianni", "Enzo"]
+    },
+    "czech_western_european": {
+      "male_first": ["Jakub", "Jan", "Tomas", "Lukas", "Filip"],
+      "female_first": ["Eliska", "Anna", "Adela", "Tereza", "Sofie"],
+      "last": ["Novak", "Svoboda", "Novotny", "Dvorak", "Cerny"],
+      "single": ["Pavel", "Marek"]
+    },
+    "hungarian_eastern_european": {
+      "male_first": ["Bence", "Mate", "Levente", "Dominik", "Adam"],
+      "female_first": ["Hanna", "Anna", "Zoe", "Luca", "Emma"],
+      "last": ["Nagy", "Kovacs", "Toth", "Szabo", "Horvath"],
+      "single": ["Zoltan", "Gabor"]
+    },
+    "default": {
+      "male_first": ["John"],
+      "female_first": ["Jane"],
+      "last": ["Doe"],
+      "single": ["Performer"]
+    }
+  }
+}
