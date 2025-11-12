@@ -138,7 +138,7 @@ class TalentProfilePresenter(QObject):
         # Create a more descriptive ethnicity string
         ethnicity_str = talent.ethnicity
         if talent.primary_ethnicity and talent.ethnicity != talent.primary_ethnicity:
-            ethnicity_str = f"{talent.ethnicity} ({talent.primary_ethnicity})"
+            ethnicity_str = f"{talent.ethnicity}"
         self.view.details_widget.display_basic_info({
             'age': talent.age,
             'gender': talent.gender,

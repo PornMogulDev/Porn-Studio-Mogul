@@ -2,7 +2,7 @@ import sqlite3
 import json
 import logging
 from typing import Dict, Any, List
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 from utils.paths import GAME_DATA, HELP_FILE
 
@@ -141,6 +141,15 @@ class DataManager:
             if sub != prim: # Don't add primary as its own sub
                 primary_to_sub[prim].append(sub)
         data['primary_ethnicities'] = {k: v for k, v in primary_to_sub.items()}
+
+        # Create a full hierarchy map (including primaries with no subs)
+        # This is used for building UIs like tree views.
+        all_primary_groups = sorted(list(set(data['ethnicity_definitions'].values())))
+        hierarchy = OrderedDict()
+        for primary_group in all_primary_groups:
+            # Get subs if they exist, otherwise it's an empty list
+            hierarchy[primary_group] = sorted(data['primary_ethnicities'].get(primary_group, []))
+        data['ethnicity_hierarchy'] = hierarchy
         
         # Nationality data
         cursor.execute("SELECT name, weight FROM nationalities")
@@ -258,8 +267,46 @@ class DataManager:
         if not self.generator_data: return []
         return sorted(list(self.generator_data.get('ethnicity_definitions', {}).keys()))
 
+    def get_ethnicity_hierarchy(self) -> Dict[str, List[str]]:
+        """Returns a dictionary mapping primary ethnicities to their sub-groups."""
+        if not self.generator_data: return {}
+        return self.generator_data.get('ethnicity_hierarchy', {})
+
     def get_available_cup_sizes(self) -> List[str]:
         return [c['name'] for c in self.generator_data.get('cup_sizes', [])]
+    
+    def get_available_nationalities(self) -> List[str]:
+        """Returns a sorted list of all available nationality names."""
+        if not self.generator_data: return []
+        nationalities = self.generator_data.get('nationalities', [])
+        return sorted([nat['name'] for nat in nationalities])
+
+    def get_location_to_region_map(self) -> Dict[str, str]:
+        """Returns a direct mapping of location name to its region name."""
+        if not self.generator_data: return {}
+        return self.generator_data.get('location_to_region', {})
+
+    def get_locations_by_region(self) -> Dict[str, List[str]]:
+        """Returns a dictionary mapping regions to a sorted list of their locations."""
+        # Define a specific order to override alphabetical sorting for UI purposes.
+        region_order = [
+            "North America",
+            "South America",
+            "British Isles",
+            "Western Europe",
+            "Eastern Europe",
+            "East Asia"
+        ]
+        location_map = self.get_location_to_region_map()
+        regions_map = defaultdict(list)
+        for location, region in location_map.items():
+            regions_map[region].append(location)
+        # Build the final dictionary respecting the predefined order.
+        ordered_regions = OrderedDict()
+        for region in region_order:
+            if region in regions_map:
+                ordered_regions[region] = sorted(regions_map[region])
+        return ordered_regions
 
     def close(self):
         """Explicitly close the database connection."""

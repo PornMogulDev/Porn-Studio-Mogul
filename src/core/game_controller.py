@@ -91,7 +91,23 @@ class GameController(QObject):
     def get_available_ethnicities(self) -> list[str]:
         if not self.data_manager: return []
         return self.data_manager.get_available_ethnicities()
-
+    
+    def get_ethnicity_hierarchy(self) -> Dict[str, List[str]]:
+        if not self.data_manager: return {}
+        return self.data_manager.get_ethnicity_hierarchy()
+    
+    def get_available_nationalities(self) -> List[str]:
+        if not self.data_manager: return []
+        return self.data_manager.get_available_nationalities()
+    
+    def get_location_to_region_map(self) -> Dict[str, str]:
+        if not self.data_manager: return {}
+        return self.data_manager.get_location_to_region_map()
+    
+    def get_locations_by_region(self) -> Dict[str, List[str]]:
+        if not self.data_manager: return {}
+        return self.data_manager.get_locations_by_region()
+    
     def get_available_cup_sizes(self) -> list[str]:
         return self.data_manager.get_available_cup_sizes()
 

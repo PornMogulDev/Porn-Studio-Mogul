@@ -127,21 +127,8 @@ class TalentTabPresenter(QObject):
         if self._cache_is_dirty:
             self._build_filter_cache()
 
-        # Step 2: Apply fast database-side filters.
-        # Expand ethnicity filters to include sub-groups
-        selected_ethnicities = all_filters.get('ethnicities', [])
-        if selected_ethnicities:
-            # This mapping comes from DataManager, e.g., {'White': ['Western European', ...]}
-            primary_to_sub_map = self.controller.data_manager.generator_data.get('primary_ethnicities', {})
-            
-            expanded_ethnicities = set()
-            for eth in selected_ethnicities:
-                # Add the selected item itself (could be a primary or a sub-group)
-                expanded_ethnicities.add(eth)
-                # If it's a primary group, add all its children
-                if eth in primary_to_sub_map:
-                    expanded_ethnicities.update(primary_to_sub_map[eth])
-            all_filters['ethnicities'] = list(expanded_ethnicities)
+
+        # Step 2: Apply fast database-side filters. The dialog now provides the complete,
         db_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission'))}
         talents_from_db = self.controller.get_filtered_talents(db_filters)
 
@@ -167,8 +154,10 @@ class TalentTabPresenter(QObject):
     def on_open_advanced_filters(self, current_filters: dict):
         if self.filter_dialog is None:
             self.filter_dialog = TalentFilterDialog(
-                ethnicities=self.controller.get_available_ethnicities(),
+                ethnicities_hierarchy=self.controller.get_ethnicity_hierarchy(),
                 cup_sizes=self.controller.get_available_cup_sizes(),
+                nationalities=self.controller.get_available_nationalities(),
+                locations_by_region=self.controller.get_locations_by_region(),
                 go_to_categories=self.controller.get_go_to_list_categories(),
                 current_filters=current_filters,
                 settings_manager=self.controller.settings_manager,
