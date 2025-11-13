@@ -155,21 +155,21 @@ class ThemeManager:
 
             /* --- CheckBox Styling --- */
             /* Style all checkable indicators for consistency */
-            QCheckBox::indicator, QGroupBox::indicator, QTreeView::indicator {{
+            QCheckBox::indicator, QGroupBox::indicator, QTreeView::indicator, QListWidget::indicator {{
                 border: 1px solid {theme.border};
                 border-radius: 3px;
                 width: 15px;
                 height: 15px;
                 background-color: {theme.background_light};
             }}
-            QCheckBox::indicator:hover, QGroupBox::indicator:hover, QTreeView::indicator:hover {{
+            QCheckBox::indicator:hover, QGroupBox::indicator:hover, QTreeView::indicator:hover, QListWidget::indicator:hover {{
                 border-color: {theme.accent};
             }}
-            QCheckBox::indicator:checked, QGroupBox::indicator:checked, QTreeView::indicator:checked {{
+            QCheckBox::indicator:checked, QGroupBox::indicator:checked, QTreeView::indicator:checked, QListWidget::indicator:checked {{
                 background-color: {theme.accent};
                 border-color: {theme.accent};
             }}
-            QCheckBox::indicator:checked:hover, QGroupBox::indicator:checked:hover, QTreeView::indicator:checked:hover {{
+            QCheckBox::indicator:checked:hover, QGroupBox::indicator:checked:hover, QTreeView::indicator:checked:hover, QListWidget::indicator:checked:hover {{
                 background-color: {theme.accent_hover};
                 border-color: {theme.accent_hover};
             }}

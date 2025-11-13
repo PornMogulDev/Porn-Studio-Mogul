@@ -67,8 +67,8 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         self.presenter = None
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.controller = controller
-        self.settings_manager = self.controller.settings_manager
-        self.available_ethnicities = self.controller.get_available_ethnicities()
+        self.settings_manager = self.controller.settings_manager 
+        self.available_ethnicities = self._build_indented_ethnicity_list()
         self.viewer_groups = [group['name'] for group in self.controller.market_data.get('viewer_groups', [])]
         
         self.setWindowTitle("Scene Planner")
@@ -337,7 +337,12 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
             ethnicity_combo = QComboBox(); ethnicity_combo.addItem("Any"); ethnicity_combo.addItems(self.available_ethnicities)
             disposition_combo = QComboBox(); disposition_combo.addItems(["Switch", "Dom", "Sub"])
             protagonist_checkbox = QCheckBox("Protagonist"); protagonist_checkbox.setToolTip("The talent's performance will have a bigger importance in the scene relative to non-protagonists")
-            gender_combo.setCurrentText(data['gender']); ethnicity_combo.setCurrentText(data['ethnicity']); disposition_combo.setCurrentText(data['disposition'])
+            gender_combo.setCurrentText(data['gender'])
+            # Find the correct item in the combo box, ignoring indentation
+            for idx in range(ethnicity_combo.count()):
+                if ethnicity_combo.itemText(idx).strip() == data['ethnicity']:
+                    ethnicity_combo.setCurrentIndex(idx); break
+            disposition_combo.setCurrentText(data['disposition'])
             protagonist_checkbox.setChecked(data['vp_id'] in protagonist_ids)
             if data['is_cast']: name_edit.setToolTip(f"Playing the role of '{data['vp_name']}'")
             is_role_uncast = not data['is_cast']
@@ -477,6 +482,16 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
             self.main_stack.setCurrentIndex(0)
             self.view_toggle_btn.setText("View Summary")
 
+    def _build_indented_ethnicity_list(self) -> List[str]:
+        """Builds a list of ethnicities with sub-groups indented for display in a combobox."""
+        hierarchy = self.controller.get_ethnicity_hierarchy()
+        indented_list = []
+        for primary, subs in hierarchy.items():
+            indented_list.append(primary)
+            for sub in subs:
+                indented_list.append(f"  {sub}")
+        return indented_list
+
     def _show_tag_context_menu(self, list_widget: QListWidget, pos: QPoint, tag_type: str):
         item = list_widget.itemAt(pos)
         if not item: return
@@ -499,7 +514,11 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
             row_widget = self.performer_editors_layout.itemAt(i).widget()
             name_edit, combos = row_widget.findChild(QLineEdit), row_widget.findChildren(QComboBox)
             if name_edit and len(combos) == 3:
-                performers_data.append({"name": name_edit.text(), "gender": combos[0].currentText(), "ethnicity": combos[1].currentText(), "disposition": combos[2].currentText()})
+                performers_data.append({
+                    "name": name_edit.text(), 
+                    "gender": combos[0].currentText(), 
+                    "ethnicity": combos[1].currentText().strip(), 
+                    "disposition": combos[2].currentText()})
         self.composition_changed.emit(performers_data)
         
     def _emit_segment_runtime_change(self, value: int):
