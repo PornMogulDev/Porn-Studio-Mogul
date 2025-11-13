@@ -1,16 +1,17 @@
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
-    QPushButton, QRadioButton, QButtonGroup,
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+    QPushButton, QRadioButton, QButtonGroup, QLineEdit,
     QFormLayout, QComboBox, QCheckBox, QDialogButtonBox,
     QMessageBox
 )
 
+from utils.formatters import inches_to_cm, cm_to_inches
+from ui.widgets.talent_filter.categorical_range_filter_widget import CategoricalRangeFilterWidget
 from ui.widgets.talent_filter.collapsible_group_box import CollapsibleGroupBox
 from ui.widgets.talent_filter.checkable_hierarchy_tree_view import CheckableHierarchyTreeView
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.talent_filter_presenter import TalentFilterPresenter
-from ui.widgets.talent_filter.categorical_range_filter_widget import CategoricalRangeFilterWidget
 
 class TalentFilterDialog(GeometryManagerMixin, QDialog):
     # --- Public API and Internal Signals ---
@@ -23,6 +24,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
     def __init__(self, ethnicities_hierarchy: dict, cup_sizes: list, nationalities: list, locations_by_region: dict, go_to_categories: list, current_filters: dict, settings_manager, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
+        self.unit_system = self.settings_manager.get_setting("unit_system", "imperial")
         self.setWindowTitle("Advanced Talent Filter")
         self.defaultSize = QSize(700, 1000)
 
@@ -36,6 +38,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
 
         self.setup_ui()
         self._populate_presets_combobox()
+        self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
         self.connect_signals()
 
         self.presenter = TalentFilterPresenter(self, current_filters)
@@ -66,12 +69,13 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         go_to_layout.addWidget(self.category_combo); main_layout.addWidget(go_to_group)
         gender_group = CollapsibleGroupBox("Gender"); gender_layout = QHBoxLayout(gender_group); self.gender_any_radio = QRadioButton("Any"); self.gender_female_radio = QRadioButton("Female"); self.gender_male_radio = QRadioButton("Male"); self.gender_button_group = QButtonGroup(); self.gender_button_group.addButton(self.gender_any_radio); self.gender_button_group.addButton(self.gender_female_radio); self.gender_button_group.addButton(self.gender_male_radio); gender_layout.addWidget(self.gender_any_radio); gender_layout.addWidget(self.gender_female_radio); gender_layout.addWidget(self.gender_male_radio); main_layout.addWidget(gender_group)
         age_group = CollapsibleGroupBox("Age Range"); age_layout = QVBoxLayout(age_group); self.age_range = RangeFilterWidget(); self.age_range.set_range(18, 99); age_layout.addWidget(self.age_range); main_layout.addWidget(age_group)
-        skills_group = CollapsibleGroupBox("Core Skills"); skills_layout = QFormLayout(skills_group); self.perf_range = RangeFilterWidget(); self.perf_range.set_range(0, 100); self.act_range = RangeFilterWidget(); self.act_range.set_range(0, 100); self.stam_range = RangeFilterWidget(); self.stam_range.set_range(0, 100); self.dom_range = RangeFilterWidget(); self.dom_range.set_range(0, 100); self.sub_range = RangeFilterWidget(); self.sub_range.set_range(0, 100); skills_layout.addRow("Performance:", self.perf_range); skills_layout.addRow("Acting:", self.act_range); skills_layout.addRow("Stamina:", self.stam_range); skills_layout.addRow("Dominance:", self.dom_range); skills_layout.addRow("Submission:", self.sub_range); main_layout.addWidget(skills_group)
-        phys_group = CollapsibleGroupBox("Physical Attributes"); phys_layout = QFormLayout(phys_group); self.dick_range = RangeFilterWidget(); self.dick_range.set_range(0, 20); phys_layout.addRow("Dick Size (in):", self.dick_range)
-        self.cup_range = CategoricalRangeFilterWidget(self.all_cup_sizes); phys_layout.addRow("Cup Size:", self.cup_range); main_layout.addWidget(phys_group)
+        skills_group = CollapsibleGroupBox("Core Skills"); self.skills_layout = QFormLayout(skills_group); self.perf_range = RangeFilterWidget(); self.perf_range.set_range(0, 100); self.act_range = RangeFilterWidget(); self.act_range.set_range(0, 100); self.stam_range = RangeFilterWidget(); self.stam_range.set_range(0, 100); self.dom_range = RangeFilterWidget(); self.dom_range.set_range(0, 100); self.sub_range = RangeFilterWidget(); self.sub_range.set_range(0, 100); self.skills_layout.addRow("Performance:", self.perf_range); self.skills_layout.addRow("Acting:", self.act_range); self.skills_layout.addRow("Stamina:", self.stam_range); self.skills_layout.addRow("Dominance:", self.dom_range); self.skills_layout.addRow("Submission:", self.sub_range); main_layout.addWidget(skills_group)
+        phys_group = CollapsibleGroupBox("Physical Attributes"); self.phys_layout = QFormLayout(phys_group); self.dick_range = RangeFilterWidget(); self.phys_layout.addRow("Dick Size", self.dick_range);
+        self._update_dick_size_filter_ui()
+        self.cup_range = CategoricalRangeFilterWidget(self.all_cup_sizes); self.phys_layout.addRow("Cup Size:", self.cup_range); main_layout.addWidget(phys_group)
         
         from PyQt6.QtWidgets import QListWidget # Import locally for nationality
-        nationality_group = CollapsibleGroupBox("Nationality"); nationality_layout = QVBoxLayout(nationality_group); self.nationality_list = QListWidget(); self.nationality_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection); self.nationality_list.addItems(sorted(self.all_nationalities)); nationality_layout.addWidget(self.nationality_list); main_layout.addWidget(nationality_group)
+        nationality_group = CollapsibleGroupBox("Nationality"); nationality_layout = QVBoxLayout(nationality_group); self.nationality_filter_input = QLineEdit(); self.nationality_filter_input.setPlaceholderText("Filter nationalities..."); nationality_layout.addWidget(self.nationality_filter_input); self.nationality_list = QListWidget(); self.nationality_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection); self.nationality_list.addItems(sorted(self.all_nationalities)); nationality_layout.addWidget(self.nationality_list); main_layout.addWidget(nationality_group)
 
         # --- Tree View Setup ---
         location_group = CollapsibleGroupBox("Location")
@@ -97,6 +101,29 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         button_box.button(QDialogButtonBox.StandardButton.Close).clicked.connect(self.reject)
         main_layout.addWidget(button_box)
 
+    def _on_setting_changed(self, key: str):
+        """Handles live updates if the unit system is changed while the dialog is open."""
+        if key == 'unit_system':
+            self.unit_system = self.settings_manager.get_setting("unit_system", "imperial")
+            # 1. Get current filter values, standardized to inches
+            current_filters = self.gather_current_filters()
+            # 2. Update the UI's label and range for the new unit system
+            self._update_dick_size_filter_ui()
+            # 3. Reload the standardized inch values, which will be converted to the new UI unit
+            self.load_filters(current_filters)
+            
+    def _update_dick_size_filter_ui(self):
+        """Sets the label and range for the dick size filter based on the current unit system."""
+        label = self.phys_layout.labelForField(self.dick_range)
+        if self.unit_system == 'metric':
+            if label:
+                label.setText("Dick Size (cm):")
+            self.dick_range.set_range(inches_to_cm(0), inches_to_cm(20))
+        else: # imperial
+            if label:
+                label.setText("Dick Size (in):")
+            self.dick_range.set_range(0, 20)
+
     def connect_signals(self):
         self.go_to_only_checkbox.stateChanged.connect(
             lambda state: self.go_to_toggled.emit(state == Qt.CheckState.Checked.value)
@@ -104,6 +131,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.load_preset_button.clicked.connect(self._on_load_preset_clicked)
         self.save_preset_button.clicked.connect(self._on_save_preset_clicked)
         self.delete_preset_button.clicked.connect(self._on_delete_preset_clicked)
+        self.nationality_filter_input.textChanged.connect(self._filter_nationality_list)
 
     def load_filters(self, filters: dict):
         """Loads a given filter dictionary into the UI controls."""
@@ -114,7 +142,16 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         if gender == "Female": self.gender_female_radio.setChecked(True)
         elif gender == "Male": self.gender_male_radio.setChecked(True)
         else: self.gender_any_radio.setChecked(True)
-        self.age_range.set_values(filters.get('age_min', 18), filters.get('age_max', 99)); self.perf_range.set_values(filters.get('performance_min', 0), filters.get('performance_max', 100)); self.act_range.set_values(filters.get('acting_min', 0), filters.get('acting_max', 100)); self.stam_range.set_values(filters.get('stamina_min', 0), filters.get('stamina_max', 100)); self.dom_range.set_values(filters.get('dominance_min', 0), filters.get('dominance_max', 100)); self.sub_range.set_values(filters.get('submission_min', 0), filters.get('submission_max', 100)); self.dick_range.set_values(filters.get('dick_size_min', 0), filters.get('dick_size_max', 20)); selected_cups = filters.get('cup_sizes', []);
+        self.age_range.set_values(filters.get('age_min', 18), filters.get('age_max', 99)); self.perf_range.set_values(filters.get('performance_min', 0), filters.get('performance_max', 100)); self.act_range.set_values(filters.get('acting_min', 0), filters.get('acting_max', 100)); self.stam_range.set_values(filters.get('stamina_min', 0), filters.get('stamina_max', 100)); self.dom_range.set_values(filters.get('dominance_min', 0), filters.get('dominance_max', 100)); self.sub_range.set_values(filters.get('submission_min', 0), filters.get('submission_max', 100)); selected_cups = filters.get('cup_sizes', [])
+        
+        # Load dick size, converting from inches (storage format) to the current UI format
+        dick_min_in = filters.get('dick_size_min', 0)
+        dick_max_in = filters.get('dick_size_max', 20)
+        if self.unit_system == 'metric':
+            self.dick_range.set_values(inches_to_cm(dick_min_in), inches_to_cm(dick_max_in))
+        else:
+            self.dick_range.set_values(dick_min_in, dick_max_in)
+
         if not selected_cups:
             min_idx, max_idx = 0, len(self.all_cup_sizes) - 1
         else:
@@ -132,14 +169,37 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
 
     def gather_current_filters(self) -> dict:
         """Reads all controls and returns the current filter dictionary."""
+        filters = {}
         age_min, age_max = self.age_range.get_values(); perf_min, perf_max = self.perf_range.get_values(); act_min, act_max = self.act_range.get_values(); stam_min, stam_max = self.stam_range.get_values(); dom_min, dom_max = self.dom_range.get_values(); sub_min, sub_max = self.sub_range.get_values(); dick_min, dick_max = self.dick_range.get_values()
         cup_min_idx, cup_max_idx = self.cup_range.get_values()
-        selected_cups = self.all_cup_sizes[cup_min_idx : cup_max_idx + 1]
-        return {
-            'go_to_list_only': self.go_to_only_checkbox.isChecked(), 'go_to_category_id': self.category_combo.currentData(), 'gender': 'Female' if self.gender_female_radio.isChecked() else 'Male' if self.gender_male_radio.isChecked() else 'Any', 'age_min': age_min, 'age_max': age_max, 'performance_min': perf_min, 'performance_max': perf_max, 'acting_min': act_min, 'acting_max': act_max, 'stamina_min': stam_min, 'stamina_max': stam_max, 'dominance_min': dom_min, 'dominance_max': dom_max, 'submission_min': sub_min, 'submission_max': sub_max, 'dick_size_min': dick_min, 'dick_size_max': dick_max, 'nationalities': [item.text() for item in self.nationality_list.selectedItems()], 'cup_sizes': selected_cups,
+
+        # Convert dick size from UI format back to inches (storage format)
+        dick_val_min, dick_val_max = self.dick_range.get_values()
+        if self.unit_system == 'metric':
+            dick_size_min_in = cm_to_inches(dick_val_min)
+            dick_size_max_in = cm_to_inches(dick_val_max)
+        else:
+            dick_size_min_in, dick_size_max_in = dick_val_min, dick_val_max
+    
+        # Only add cup size filter if it's not at the default max range
+        if not (cup_min_idx == 0 and cup_max_idx == len(self.all_cup_sizes) - 1):
+            filters['cup_sizes'] = self.all_cup_sizes[cup_min_idx : cup_max_idx + 1]
+        filters.update({
+            'go_to_list_only': self.go_to_only_checkbox.isChecked(), 'go_to_category_id': self.category_combo.currentData(), 'gender': 'Female' if self.gender_female_radio.isChecked() else 'Male' if self.gender_male_radio.isChecked() else 'Any', 'age_min': age_min, 'age_max': age_max, 'performance_min': perf_min, 'performance_max': perf_max, 'acting_min': act_min, 'acting_max': act_max, 'stamina_min': stam_min, 'stamina_max': stam_max, 'dominance_min': dom_min, 'dominance_max': dom_max, 'submission_min': sub_min, 'submission_max': sub_max, 'dick_size_min': dick_size_min_in, 'dick_size_max': dick_size_max_in, 'nationalities': [item.text() for item in self.nationality_list.selectedItems()],
             'ethnicities': self.ethnicity_tree.get_checked_items(),
             'locations': self.location_tree.get_checked_items(),
-        }
+
+        })
+        return filters
+    
+    def _filter_nationality_list(self, text: str):
+        """Hides or shows items in the nationality list based on the filter text."""
+        filter_text = text.lower()
+        for i in range(self.nationality_list.count()):
+            item = self.nationality_list.item(i)
+            item_text = item.text().lower()
+            # Set the item to be hidden if the filter text is not in its text
+            item.setHidden(filter_text not in item_text)
     
     def _on_load_preset_clicked(self):
         preset_name = self.preset_combo.currentText()

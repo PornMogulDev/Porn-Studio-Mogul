@@ -81,6 +81,15 @@ class TalentTableModel(QAbstractTableModel):
         # Clear the cache when new data arrives
         self._viewmodel_cache.clear()
         self.endResetModel()
+
+    def refresh(self):
+        """
+        Clears the ViewModel cache and triggers a full view update.
+        Used when a display-related setting (like unit system) changes.
+        """
+        self.beginResetModel()
+        self._viewmodel_cache.clear()
+        self.endResetModel()
     
     def _get_or_create_viewmodel(self, row: int) -> Union[TalentViewModel, None]:
         """

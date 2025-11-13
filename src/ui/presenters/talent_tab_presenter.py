@@ -36,6 +36,7 @@ class TalentTabPresenter(QObject):
         self.controller.signals.talent_pool_changed.connect(self._invalidate_filter_cache)
         self.controller.signals.go_to_categories_changed.connect(self.view.refresh_from_state)
         self.controller.signals.go_to_list_changed.connect(self.view.refresh_from_state)
+        self.controller.settings_manager.signals.setting_changed.connect(self.on_setting_changed)
 
         self.view.initial_load_requested.connect(self.on_initial_load)
         self.view.standard_filters_changed.connect(self.on_standard_filters_changed)
@@ -116,6 +117,14 @@ class TalentTabPresenter(QObject):
             return False
 
         return True
+    
+    @pyqtSlot(str)
+    def on_setting_changed(self, key: str):
+        """
+        Handles global settings changes that affect this tab's display.
+        """
+        if key == 'unit_system':
+            self.view.talent_model.refresh()
 
     @pyqtSlot()
     def on_initial_load(self):

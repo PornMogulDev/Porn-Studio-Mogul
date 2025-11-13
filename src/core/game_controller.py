@@ -118,6 +118,7 @@ class GameController(QObject):
     
     def get_filtered_talents(self, filters: dict) -> List[Talent]:
         if not self.query_service: return []
+        logger.debug(f"Filtering talents with: {filters}")
         return self.query_service.get_filtered_talents(filters)
 
     def get_blocs_for_schedule_view(self, year: int) -> List[ShootingBloc]:

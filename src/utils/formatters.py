@@ -4,6 +4,8 @@ from PyQt6.QtGui import QColor
 from ui.theme_manager import Theme
 from data.game_state import Talent
 
+INCHES_TO_CM = 2.54
+
 def get_chemistry_map(theme: Theme) -> dict:
     """
     Generates a chemistry map with colors from the current theme.
@@ -33,10 +35,20 @@ def format_dick_size(inches_val: float, unit_system: str) -> str:
     Formats dick size (provided in inches) to the chosen unit system, without decimals.
     """
     if unit_system == 'metric':
-        cm = inches_val * 2.54
-        return f"{round(cm)} cm"
+        return f"{inches_to_cm(inches_val)} cm"
     else:  # Imperial is the default
         return f"{round(inches_val)}\""
+
+def inches_to_cm(inches: float) -> int:
+    """Converts a float inches value to a rounded integer centimeter value for UI controls."""
+    return round(inches * INCHES_TO_CM)
+
+def cm_to_inches(cm: int) -> float:
+    """
+    Converts an integer centimeter value back to a float inches value for game logic.
+    This is the reverse of inches_to_cm.
+    """
+    return cm / INCHES_TO_CM
 
 def format_physical_attribute(talent: Talent, unit_system: str) -> Tuple[Optional[str], Optional[str]]:
     """
