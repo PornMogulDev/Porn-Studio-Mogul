@@ -59,8 +59,18 @@ class TalentQueryService:
                 selectinload(TalentDB.chemistry_b)
             )
             query = query.filter(TalentDB.gender == vp.gender)
+            
             if vp.ethnicity != "Any":
-                query = query.filter(TalentDB.ethnicity == vp.ethnicity)
+                # Hierarchical ethnicity check for the database query
+                primary_ethnicities_map = self.data_manager.generator_data.get('primary_ethnicities', {})
+                if vp.ethnicity in primary_ethnicities_map:
+                    # The VP requires a primary group, so we accept talent from any of its sub-groups.
+                    eligible_ethnicities = primary_ethnicities_map[vp.ethnicity]
+                    query = query.filter(TalentDB.ethnicity.in_(eligible_ethnicities))
+                else:
+                    # The VP requires a specific sub-group (or a primary group with no subs), so do a direct match.
+                    query = query.filter(TalentDB.ethnicity == vp.ethnicity)
+
             if cast_talent_ids := {c.talent_id for c in scene_db.cast}:
                 query = query.filter(TalentDB.id.notin_(cast_talent_ids))
 

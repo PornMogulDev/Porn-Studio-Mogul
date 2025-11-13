@@ -16,7 +16,26 @@ class TagValidationChecker:
     def __init__(self, data_manager: DataManager):
         self.data_manager = data_manager
 
+    def _is_ethnicity_match(self, performer_ethnicity: str, required_ethnicity: str) -> bool:
+        """Checks if a performer's ethnicity matches a requirement, supporting primary group hierarchy."""
+        if not performer_ethnicity or not required_ethnicity:
+            return False
+
+        # A performer's ethnicity can always fulfill a requirement for that same ethnicity.
+        if performer_ethnicity == required_ethnicity:
+            return True
+
+        # Now check for hierarchical match (e.g., performer is 'Western European', requirement is 'White')
+        primary_to_sub_map = self.data_manager.generator_data.get('primary_ethnicities', {})
         
+        # Is the requirement a primary group with sub-groups?
+        if required_ethnicity in primary_to_sub_map:
+            # If so, is the performer's ethnicity one of those sub-groups?
+            if performer_ethnicity in primary_to_sub_map[required_ethnicity]:
+                return True
+            
+        return False
+
     def is_performer_eligible_for_tag(self, performer, tag_def: Dict) -> bool:
         """
         Checks if a single performer (Talent or VirtualPerformer) is eligible to be assigned
@@ -36,8 +55,10 @@ class TagValidationChecker:
                     is_match = False
                 
                 # Check ethnicity
-                if is_match and (req_ethnicity := profile.get("ethnicity")) and getattr(performer, 'ethnicity', None) != req_ethnicity:
-                    is_match = False
+                if is_match and (req_ethnicity := profile.get("ethnicity")):
+                    performer_ethnicity = getattr(performer, 'ethnicity', None)
+                    if not self._is_ethnicity_match(performer_ethnicity, req_ethnicity):
+                        is_match = False
 
                 # Check age (safely, as VirtualPerformer won't have it)
                 performer_age = getattr(performer, 'age', None)
@@ -61,8 +82,10 @@ class TagValidationChecker:
                 return False
 
             # Check top-level ethnicity requirement
-            if (req_ethnicity := tag_def.get('ethnicity')) and getattr(performer, 'ethnicity', None) != req_ethnicity:
-                return False
+            if req_ethnicity := tag_def.get('ethnicity'):
+                performer_ethnicity = getattr(performer, 'ethnicity', None)
+                if not self._is_ethnicity_match(performer_ethnicity, req_ethnicity):
+                    return False
 
             # All single-performer requirements met (or there were none)
             return True
@@ -164,7 +187,7 @@ class TagValidationChecker:
             for i, profile in enumerate(profiles):
                 performer = cast_permutation[i]
                 if (profile.get("gender") and performer.gender != profile.get("gender")) or \
-                   (profile.get("ethnicity") and performer.ethnicity != profile.get("ethnicity")) or \
+                   (profile.get("ethnicity") and not self._is_ethnicity_match(performer.ethnicity, profile.get("ethnicity"))) or \
                    (profile.get("min_age") is not None and performer.age < profile.get("min_age")) or \
                    (profile.get("max_age") is not None and performer.age > profile.get("max_age")):
                     is_valid_permutation = False
