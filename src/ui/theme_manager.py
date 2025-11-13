@@ -154,21 +154,32 @@ class ThemeManager:
             }}
 
             /* --- CheckBox Styling --- */
-            QCheckBox::indicator {{
+            /* Style all checkable indicators for consistency */
+            QCheckBox::indicator, QGroupBox::indicator, QTreeView::indicator {{
                 border: 1px solid {theme.border};
                 border-radius: 3px;
                 width: 15px;
                 height: 15px;
                 background-color: {theme.background_light};
             }}
-            QCheckBox::indicator:hover {{
+            QCheckBox::indicator:hover, QGroupBox::indicator:hover, QTreeView::indicator:hover {{
                 border-color: {theme.accent};
             }}
-            QCheckBox::indicator:checked {{
+            QCheckBox::indicator:checked, QGroupBox::indicator:checked, QTreeView::indicator:checked {{
                 background-color: {theme.accent};
                 border-color: {theme.accent};
             }}
-            QCheckBox::indicator:checked:hover {{
+            QCheckBox::indicator:checked:hover, QGroupBox::indicator:checked:hover, QTreeView::indicator:checked:hover {{
+                background-color: {theme.accent_hover};
+                border-color: {theme.accent_hover};
+            }}
+
+            /* Specific state for tristate checkboxes (e.g., in TreeView) */
+            QTreeView::indicator:indeterminate {{
+                background-color: {theme.color_neutral};
+                border-color: {theme.accent};
+            }}
+            QTreeView::indicator:indeterminate:hover {{
                 background-color: {theme.accent_hover};
                 border-color: {theme.accent_hover};
             }}

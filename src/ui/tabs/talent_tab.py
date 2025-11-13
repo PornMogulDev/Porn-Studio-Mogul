@@ -87,9 +87,20 @@ class TalentTab(QWidget):
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.talent_table_view.resizeColumnsToContents()
         header.resizeSection(0, 150) # Alias
+        header.resizeSection(1, 50) # Age
+        header.resizeSection(2, 100) # Gender
+        header.resizeSection(3, 120) # Orientation
+        header.resizeSection(4, 150) # Ethnicity
         header.resizeSection(5, 120) # Nationality
         header.resizeSection(6, 150) # Location
-        header.resizeSection(12, 50) # Sub
+        header.resizeSection(7, 75) # Dick Size
+        header.resizeSection(8, 75) # Cup Size
+        header.resizeSection(9, 100) # Performance
+        header.resizeSection(10, 100) # Acting
+        header.resizeSection(11, 100) # Dom
+        header.resizeSection(12, 100) # Sub
+        header.resizeSection(13, 100) # Stamina
+        header.resizeSection(14, 100) # Popularity
 
     def update_talent_list(self, talents: list):
         self.talent_model.update_data(talents)
