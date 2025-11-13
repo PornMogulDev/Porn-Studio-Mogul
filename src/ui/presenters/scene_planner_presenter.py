@@ -1,11 +1,12 @@
 import logging
-from typing import Optional, List, Dict, Tuple, Set, TYPE_CHECKING
+from typing import Optional, List, Dict, Set, TYPE_CHECKING
 from PyQt6.QtCore import Qt, pyqtSlot, QObject
-from PyQt6.QtWidgets import QDialog, QMessageBox, QListWidgetItem
+from PyQt6.QtWidgets import QDialog, QMessageBox
 from PyQt6 import sip
 
 from core.interfaces import IGameController
 from data.game_state import Scene, Talent, ShootingBloc
+from ui.view_models import PerformerEditorViewModel, TotalRuntimeViewModel
 from ui.dialogs.scene_planner_dialog import ScenePlannerDialog
 from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from utils.scene_summary_builder import prepare_summary_data
@@ -60,7 +61,7 @@ class ScenePlannerPresenter(QObject):
         self.view.status_changed.connect(self._on_status_changed)
         self.view.ds_level_changed.connect(self.on_ds_level_changed)
         self.view.performer_count_changed.connect(self.on_performer_count_changed)
-        self.view.composition_changed.connect(self.on_composition_changed)
+        self.view.composition_changed.connect(self.handle_composition_change)
         self.view.protagonist_toggled.connect(self.on_protagonist_toggled)
         self.view.total_runtime_changed.connect(self.on_total_runtime_changed)
         self.view.toggle_favorite_requested.connect(self.on_toggle_favorite_requested)
@@ -68,22 +69,22 @@ class ScenePlannerPresenter(QObject):
         # Thematic
         self.view.thematic_search_changed.connect(self.on_thematic_search_changed)
         self.view.thematic_filter_requested.connect(self.on_thematic_filter_requested)
-        self.view.add_thematic_tags_requested.connect(self.on_add_thematic_tags)
-        self.view.remove_thematic_tags_requested.connect(self.on_remove_thematic_tags)
+        self.view.add_thematic_tags_requested.connect(self.handle_add_thematic_tags)
+        self.view.remove_thematic_tags_requested.connect(self.handle_remove_thematic_tags)
         
         # Physical
         self.view.physical_search_changed.connect(self.on_physical_search_changed)
         self.view.physical_filter_requested.connect(self.on_physical_filter_requested)
-        self.view.add_physical_tags_requested.connect(self.on_add_physical_tags)
-        self.view.remove_physical_tags_requested.connect(self.on_remove_physical_tags)
+        self.view.add_physical_tags_requested.connect(self.handle_add_physical_tags)
+        self.view.remove_physical_tags_requested.connect(self.handle_remove_physical_tags)
         self.view.selected_physical_tag_changed.connect(self.on_selected_physical_tag_changed)
         self.view.physical_tag_assignment_changed.connect(self.on_physical_tag_assignment_changed)
         
         # Action
         self.view.action_search_changed.connect(self.on_action_search_changed)
         self.view.action_filter_requested.connect(self.on_action_filter_requested)
-        self.view.add_action_segments_requested.connect(self.on_add_action_segments)
-        self.view.remove_action_segments_requested.connect(self.on_remove_action_segments)
+        self.view.add_action_segments_requested.connect(self.handle_add_action_segments)
+        self.view.remove_action_segments_requested.connect(self.handle_remove_action_segments)
         self.view.selected_action_segment_changed.connect(self.on_selected_action_segment_changed)
         self.view.segment_runtime_changed.connect(self.on_segment_runtime_changed)
         self.view.segment_parameter_changed.connect(self.on_segment_parameter_changed)
@@ -94,7 +95,23 @@ class ScenePlannerPresenter(QObject):
 
         self.controller.signals.scenes_changed.connect(self.on_external_scene_change)
 
-    def on_view_loaded(self): self._refresh_full_view()
+    def on_view_loaded(self):
+        self._load_and_set_initial_data()
+        self._refresh_full_view()
+
+    def _load_and_set_initial_data(self):
+        """Fetches static data, formats it, and passes it to the view."""
+        viewer_groups = [group['name'] for group in self.controller.market_data.get('viewer_groups', [])]
+
+        # This logic is moved from the old view's _build_indented_ethnicity_list
+        hierarchy = self.controller.get_ethnicity_hierarchy()
+        ethnicities = []
+        for primary, subs in hierarchy.items():
+            ethnicities.append(primary)
+            for sub in subs:
+                ethnicities.append(f"  {sub}")
+
+        self.view.set_initial_data(viewer_groups, ethnicities, self.controller.signals.show_help_requested)
 
     def _refresh_full_view(self):
         self._refresh_general_info()
@@ -114,20 +131,31 @@ class ScenePlannerPresenter(QObject):
         )
 
     def _refresh_composition(self):
-        performers_with_talent_data = []
+        performer_models = []
+        is_design_editable = self.is_design_editable()
+        is_casting_enabled = self.is_casting_enabled()
+        ds_level = self.working_scene.dom_sub_dynamic_level
+        protagonist_ids = self.working_scene.protagonist_vp_ids
         for vp in self.working_scene.virtual_performers:
             talent = self.get_talent_by_id(self.working_scene.final_cast.get(str(vp.id)))
-            performers_with_talent_data.append({
-                'display_name': talent.alias if talent else vp.name, 'vp_name': vp.name, 'is_cast': talent is not None,
-                'gender': vp.gender, 'ethnicity': vp.ethnicity, 'disposition': vp.disposition, 'vp_id': vp.id
-            })
-        self.view.update_performer_editors(
-            performers_with_talent_data,
-            self.working_scene.dom_sub_dynamic_level,
-            self.working_scene.protagonist_vp_ids,
-            self.is_casting_enabled(),
-            self.is_design_editable()
-        )
+            is_cast = talent is not None
+            is_role_uncast = not is_cast
+            is_role_editable = is_role_uncast and is_design_editable
+
+            model = PerformerEditorViewModel(
+                vp_id=vp.id,
+                display_name=talent.alias if is_cast else vp.name,
+                tooltip=f"Playing the role of '{vp.name}'" if is_cast else "",
+                gender=vp.gender, ethnicity=vp.ethnicity, disposition=vp.disposition,
+                is_protagonist=vp.id in protagonist_ids,
+                is_name_editable=is_role_editable, is_gender_editable=is_role_editable,
+                is_ethnicity_editable=is_role_editable,
+                is_disposition_editable=ds_level > 0 and is_role_editable,
+                is_protagonist_editable=is_role_editable,
+                is_hire_button_enabled=is_casting_enabled and is_role_uncast
+            )
+            performer_models.append(model)
+        self.view.update_performer_editors(performer_models)
 
     def _refresh_thematic_panel(self):
         available = self.get_filtered_available_thematic_tags()
@@ -145,16 +173,27 @@ class ScenePlannerPresenter(QObject):
         selected_data = [t for t in all_tags if t['full_name'] in self.working_scene.assigned_tags.keys()]
         self.view.update_selected_physical_tags(sorted(selected_data, key=lambda t: t['full_name']), self.selected_physical_tag_name)
         
-        self.on_selected_physical_tag_changed(self.view.selected_physical_list.currentItem())
+        current_item = self.view.selected_physical_list.currentItem()
+        current_tag_name = current_item.text() if current_item else ""
+        self.on_selected_physical_tag_changed(current_tag_name)
 
     def _refresh_action_segment_panel(self):
         available = self.get_filtered_available_action_tags()
         self.view.update_available_action_tags(available)
         
         segments = sorted(self.working_scene.action_segments, key=lambda s: s.tag_name)
-        self.view.update_selected_action_segments(segments, self.controller.tag_definitions, self.selected_segment_id)
-        
-        self.on_selected_action_segment_changed(self.view.selected_actions_list.currentItem())
+        total_percent = sum(s.runtime_percentage for s in segments)
+        if total_percent == 100:
+            status = 'good'
+        elif total_percent > 100:
+            status = 'bad'
+        else: # < 100
+            status = 'neutral' if total_percent == 0 else 'warning'
+        runtime_model = TotalRuntimeViewModel(
+            text=f"<b>Total Assigned: {total_percent}%</b>",
+            status=status
+        )
+        self.view.update_selected_action_segments(segments, self.controller.tag_definitions, self.selected_segment_id, runtime_model)
 
     def _refresh_lock_state(self):
         is_cast_locked = len(self.working_scene.final_cast) > 0
@@ -177,9 +216,13 @@ class ScenePlannerPresenter(QObject):
         self._refresh_composition(); self._refresh_physical_panel(); self._refresh_action_segment_panel()
         self._update_summary()
 
-    def on_composition_changed(self, performers_data: List[Dict]):
+    def handle_composition_change(self):
+        performers_data = self.view.get_composition_data()
         self.state_editor.update_composition(performers_data)
-        self.on_selected_physical_tag_changed(self.view.selected_physical_list.currentItem()); self._refresh_action_segment_panel()
+        current_item = self.view.selected_physical_list.currentItem()
+        current_tag_name = current_item.text() if current_item else ""
+        self.on_selected_physical_tag_changed(current_tag_name); self._refresh_action_segment_panel()
+        self._refresh_physical_panel()
         self._update_summary()
 
     def on_protagonist_toggled(self, vp_id: int, is_protagonist: bool):
@@ -221,21 +264,26 @@ class ScenePlannerPresenter(QObject):
             elif mode == 'action': self.action_tag_filters = dialog.get_filters()
             refresh_callback()
 
-    def on_add_thematic_tags(self, tag_names: List[str]):
+    def handle_add_thematic_tags(self):
+        tag_names = self.view.get_selected_available_thematic_tags()
         self.state_editor.add_style_tags(tag_names)
         self._refresh_thematic_panel()
         self._update_summary()
-    def on_remove_thematic_tags(self, tag_names: List[str]):
+    def handle_remove_thematic_tags(self):
+        tag_names = self.view.get_selected_assigned_thematic_tags()
         self.state_editor.remove_style_tags(tag_names)
         self._refresh_thematic_panel()
         self._update_summary()
-    def on_add_physical_tags(self, tag_names: List[str]):
+
+    def handle_add_physical_tags(self):
+        tag_names = self.view.get_selected_available_physical_tags()
         if not tag_names: return
         self.state_editor.add_style_tags(tag_names)
         self.selected_physical_tag_name = sorted(tag_names)[0]
         self._refresh_physical_panel()
         self._update_summary()
-    def on_remove_physical_tags(self, tag_names: List[str]):
+    def handle_remove_physical_tags(self):
+        tag_names = self.view.get_selected_assigned_physical_tags()
         if not tag_names: return
         if self.selected_physical_tag_name in tag_names:
             self.selected_physical_tag_name = None
@@ -243,12 +291,14 @@ class ScenePlannerPresenter(QObject):
         self._refresh_physical_panel()
         self._update_summary()
 
-    def on_selected_physical_tag_changed(self, item: Optional[QListWidgetItem]):
-        if not item:
+    def on_selected_physical_tag_changed(self, tag_name: str):
+        if not tag_name:
             self.view.update_physical_assignment_panel(None, [], [], False)
             return
-        tag_data = item.data(Qt.ItemDataRole.UserRole)
-        raw_name = tag_data['full_name'].lstrip("⭐ ")
+        raw_name = tag_name.lstrip("⭐ ")
+        all_tags, _, _ = self.controller.get_physical_tags_for_planner()
+        tag_data = next((t for t in all_tags if t['full_name'] == raw_name), None)
+        if not tag_data: return
         self.selected_physical_tag_name = raw_name
         eligible_performers_data = []
         for vp in self.working_scene.virtual_performers:
@@ -266,14 +316,15 @@ class ScenePlannerPresenter(QObject):
         self.state_editor.update_style_tag_assignment(tag_name, vp_id, is_assigned)
         self._update_summary()
 
-    def on_add_action_segments(self, tag_names: List[str]):
+    def handle_add_action_segments(self):
+        tag_names = self.view.get_selected_available_action_tags()
         if not tag_names: return
         new_ids = self.state_editor.add_action_segments(tag_names)
         if new_ids: self.selected_segment_id = new_ids[0]
         self._refresh_action_segment_panel()
         self._update_summary()
-
-    def on_remove_action_segments(self, segment_ids: List[int]):
+    def handle_remove_action_segments(self):
+        segment_ids = self.view.get_selected_assigned_action_segment_ids()
         if not segment_ids: return
         if self.selected_segment_id in segment_ids:
             self.selected_segment_id = None
@@ -284,11 +335,11 @@ class ScenePlannerPresenter(QObject):
         self._refresh_action_segment_panel()
         self._update_summary()
 
-    def on_selected_action_segment_changed(self, item: Optional[QListWidgetItem]):
-        if not item:
+    def on_selected_action_segment_changed(self, segment_id: int):
+        if segment_id == -0:
             self.selected_segment_id = None; self.view.update_segment_details(None, {}, {}, False)
             return
-        segment_id = item.data(Qt.ItemDataRole.UserRole)
+        
         segment = next((s for s in self.working_scene.action_segments if s.id == segment_id), None)
         self.selected_segment_id = segment_id
         if not segment: self.view.update_segment_details(None, {}, {}, False); return
@@ -319,9 +370,12 @@ class ScenePlannerPresenter(QObject):
         self.state_editor.update_action_segment_parameter(segment_id, role, value)
         self._refresh_action_segment_panel()
         self._update_summary()
-    def on_slot_assignment_changed(self, segment_id: int, slot_id: str, vp_id: Optional[int]):
-        self.state_editor.update_slot_assignment(segment_id, slot_id, vp_id)
-        self.on_selected_action_segment_changed(self.view.selected_actions_list.currentItem())
+    def on_slot_assignment_changed(self, segment_id: int, slot_id: str, vp_id: int):
+        # The view emits 0 for "Unassigned"
+        self.state_editor.update_slot_assignment(segment_id, slot_id, vp_id if vp_id != 0 else None)
+        current_item = self.view.selected_actions_list.currentItem()
+        current_segment_id = current_item.data(Qt.ItemDataRole.UserRole) if current_item else -1
+        self.on_selected_action_segment_changed(current_segment_id)
         self._update_summary()
 
     def on_save_requested(self):

@@ -235,6 +235,21 @@ class ThemeManager:
                 border-bottom-color: {theme.background_light}; /* Creates seamless look */
             }}
 
+             /* --- Semantic Status Colors for Labels --- */
+            /* Used in Scene Planner for total runtime percentage */
+            QLabel#totalPercentLabel[status="good"] {{
+                color: {theme.color_good};
+            }}
+            QLabel#totalPercentLabel[status="bad"] {{
+                color: {theme.color_bad};
+            }}
+            QLabel#totalPercentLabel[status="warning"] {{
+                color: {theme.color_warning};
+            }}
+            QLabel#totalPercentLabel[status="neutral"] {{
+                color: {theme.text};
+            }}
+
             /* --- Specific Component Styling for Email Dialog --- */
             QLabel#emailSubjectLabel {{
                 font-size: {subject_font_size}pt;

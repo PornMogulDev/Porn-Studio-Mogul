@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 class UIManager:
     def __init__(self, controller, parent_widget: QWidget = None):
         self.controller = controller
+        self.settings_manager = self.controller.settings_manager
         self.parent_widget = parent_widget
         self._dialog_instances = {}
         self._open_scene_dialogs = {}
@@ -57,7 +58,7 @@ class UIManager:
     def show_go_to_list(self):
         dialog_name = GoToTalentDialog.__name__
         if dialog_name not in self._dialog_instances:
-            dialog = GoToTalentDialog(self.controller.settings_manager, parent=self.parent_widget)
+            dialog = GoToTalentDialog(self.settings_manager, parent=self.parent_widget)
             presenter = GoToListPresenter(self.controller, dialog, self, parent=dialog)
             dialog.set_presenter(presenter) # Use a setter for clarity
             
@@ -74,7 +75,7 @@ class UIManager:
     def show_inbox(self):
         dialog_name = EmailDialog.__name__
         if dialog_name not in self._dialog_instances:
-            dialog = EmailDialog(self.controller.settings_manager, parent=self.parent_widget)
+            dialog = EmailDialog(self.settings_manager, parent=self.parent_widget)
             presenter = EmailPresenter(self.controller, dialog, parent=dialog)
             dialog.set_presenter(presenter) # Use a setter for clarity
             
@@ -221,7 +222,7 @@ class UIManager:
             # On some platforms, activateWindow is not enough
             QApplication.setActiveWindow(dialog)
         else:
-            dialog = ScenePlannerDialog(self.controller, parent=self.parent_widget)
+            dialog = ScenePlannerDialog(self.settings_manager, parent=self.parent_widget)
             presenter = ScenePlannerPresenter(self.controller, scene_id, dialog, self)
             dialog.presenter = presenter
             
@@ -249,7 +250,7 @@ class UIManager:
             dialog.activateWindow()
         else:
             # UIManager creates both, ensuring a clear ownership hierarchy.
-            dialog = ShotSceneDetailsDialog(self.controller, self.parent_widget)
+            dialog = ShotSceneDetailsDialog(self.settings_manager, self.parent_widget)
             
             # The presenter is parented to the dialog. When the dialog is destroyed by Qt,
             # the presenter will be destroyed with it, reliably cleaning up signals.
@@ -299,7 +300,7 @@ class UIManager:
         Shows a talent profile dialog
         """
         if self._talent_profile_window_singleton is None:
-            window = TalentProfileWindow(self.controller.settings_manager, self.parent_widget)
+            window = TalentProfileWindow(self.settings_manager, self.parent_widget)
             presenter = TalentProfilePresenter(self.controller, window, self, parent=window)
             window.presenter = presenter
             presenter.open_talent_profile_requested.connect(self.show_talent_profile_by_id)

@@ -11,7 +11,7 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtGui import QKeyEvent
 
-from utils.scene_summary_builder import prepare_summary_data
+from ui.view_models import PerformerEditorViewModel, TotalRuntimeViewModel
 from ui.widgets.scene_summary_widget import SceneSummaryWidget
 from ui.widgets.scene_planner.draggable_list_widget import DraggableListWidget
 from ui.widgets.scene_planner.drop_enabled_list_widget import DropEnabledListWidget
@@ -32,7 +32,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     status_changed = pyqtSignal(str)
     ds_level_changed = pyqtSignal(int)
     performer_count_changed = pyqtSignal(int)
-    composition_changed = pyqtSignal(list)
+    composition_changed = pyqtSignal()
     protagonist_toggled = pyqtSignal(int, bool)
     total_runtime_changed = pyqtSignal(int)
     toggle_favorite_requested = pyqtSignal(str, str) # tag_name, tag_type
@@ -40,36 +40,34 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     # Thematic Tags
     thematic_search_changed = pyqtSignal(str)
     thematic_filter_requested = pyqtSignal()
-    add_thematic_tags_requested = pyqtSignal(list)
-    remove_thematic_tags_requested = pyqtSignal(list)
+    add_thematic_tags_requested = pyqtSignal()
+    remove_thematic_tags_requested = pyqtSignal()
     
     # Physical Tags
     physical_search_changed = pyqtSignal(str)
     physical_filter_requested = pyqtSignal()
-    add_physical_tags_requested = pyqtSignal(list)
-    remove_physical_tags_requested = pyqtSignal(list)
-    selected_physical_tag_changed = pyqtSignal(object) # QListWidgetItem or None
+    add_physical_tags_requested = pyqtSignal()
+    remove_physical_tags_requested = pyqtSignal()
+    selected_physical_tag_changed = pyqtSignal(str) # tag_name or ""
     physical_tag_assignment_changed = pyqtSignal(str, int, bool) # tag_name, vp_id, is_checked
     
     # Action Tags
     action_search_changed = pyqtSignal(str)
     action_filter_requested = pyqtSignal()
-    add_action_segments_requested = pyqtSignal(list)
-    remove_action_segments_requested = pyqtSignal(list)
-    selected_action_segment_changed = pyqtSignal(object) # QListWidgetItem or None
+    add_action_segments_requested = pyqtSignal()
+    remove_action_segments_requested = pyqtSignal()
+    selected_action_segment_changed = pyqtSignal(int) # segment_id or -1
     segment_runtime_changed = pyqtSignal(int, int) # segment_id, new_value
     segment_parameter_changed = pyqtSignal(int, str, int) # segment_id, role, new_value
-    slot_assignment_changed = pyqtSignal(int, str, object) # segment_id, slot_id, vp_id or None
+    slot_assignment_changed = pyqtSignal(int, str, int) # segment_id, slot_id, vp_id or 0 for None
     hire_for_role_requested = pyqtSignal(int) # vp_id
 
-    def __init__(self, controller, parent=None):
+    def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
         self.presenter = None
+        self.settings_manager = settings_manager
+        self.help_signal_proxy = None # To directly handle the help signal from the view
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.controller = controller
-        self.settings_manager = self.controller.settings_manager 
-        self.available_ethnicities = self._build_indented_ethnicity_list()
-        self.viewer_groups = [group['name'] for group in self.controller.market_data.get('viewer_groups', [])]
         
         self.setWindowTitle("Scene Planner")
         self.defaultSize = QSize(1366, 768)
@@ -90,9 +88,8 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
         header_layout = QHBoxLayout()
-        help_btn = HelpButton("scene_planner", self)
-        help_btn.help_requested.connect(self.controller.signals.show_help_requested)
-        header_layout.addWidget(help_btn, 0)
+        self.help_btn = HelpButton("scene_planner", self)
+        header_layout.addWidget(self.help_btn, 0)
         self.bloc_info_label = QLabel()
         font = self.bloc_info_label.font(); font.setItalic(True); self.bloc_info_label.setFont(font)
         header_layout.addWidget(self.bloc_info_label, 1)
@@ -135,9 +132,10 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     def _create_overview_group(self):
         container = QWidget(); top_layout = QHBoxLayout(container)
         details_layout = QHBoxLayout(); self.title_edit = QLineEdit(); 
-        self.focus_target_combo = QComboBox(); self.focus_target_combo.addItems(self.viewer_groups)
-        details_layout.addWidget(QLabel("Title:")); details_layout.addWidget(self.title_edit)
-        details_layout.addWidget(QLabel("Focus Target:")); details_layout.addWidget(self.focus_target_combo)
+        self.focus_target_combo = QComboBox()
+        details_layout.addWidget(QLabel("Title:")); details_layout.addWidget(self.title_edit, 2)
+        details_layout.addWidget(QLabel("Focus Target:")); details_layout.addWidget(self.focus_target_combo, 1)
+        details_layout.addStretch()
         top_layout.addLayout(details_layout)
         return container
 
@@ -234,7 +232,9 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         self.selected_actions_list = DropEnabledListWidget()
         self.selected_actions_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         selected_actions_col.addWidget(self.selected_actions_list)
-        self.total_percent_label = QLabel("<b>Total Assigned: 0%</b>"); self.total_percent_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.total_percent_label = QLabel("<b>Total Assigned: 0%</b>")
+        self.total_percent_label.setObjectName("totalPercentLabel")
+        self.total_percent_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         selected_actions_col.addWidget(self.total_percent_label)
         # Details
         details_col = QVBoxLayout(); details_col.addWidget(QLabel("<h3>Segment Details</h3>"))
@@ -260,49 +260,49 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
 
         # --- Composition ---
         self.composition_update_timer = QTimer(self); self.composition_update_timer.setSingleShot(True); self.composition_update_timer.setInterval(300)
-        self.composition_update_timer.timeout.connect(self._emit_composition_change)
+        self.composition_update_timer.timeout.connect(self.composition_changed)
         self.performer_count_spinbox.valueChanged.connect(self.performer_count_changed)
         
         # --- Thematic ---
         self.thematic_search_input.textChanged.connect(self.thematic_search_changed)
         self.thematic_filter_btn.clicked.connect(self.thematic_filter_requested)
-        self.add_thematic_btn.clicked.connect(lambda: self.add_thematic_tags_requested.emit([item.text() for item in self.available_thematic_list.selectedItems()]))
-        self.remove_thematic_btn.clicked.connect(lambda: self.remove_thematic_tags_requested.emit([item.text() for item in self.selected_thematic_list.selectedItems()]))
+        self.add_thematic_btn.clicked.connect(self.add_thematic_tags_requested)
+        self.remove_thematic_btn.clicked.connect(self.remove_thematic_tags_requested)
         # Add by double click or drop
-        self.available_thematic_list.itemDoubleClicked.connect(lambda item: self.add_thematic_tags_requested.emit([item.text()]))
-        self.selected_thematic_list.item_dropped.connect(lambda text: self.add_thematic_tags_requested.emit([text]))
+        self.available_thematic_list.itemDoubleClicked.connect(self.add_thematic_tags_requested)
+        self.selected_thematic_list.item_dropped.connect(self.add_thematic_tags_requested)
         # Remove by keypress, double click, or drop
-        self.selected_thematic_list.item_delete_requested.connect(lambda: self.remove_thematic_tags_requested.emit([self.selected_thematic_list.currentItem().text()]) if self.selected_thematic_list.currentItem() else None)
-        self.selected_thematic_list.itemDoubleClicked.connect(lambda item: self.remove_thematic_tags_requested.emit([item.text()]))
-        self.available_thematic_list.item_dropped.connect(lambda text: self.remove_thematic_tags_requested.emit([text]))
+        self.selected_thematic_list.item_delete_requested.connect(self.remove_thematic_tags_requested)
+        self.selected_thematic_list.itemDoubleClicked.connect(self.remove_thematic_tags_requested)
+        self.available_thematic_list.item_dropped.connect(self.remove_thematic_tags_requested)
         
         # --- Physical ---
         self.physical_search_input.textChanged.connect(self.physical_search_changed)
         self.physical_filter_btn.clicked.connect(self.physical_filter_requested)
-        self.add_physical_btn.clicked.connect(lambda: self.add_physical_tags_requested.emit([item.text() for item in self.available_physical_list.selectedItems()]))
-        self.remove_physical_btn.clicked.connect(lambda: self.remove_physical_tags_requested.emit([item.text() for item in self.selected_physical_list.selectedItems()]))
+        self.add_physical_btn.clicked.connect(self.add_physical_tags_requested)
+        self.remove_physical_btn.clicked.connect(self.remove_physical_tags_requested)
         # Add by double click or drop
-        self.available_physical_list.itemDoubleClicked.connect(lambda item: self.add_physical_tags_requested.emit([item.text()]))
-        self.selected_physical_list.item_dropped.connect(lambda text: self.add_physical_tags_requested.emit([text]))
+        self.available_physical_list.itemDoubleClicked.connect(self.add_physical_tags_requested)
+        self.selected_physical_list.item_dropped.connect(self.add_physical_tags_requested)
         # Remove by keypress, double click, or drop
-        self.selected_physical_list.item_delete_requested.connect(lambda: self.remove_physical_tags_requested.emit([self.selected_physical_list.currentItem().text()]) if self.selected_physical_list.currentItem() else None)
-        self.selected_physical_list.itemDoubleClicked.connect(lambda item: self.remove_physical_tags_requested.emit([item.text()]))
-        self.available_physical_list.item_dropped.connect(lambda text: self.remove_physical_tags_requested.emit([text]))
-        self.selected_physical_list.currentItemChanged.connect(lambda current, _: self.selected_physical_tag_changed.emit(current))
+        self.selected_physical_list.item_delete_requested.connect(self.remove_physical_tags_requested)
+        self.selected_physical_list.itemDoubleClicked.connect(self.remove_physical_tags_requested)
+        self.available_physical_list.item_dropped.connect(self.remove_physical_tags_requested)
+        self.selected_physical_list.currentItemChanged.connect(self._emit_selected_physical_tag)
         
         # --- Action ---
         self.action_search_input.textChanged.connect(self.action_search_changed)
         self.action_filter_btn.clicked.connect(self.action_filter_requested)
-        self.add_action_btn.clicked.connect(lambda: self.add_action_segments_requested.emit([item.text() for item in self.available_actions_list.selectedItems()]))
-        self.remove_action_btn.clicked.connect(lambda: self.remove_action_segments_requested.emit([item.data(Qt.ItemDataRole.UserRole) for item in self.selected_actions_list.selectedItems()]))
+        self.add_action_btn.clicked.connect(self.add_action_segments_requested)
+        self.remove_action_btn.clicked.connect(self.remove_action_segments_requested)
         # Add by double click or drop
-        self.available_actions_list.itemDoubleClicked.connect(lambda item: self.add_action_segments_requested.emit([item.text()]))
-        self.selected_actions_list.item_dropped.connect(lambda text: self.add_action_segments_requested.emit([text]))
+        self.available_actions_list.itemDoubleClicked.connect(self.add_action_segments_requested)
+        self.selected_actions_list.item_dropped.connect(self.add_action_segments_requested)
         # Remove by keypress, double click, or drop
-        self.selected_actions_list.item_delete_requested.connect(lambda: self.remove_action_segments_requested.emit([self.selected_actions_list.currentItem().data(Qt.ItemDataRole.UserRole)]) if self.selected_actions_list.currentItem() else None)
-        self.selected_actions_list.itemDoubleClicked.connect(lambda item: self.remove_action_segments_requested.emit([item.data(Qt.ItemDataRole.UserRole)]))
-        self.available_actions_list.item_dropped.connect(lambda text: self.remove_action_segments_requested.emit([int(text)]))
-        self.selected_actions_list.currentItemChanged.connect(lambda current, _: self.selected_action_segment_changed.emit(current))
+        self.selected_actions_list.item_delete_requested.connect(self.remove_action_segments_requested)
+        self.selected_actions_list.itemDoubleClicked.connect(self.remove_action_segments_requested)
+        self.available_actions_list.item_dropped.connect(self.remove_action_segments_requested)
+        self.selected_actions_list.currentItemChanged.connect(self._emit_selected_action_segment)
         self.runtime_percent_spinbox.valueChanged.connect(self._emit_segment_runtime_change)
         
         # --- Context Menus for Favorites ---
@@ -311,6 +311,22 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
                                      (self.available_actions_list, 'action'), (self.selected_actions_list, 'action')]:
             list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             list_widget.customContextMenuRequested.connect(lambda pos, lw=list_widget, tt=tag_type: self._show_tag_context_menu(lw, pos, tt))
+
+    def set_initial_data(self, viewer_groups: List[str], ethnicities: List[str], help_signal: pyqtSignal):
+        """Populates static combo boxes and other initial data provided by the presenter."""
+        # Store ethnicities for dynamic creation of performer editors
+        self.available_ethnicities = ethnicities
+
+        # Viewer Groups for Focus Target
+        self.focus_target_combo.blockSignals(True)
+        self.focus_target_combo.clear()
+        self.focus_target_combo.addItems(viewer_groups)
+        self.focus_target_combo.blockSignals(False)
+
+        # Help signal
+        self.help_signal_proxy = help_signal
+        if self.help_signal_proxy:
+            self.help_btn.help_requested.connect(self.help_signal_proxy)
 
     # --- Public Update Methods ---
     def update_summary_view(self, summary_data: dict):
@@ -323,39 +339,38 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         self.focus_target_combo.setCurrentText(focus_target)
         self.total_runtime_spinbox.setValue(runtime)
         self.ds_level_spinbox.setValue(ds_level)
-        self.bloc_info_label.setText(bloc_text if bloc_text else "")
+        self.bloc_info_label.setText(bloc_text)
         for w in [self.title_edit, self.status_combo, self.focus_target_combo, self.total_runtime_spinbox, self.ds_level_spinbox]: w.blockSignals(False)
 
-    def update_performer_editors(self, performers_with_talent: List[Dict], ds_level: int, protagonist_ids: List[int], is_casting_enabled: bool, is_design_editable: bool):
-        self.performer_count_spinbox.blockSignals(True); self.performer_count_spinbox.setValue(len(performers_with_talent)); self.performer_count_spinbox.blockSignals(False)
+    def update_performer_editors(self, performer_models: List[PerformerEditorViewModel]):
+        self.performer_count_spinbox.blockSignals(True); self.performer_count_spinbox.setValue(len(performer_models)); self.performer_count_spinbox.blockSignals(False)
         while self.performer_editors_layout.count():
             child = self.performer_editors_layout.takeAt(0)
             if child.widget(): child.widget().deleteLater()
-        for i, data in enumerate(performers_with_talent):
+        for i, model in enumerate(performer_models):
             row_widget = QWidget(); h_layout = QHBoxLayout(row_widget); h_layout.setContentsMargins(0, 2, 0, 2)
-            name_edit = QLineEdit(data['display_name']); gender_combo = QComboBox(); gender_combo.addItems(["Female", "Male"])
+            name_edit = QLineEdit(model.display_name); gender_combo = QComboBox(); gender_combo.addItems(["Female", "Male"])
             ethnicity_combo = QComboBox(); ethnicity_combo.addItem("Any"); ethnicity_combo.addItems(self.available_ethnicities)
             disposition_combo = QComboBox(); disposition_combo.addItems(["Switch", "Dom", "Sub"])
             protagonist_checkbox = QCheckBox("Protagonist"); protagonist_checkbox.setToolTip("The talent's performance will have a bigger importance in the scene relative to non-protagonists")
-            gender_combo.setCurrentText(data['gender'])
+            gender_combo.setCurrentText(model.gender)
             # Find the correct item in the combo box, ignoring indentation
             for idx in range(ethnicity_combo.count()):
-                if ethnicity_combo.itemText(idx).strip() == data['ethnicity']:
+                if ethnicity_combo.itemText(idx).strip() == model.ethnicity:
                     ethnicity_combo.setCurrentIndex(idx); break
-            disposition_combo.setCurrentText(data['disposition'])
-            protagonist_checkbox.setChecked(data['vp_id'] in protagonist_ids)
-            if data['is_cast']: name_edit.setToolTip(f"Playing the role of '{data['vp_name']}'")
-            is_role_uncast = not data['is_cast']
-            is_role_editable = is_role_uncast and is_design_editable
+            disposition_combo.setCurrentText(model.disposition)
+            protagonist_checkbox.setChecked(model.is_protagonist)
+            name_edit.setToolTip(model.tooltip)
             hire_button = QPushButton("Hire")
-            hire_button.clicked.connect(lambda checked=False, vp_id=data['vp_id']: self.hire_for_role_requested.emit(vp_id))
-            hire_button.setEnabled(is_casting_enabled and is_role_uncast)
+            hire_button.clicked.connect(lambda checked=False, vp_id=model.vp_id: self.hire_for_role_requested.emit(vp_id))
+            hire_button.setEnabled(model.is_hire_button_enabled)
             
             h_layout.addWidget(QLabel(f"{i+1}:")); h_layout.addWidget(name_edit); h_layout.addWidget(QLabel("Gender:")); h_layout.addWidget(gender_combo)
             h_layout.addWidget(QLabel("Ethnicity:")); h_layout.addWidget(ethnicity_combo); h_layout.addWidget(QLabel("Disposition:")); h_layout.addWidget(disposition_combo)
             h_layout.addWidget(protagonist_checkbox); h_layout.addStretch(); h_layout.addWidget(hire_button)
-            name_edit.setEnabled(is_role_editable); gender_combo.setEnabled(is_role_editable); ethnicity_combo.setEnabled(is_role_editable); disposition_combo.setEnabled(ds_level > 0 and is_role_editable); protagonist_checkbox.setEnabled(is_role_editable)
-            protagonist_checkbox.toggled.connect(lambda checked, vid=data['vp_id']: self.protagonist_toggled.emit(vid, checked))
+            name_edit.setEnabled(model.is_name_editable); gender_combo.setEnabled(model.is_gender_editable); ethnicity_combo.setEnabled(model.is_ethnicity_editable)
+            disposition_combo.setEnabled(model.is_disposition_editable); protagonist_checkbox.setEnabled(model.is_protagonist_editable)
+            protagonist_checkbox.toggled.connect(lambda checked, vid=model.vp_id: self.protagonist_toggled.emit(vid, checked))
             for w in [name_edit, gender_combo, ethnicity_combo, disposition_combo]: w.installEventFilter(self); w.setProperty("editor_widget", True)
             self.performer_editors_layout.addWidget(row_widget)
 
@@ -405,10 +420,10 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         self.available_actions_list.clear()
         for tag_data in tags: self.available_actions_list.addItem(self._create_list_item_with_tooltip(tag_data))
 
-    def update_selected_action_segments(self, segments: List[ActionSegment], tag_defs: Dict, selection_id: Optional[int]):
+    def update_selected_action_segments(self, segments: List[ActionSegment], tag_defs: Dict, selection_id: Optional[int], runtime_model: TotalRuntimeViewModel):
         self.selected_actions_list.blockSignals(True)
         self.selected_actions_list.clear()
-        total_percent = 0; new_selection_index = -1
+        new_selection_index = -1
         for i, segment in enumerate(segments):
             tag_def = tag_defs.get(segment.tag_name)
             item = QListWidgetItem(); item.setData(Qt.ItemDataRole.UserRole, segment.id)
@@ -419,13 +434,13 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
                 item.setSizeHint(widget.sizeHint())
                 self.selected_actions_list.setItemWidget(item, widget)
             else: item.setText(f"{segment.tag_name} ({segment.runtime_percentage}%)")
-            total_percent += segment.runtime_percentage
             if segment.id == selection_id: new_selection_index = i
-        self.total_percent_label.setText(f"<b>Total Assigned: {total_percent}%</b>")
-        self.total_percent_label.setStyleSheet("color: red;" if total_percent > 100 else "")
+        self.update_total_runtime_percentage(runtime_model)
         self.selected_actions_list.blockSignals(False)
         if new_selection_index != -1: self.selected_actions_list.setCurrentRow(new_selection_index)
-        elif self.selected_actions_list.count() > 0: self.selected_actions_list.setCurrentRow(0)
+        # After refresh, if nothing is selected but there are items, select the first one.
+        if self.selected_actions_list.currentRow() == -1 and self.selected_actions_list.count() > 0:
+            self.selected_actions_list.setCurrentRow(0)
 
     def update_segment_details(self, segment: Optional[ActionSegment], tag_defs: Dict, vp_options_by_slot: Dict[str, List[tuple]], is_editable: bool):
         if not segment: self.segment_stack.setCurrentIndex(0); return
@@ -443,12 +458,20 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
                 base_name = tag_def.get('name', segment.tag_name)
                 slot_id = f"{base_name}_{slot_def['role']}_{i+1}"
                 slot_widget = SlotAssignmentWidget(segment.id, slot_id, slot_def)
-                slot_widget.assignment_changed.connect(self.slot_assignment_changed)
+                slot_widget.assignment_changed.connect(
+                    lambda sid, slid, vpid: self.slot_assignment_changed.emit(sid, slid, vpid if vpid is not None else 0)
+                )
                 slot_widget.setEnabled(is_editable)
                 widget_options = vp_options_by_slot.get(slot_id, [])
                 current_vp = assignments_map.get(slot_id)
                 slot_widget.update_options(widget_options, current_vp)
                 self.slots_layout.addWidget(slot_widget)
+
+    def update_total_runtime_percentage(self, model: TotalRuntimeViewModel):
+        self.total_percent_label.setText(model.text)
+        self.total_percent_label.setProperty("status", model.status)
+        self.total_percent_label.style().unpolish(self.total_percent_label)
+        self.total_percent_label.style().polish(self.total_percent_label)
             
     def set_ui_lock_state(self, is_editable: bool, is_cast_locked: bool):
         self.status_combo.setEnabled(not is_cast_locked)
@@ -466,7 +489,8 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         """Immediately stops the update timer and emits any pending composition changes."""
         if self.composition_update_timer.isActive():
             self.composition_update_timer.stop()
-            self._emit_composition_change()
+            self.composition_changed.emit()
+
     # --- Private Helpers ---
     def _create_list_item_with_tooltip(self, tag_data: dict) -> QListWidgetItem:
         item = QListWidgetItem(tag_data['full_name']); item.setData(Qt.ItemDataRole.UserRole, tag_data)
@@ -482,15 +506,17 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
             self.main_stack.setCurrentIndex(0)
             self.view_toggle_btn.setText("View Summary")
 
-    def _build_indented_ethnicity_list(self) -> List[str]:
-        """Builds a list of ethnicities with sub-groups indented for display in a combobox."""
-        hierarchy = self.controller.get_ethnicity_hierarchy()
-        indented_list = []
-        for primary, subs in hierarchy.items():
-            indented_list.append(primary)
-            for sub in subs:
-                indented_list.append(f"  {sub}")
-        return indented_list
+    def _emit_selected_physical_tag(self, current_item: QListWidgetItem, _):
+        tag_name = ""
+        if current_item:
+            tag_name = current_item.text()
+        self.selected_physical_tag_changed.emit(tag_name)
+
+    def _emit_selected_action_segment(self, current_item: QListWidgetItem, _):
+        segment_id = 0 # Default to 0 for "nothing selected"
+        if current_item: 
+            segment_id = current_item.data(Qt.ItemDataRole.UserRole)
+        self.selected_action_segment_changed.emit(segment_id)
 
     def _show_tag_context_menu(self, list_widget: QListWidget, pos: QPoint, tag_type: str):
         item = list_widget.itemAt(pos)
@@ -507,19 +533,6 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     def eventFilter(self, source, event):
         if source.property("editor_widget") and (isinstance(event, QKeyEvent) or event.type() in [event.Type.FocusOut]): self.composition_update_timer.start()
         return super().eventFilter(source, event)
-
-    def _emit_composition_change(self):
-        performers_data = []
-        for i in range(self.performer_editors_layout.count()):
-            row_widget = self.performer_editors_layout.itemAt(i).widget()
-            name_edit, combos = row_widget.findChild(QLineEdit), row_widget.findChildren(QComboBox)
-            if name_edit and len(combos) == 3:
-                performers_data.append({
-                    "name": name_edit.text(), 
-                    "gender": combos[0].currentText(), 
-                    "ethnicity": combos[1].currentText().strip(), 
-                    "disposition": combos[2].currentText()})
-        self.composition_changed.emit(performers_data)
         
     def _emit_segment_runtime_change(self, value: int):
         if item := self.selected_actions_list.currentItem():
@@ -529,3 +542,41 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         reply = QMessageBox.question(self, 'Confirm Deletion', "Are you sure you want to permanently delete this scene?\nThis action cannot be undone.", 
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes: self.delete_requested.emit(0.0)
+
+    # --- Public Getter Methods for Presenter ---
+    def get_composition_data(self) -> List[Dict]:
+        """Extracts and returns the current data from the performer editor widgets."""
+        performers_data = []
+        for i in range(self.performer_editors_layout.count()):
+            row_widget = self.performer_editors_layout.itemAt(i).widget()
+            name_edit = row_widget.findChild(QLineEdit)
+            combos = row_widget.findChildren(QComboBox)
+            if name_edit and len(combos) == 3:
+                performers_data.append({
+                    "name": name_edit.text(),
+                    "gender": combos[0].currentText(),
+                    "ethnicity": combos[1].currentText().strip(),
+                    "disposition": combos[2].currentText()
+                })
+        return performers_data
+    
+    def get_selected_available_thematic_tags(self) -> List[str]:
+        return [item.text() for item in self.available_thematic_list.selectedItems()]
+
+    def get_selected_assigned_thematic_tags(self) -> List[str]:
+        return [item.text() for item in self.selected_thematic_list.selectedItems()]
+
+    def get_selected_available_physical_tags(self) -> List[str]:
+        return [item.text() for item in self.available_physical_list.selectedItems()]
+
+    def get_selected_assigned_physical_tags(self) -> List[str]:
+        return [item.text() for item in self.selected_physical_list.selectedItems()]
+
+    def get_selected_available_action_tags(self) -> List[str]:
+        return [item.text() for item in self.available_actions_list.selectedItems()]
+
+    def get_selected_assigned_action_segment_ids(self) -> List[int]:
+        items = self.selected_actions_list.selectedItems()
+        if not items: # Handle single item deletion via Delete key
+            if current_item := self.selected_actions_list.currentItem(): items = [current_item]
+        return [item.data(Qt.ItemDataRole.UserRole) for item in items]

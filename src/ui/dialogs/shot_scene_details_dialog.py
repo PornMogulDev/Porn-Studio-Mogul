@@ -9,10 +9,9 @@ from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.shot_scene_details_presenter import ShotSceneDetailsPresenter
 
 class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
-    def __init__(self, controller, parent=None):
+    def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
-        self.controller = controller
-        self.settings_manager = self.controller.settings_manager
+        self.settings_manager = settings_manager
         self.presenter = None 
 
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)

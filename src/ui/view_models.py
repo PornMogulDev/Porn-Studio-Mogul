@@ -111,3 +111,27 @@ class EmailContentViewModel:
     subject: str = "Subject: (Select a message)"
     date_str: str = "Date:"
     body: str = ""
+
+# --- SCENE PLANNER ---
+@dataclass
+class PerformerEditorViewModel:
+    """Holds all display-ready data for a single performer editor row."""
+    vp_id: int
+    display_name: str
+    tooltip: str
+    gender: str
+    ethnicity: str
+    disposition: str
+    is_protagonist: bool
+    is_name_editable: bool
+    is_gender_editable: bool
+    is_ethnicity_editable: bool
+    is_disposition_editable: bool
+    is_protagonist_editable: bool
+    is_hire_button_enabled: bool
+
+@dataclass
+class TotalRuntimeViewModel:
+    """Holds display-ready data for the action segment runtime total label."""
+    text: str
+    status: str # e.g., 'good', 'bad', 'warning', 'neutral'
