@@ -1,10 +1,10 @@
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QRadioButton, QButtonGroup, QLineEdit,
-    QFormLayout, QComboBox, QCheckBox, QDialogButtonBox,
-    QMessageBox
+QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+QPushButton, QRadioButton, QButtonGroup, QLineEdit,
+QFormLayout, QComboBox, QCheckBox, QDialogButtonBox
 )
+from typing import List
 
 from utils.formatters import inches_to_cm, cm_to_inches
 from ui.widgets.talent_filter.categorical_range_filter_widget import CategoricalRangeFilterWidget
@@ -14,6 +14,11 @@ from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.talent_filter_presenter import TalentFilterPresenter
 
 class TalentFilterDialog(GeometryManagerMixin, QDialog):
+    """
+    The View for the talent filter. It is a "dumb" component responsible only for
+    displaying data and capturing user input. It contains no business logic.
+    All actions are delegated to the TalentFilterPresenter.
+    """
     # --- Public API and Internal Signals ---
     filters_applied = pyqtSignal(dict)
     apply_requested = pyqtSignal()
@@ -21,9 +26,18 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
     apply_and_close_requested = pyqtSignal()
     go_to_toggled = pyqtSignal(bool)
 
+    # --- Signals for Presenter ---
+    load_preset_requested = pyqtSignal()
+    save_preset_requested = pyqtSignal()
+    delete_preset_requested = pyqtSignal()
+
+
     def __init__(self, ethnicities_hierarchy: dict, cup_sizes: list, nationalities: list, locations_by_region: dict, go_to_categories: list, current_filters: dict, settings_manager, parent=None):
         super().__init__(parent)
+        # Retain settings_manager ONLY for GeometryManagerMixin.
+        # All other logic using it is in the presenter.
         self.settings_manager = settings_manager
+        
         self.unit_system = self.settings_manager.get_setting("unit_system", "imperial")
         self.setWindowTitle("Advanced Talent Filter")
         self.defaultSize = QSize(700, 1000)
@@ -37,27 +51,13 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.go_to_categories = go_to_categories
 
         self.setup_ui()
-        self._populate_presets_combobox()
-        self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
         self.connect_signals()
 
-        self.presenter = TalentFilterPresenter(self, current_filters)
+        # Presenter creation is deferred until all UI elements are available.
+        self.presenter = TalentFilterPresenter(self, current_filters, self.settings_manager)
         self.presenter.load_initial_data()
 
         self._restore_geometry()
-    
-    def _populate_presets_combobox(self):
-        current_text = self.preset_combo.currentText()
-        self.preset_combo.blockSignals(True)
-        self.preset_combo.clear()
-        presets = self.settings_manager.get_talent_filter_presets()
-        if presets:
-            self.preset_combo.addItems(sorted(presets.keys()))
-        
-        index = self.preset_combo.findText(current_text)
-        if index != -1: self.preset_combo.setCurrentIndex(index)
-        else: self.preset_combo.setCurrentIndex(-1)
-        self.preset_combo.blockSignals(False)
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -71,7 +71,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         age_group = CollapsibleGroupBox("Age Range"); age_layout = QVBoxLayout(age_group); self.age_range = RangeFilterWidget(); self.age_range.set_range(18, 99); age_layout.addWidget(self.age_range); main_layout.addWidget(age_group)
         skills_group = CollapsibleGroupBox("Core Skills"); self.skills_layout = QFormLayout(skills_group); self.perf_range = RangeFilterWidget(); self.perf_range.set_range(0, 100); self.act_range = RangeFilterWidget(); self.act_range.set_range(0, 100); self.stam_range = RangeFilterWidget(); self.stam_range.set_range(0, 100); self.dom_range = RangeFilterWidget(); self.dom_range.set_range(0, 100); self.sub_range = RangeFilterWidget(); self.sub_range.set_range(0, 100); self.skills_layout.addRow("Performance:", self.perf_range); self.skills_layout.addRow("Acting:", self.act_range); self.skills_layout.addRow("Stamina:", self.stam_range); self.skills_layout.addRow("Dominance:", self.dom_range); self.skills_layout.addRow("Submission:", self.sub_range); main_layout.addWidget(skills_group)
         phys_group = CollapsibleGroupBox("Physical Attributes"); self.phys_layout = QFormLayout(phys_group); self.dick_range = RangeFilterWidget(); self.phys_layout.addRow("Dick Size", self.dick_range);
-        self._update_dick_size_filter_ui()
+        self.update_dick_size_filter_ui() # Initial setup based on current setting
         self.cup_range = CategoricalRangeFilterWidget(self.all_cup_sizes); self.phys_layout.addRow("Cup Size:", self.cup_range); main_layout.addWidget(phys_group)
         
         from PyQt6.QtWidgets import QListWidget # Import locally for nationality
@@ -100,20 +100,10 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         button_box.button(QDialogButtonBox.StandardButton.Reset).clicked.connect(self.reset_requested)
         button_box.button(QDialogButtonBox.StandardButton.Close).clicked.connect(self.reject)
         main_layout.addWidget(button_box)
-
-    def _on_setting_changed(self, key: str):
-        """Handles live updates if the unit system is changed while the dialog is open."""
-        if key == 'unit_system':
-            self.unit_system = self.settings_manager.get_setting("unit_system", "imperial")
-            # 1. Get current filter values, standardized to inches
-            current_filters = self.gather_current_filters()
-            # 2. Update the UI's label and range for the new unit system
-            self._update_dick_size_filter_ui()
-            # 3. Reload the standardized inch values, which will be converted to the new UI unit
-            self.load_filters(current_filters)
             
-    def _update_dick_size_filter_ui(self):
+    def update_dick_size_filter_ui(self):
         """Sets the label and range for the dick size filter based on the current unit system."""
+        self.unit_system = self.settings_manager.get_setting("unit_system", "imperial")
         label = self.phys_layout.labelForField(self.dick_range)
         if self.unit_system == 'metric':
             if label:
@@ -128,10 +118,26 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.go_to_only_checkbox.stateChanged.connect(
             lambda state: self.go_to_toggled.emit(state == Qt.CheckState.Checked.value)
         )
-        self.load_preset_button.clicked.connect(self._on_load_preset_clicked)
-        self.save_preset_button.clicked.connect(self._on_save_preset_clicked)
-        self.delete_preset_button.clicked.connect(self._on_delete_preset_clicked)
         self.nationality_filter_input.textChanged.connect(self._filter_nationality_list)
+
+        # Connect UI actions to signals that the Presenter will handle
+        self.load_preset_button.clicked.connect(self.load_preset_requested)
+        self.save_preset_button.clicked.connect(self.save_preset_requested)
+        self.delete_preset_button.clicked.connect(self.delete_preset_requested)
+
+    # --- Public methods for the Presenter to command the View ---
+
+    def populate_presets(self, presets: List[str], select_text: str = None):
+        """Populates the presets combobox with a list of names."""
+        current_text = select_text or self.preset_combo.currentText()
+        self.preset_combo.blockSignals(True)
+        self.preset_combo.clear()
+        if presets:
+            self.preset_combo.addItems(sorted(presets))
+        
+        index = self.preset_combo.findText(current_text)
+        self.preset_combo.setCurrentIndex(index if index != -1 else -1)
+        self.preset_combo.blockSignals(False)
 
     def load_filters(self, filters: dict):
         """Loads a given filter dictionary into the UI controls."""
@@ -180,7 +186,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
             dick_size_max_in = cm_to_inches(dick_val_max)
         else:
             dick_size_min_in, dick_size_max_in = dick_val_min, dick_val_max
-    
+
         # Only add cup size filter if it's not at the default max range
         if not (cup_min_idx == 0 and cup_max_idx == len(self.all_cup_sizes) - 1):
             filters['cup_sizes'] = self.all_cup_sizes[cup_min_idx : cup_max_idx + 1]
@@ -191,7 +197,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
 
         })
         return filters
-    
+
     def _filter_nationality_list(self, text: str):
         """Hides or shows items in the nationality list based on the filter text."""
         filter_text = text.lower()
@@ -200,24 +206,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
             item_text = item.text().lower()
             # Set the item to be hidden if the filter text is not in its text
             item.setHidden(filter_text not in item_text)
-    
-    def _on_load_preset_clicked(self):
-        preset_name = self.preset_combo.currentText()
-        if not preset_name: return
-        presets = self.settings_manager.get_talent_filter_presets(); preset_data = presets.get(preset_name)
-        if preset_data: self.load_filters(preset_data)
-        else: QMessageBox.warning(self, "Load Error", f"Could not find preset named '{preset_name}'.")
-    def _on_save_preset_clicked(self):
-        preset_name = self.preset_combo.currentText();
-        if not preset_name: QMessageBox.warning(self, "Save Preset", "Please enter a name for the preset."); return
-        current_filters = self.gather_current_filters(); presets = self.settings_manager.get_talent_filter_presets(); presets[preset_name] = current_filters; self.settings_manager.set_talent_filter_presets(presets); self._populate_presets_combobox(); self.preset_combo.setCurrentText(preset_name); QMessageBox.information(self, "Preset Saved", f"Preset '{preset_name}' has been saved.")
-    def _on_delete_preset_clicked(self):
-        preset_name = self.preset_combo.currentText();
-        if not preset_name: return
-        reply = QMessageBox.question(self, "Delete Preset", f"Are you sure you want to delete the preset '{preset_name}'?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
-        if reply == QMessageBox.StandardButton.Yes:
-            presets = self.settings_manager.get_talent_filter_presets()
-            if preset_name in presets: del presets[preset_name]; self.settings_manager.set_talent_filter_presets(presets); self._populate_presets_combobox()
+
     def set_category_combo_enabled(self, is_enabled: bool):
         self.category_combo.setEnabled(is_enabled)
         if not is_enabled: self.category_combo.setCurrentIndex(0)

@@ -162,16 +162,18 @@ class ScenePlannerPresenter(QObject):
         self.view.update_available_thematic_tags(available)
         
         all_tags, _, _ = self.controller.get_thematic_tags_for_planner()
-        selected_data = [t for t in all_tags if t['full_name'] in self.working_scene.global_tags]
-        self.view.update_selected_thematic_tags(sorted(selected_data, key=lambda t: t['full_name']))
+        all_tags_map = {t['full_name']: t for t in all_tags}
+        selected_data = [all_tags_map[tag_name] for tag_name in self.working_scene.global_tags if tag_name in all_tags_map]
+        self.view.update_selected_thematic_tags(selected_data)
 
     def _refresh_physical_panel(self):
         available = self.get_filtered_available_physical_tags()
         self.view.update_available_physical_tags(available)
         
         all_tags, _, _ = self.controller.get_physical_tags_for_planner()
-        selected_data = [t for t in all_tags if t['full_name'] in self.working_scene.assigned_tags.keys()]
-        self.view.update_selected_physical_tags(sorted(selected_data, key=lambda t: t['full_name']), self.selected_physical_tag_name)
+        all_tags_map = {t['full_name']: t for t in all_tags}
+        selected_data = [all_tags_map[tag_name] for tag_name in self.working_scene.assigned_tags.keys() if tag_name in all_tags_map]
+        self.view.update_selected_physical_tags(selected_data, self.selected_physical_tag_name)
         
         current_item = self.view.selected_physical_list.currentItem()
         current_tag_name = current_item.text() if current_item else ""
@@ -181,7 +183,7 @@ class ScenePlannerPresenter(QObject):
         available = self.get_filtered_available_action_tags()
         self.view.update_available_action_tags(available)
         
-        segments = sorted(self.working_scene.action_segments, key=lambda s: s.tag_name)
+        segments = self.working_scene.action_segments
         total_percent = sum(s.runtime_percentage for s in segments)
         if total_percent == 100:
             status = 'good'
