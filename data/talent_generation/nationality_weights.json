@@ -170,6 +170,21 @@
     { "name": "France", "weight": 5 },
     { "name": "Czechia", "weight": 5 },
     { "name": "Germany", "weight": 10 }
+  ],
+  "Hungarian": [
+    { "name": "Russia", "weight": 15 },
+    { "name": "Germany", "weight": 10 },
+    { "name": "Czechia", "weight": 20 },
+    { "name": "South West (US)", "weight": 10 },
+    { "name": "Netherlands", "weight": 10 },
+    { "name": "Hungary", "weight": 35 }
+  ],
+  "Czech": [
+    { "name": "Netherlands", "weight": 10 },
+    { "name": "France", "weight": 5 },
+    { "name": "Czechia", "weight": 70 },
+    { "name": "Germany", "weight": 10 },
+    { "name": "South West (US)", "weight": 5 }
   ]
 },
 "ethnicities_by_nationality": {

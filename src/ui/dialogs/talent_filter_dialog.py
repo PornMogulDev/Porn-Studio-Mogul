@@ -1,7 +1,7 @@
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-    QListWidget, QPushButton, QRadioButton, QButtonGroup,
+    QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
+    QPushButton, QRadioButton, QButtonGroup,
     QFormLayout, QComboBox, QCheckBox, QDialogButtonBox,
     QMessageBox
 )
@@ -10,7 +10,7 @@ from ui.widgets.talent_filter.collapsible_group_box import CollapsibleGroupBox
 from ui.widgets.talent_filter.checkable_hierarchy_tree_view import CheckableHierarchyTreeView
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.talent_filter_presenter import TalentFilterPresenter
-from ui.widgets.talent_filter.range_filter_widget import RangeFilterWidget
+from ui.widgets.talent_filter.categorical_range_filter_widget import CategoricalRangeFilterWidget
 
 class TalentFilterDialog(GeometryManagerMixin, QDialog):
     # --- Public API and Internal Signals ---
@@ -31,6 +31,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.locations_by_region = locations_by_region
         self.all_nationalities = nationalities
         self.all_cup_sizes = cup_sizes
+        self.cup_size_to_index = {cup: i for i, cup in enumerate(self.all_cup_sizes)}
         self.go_to_categories = go_to_categories
 
         self.setup_ui()
@@ -57,6 +58,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
+        from ui.widgets.talent_filter.range_filter_widget import RangeFilterWidget
 
         presets_group = CollapsibleGroupBox("Filter Presets"); presets_layout = QHBoxLayout(presets_group); presets_layout.addWidget(QLabel("Preset:")); self.preset_combo = QComboBox(); self.preset_combo.setEditable(True); self.preset_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert); self.preset_combo.setToolTip("Select a saved preset or type a new name to save."); presets_layout.addWidget(self.preset_combo); self.load_preset_button = QPushButton("Load"); presets_layout.addWidget(self.load_preset_button); self.save_preset_button = QPushButton("Save"); presets_layout.addWidget(self.save_preset_button); self.delete_preset_button = QPushButton("Delete"); presets_layout.addWidget(self.delete_preset_button); main_layout.addWidget(presets_group)
         go_to_group = CollapsibleGroupBox("Go-To List Filter"); go_to_layout = QVBoxLayout(go_to_group); self.go_to_only_checkbox = QCheckBox("Show only talent in Go-To Lists"); go_to_layout.addWidget(self.go_to_only_checkbox); self.category_combo = QComboBox(); self.category_combo.setEnabled(False); self.category_combo.addItem("Any", -1);
@@ -65,9 +67,10 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         gender_group = CollapsibleGroupBox("Gender"); gender_layout = QHBoxLayout(gender_group); self.gender_any_radio = QRadioButton("Any"); self.gender_female_radio = QRadioButton("Female"); self.gender_male_radio = QRadioButton("Male"); self.gender_button_group = QButtonGroup(); self.gender_button_group.addButton(self.gender_any_radio); self.gender_button_group.addButton(self.gender_female_radio); self.gender_button_group.addButton(self.gender_male_radio); gender_layout.addWidget(self.gender_any_radio); gender_layout.addWidget(self.gender_female_radio); gender_layout.addWidget(self.gender_male_radio); main_layout.addWidget(gender_group)
         age_group = CollapsibleGroupBox("Age Range"); age_layout = QVBoxLayout(age_group); self.age_range = RangeFilterWidget(); self.age_range.set_range(18, 99); age_layout.addWidget(self.age_range); main_layout.addWidget(age_group)
         skills_group = CollapsibleGroupBox("Core Skills"); skills_layout = QFormLayout(skills_group); self.perf_range = RangeFilterWidget(); self.perf_range.set_range(0, 100); self.act_range = RangeFilterWidget(); self.act_range.set_range(0, 100); self.stam_range = RangeFilterWidget(); self.stam_range.set_range(0, 100); self.dom_range = RangeFilterWidget(); self.dom_range.set_range(0, 100); self.sub_range = RangeFilterWidget(); self.sub_range.set_range(0, 100); skills_layout.addRow("Performance:", self.perf_range); skills_layout.addRow("Acting:", self.act_range); skills_layout.addRow("Stamina:", self.stam_range); skills_layout.addRow("Dominance:", self.dom_range); skills_layout.addRow("Submission:", self.sub_range); main_layout.addWidget(skills_group)
-        phys_group = CollapsibleGroupBox("Physical Attributes"); phys_layout = QFormLayout(phys_group); self.dick_range = RangeFilterWidget(); self.dick_range.set_range(0, 20); phys_layout.addRow("Dick Size (in):", self.dick_range); self.cup_list = QListWidget(); self.cup_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection); 
-        for cup in self.all_cup_sizes: self.cup_list.addItem(cup)
-        cup_label = QLabel("Cup Size:"); cup_label.setAlignment(Qt.AlignmentFlag.AlignTop); phys_layout.addRow(cup_label, self.cup_list); main_layout.addWidget(phys_group)
+        phys_group = CollapsibleGroupBox("Physical Attributes"); phys_layout = QFormLayout(phys_group); self.dick_range = RangeFilterWidget(); self.dick_range.set_range(0, 20); phys_layout.addRow("Dick Size (in):", self.dick_range)
+        self.cup_range = CategoricalRangeFilterWidget(self.all_cup_sizes); phys_layout.addRow("Cup Size:", self.cup_range); main_layout.addWidget(phys_group)
+        
+        from PyQt6.QtWidgets import QListWidget # Import locally for nationality
         nationality_group = CollapsibleGroupBox("Nationality"); nationality_layout = QVBoxLayout(nationality_group); self.nationality_list = QListWidget(); self.nationality_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection); self.nationality_list.addItems(sorted(self.all_nationalities)); nationality_layout.addWidget(self.nationality_list); main_layout.addWidget(nationality_group)
 
         # --- Tree View Setup ---
@@ -112,8 +115,15 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         elif gender == "Male": self.gender_male_radio.setChecked(True)
         else: self.gender_any_radio.setChecked(True)
         self.age_range.set_values(filters.get('age_min', 18), filters.get('age_max', 99)); self.perf_range.set_values(filters.get('performance_min', 0), filters.get('performance_max', 100)); self.act_range.set_values(filters.get('acting_min', 0), filters.get('acting_max', 100)); self.stam_range.set_values(filters.get('stamina_min', 0), filters.get('stamina_max', 100)); self.dom_range.set_values(filters.get('dominance_min', 0), filters.get('dominance_max', 100)); self.sub_range.set_values(filters.get('submission_min', 0), filters.get('submission_max', 100)); self.dick_range.set_values(filters.get('dick_size_min', 0), filters.get('dick_size_max', 20)); selected_cups = filters.get('cup_sizes', []);
-        for i in range(self.cup_list.count()): self.cup_list.item(i).setSelected(self.cup_list.item(i).text() in selected_cups)
-        selected_nationalities = filters.get('nationalities', []);
+        if not selected_cups:
+            min_idx, max_idx = 0, len(self.all_cup_sizes) - 1
+        else:
+            min_idx = self.cup_size_to_index.get(selected_cups[0], 0)
+            max_idx = self.cup_size_to_index.get(selected_cups[-1], len(self.all_cup_sizes) - 1)
+        self.cup_range.set_values(min_idx, max_idx)
+        
+        from PyQt6.QtWidgets import QListWidget # Import locally
+        selected_nationalities = filters.get('nationalities', [])
         for i in range(self.nationality_list.count()): self.nationality_list.item(i).setSelected(self.nationality_list.item(i).text() in selected_nationalities)
 
         # --- Tree View Loading ---
@@ -123,9 +133,10 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
     def gather_current_filters(self) -> dict:
         """Reads all controls and returns the current filter dictionary."""
         age_min, age_max = self.age_range.get_values(); perf_min, perf_max = self.perf_range.get_values(); act_min, act_max = self.act_range.get_values(); stam_min, stam_max = self.stam_range.get_values(); dom_min, dom_max = self.dom_range.get_values(); sub_min, sub_max = self.sub_range.get_values(); dick_min, dick_max = self.dick_range.get_values()
+        cup_min_idx, cup_max_idx = self.cup_range.get_values()
+        selected_cups = self.all_cup_sizes[cup_min_idx : cup_max_idx + 1]
         return {
-            'go_to_list_only': self.go_to_only_checkbox.isChecked(), 'go_to_category_id': self.category_combo.currentData(), 'gender': 'Female' if self.gender_female_radio.isChecked() else 'Male' if self.gender_male_radio.isChecked() else 'Any', 'age_min': age_min, 'age_max': age_max, 'performance_min': perf_min, 'performance_max': perf_max, 'acting_min': act_min, 'acting_max': act_max, 'stamina_min': stam_min, 'stamina_max': stam_max, 'dominance_min': dom_min, 'dominance_max': dom_max, 'submission_min': sub_min, 'submission_max': sub_max, 'dick_size_min': dick_min, 'dick_size_max': dick_max, 'nationalities': [item.text() for item in self.nationality_list.selectedItems()], 'cup_sizes': [item.text() for item in self.cup_list.selectedItems()],
-            # --- CHANGE 6: Call the new helper to gather checked items ---
+            'go_to_list_only': self.go_to_only_checkbox.isChecked(), 'go_to_category_id': self.category_combo.currentData(), 'gender': 'Female' if self.gender_female_radio.isChecked() else 'Male' if self.gender_male_radio.isChecked() else 'Any', 'age_min': age_min, 'age_max': age_max, 'performance_min': perf_min, 'performance_max': perf_max, 'acting_min': act_min, 'acting_max': act_max, 'stamina_min': stam_min, 'stamina_max': stam_max, 'dominance_min': dom_min, 'dominance_max': dom_max, 'submission_min': sub_min, 'submission_max': sub_max, 'dick_size_min': dick_min, 'dick_size_max': dick_max, 'nationalities': [item.text() for item in self.nationality_list.selectedItems()], 'cup_sizes': selected_cups,
             'ethnicities': self.ethnicity_tree.get_checked_items(),
             'locations': self.location_tree.get_checked_items(),
         }
