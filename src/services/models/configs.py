@@ -18,6 +18,9 @@ class HiringConfig:
     ambition_demand_divisor: float
     popularity_demand_scalar: float
     minimum_talent_demand: int
+    max_scenes_per_week_base: int
+    max_scenes_per_week_ambition_modifier: float
+    fatigue_refusal_threshold: int
 
 @dataclass(frozen=True)
 class MarketConfig:

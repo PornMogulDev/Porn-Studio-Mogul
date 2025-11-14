@@ -91,6 +91,7 @@ class ServiceContainer:
         self._create_configs()
 
         # --- Create Services ---
+        self.role_performance_calculator = RolePerformanceCalculator()
         market_resolver = MarketGroupResolver(self.data_manager.market_data)
         self.market_service = MarketService(market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.talent_affinity_calculator = TalentAffinityCalculator(self.scene_calc_config)
@@ -100,13 +101,12 @@ class ServiceContainer:
         self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
         self.talent_demand_calculator = TalentDemandCalculator(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
         self.bloc_cost_calculator = BlocCostCalculator(self.data_manager)
-        self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.talent_demand_calculator, self.query_service, self.hiring_config, self.availability_checker)
-        self.role_performance_calculator = RolePerformanceCalculator()
+        self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_calculator)
+        self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.talent_demand_calculator, self.query_service, self.hiring_config, self.availability_checker, self.shoot_results_calculator)
         self.player_settings_service = PlayerSettingsService(session_factory, self.signals)
         self.go_to_list_service = GoToListService(session_factory, self.signals)
         self.email_service = EmailService(session_factory, self.signals, game_state)
         self.tag_validation_checker = TagValidationChecker(self.data_manager)
-        self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_calculator)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
         self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
@@ -228,7 +228,10 @@ class ServiceContainer:
             median_ambition=game_config.get("median_ambition_level", 5),
             ambition_demand_divisor=game_config.get("ambition_to_demand_divisor", 5.0),
             popularity_demand_scalar=game_config.get("popularity_to_demand_scalar", 0.001),
-            minimum_talent_demand=game_config.get("minimum_talent_demand", 100)
+            minimum_talent_demand=game_config.get("minimum_talent_demand", 100),
+            max_scenes_per_week_base=game_config.get("max_scenes_per_week_base", 2),
+            max_scenes_per_week_ambition_modifier=game_config.get("max_scenes_per_week_ambition_modifier", 0.1),
+            fatigue_refusal_threshold=game_config.get("fatigue_refusal_threshold", 80)
         )
         
         ds_weights_str_keys = game_config.get("scene_quality_ds_weights", {})

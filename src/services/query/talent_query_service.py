@@ -1,29 +1,33 @@
 import logging
-from typing import Dict, List
-from sqlalchemy.orm import selectinload
+from typing import Dict, List, Tuple
+from collections import defaultdict
+from sqlalchemy.orm import selectinload, Session
 
-from data.game_state import Scene
+from data.game_state import Scene, Talent
 from data.data_manager import DataManager
 from database.db_models import (
     TalentDB, SceneDB, ActionSegmentDB,
-    ShootingBlocDB
+    ShootingBlocDB, SceneCastDB
 )
 from services.query.game_query_service import GameQueryService
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.models.configs import HiringConfig
 from services.calculation.talent_availability_checker import TalentAvailabilityChecker
+from services.calculation.shoot_results_calculator import ShootResultsCalculator
 
 logger = logging.getLogger(__name__)
 
 class TalentQueryService:
-    def __init__(self, session_factory, data_manager: DataManager, demand_calculator: TalentDemandCalculator, query_service: GameQueryService,
-                 config: HiringConfig, availability_checker: TalentAvailabilityChecker):
+    def __init__(self, session_factory, data_manager: DataManager, demand_calculator: TalentDemandCalculator, 
+                 query_service: GameQueryService, config: HiringConfig, 
+                 availability_checker: TalentAvailabilityChecker, shoot_results_calculator: ShootResultsCalculator):
         self.session_factory = session_factory
         self.data_manager = data_manager
         self.demand_calculator = demand_calculator
         self.query_service = query_service
         self.config = config
         self.availability_checker = availability_checker
+        self.shoot_results_calculator = shoot_results_calculator
 
     def _get_role_tags_for_display(self, scene: Scene, vp_id: int) -> List[str]:
         """Helper to get a formatted list of tags and roles for UI display."""
@@ -33,6 +37,21 @@ class TalentQueryService:
             for tag_name, roles in sorted(roles_by_tag.items())
         ]
         return tags_with_roles
+    
+    def _get_weekly_bookings_for_talents(self, session: Session, talent_ids: List[int]) -> Dict[Tuple[int, int], Dict[int, List[Scene]]]:
+        """Efficiently fetches all scene bookings for a list of talents, grouped by week and then by talent."""
+        weekly_bookings = defaultdict(lambda: defaultdict(list))
+        if not talent_ids:
+            return weekly_bookings
+            
+        cast_entries = session.query(SceneCastDB).options(selectinload(SceneCastDB.scene)).filter(SceneCastDB.talent_id.in_(talent_ids)).all()
+
+        for entry in cast_entries:
+            if entry.scene.status == 'scheduled': # Only count scheduled scenes as firm bookings
+                week_key = (entry.scene.scheduled_week, entry.scene.scheduled_year)
+                # We can append the DB object directly; the checker just needs to count them.
+                weekly_bookings[week_key][entry.talent_id].append(entry.scene)
+        return weekly_bookings
 
     def get_eligible_talent_for_role(self, scene_id: int, vp_id: int) -> List[TalentDB]:
         """
@@ -75,10 +94,19 @@ class TalentQueryService:
                 query = query.filter(TalentDB.id.notin_(cast_talent_ids))
 
             potential_candidates_db = query.all()
+
+            # --- Orchestration: Pre-fetch weekly bookings for all candidates ---
+            candidate_ids = [t.id for t in potential_candidates_db]
+            all_weekly_bookings = self._get_weekly_bookings_for_talents(session, candidate_ids)
+            scene_week_key = (scene.scheduled_week, scene.scheduled_year)
+            bookings_for_this_week = all_weekly_bookings.get(scene_week_key, {})
+
             eligible_talents_db = []
 
             for talent_db in potential_candidates_db:
-                result = self.availability_checker.check(talent_db, scene, vp.id, bloc_db)
+                estimated_fatigue = self.shoot_results_calculator.estimate_fatigue_gain(talent_db, scene, vp.id)
+                existing_bookings = bookings_for_this_week.get(talent_db.id, [])
+                result = self.availability_checker.check(talent_db, scene, vp.id, bloc_db, existing_bookings, estimated_fatigue)
                 if result.is_available:
                     eligible_talents_db.append(talent_db)
                 
@@ -94,8 +122,14 @@ class TalentQueryService:
         Finds all uncast roles that a talent is eligible for, calculating hiring cost and availability.
         """
         with self.session_factory() as session:
-            talent = self.query_service.get_talent_by_id(talent_id)
-            if not talent: return []
+            talent_db = session.query(TalentDB).options(
+                selectinload(TalentDB.popularity_scores),
+                selectinload(TalentDB.chemistry_a),
+                selectinload(TalentDB.chemistry_b)
+            ).get(talent_id)
+            if not talent_db: return []
+            talent_dc = talent_db.to_dataclass(Talent) # For travel fee calculation
+            talent = talent_db # For availability check
 
             available_roles = []
             scenes_in_casting = session.query(SceneDB)\
@@ -108,11 +142,16 @@ class TalentQueryService:
             if bloc_ids:
                 blocs_db = session.query(ShootingBlocDB).filter(ShootingBlocDB.id.in_(bloc_ids)).all()
                 blocs_by_id = {b.id: b for b in blocs_db}
+
+            # --- Orchestration: Pre-fetch all bookings for the single talent ---
+            all_weekly_bookings = self._get_weekly_bookings_for_talents(session, [talent_id])
             
             for scene_db in scenes_in_casting:
                 scene = scene_db.to_dataclass(Scene)
                 cast_talent_ids = {c.talent_id for c in scene_db.cast}
                 if talent.id in cast_talent_ids: continue
+                scene_week_key = (scene.scheduled_week, scene.scheduled_year)
+                bookings_for_this_week = all_weekly_bookings.get(scene_week_key, {}).get(talent_id, [])
 
                 all_vp_ids = {vp.id for vp in scene_db.virtual_performers}
                 cast_vp_ids = {c.virtual_performer_id for c in scene_db.cast}
@@ -130,10 +169,11 @@ class TalentQueryService:
                         continue
                     
                     bloc_db = blocs_by_id.get(scene.bloc_id)
-                    result = self.availability_checker.check(talent, scene, vp_db.id, bloc_db)
+                    estimated_fatigue = self.shoot_results_calculator.estimate_fatigue_gain(talent, scene, vp_db.id)
+                    result = self.availability_checker.check(talent, scene, vp_db.id, bloc_db, bookings_for_this_week, estimated_fatigue)
 
                     base_cost = self.demand_calculator.calculate_talent_demand(talent_id, scene_db.id, vp_db.id, scene=scene)
-                    travel_fee = self.demand_calculator.calculate_travel_fee(talent, studio_location)
+                    travel_fee = self.demand_calculator.calculate_travel_fee(talent_dc, studio_location)
                     total_cost = base_cost + travel_fee
 
                     role_info = {

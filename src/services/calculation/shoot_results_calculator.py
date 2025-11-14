@@ -1,9 +1,10 @@
 import logging
 from collections import defaultdict
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
+from database.db_models import TalentDB
 from services.models.configs import SceneCalculationConfig
 from services.calculation.role_performance_calculator import RolePerformanceCalculator
 from services.models.results import TalentShootOutcome, FatigueResult
@@ -70,30 +71,58 @@ class ShootResultsCalculator:
                 experience_gain=exp_gain
             ))
         return outcomes
+    
+    def estimate_fatigue_gain(self, talent: Union[Talent, TalentDB], scene: Scene, vp_id: int) -> int:
+        """
+        Estimates the fatigue gain for a specific talent in a given scene without
+        considering their current fatigue or relying on scene.final_cast.
+        This is a "what-if" calculation for a potential role.
+        """
+        # For an estimation, we pass the vp_id directly.
+        stamina_cost = self._calculate_stamina_cost_for_talent(talent.id, vp_id, scene)
+        max_stamina = talent.stamina * self.config.stamina_to_pool_multiplier
+        
+        if stamina_cost <= max_stamina:
+            return 0
+
+        overdraw_ratio = (stamina_cost - max_stamina) / max_stamina
+        fatigue_gain = min(100, int(overdraw_ratio * 100))
+        return fatigue_gain
+
+    def _calculate_stamina_cost_for_talent(self, talent_id: int, scene: Scene) -> float:
+        """Calculates the total stamina cost for a single talent in the scene."""
+        stamina_cost = 0.0
+        action_segments_for_calc = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
+        for segment in action_segments_for_calc:
+            # For a real shoot, determine the talent's vp_id from the final_cast
+            vp_id_to_talent_id = {int(k): v for k, v in scene.final_cast.items()}
+            talent_id_to_vp_id = {v: k for k, v in vp_id_to_talent_id.items()}
+            vp_id = talent_id_to_vp_id.get(talent_id)
+
+            if vp_id:
+                 stamina_cost += self._calculate_stamina_cost_for_talent(talent_id, vp_id, scene)
+        return stamina_cost
+
+    def _calculate_stamina_cost_for_role(self, vp_id: int, scene: Scene) -> float:
+        """Calculates the total stamina cost for a single virtual performer role in a scene."""
+        stamina_cost = 0.0
+        action_segments_for_calc = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
+        for segment in action_segments_for_calc:
+            # Skip segments the VP is not in
+            if not any(a.virtual_performer_id == vp_id for a in segment.slot_assignments):
+                continue
+
+            segment_runtime = scene.total_runtime_minutes * (segment.runtime_percentage / 100.0)
+            stamina_cost += segment_runtime * self.role_performance_calculator.get_role_stamina_modifier(segment, vp_id, scene, self.data_manager.tag_definitions)
+        return stamina_cost
 
     def _calculate_stamina_costs(self, scene: Scene) -> defaultdict[int, float]:
         """Calculates the total stamina cost for each talent in the scene."""
         talent_stamina_cost = defaultdict(float)
-        action_segments_for_calc = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
-
-        for segment in action_segments_for_calc:
-            segment_runtime = scene.total_runtime_minutes * (segment.runtime_percentage / 100.0)
-            slots = scene._get_slots_for_segment(segment, self.data_manager.tag_definitions)
-            for assignment in segment.slot_assignments:
-                talent_id = scene.final_cast.get(str(assignment.virtual_performer_id))
-                if not talent_id: continue
-                try:
-                    _, role, _ = assignment.slot_id.rsplit('_', 2)
-                except ValueError:
-                    continue
-                slot_def = next((s for s in slots if s['role'] == role), None)
-                if not slot_def: continue
-
-                final_mod = self.role_performance_calculator.get_final_modifier(
-                    'stamina_modifier', slot_def, segment, role
-                )
-                cost = segment_runtime * final_mod
-                talent_stamina_cost[talent_id] += cost
+        # final_cast maps vp_id (str) to talent_id (int)
+        all_talent_ids = set(scene.final_cast.values())
+        for talent_id in all_talent_ids:
+            talent_stamina_cost[talent_id] = self._calculate_stamina_cost_for_talent(talent_id, scene)
         return talent_stamina_cost
 
     def _calculate_fatigue(self, talent: Talent, stamina_cost: float, current_week: int, current_year: int) -> FatigueResult | None:
