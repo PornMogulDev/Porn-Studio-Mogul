@@ -38,6 +38,7 @@ class DataManager:
         self.scene_events = self._load_scene_events()
         self.talent_archetypes = self._load_talent_archetypes()
         self.help_topics = self._load_help_topics(help_file_path)
+        self.travel_matrix = self._load_travel_matrix()
         
         logger.info("All game data loaded into memory.")
 
@@ -183,7 +184,22 @@ class DataManager:
 
         # Convert defaultdicts to regular dicts for cleaner access
         return json.loads(json.dumps(data))
-    
+
+    def _load_travel_matrix(self) -> Dict[str, Dict[str, Dict[str, int]]]:
+        """Loads the region-to-region travel costs into a nested dictionary for fast lookups."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT origin_region, destination_region, cost, fatigue FROM region_travel_costs")
+        matrix = defaultdict(dict)
+        for row in cursor.fetchall():
+            origin = row['origin_region']
+            destination = row['destination_region']
+            matrix[origin][destination] = {
+                'cost': row['cost'],
+                'fatigue': row['fatigue']
+            }
+        logger.info(f"Loaded {cursor.rowcount} travel cost entries into matrix.")
+        return dict(matrix)
+
     def _load_production_settings(self) -> Dict[str, List[Dict]]:
         cursor = self.conn.cursor()
         cursor.execute("""

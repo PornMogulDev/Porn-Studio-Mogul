@@ -40,6 +40,11 @@ class Talent: #type: ignore
     max_scene_partners: int = 10
     concurrency_limits: Dict[str, int] = field(default_factory=dict)
     policy_requirements: Dict[str, List[str]] = field(default_factory=dict)
+    base_location: str = ""
+    current_location: str = ""
+    is_on_tour: bool = False
+    tour_end_week: int = 0
+    tour_end_year: int = 0
 
 @dataclass_json
 @dataclass
@@ -184,3 +189,4 @@ class GameState:
     week: int = 1
     year: int = 0
     money: int = 0
+    studio_location: str = ""

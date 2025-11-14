@@ -79,6 +79,19 @@ def create_tables(cursor):
         FOREIGN KEY (region_name) REFERENCES regions (name)
     )
     """)
+
+    # NEW: Table for travel costs between regions
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS region_travel_costs (
+        origin_region TEXT NOT NULL,
+        destination_region TEXT NOT NULL,
+        cost INTEGER NOT NULL,
+        fatigue INTEGER NOT NULL,
+        PRIMARY KEY (origin_region, destination_region),
+        FOREIGN KEY (origin_region) REFERENCES regions (name),
+        FOREIGN KEY (destination_region) REFERENCES regions (name)
+    )
+    """)
     
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS ethnicity_definitions (
@@ -276,6 +289,30 @@ def migrate_regions(cursor, data):
             cursor.execute("INSERT OR REPLACE INTO region_locations (region_name, location_name) VALUES (?, ?)", (region['name'], location))
             loc_count += 1
     print(f"{reg_count} regions and {loc_count} region locations migrated.")
+
+# NEW: Migration function for travel costs
+def migrate_travel_costs(cursor, data):
+    """Migrates the travel cost matrix from regions.json."""
+    print("Migrating travel matrix...")
+    count = 0
+    for entry in data.get('travel_matrix', []):
+        origin = entry.get('from')
+        destination = entry.get('to')
+        cost = entry.get('cost')
+        fatigue = entry.get('fatigue')
+        if all([origin, destination, cost is not None, fatigue is not None]):
+            # Insert both directions for easier lookup
+            cursor.execute("""
+                INSERT OR REPLACE INTO region_travel_costs (origin_region, destination_region, cost, fatigue)
+                VALUES (?, ?, ?, ?)
+            """, (origin, destination, cost, fatigue))
+            cursor.execute("""
+                INSERT OR REPLACE INTO region_travel_costs (origin_region, destination_region, cost, fatigue)
+                VALUES (?, ?, ?, ?)
+            """, (destination, origin, cost, fatigue))
+            count += 1
+    print(f"{count*2} travel cost entries migrated (symmetric).")
+
 
 def migrate_names(cursor, data):
     print("Migrating names_by_culture.json...")
@@ -527,7 +564,12 @@ def main():
         migrate_config(cursor, load_json("game_config.json"))
         migrate_talent_generation(cursor, load_json("talent_generation/talent_generation_data.json"))
         migrate_nationality_data(cursor, load_json("talent_generation/nationality_weights.json"))
-        migrate_regions(cursor, load_json("talent_generation/regions.json"))
+        
+        # Load regions.json once and pass it to both migration functions
+        regions_data = load_json("regions.json")
+        migrate_regions(cursor, regions_data)
+        migrate_travel_costs(cursor, regions_data)
+
         migrate_names(cursor, load_json("talent_generation/names_by_culture.json"))
 
         migrate_talent_affinities(cursor, load_json("talent_generation/talent_affinity_data.json"))

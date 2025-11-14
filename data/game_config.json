@@ -1,4 +1,5 @@
 {
+  "default_player_studio_location": "Sout West (US)",
   "initial_money": 2000000,
   "starting_year": 2010,
   "game_over_threshold": -5000,
