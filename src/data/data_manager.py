@@ -189,15 +189,16 @@ class DataManager:
         """Loads the region-to-region travel costs into a nested dictionary for fast lookups."""
         cursor = self.conn.cursor()
         cursor.execute("SELECT origin_region, destination_region, cost, fatigue FROM region_travel_costs")
+        rows = cursor.fetchall()
         matrix = defaultdict(dict)
-        for row in cursor.fetchall():
+        for row in rows:
             origin = row['origin_region']
             destination = row['destination_region']
             matrix[origin][destination] = {
                 'cost': row['cost'],
                 'fatigue': row['fatigue']
             }
-        logger.info(f"Loaded {cursor.rowcount} travel cost entries into matrix.")
+        logger.info(f"Loaded {len(rows)} travel cost entries into matrix.")
         return dict(matrix)
 
     def _load_production_settings(self) -> Dict[str, List[Dict]]:

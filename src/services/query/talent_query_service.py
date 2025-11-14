@@ -120,7 +120,8 @@ class TalentQueryService:
                 
                 for vp_db in scene_db.virtual_performers:
                     if vp_db.id not in uncast_vp_ids: continue
-                    if not (vp_db.gender == talent.gender and (vp_db.ethnicity == "Any" or vp_db.ethnicity == talent.ethnicity)): continue
+                    bloc_db = blocs_by_id.get(scene.bloc_id)
+                    result = self.availability_checker.check(talent, scene, vp_db.id, bloc_db)
                     
                     bloc_db = blocs_by_id.get(scene.bloc_id)
                     result = self.availability_checker.check(talent, scene, vp_db.id, bloc_db)

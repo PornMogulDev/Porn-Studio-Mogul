@@ -38,14 +38,16 @@ class GameSessionService:
             game_state = GameState(
                 week=1, 
                 year=self.game_constant["starting_year"], 
-                money=self.game_constant["initial_money"]
+                money=self.game_constant["initial_money"],
+                studio_location=self.game_constant["default_player_studio_location"]
             )
 
             # Initialize GameInfo
             game_info_data = [
                 GameInfoDB(key='week', value=str(game_state.week)),
                 GameInfoDB(key='year', value=str(game_state.year)),
-                GameInfoDB(key='money', value=str(game_state.money))
+                GameInfoDB(key='money', value=str(game_state.money)),
+                GameInfoDB(key='studio_location', value=str(game_state.studio_location))
             ]
             session.add_all(game_info_data)
 
