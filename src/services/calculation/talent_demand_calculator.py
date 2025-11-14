@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from typing import Optional
+from typing import Optional, Tuple
 from sqlalchemy.orm import joinedload
 
 from data.data_manager import DataManager
@@ -63,18 +63,32 @@ class TalentDemandCalculator:
         
         return np.mean(preference_scores) if preference_scores else 1.0
 
+    def calculate_travel_fee(self, talent: Talent, studio_location: str) -> int:
+        """Calculates the travel fee for a talent based on their location vs. the studio's."""
+        talent_location = talent.current_location
+        if talent_location == studio_location:
+            return 0
+
+        location_map = self.data_manager.get_location_to_region_map()
+        talent_region = location_map.get(talent_location)
+        studio_region = location_map.get(studio_location)
+
+        if talent_region and studio_region:
+            if talent_region == studio_region:
+                return self.config.location_to_location_cost
+            if cost_data := self.data_manager.travel_matrix.get(talent_region, {}).get(studio_region):
+                return cost_data.get('cost', 0)
+        return 0
+
     def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int, scene: Optional[Scene] = None) -> int:
-        """Calculates the hiring cost for a specific talent in a specific role."""
+        """Calculates the base hiring cost (without travel) for a specific talent in a specific role."""
         session = self.session_factory()
         try:
             talent = self.query_service.get_talent_by_id(talent_id)
             if not talent: return 0
 
             if not scene:
-                scene_db = session.query(SceneDB).options(
-                    joinedload(SceneDB.virtual_performers),
-                    joinedload(SceneDB.action_segments).joinedload(ActionSegmentDB.slot_assignments)
-                ).get(scene_id)
+                scene_db = self.query_service.get_scene_db_for_casting(session, scene_id)
                 if not scene_db: return 0
                 scene = scene_db.to_dataclass(Scene)
 
@@ -82,13 +96,13 @@ class TalentDemandCalculator:
             role_modifier = self._calculate_role_modifier(scene, vp_id)
             preference_multiplier = self._calculate_preference_multiplier(talent, scene, vp_id)
             
-            final_demand = self.config.base_talent_demand * base_multipliers * role_modifier
+            base_demand = self.config.base_talent_demand * base_multipliers * role_modifier
             
             # A preference > 1 reduces cost; a preference < 1 increases it.
             if preference_multiplier > 0:
-                final_demand /= preference_multiplier
+                base_demand /= preference_multiplier
 
-            return max(self.config.minimum_talent_demand, int(final_demand))
+            return max(self.config.minimum_talent_demand, int(base_demand))
         except Exception as e:
             logger.error(f"Error calculating demand for talent {talent_id} in scene {scene_id}: {e}", exc_info=True)
             return 0

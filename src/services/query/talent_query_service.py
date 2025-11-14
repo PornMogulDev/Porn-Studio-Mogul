@@ -79,12 +79,11 @@ class TalentQueryService:
         finally:
             session.close()
 
-    def find_available_roles_for_talent(self, talent_id: int) -> List[Dict]:
+    def find_available_roles_for_talent(self, talent_id: int, studio_location: str) -> List[Dict]:
         """
         Finds all uncast roles that a talent is eligible for, calculating hiring cost and availability.
         """
-        session = self.session_factory()
-        try:
+        with self.session_factory() as session:
             talent = self.query_service.get_talent_by_id(talent_id)
             if not talent: return []
 
@@ -116,22 +115,20 @@ class TalentQueryService:
                     bloc_db = blocs_by_id.get(scene.bloc_id)
                     result = self.availability_checker.check(talent, scene, vp_db.id, bloc_db)
 
-                    cost = self.demand_calculator.calculate_talent_demand(talent_id, scene_db.id, vp_db.id, scene=scene)
+                    base_cost = self.demand_calculator.calculate_talent_demand(talent_id, scene_db.id, vp_db.id, scene=scene)
+                    travel_fee = self.demand_calculator.calculate_travel_fee(talent, studio_location)
+                    total_cost = base_cost + travel_fee
 
                     role_info = {
-                        'scene_id': scene_db.id, 'scene_title': scene_db.title, 'virtual_performer_id': vp_db.id,
-                        'vp_name': vp_db.name, 'cost': cost,
+                        'scene_id': scene_db.id, 'scene_title': scene_db.title,
+                        'virtual_performer_id': vp_db.id, 'vp_name': vp_db.name,
+                        'cost': total_cost, 'base_cost': base_cost, 'travel_fee': travel_fee,
                         'tags': self._get_role_tags_for_display(scene, vp_db.id),
                         'is_available': result.is_available, 'refusal_reason': result.reason
                     }
                     
                     available_roles.append(role_info)
             return available_roles
-        except Exception as e:
-            logger.error(f"Error finding roles for talent {talent_id}: {e}", exc_info=True)
-            return []
-        finally:
-            session.close()
     
     def get_role_details_for_ui(self, scene_id: int, vp_id: int) -> Dict:
         """Fetches a comprehensive dictionary of a specific role's details for UI display."""

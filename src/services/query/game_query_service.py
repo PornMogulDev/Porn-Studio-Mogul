@@ -50,7 +50,7 @@ class GameQueryService:
 
             if locations := all_filters.get('locations'):
                 if isinstance(locations, list) and locations:
-                    query = query.filter(TalentDB.location.in_(locations))
+                    query = query.filter(TalentDB.base_location.in_(locations))
 
             if cup_sizes := all_filters.get('cup_sizes'):
                 if isinstance(cup_sizes, list) and cup_sizes:

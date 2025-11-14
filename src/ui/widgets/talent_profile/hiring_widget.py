@@ -64,9 +64,19 @@ class HiringWidget(QWidget):
                 if len(tags) > 3: tags_to_show.append("...")
                 tags_text = f" (Tags: {', '.join(tags_to_show)})"
 
-            display_text = f"{role_data['scene_title']} - Role: {role_data['vp_name']} (Cost: ${role_data['cost']:,}){tags_text}"
+            # Display cost breakdown if there's a travel fee.            
+            total_cost = role_data.get('cost', 0)
+            base_cost = role_data.get('base_cost', total_cost)
+            travel_fee = role_data.get('travel_fee', 0)
+
+            if travel_fee > 0:
+                cost_text = f"Cost: ${total_cost:,} (Base: ${base_cost:,}, Travel: ${travel_fee:,})"
+            else:
+                cost_text = f"Cost: ${total_cost:,}"
+
+            display_text = f"{role_data['scene_title']} - Role: {role_data['vp_name']} ({cost_text}){tags_text}"
             item = QListWidgetItem(display_text)
-            item.setData(Qt.ItemDataRole.UserRole, {'scene_id': role_data['scene_id'], 'virtual_performer_id': role_data['virtual_performer_id'], 'cost': role_data['cost']})
+            item.setData(Qt.ItemDataRole.UserRole, role_data)  # Store the whole dict
             
             if not role_data['is_available']:
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
@@ -109,5 +119,6 @@ class HiringWidget(QWidget):
                 QMessageBox.warning(self, "Casting Error", "Cannot cast for multiple roles in the same scene.\nA talent can only be cast once per scene.")
                 return
             scene_ids.add(role_data['scene_id'])
-            roles_to_cast.append(role_data)
+            # We only need to pass a subset of the data to the controller
+            roles_to_cast.append({'scene_id': role_data['scene_id'], 'virtual_performer_id': role_data['virtual_performer_id'], 'cost': role_data['cost']})
         self.hire_confirmed.emit(roles_to_cast)
