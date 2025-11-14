@@ -18,7 +18,7 @@ class EmailMessage:
 @dataclass
 class Talent: #type: ignore
     id: int; alias: str; age: int; gender: str
-    nationality: str; location: str; primary_ethnicity: str
+    nationality: str; primary_ethnicity: str
     performance: float; acting: float; stamina: float
     dom_skill: float; sub_skill: float
     ambition: int
@@ -26,6 +26,8 @@ class Talent: #type: ignore
     orientation_score: int = 0
     disposition_score: int = 0
     experience: float = 0.0
+    base_location: str = ""
+    current_location: str = ""
     chemistry: Dict[int, int] = field(default_factory=dict)
     popularity: Dict[str, float] = field(default_factory=dict)
     ethnicity: Optional[str] = None
@@ -40,6 +42,9 @@ class Talent: #type: ignore
     max_scene_partners: int = 10
     concurrency_limits: Dict[str, int] = field(default_factory=dict)
     policy_requirements: Dict[str, List[str]] = field(default_factory=dict)
+    is_on_tour: bool = False
+    tour_end_week: int = 0
+    tour_end_year: int = 0
 
 @dataclass_json
 @dataclass
@@ -184,3 +189,4 @@ class GameState:
     week: int = 1
     year: int = 0
     money: int = 0
+    studio_location: str = ""

@@ -1,8 +1,11 @@
 {
+  "default_player_studio_location": "Sout West (US)",
   "initial_money": 2000000,
   "starting_year": 2010,
   "game_over_threshold": -5000,
   "base_release_revenue": 5000,
+  "location_to_location_cost": 100,
+  "location_to_location_fatigue": 5,
   "market_saturation_recovery_rate": 0.05,
   "saturation_spend_rate": 0.15,
   "base_talent_demand": 300,

@@ -5,6 +5,8 @@ from typing import Dict, List
 @dataclass(frozen=True)
 class HiringConfig:
     """Configuration values for talent hiring and cost calculation."""
+    location_to_location_cost: int
+    location_to_location_fatigue: int
     concurrency_default_limit: int
     refusal_threshold: float
     orientation_refusal_threshold: float

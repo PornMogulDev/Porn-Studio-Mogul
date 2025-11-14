@@ -168,7 +168,7 @@ class TalentProfilePresenter(QObject):
         if not self.view or sip.isdeleted(self.view):
             return
             
-        available_roles = self.controller.talent_query_service.find_available_roles_for_talent(self.current_talent_id)
+        available_roles = self.controller.find_available_roles_for_talent(self.current_talent_id)
         try:
             self.view.hiring_widget.update_available_roles(available_roles)
         except RuntimeError:

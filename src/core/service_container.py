@@ -216,6 +216,8 @@ class ServiceContainer:
         )
 
         self.hiring_config = HiringConfig(
+            location_to_location_cost=game_config.get("location_to_location_cost", 100),
+            location_to_location_fatigue=game_config.get("location_to_location_fatigue", 5),
             concurrency_default_limit=game_config.get("hiring_concurrency_default_limit", 99),
             refusal_threshold=game_config.get("talent_refusal_threshold", 0.2),
             orientation_refusal_threshold=game_config.get("talent_orientation_refusal_threshold", 0.1),

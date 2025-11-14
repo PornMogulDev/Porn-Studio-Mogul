@@ -104,7 +104,8 @@ class TalentDB(Base, DataclassMapper):
     alias = Column(String)
     age = Column(Integer)
     nationality = Column(String)
-    location = Column(String)
+    base_location = Column(String)
+    current_location = Column(String)
     primary_ethnicity = Column(String)
     ethnicity = Column(String)
     gender = Column(String)
@@ -132,8 +133,10 @@ class TalentDB(Base, DataclassMapper):
     max_scene_partners = Column(Integer, default=10, nullable=False)
     concurrency_limits = Column(JSON, default=dict)
     policy_requirements = Column(JSON, default=dict)
-    # New relationship to assignments
     go_to_list_assignments = relationship("GoToListAssignmentDB", back_populates="talent", cascade="all, delete-orphan")
+    is_on_tour = Column(Boolean, default=False, nullable=False)
+    tour_end_week = Column(Integer, default=0, nullable=False)
+    tour_end_year = Column(Integer, default=0, nullable=False)
 
 class SceneCastDB(Base, DataclassMapper):
     __tablename__ = 'scene_cast'
