@@ -124,8 +124,6 @@ class TalentDB(Base, DataclassMapper):
     tag_affinities = Column(JSON, default=dict)
     popularity_scores = relationship("TalentPopularityDB", back_populates="talent", cascade="all, delete-orphan")
     fatigue = Column(Integer, default=0)
-    fatigue_end_week = Column(Integer, default=0)
-    fatigue_end_year = Column(Integer, default=0)
     chemistry_a = relationship("TalentChemistryDB", foreign_keys=[TalentChemistryDB.talent_a_id], back_populates="talent_a", cascade="all, delete-orphan")
     chemistry_b = relationship("TalentChemistryDB", foreign_keys=[TalentChemistryDB.talent_b_id], back_populates="talent_b", cascade="all, delete-orphan")
     tag_preferences = Column(JSON, default=dict)

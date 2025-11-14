@@ -108,8 +108,6 @@ class SceneProcessingService:
             
             if outcome.fatigue_result:
                 talent_db.fatigue = outcome.fatigue_result.new_fatigue_level
-                talent_db.fatigue_end_week = outcome.fatigue_result.fatigue_end_week
-                talent_db.fatigue_end_year = outcome.fatigue_result.fatigue_end_year
             
             for skill, gain in outcome.skill_gains.items():
                 current_val = getattr(talent_db, skill)

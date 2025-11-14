@@ -105,17 +105,9 @@ class ShootResultsCalculator:
         overdraw_ratio = (stamina_cost - max_stamina) / max_stamina
         fatigue_gain = min(100, int(overdraw_ratio * 100))
         new_fatigue = min(100, talent.fatigue + fatigue_gain)
-        
-        duration_weeks = self.config.base_fatigue_weeks
-        end_week, end_year = current_week + duration_weeks, current_year
-        if end_week > 52:
-            end_week -= 52
-            end_year += 1
             
         return FatigueResult(
             new_fatigue_level=new_fatigue,
-            fatigue_end_week=end_week,
-            fatigue_end_year=end_year
         )
     
     def _calculate_skill_gain(self, talent: Talent, runtime_minutes: int) -> Tuple[float, float, float]:

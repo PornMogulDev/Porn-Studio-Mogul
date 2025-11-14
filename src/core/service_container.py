@@ -236,9 +236,11 @@ class ServiceContainer:
 
         self.scene_calc_config = SceneCalculationConfig(
             stamina_to_pool_multiplier=game_config.get("stamina_to_pool_multiplier", 5),
-            base_fatigue_weeks=game_config.get("base_fatigue_weeks", 2),
             in_scene_penalty_scalar=game_config.get("in_scene_penalty_scalar", 0.4),
             fatigue_penalty_scalar=game_config.get("fatigue_penalty_scalar", 0.3),
+            fatigue_passive_decay_rate=game_config.get("fatigue_passive_decay_rate", 5),
+            fatigue_active_recovery_bonus=game_config.get("fatigue_active_recovery_bonus", 20),
+            fatigue_stamina_recovery_modifier=game_config.get("fatigue_stamina_recovery_modifier", 0.5),
             maximum_skill_level=game_config.get("maximum_skill_level", 100.0),
             scene_quality_base_acting_weight=game_config.get("scene_quality_base_acting_weight", 0.3),
             scene_quality_min_acting_weight=game_config.get("scene_quality_min_acting_weight", 0.2),

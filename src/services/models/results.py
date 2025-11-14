@@ -31,8 +31,6 @@ class EventResolutionResult:
 class FatigueResult:
     """Represents the outcome of a fatigue calculation for a talent."""
     new_fatigue_level: int
-    fatigue_end_week: int
-    fatigue_end_year: int
 
 @dataclass(frozen=True)
 class TalentShootOutcome:

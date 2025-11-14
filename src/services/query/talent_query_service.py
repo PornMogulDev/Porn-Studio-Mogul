@@ -120,8 +120,14 @@ class TalentQueryService:
                 
                 for vp_db in scene_db.virtual_performers:
                     if vp_db.id not in uncast_vp_ids: continue
-                    bloc_db = blocs_by_id.get(scene.bloc_id)
-                    result = self.availability_checker.check(talent, scene, vp_db.id, bloc_db)
+                    
+                    # Check for gender and ethnicity eligibility
+                    if vp_db.gender != talent.gender:
+                        continue
+                    
+                    required_ethnicity = vp_db.ethnicity
+                    if required_ethnicity != "Any" and not self.data_manager.is_ethnicity_match(talent.ethnicity, required_ethnicity):
+                        continue
                     
                     bloc_db = blocs_by_id.get(scene.bloc_id)
                     result = self.availability_checker.check(talent, scene, vp_db.id, bloc_db)

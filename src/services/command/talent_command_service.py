@@ -2,7 +2,7 @@ import logging
 from itertools import combinations
 from sqlalchemy import tuple_
 from sqlalchemy.orm import selectinload, Session
-from typing import List
+from typing import List, Set
 
 from core.game_signals import GameSignals
 from data.game_state import Talent
@@ -83,12 +83,16 @@ class TalentCommandService:
         for pop_entry in talent.popularity_scores:
             pop_entry.score *= decay_rate
 
-    def _update_fatigue_status(self, talent: TalentDB, current_date_val: int):
+    def _update_fatigue_status(self, talent: TalentDB, worked_talent_ids: Set[int]):
         """Checks and resets a talent's fatigue if the recovery period has passed."""
-        if talent.fatigue > 0:
-            fatigue_end_val = talent.fatigue_end_year * 52 + talent.fatigue_end_week
-            if current_date_val >= fatigue_end_val:
-                talent.fatigue, talent.fatigue_end_week, talent.fatigue_end_year = 0, 0, 0
+        # 1. Apply Passive Decay to everyone
+        talent.fatigue = max(0, talent.fatigue - self.config.fatigue_passive_decay_rate)
+    
+        # 2. Apply Active Recovery Bonus only to those who rested
+        if talent.id not in worked_talent_ids:
+            stamina_bonus = (talent.stamina / 100.0) * self.config.fatigue_stamina_recovery_modifier
+            recovery_amount = self.config.fatigue_active_recovery_bonus * (1 + stamina_bonus)
+            talent.fatigue = max(0, int(talent.fatigue - recovery_amount))
 
     def _apply_new_year_updates(self, talent: TalentDB):
         """Applies annual updates to a talent, such as aging and recalculating affinities."""
@@ -97,7 +101,7 @@ class TalentCommandService:
         new_affinities = self.talent_affinity_calculator.recalculate_talent_age_affinities(talent_obj)
         talent.tag_affinities = new_affinities
     
-    def process_weekly_updates(self, session: Session, current_date_val: int, new_year: bool) -> bool:
+    def process_weekly_updates(self, session: Session, new_year: bool, worked_talent_ids: Set[int]) -> bool:
         """Processes all weekly changes for talents.
         Called from TimeService."""
         talents_to_update = session.query(TalentDB).options(
@@ -107,10 +111,10 @@ class TalentCommandService:
         ).all()
         if not talents_to_update: return False
 
-        decay_rate = 1.0 - self.config.popularity_gain_scalar # Corrected decay
+        decay_rate = 1.0 - self.config.popularity_gain_scalar
         for talent in talents_to_update:
             self._apply_popularity_decay(talent, decay_rate)
-            self._update_fatigue_status(talent, current_date_val)
+            self._update_fatigue_status(talent, worked_talent_ids)
             
             if new_year:
                 self._apply_new_year_updates(talent)

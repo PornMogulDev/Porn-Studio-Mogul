@@ -35,8 +35,6 @@ class Talent: #type: ignore
     dick_size: Optional[int] = None
     tag_affinities: Dict[str, int] = field(default_factory=dict)
     fatigue: int = 0
-    fatigue_end_week: int = 0
-    fatigue_end_year: int = 0
     tag_preferences: Dict[str, Dict[str, float]] = field(default_factory=dict)
     hard_limits: List[str] = field(default_factory=list)
     max_scene_partners: int = 10

@@ -30,9 +30,11 @@ class SceneCalculationConfig:
     """Configuration values for scene shooting, quality, and revenue calculations."""
     # Stamina & Fatigue
     stamina_to_pool_multiplier: int
-    base_fatigue_weeks: int
     in_scene_penalty_scalar: float
     fatigue_penalty_scalar: float
+    fatigue_passive_decay_rate: int
+    fatigue_active_recovery_bonus: int
+    fatigue_stamina_recovery_modifier: float
     
     # Skills & Experience
     maximum_skill_level: float

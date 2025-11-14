@@ -42,6 +42,9 @@ class TimeService:
                 scheduled_week=current_week,
                 scheduled_year=current_year
             ).all()
+
+            # Keep track of who has worked this week for the fatigue decay rate
+            talents_who_worked_ids = set()
             
             scenes_shot_count = 0
             for scene_db in scenes_to_shoot:
@@ -56,6 +59,9 @@ class TimeService:
                         was_paused=True, scenes_shot=scenes_shot_count,
                         market_changed=market_changed
                     )
+                # Update the working talent list
+                for cast_member in scene_db.cast:
+                    talents_who_worked_ids.add(cast_member.talent_id)
 
             # Update post-production and advance time
             edited_scenes = self.scene_command_service.process_weekly_post_production(session)
@@ -67,7 +73,7 @@ class TimeService:
                     next_year += 1
                     is_new_year = True
 
-            talent_pool_changed = self.talent_command_service.process_weekly_updates(session, current_date_val, is_new_year)
+            talent_pool_changed = self.talent_command_service.process_weekly_updates(session, is_new_year, talents_who_worked_ids)
 
             # --- 2. Persist the new time ---
             week_info = session.query(GameInfoDB).filter_by(key='week').one()
