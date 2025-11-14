@@ -17,6 +17,7 @@ from ui.presenters.market_tab_presenter import MarketTabPresenter
 from ui.widgets.main_window.detachable_tab_widget import DetachableTabWidget
 from ui.widgets.main_window.top_bar_widget import TopBarWidget
 from ui.widgets.main_window.bottom_bar_widget import BottomBarWidget
+from ui.windows.hiring_dashboard import HiringDashboardTab
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,8 @@ class MainGameWindow(QWidget):
         self.scenes_tab = ScenesTab()
         self.scenes_tab_presenter = ScenesTabPresenter(self.controller, self.scenes_tab, self.ui_manager, parent=self.scenes_tab)
 
+        self.hiring_dashboard_tab = HiringDashboardTab(self.controller, self.ui_manager)
+
         self.schedule_tab = ScheduleTab()
         self.schedule_tab_presenter = ScheduleTabPresenter(self.controller, self.schedule_tab, self.ui_manager, parent=self.schedule_tab)
 
@@ -64,6 +67,7 @@ class MainGameWindow(QWidget):
         tabs.addTab(self.schedule_tab, "Schedule")
         tabs.addTab(self.talent_tab, "Talent")
         tabs.addTab(self.scenes_tab, "Scenes")
+        tabs.addTab(self.hiring_dashboard_tab, "Hiring")
         tabs.addTab(self.market_tab, "Market")
         
         layout.addWidget(tabs)
@@ -115,6 +119,9 @@ class MainGameWindow(QWidget):
         
         if self.market_tab_presenter:
             self.market_tab_presenter.load_initial_data()
+
+        if getattr(self.hiring_dashboard_tab, "presenter", None):
+            self.hiring_dashboard_tab.presenter.refresh()
 
     def game_over_ui(self, reason: str):
         self.setEnabled(False) 

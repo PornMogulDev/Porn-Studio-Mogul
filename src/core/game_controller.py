@@ -283,6 +283,12 @@ class GameController(QObject):
         if not self.talent_query_service: return {}
         return self.talent_query_service.get_role_details_for_ui(scene_id, vp_id)
 
+    def calculate_total_demand(self, talent_id: int, scene_id: int, vp_id: int) -> Tuple[int, int, int]:
+        if not self.talent_demand_calculator: return 0, 0, 0
+        return self.talent_demand_calculator.calculate_total_demand(
+            talent_id, scene_id, vp_id, self.game_state.studio_location
+        )
+
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int):
         self.scene_command_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
 

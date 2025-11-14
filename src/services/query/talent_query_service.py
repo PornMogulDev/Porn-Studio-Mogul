@@ -195,9 +195,11 @@ class TalentQueryService:
                         estimated_fatigue
                     )
 
-                    base_cost = self.demand_calculator.calculate_talent_demand(talent_id, scene_db.id, vp_db.id, scene=scene)
-                    travel_fee = self.demand_calculator.calculate_travel_fee(talent_dc, studio_location)
-                    total_cost = base_cost + travel_fee
+                    base_cost, travel_fee, total_cost = self.demand_calculator.calculate_total_demand(
+                        talent_id, scene_db.id, vp_db.id, studio_location,
+                        scene=scene,
+                        talent=talent_dc
+                    )
 
                     role_info = {
                         'scene_id': scene_db.id, 'scene_title': scene_db.title,

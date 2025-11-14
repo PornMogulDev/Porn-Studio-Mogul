@@ -47,7 +47,9 @@ class RoleCastingPresenter(QObject):
             popularity = round(sum(p.score for p in t_db.popularity_scores) if t_db.popularity_scores else 0)
             
             # Calculate role-specific demand
-            demand = self.controller.calculate_talent_demand(t_db.id, self.scene_id, self.vp_id)
+            _, _, demand = self.controller.calculate_total_demand(
+                t_db.id, self.scene_id, self.vp_id
+            )
             
             cache_item = CastingTalentCache(
                 talent_db=t_db,
@@ -96,6 +98,9 @@ class RoleCastingPresenter(QObject):
         """Handles hiring - finds the cached demand instead of recalculating."""
         # Find the cached demand for this talent
         cache_item = next((c for c in self._casting_cache if c.talent_db.id == talent.id), None)
-        cost = cache_item.demand if cache_item else self.controller.calculate_talent_demand(talent.id, self.scene_id, self.vp_id)
+        if cache_item:
+            cost = cache_item.demand
+        else:
+            _, _, cost = self.controller.calculate_total_demand(talent.id, self.scene_id, self.vp_id)
         self.controller.cast_talent_for_virtual_performer(talent.id, self.scene_id, self.vp_id, cost)
         self.view.accept()

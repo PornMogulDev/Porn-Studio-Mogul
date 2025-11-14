@@ -1,7 +1,8 @@
 import logging
 import numpy as np
 from typing import Optional, Tuple
-from sqlalchemy.orm import joinedload
+
+from sqlalchemy.orm import selectinload
 
 from data.data_manager import DataManager
 from data.game_state import Talent, Scene
@@ -56,7 +57,7 @@ class TalentDemandCalculator:
         
         return np.mean(preference_scores) if preference_scores else 1.0
 
-    def calculate_travel_fee(self, talent: Talent, studio_location: str) -> int:
+    def _calculate_travel_fee(self, talent: Talent, studio_location: str) -> int:
         """Calculates the travel fee for a talent based on their location vs. the studio's."""
         talent_location = talent.current_location
         if talent_location == studio_location:
@@ -73,7 +74,7 @@ class TalentDemandCalculator:
                 return cost_data.get('cost', 0)
         return 0
 
-    def calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int, scene: Optional[Scene] = None) -> int:
+    def _calculate_talent_demand(self, talent_id: int, scene_id: int, vp_id: int, scene: Optional[Scene] = None) -> int:
         """Calculates the base hiring cost (without travel) for a specific talent in a specific role."""
         session = self.session_factory()
         try:
@@ -81,10 +82,8 @@ class TalentDemandCalculator:
             if not talent: return 0
 
             if not scene:
-                scene_db = self.query_service.get_scene_db_for_casting(session, scene_id)
-                if not scene_db: return 0
-                scene = scene_db.to_dataclass(Scene)
-
+                scene = self.query_service.get_scene_for_planner(scene_id)
+            
             base_multipliers = self._calculate_base_multipliers(talent)
             role_modifier = self._calculate_role_modifier(scene, vp_id)
             preference_multiplier = self._calculate_preference_multiplier(talent, scene, vp_id)
@@ -101,3 +100,16 @@ class TalentDemandCalculator:
             return 0
         finally:
             session.close()
+
+    def calculate_total_demand(self, talent_id: int, scene_id: int, vp_id: int, studio_location: str,*,
+        scene: Optional[Scene] = None,
+        talent: Optional[Talent] = None
+    ) -> Tuple[int, int, int]:
+        """Returns (base_cost, travel_fee, total_cost) for the given role."""
+        base_cost = self._calculate_talent_demand(talent_id, scene_id, vp_id, scene=scene)
+
+        talent_dc = talent or self.query_service.get_talent_by_id(talent_id)
+        travel_fee = self._calculate_travel_fee(talent_dc, studio_location) if talent_dc else 0
+
+        total_cost = base_cost + travel_fee
+        return base_cost, travel_fee, total_cost
