@@ -90,16 +90,18 @@ class ServiceContainer:
         # --- Create Configs ---
         self._create_configs()
 
-        # --- Create Services ---
-        self.role_performance_calculator = RolePerformanceCalculator()
+        # --- Create Services (Order Matters for Dependencies) ---
+        # Level 0: No dependencies on other services
         market_resolver = MarketGroupResolver(self.data_manager.market_data)
+        self.role_performance_calculator = RolePerformanceCalculator()
+
+        # Level 1: Depends on Level 0 services
         self.market_service = MarketService(market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.talent_affinity_calculator = TalentAffinityCalculator(self.scene_calc_config)
         self.availability_checker = TalentAvailabilityChecker(self.data_manager, self.hiring_config)
         self.query_service = GameQueryService(session_factory)
         self.tag_query_service = TagQueryService(self.data_manager)
-        self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
-        self.talent_demand_calculator = TalentDemandCalculator(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker)
+        self.talent_demand_calculator = TalentDemandCalculator(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker, self.role_performance_calculator)
         self.bloc_cost_calculator = BlocCostCalculator(self.data_manager)
         self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_calculator)
         self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.talent_demand_calculator, self.query_service, self.hiring_config, self.availability_checker, self.shoot_results_calculator)
@@ -107,6 +109,9 @@ class ServiceContainer:
         self.go_to_list_service = GoToListService(session_factory, self.signals)
         self.email_service = EmailService(session_factory, self.signals, game_state)
         self.tag_validation_checker = TagValidationChecker(self.data_manager)
+        
+        # Level 2: Depends on Level 1 services
+        self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
         self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
@@ -116,6 +121,8 @@ class ServiceContainer:
             self.scene_quality_calculator, self.post_production_calculator
         )
         self.scene_event_trigger_service = SceneEventTriggerService(self.data_manager)
+
+        # Level 3: Depends on Level 2 services
         self.scene_command_service = SceneCommandService(
             session_factory, self.signals, self.data_manager, self.query_service, self.talent_command_service,
             self.market_service, self.email_service, self.scene_processing_service, self.revenue_calculator,
@@ -231,7 +238,8 @@ class ServiceContainer:
             minimum_talent_demand=game_config.get("minimum_talent_demand", 100),
             max_scenes_per_week_base=game_config.get("max_scenes_per_week_base", 2),
             max_scenes_per_week_ambition_modifier=game_config.get("max_scenes_per_week_ambition_modifier", 0.1),
-            fatigue_refusal_threshold=game_config.get("fatigue_refusal_threshold", 80)
+            fatigue_refusal_threshold=game_config.get("fatigue_refusal_threshold", 80),
+            burnout_penalty_scenes=game_config.get("burnout_penalty_scenes", 1)
         )
         
         ds_weights_str_keys = game_config.get("scene_quality_ds_weights", {})

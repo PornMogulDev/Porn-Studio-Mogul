@@ -79,7 +79,7 @@ class ShootResultsCalculator:
         This is a "what-if" calculation for a potential role.
         """
         # For an estimation, we pass the vp_id directly.
-        stamina_cost = self._calculate_stamina_cost_for_talent(talent.id, vp_id, scene)
+        stamina_cost = self._calculate_stamina_cost_for_role(vp_id, scene)
         max_stamina = talent.stamina * self.config.stamina_to_pool_multiplier
         
         if stamina_cost <= max_stamina:
@@ -91,17 +91,15 @@ class ShootResultsCalculator:
 
     def _calculate_stamina_cost_for_talent(self, talent_id: int, scene: Scene) -> float:
         """Calculates the total stamina cost for a single talent in the scene."""
-        stamina_cost = 0.0
-        action_segments_for_calc = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
-        for segment in action_segments_for_calc:
-            # For a real shoot, determine the talent's vp_id from the final_cast
-            vp_id_to_talent_id = {int(k): v for k, v in scene.final_cast.items()}
-            talent_id_to_vp_id = {v: k for k, v in vp_id_to_talent_id.items()}
-            vp_id = talent_id_to_vp_id.get(talent_id)
+        # For a real shoot, determine the talent's vp_id from the final_cast
+        vp_id_to_talent_id = {int(k): v for k, v in scene.final_cast.items()}
+        talent_id_to_vp_id = {v: k for k, v in vp_id_to_talent_id.items()}
+        vp_id = talent_id_to_vp_id.get(talent_id)
 
-            if vp_id:
-                 stamina_cost += self._calculate_stamina_cost_for_talent(talent_id, vp_id, scene)
-        return stamina_cost
+        if vp_id:
+            return self._calculate_stamina_cost_for_role(vp_id, scene)
+
+        return 0.0
 
     def _calculate_stamina_cost_for_role(self, vp_id: int, scene: Scene) -> float:
         """Calculates the total stamina cost for a single virtual performer role in a scene."""

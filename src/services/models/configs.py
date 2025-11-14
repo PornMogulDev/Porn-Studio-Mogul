@@ -21,12 +21,13 @@ class HiringConfig:
     max_scenes_per_week_base: int
     max_scenes_per_week_ambition_modifier: float
     fatigue_refusal_threshold: int
+    burnout_penalty_scenes: int
 
 @dataclass(frozen=True)
 class MarketConfig:
     saturation_recovery_rate: float
-    discovery_interest_threshold: float = 1.5
-    discoveries_per_scene: int = 2
+    discovery_interest_threshold: float
+    discoveries_per_scene: int
 
 @dataclass(frozen=True)
 class SceneCalculationConfig:

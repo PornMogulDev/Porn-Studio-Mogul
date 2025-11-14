@@ -47,13 +47,27 @@ class TalentAvailabilityChecker:
                 
         return action_tags, dict(roles_by_tag)
 
-    def _check_schedule_and_fatigue(self, talent: Union[Talent, TalentDB], existing_bookings: List[Scene], estimated_fatigue_gain: int) -> AvailabilityResult:
-        """Checks for weekly workload limits and projected fatigue."""
+    def _check_schedule_and_fatigue(self, talent: Union[Talent, TalentDB], bookings_before: List[Scene], 
+                                bookings_current: List[Scene], bookings_after: List[Scene], 
+                                estimated_fatigue_gain: int) -> AvailabilityResult:
+        """Checks for weekly workload limits and projected fatigue, including burnout risk."""
+        burnout_penalty = 0
+        if bookings_before and bookings_after:
+            # Talent is at risk of burnout, working three consecutive weeks.
+            burnout_penalty = self.config.burnout_penalty_scenes
+
         # Check 1: Max Scenes Per Week
         ambition_bonus = (talent.ambition - self.config.median_ambition) * self.config.max_scenes_per_week_ambition_modifier
-        max_scenes = round(self.config.max_scenes_per_week_base + ambition_bonus)
-        if len(existing_bookings) >= max_scenes:
-            return AvailabilityResult(False, f"Will not shoot more than {max_scenes} scenes in one week.")
+        base_max_scenes = round(self.config.max_scenes_per_week_base + ambition_bonus)
+        
+        # Apply the burnout penalty
+        effective_max_scenes = max(1, base_max_scenes - burnout_penalty)
+
+        if len(bookings_current) >= effective_max_scenes:
+            reason = f"Will not shoot more than {effective_max_scenes} scenes in one week."
+            if burnout_penalty > 0:
+                reason += " (Avoiding burnout)"
+            return AvailabilityResult(False, reason)
 
         # Check 2: Fatigue Projection
         projected_total_fatigue = talent.fatigue + estimated_fatigue_gain
@@ -140,9 +154,10 @@ class TalentAvailabilityChecker:
         return AvailabilityResult(is_available=True)    
     
     def check(self, talent: Union[Talent, TalentDB], scene: Scene, vp_id: int, bloc_db: Optional[ShootingBlocDB], 
-              existing_bookings: List[Scene], estimated_fatigue_gain: int) -> AvailabilityResult:
+          bookings_before: List[Scene], bookings_current: List[Scene], bookings_after: List[Scene], 
+          estimated_fatigue_gain: int) -> AvailabilityResult:
         
-        result = self._check_schedule_and_fatigue(talent, existing_bookings, estimated_fatigue_gain)
+        result = self._check_schedule_and_fatigue(talent, bookings_before, bookings_current, bookings_after, estimated_fatigue_gain)
         if not result.is_available: return result
 
         result = self._check_max_partners(talent, scene)

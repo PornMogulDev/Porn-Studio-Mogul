@@ -15,12 +15,14 @@ logger = logging.getLogger(__name__)
 
 class TalentDemandCalculator:
     def __init__(self, session_factory, data_manager: DataManager, query_service: GameQueryService,
-                 config: HiringConfig, availability_checker: TalentAvailabilityChecker):
+                 config: HiringConfig, availability_checker: TalentAvailabilityChecker,
+                 role_perf_calculator: RolePerformanceCalculator):
         self.session_factory = session_factory
         self.data_manager = data_manager
         self.query_service = query_service
         self.config = config
         self.availability_checker = availability_checker
+        self.role_performance_calculator = role_perf_calculator
     
     def _calculate_base_multipliers(self, talent: Talent) -> float:
         """Calculates demand multipliers from talent's core stats (performance, ambition, popularity)."""
@@ -35,18 +37,9 @@ class TalentDemandCalculator:
         max_demand_mod = 1.0
         action_segments_for_calc = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
         for segment in action_segments_for_calc:
-            slots = scene._get_slots_for_segment(segment, self.data_manager.tag_definitions)
-            for assignment in segment.slot_assignments:
-                if assignment.virtual_performer_id == vp_id:
-                    try: 
-                        _, role, _ = assignment.slot_id.rsplit('_', 2)
-                    except ValueError: 
-                        continue
-                    slot_def = next((s for s in slots if s['role'] == role), None)
-                    if not slot_def: 
-                        continue
-                    final_mod = RolePerformanceCalculator.get_final_modifier('demand_modifier', slot_def, segment, role)
-                    max_demand_mod = max(max_demand_mod, final_mod)
+            if any(a.virtual_performer_id == vp_id for a in segment.slot_assignments):
+                mod = self.role_performance_calculator.get_role_demand_modifier(segment, vp_id, scene, self.data_manager.tag_definitions)
+                max_demand_mod = max(max_demand_mod, mod)
         return max_demand_mod
 
     def _calculate_preference_multiplier(self, talent: Talent, scene: Scene, vp_id: int) -> float:

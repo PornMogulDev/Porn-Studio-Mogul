@@ -13,6 +13,7 @@
   "max_scenes_per_week_base": 4,
   "max_scenes_per_week_ambition_modifier": 0.1,
   "fatigue_refusal_threshold": 85,
+  "burnout_penalty_scenes": 1,
   "hard_limit_threshold": 0.1,
   "talent_refusal_threshold": 0.2,
   "talent_orientation_refusal_threshold": 0.1,

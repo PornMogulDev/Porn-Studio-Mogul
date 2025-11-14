@@ -38,6 +38,12 @@ class TalentQueryService:
         ]
         return tags_with_roles
     
+    def _get_adjacent_weeks(self, week: int, year: int) -> Dict[str, Tuple[int, int]]:
+        """Calculates the previous and next week, handling year boundaries."""
+        prev_week, prev_year = (week - 1, year) if week > 1 else (52, year - 1)
+        next_week, next_year = (week + 1, year) if week < 52 else (1, year + 1)
+        return {"before": (prev_week, prev_year), "next": (next_week, next_year)}
+    
     def _get_weekly_bookings_for_talents(self, session: Session, talent_ids: List[int]) -> Dict[Tuple[int, int], Dict[int, List[Scene]]]:
         """Efficiently fetches all scene bookings for a list of talents, grouped by week and then by talent."""
         weekly_bookings = defaultdict(lambda: defaultdict(list))
@@ -104,9 +110,19 @@ class TalentQueryService:
             eligible_talents_db = []
 
             for talent_db in potential_candidates_db:
+                adjacent_weeks = self._get_adjacent_weeks(scene.scheduled_week, scene.scheduled_year)
+                
+                bookings_before = all_weekly_bookings.get(adjacent_weeks['before'], {}).get(talent_db.id, [])
+                bookings_current = bookings_for_this_week.get(talent_db.id, [])
+                bookings_after = all_weekly_bookings.get(adjacent_weeks['next'], {}).get(talent_db.id, [])
+                
                 estimated_fatigue = self.shoot_results_calculator.estimate_fatigue_gain(talent_db, scene, vp.id)
-                existing_bookings = bookings_for_this_week.get(talent_db.id, [])
-                result = self.availability_checker.check(talent_db, scene, vp.id, bloc_db, existing_bookings, estimated_fatigue)
+                
+                result = self.availability_checker.check(
+                    talent_db, scene, vp.id, bloc_db, 
+                    bookings_before, bookings_current, bookings_after, 
+                    estimated_fatigue
+                )
                 if result.is_available:
                     eligible_talents_db.append(talent_db)
                 
@@ -150,8 +166,11 @@ class TalentQueryService:
                 scene = scene_db.to_dataclass(Scene)
                 cast_talent_ids = {c.talent_id for c in scene_db.cast}
                 if talent.id in cast_talent_ids: continue
-                scene_week_key = (scene.scheduled_week, scene.scheduled_year)
-                bookings_for_this_week = all_weekly_bookings.get(scene_week_key, {}).get(talent_id, [])
+                adjacent_weeks = self._get_adjacent_weeks(scene.scheduled_week, scene.scheduled_year)
+    
+                bookings_before = all_weekly_bookings.get(adjacent_weeks['before'], {}).get(talent_id, [])
+                bookings_current = all_weekly_bookings.get((scene.scheduled_week, scene.scheduled_year), {}).get(talent_id, [])
+                bookings_after = all_weekly_bookings.get(adjacent_weeks['next'], {}).get(talent_id, [])
 
                 all_vp_ids = {vp.id for vp in scene_db.virtual_performers}
                 cast_vp_ids = {c.virtual_performer_id for c in scene_db.cast}
@@ -170,7 +189,11 @@ class TalentQueryService:
                     
                     bloc_db = blocs_by_id.get(scene.bloc_id)
                     estimated_fatigue = self.shoot_results_calculator.estimate_fatigue_gain(talent, scene, vp_db.id)
-                    result = self.availability_checker.check(talent, scene, vp_db.id, bloc_db, bookings_for_this_week, estimated_fatigue)
+                    result = self.availability_checker.check(
+                        talent, scene, vp_db.id, bloc_db,
+                        bookings_before, bookings_current, bookings_after,
+                        estimated_fatigue
+                    )
 
                     base_cost = self.demand_calculator.calculate_talent_demand(talent_id, scene_db.id, vp_db.id, scene=scene)
                     travel_fee = self.demand_calculator.calculate_travel_fee(talent_dc, studio_location)
