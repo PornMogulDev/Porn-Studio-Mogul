@@ -23,8 +23,8 @@ class HiringTalentTableWidget(QWidget):
         
         # Filter controls
         filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel("Filter by name:"))
         self.name_filter_input = QLineEdit()
+        self.name_filter_input.setPlaceholderText("Filter by name...")
         self.name_filter_input.textChanged.connect(self.name_filter_changed.emit)
         filter_layout.addWidget(self.name_filter_input)
         layout.addLayout(filter_layout)

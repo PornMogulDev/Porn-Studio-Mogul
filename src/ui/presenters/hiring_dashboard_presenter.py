@@ -39,7 +39,10 @@ class HiringDashboardPresenter(QObject):
         self.current_vp_id = None
         self._casting_cache = []
         self._filtered_cache = []
-        
+        # Track whether the talent table model has been initialized so we
+        # do not recreate it every time global data changes.
+        self._model_initialized = False
+
         self._connect_signals()
     
     def _connect_signals(self):
@@ -47,7 +50,9 @@ class HiringDashboardPresenter(QObject):
         # Scene/Role selection
         self.scene_role_widget.scene_changed.connect(self._on_scene_changed)
         self.scene_role_widget.role_changed.connect(self._on_role_changed)
-        self.scene_role_widget.refresh_requested.connect(self.load_initial_data)
+        # The "Apply Filters for Role" button should explicitly trigger
+        # the expensive talent loading/filtering pipeline.
+        self.scene_role_widget.refresh_requested.connect(self._on_apply_filters_requested)
         
         # Talent filtering
         self.talent_table_widget.name_filter_changed.connect(self._on_name_filter_changed)
@@ -61,26 +66,55 @@ class HiringDashboardPresenter(QObject):
         self.controller.signals.scenes_changed.connect(self.load_initial_data)
     
     def load_initial_data(self):
-        """Load scenes available for casting."""
-        # Initialize talent table model
-        self.talent_table_widget.initialize_model(
-            self.controller.get_available_cup_sizes()
-        )
+        """Load or refresh data needed by the hiring dashboard.
 
+        This method is safe to call multiple times (e.g. when the global
+        ``scenes_changed`` signal fires). It will only initialize the
+        talent table model once, and on subsequent calls it will simply
+        refresh the available scenes and reset selections.
+        """
+        # Initialize the talent table model only once
+        if not self._model_initialized:
+            self.talent_table_widget.initialize_model(
+                self.controller.get_available_cup_sizes()
+            )
+            self._model_initialized = True
+
+        # Refresh scenes available for casting
         scenes = self.controller.get_castable_scenes()
         self.scene_role_widget.populate_scenes(scenes)
-        
+
+        # Reset current selection and clear any previously loaded data so
+        # the table remains empty until the user explicitly applies
+        # filters for a chosen role.
+        self.current_scene_id = None
+        self.current_vp_id = None
+        self._casting_cache = []
+        self._filtered_cache = []
+        self.talent_table_widget.update_talent_table([])
+        self.talent_profile_widget.clear()
+        self.role_details_widget.clear()
+    
     @pyqtSlot(int)
     def _on_scene_changed(self, scene_id: int):
-        """Handle scene selection change."""
+        """Handle scene selection change.
+
+        Selecting a scene loads the available uncast roles for that
+        scene into the role combobox, but does not yet perform any
+        expensive talent filtering. That work remains behind the
+        explicit "Apply Filters for Role" action.
+        """
         self.current_scene_id = scene_id
         self.current_vp_id = None
-        
-        # Load uncast roles for this scene
+
+        # Load uncast roles for this scene and populate the roles
+        # combobox. The widget will enable the combobox but leave it
+        # unselected so the user must explicitly choose a role.
         roles = self.controller.get_uncast_roles_for_scene(scene_id)
         self.scene_role_widget.populate_roles(roles)
-        
-        # Clear other widgets
+
+        # Clear any previously displayed details, table data, and
+        # cached talent so we do not show stale information.
         self.role_details_widget.clear()
         self.talent_table_widget.update_talent_table([])
         self.talent_profile_widget.clear()
@@ -89,17 +123,23 @@ class HiringDashboardPresenter(QObject):
     
     @pyqtSlot(int, int)
     def _on_role_changed(self, scene_id: int, vp_id: int):
-        """Handle role selection change."""
+        """Handle role selection change.
+
+        Selecting a role does not automatically load or filter talent;
+        that work is deferred until the user explicitly clicks the
+        "Apply Filters for Role" button in the scene/role selector.
+        """
         self.current_scene_id = scene_id
         self.current_vp_id = vp_id
-        
-        # Load role details
+
+        # Always refresh the role details immediately for user feedback.
         self._load_role_details()
-        
-        # Load eligible talent
-        self._load_eligible_talent()
-        
-        # Clear talent profile
+
+        # Reset any previously loaded talent so the table does not show
+        # stale results for a different role.
+        self._casting_cache = []
+        self._filtered_cache = []
+        self.talent_table_widget.update_talent_table([])
         self.talent_profile_widget.clear()
     
     def _load_role_details(self):
@@ -126,7 +166,12 @@ class HiringDashboardPresenter(QObject):
         self.role_details_widget.update_role_details(html)
     
     def _load_eligible_talent(self):
-        """Load eligible talent for the selected role."""
+        """Load eligible talent for the currently selected role.
+
+        This performs the heavy, role-specific query and cache
+        preparation. It is only called when the user explicitly requests
+        to apply filters for the active scene/role.
+        """
         try:
             # Get all TalentDB objects who are eligible and willing
             eligible_talents_db = self.controller.get_eligible_talent_for_role(
@@ -218,6 +263,24 @@ class HiringDashboardPresenter(QObject):
         """Handle additional filter changes."""
         if self._casting_cache:
             self._apply_all_filters()
+
+    @pyqtSlot()
+    def _on_apply_filters_requested(self):
+        """Handle the explicit "Apply Filters for Role" button click.
+
+        Only when a complete (scene, role) selection exists do we load
+        eligible talent and apply the current filter set.
+        """
+        if not self.current_scene_id or not self.current_vp_id:
+            logger.debug(
+                "Apply filters requested without a complete scene/role "
+                "selection; ignoring."
+            )
+            return
+
+        # Load eligible talent for the selected role and apply filters.
+        self._load_eligible_talent()
+        self.talent_profile_widget.clear()
     
     @pyqtSlot(object)
     def _on_talent_selected(self, talent: Talent):
@@ -262,7 +325,10 @@ class HiringDashboardPresenter(QObject):
             logger.error(f"Error hiring talent {talent.id}: {e}", exc_info=True)
     
     def refresh(self):
-        """Refresh all data."""
+        """Refresh all data and reset the current selection.
+
+        This is equivalent to re-opening the dashboard: it reloads
+        scenes and clears any loaded talent so that the user must
+        explicitly select a scene/role and apply filters again.
+        """
         self.load_initial_data()
-        if self.current_scene_id and self.current_vp_id:
-            self._on_role_changed(self.current_scene_id, self.current_vp_id)
