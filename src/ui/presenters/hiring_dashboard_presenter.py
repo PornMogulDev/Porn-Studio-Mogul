@@ -10,6 +10,7 @@ from ui.presenters.talent_filter_cache import CastingTalentCache
 if TYPE_CHECKING:
     from ui.widgets.hiring_dashboard.scene_role_selector_widget import SceneRoleSelectorWidget
     from ui.widgets.hiring_dashboard.role_details_widget import RoleDetailsWidget
+    from ui.widgets.hiring_dashboard.talent_filter_widget import HiringTalentFilterWidget
     from ui.widgets.hiring_dashboard.talent_table_widget import HiringTalentTableWidget
     from ui.widgets.hiring_dashboard.talent_profile_widget import HiringTalentProfileWidget
 
@@ -24,6 +25,7 @@ class HiringDashboardPresenter(QObject):
     def __init__(self, controller: IGameController,
                  scene_role_widget: 'SceneRoleSelectorWidget',
                  role_details_widget: 'RoleDetailsWidget',
+                 talent_filter_widget: 'HiringTalentFilterWidget',
                  talent_table_widget: 'HiringTalentTableWidget',
                  talent_profile_widget: 'HiringTalentProfileWidget',
                  parent=None):
@@ -31,6 +33,7 @@ class HiringDashboardPresenter(QObject):
         self.controller = controller
         self.scene_role_widget = scene_role_widget
         self.role_details_widget = role_details_widget
+        self.talent_filter_widget = talent_filter_widget
         self.talent_table_widget = talent_table_widget
         self.talent_profile_widget = talent_profile_widget
         
@@ -55,8 +58,11 @@ class HiringDashboardPresenter(QObject):
         self.scene_role_widget.refresh_requested.connect(self._on_apply_filters_requested)
         
         # Talent filtering
+        # The name filter lives on the table widget; all other filters are
+        # provided by the dedicated filter widget. Both feed into the same
+        # _apply_all_filters pipeline.
         self.talent_table_widget.name_filter_changed.connect(self._on_name_filter_changed)
-        self.talent_table_widget.additional_filters_changed.connect(self._on_additional_filters_changed)
+        self.talent_filter_widget.filters_changed.connect(self._on_advanced_filters_changed)
         self.talent_table_widget.talent_selected.connect(self._on_talent_selected)
         
         # Hiring
@@ -164,6 +170,10 @@ class HiringDashboardPresenter(QObject):
         html += "</ul>"
         
         self.role_details_widget.update_role_details(html)
+
+        # Inform the filter widget of the role gender so it can enable/disable
+        # conflicting physical sliders (e.g. dick size vs. cup size).
+        self.talent_filter_widget.set_role_gender(role_details.get('gender'))
     
     def _load_eligible_talent(self):
         """Load eligible talent for the currently selected role.
@@ -218,8 +228,16 @@ class HiringDashboardPresenter(QObject):
             self.talent_table_widget.update_talent_table([])
     
     def _apply_all_filters(self):
-        """Apply all current filters to the talent cache."""
-        filters = self.talent_table_widget.get_current_filters()
+        """Apply all current filters to the talent cache.
+
+        The full filter set is composed of:
+        - the name filter sitting on the HiringTalentTableWidget, and
+        - all other ranges and toggles from the HiringTalentFilterWidget.
+        """
+        filters = self.talent_filter_widget.get_current_filters()
+        # Inject the table's name filter into the combined filter dict so we
+        # treat it uniformly with the rest of the filters.
+        filters['name'] = self.talent_table_widget.get_name_filter()
         
         # Start with full cache
         filtered = self._casting_cache.copy()
@@ -249,21 +267,64 @@ class HiringDashboardPresenter(QObject):
                 if self.controller.is_talent_in_go_to_list(cache_item.talent_db.id)
             ]
         
+        # Apply skill range filters using pre-calculated fuzzed ranges.
+        perf_min = filters.get('performance_min', 0)
+        perf_max = filters.get('performance_max', 100)
+        act_min = filters.get('acting_min', 0)
+        act_max = filters.get('acting_max', 100)
+        stam_min = filters.get('stamina_min', 0)
+        stam_max = filters.get('stamina_max', 100)
+        dom_min = filters.get('dominance_min', 0)
+        dom_max = filters.get('dominance_max', 100)
+        sub_min = filters.get('submission_min', 0)
+        sub_max = filters.get('submission_max', 100)
+
+        def _range_overlaps(user_min, user_max, talent_range):
+            talent_min, talent_max = talent_range
+            return talent_min <= user_max and talent_max >= user_min
+
+        filtered = [
+            cache_item for cache_item in filtered
+            if _range_overlaps(perf_min, perf_max, cache_item.perf_range)
+            and _range_overlaps(act_min, act_max, cache_item.act_range)
+            and _range_overlaps(stam_min, stam_max, cache_item.stam_range)
+            and _range_overlaps(dom_min, dom_max, cache_item.dom_range)
+            and _range_overlaps(sub_min, sub_max, cache_item.sub_range)
+        ]
+
+        # Apply physical filters.
+        dick_min = filters.get('dick_size_min')
+        dick_max = filters.get('dick_size_max')
+        if dick_min is not None and dick_max is not None:
+            filtered = [
+                cache_item for cache_item in filtered
+                if cache_item.talent_db.dick_size is not None
+                and dick_min <= cache_item.talent_db.dick_size <= dick_max
+            ]
+
+        cup_sizes = filters.get('cup_sizes')
+        if cup_sizes:
+            cup_sizes_set = set(cup_sizes)
+            filtered = [
+                cache_item for cache_item in filtered
+                if cache_item.talent_db.cup_size in cup_sizes_set
+            ]
+        
         self._filtered_cache = filtered
         self.talent_table_widget.update_talent_table(self._filtered_cache)
     
     @pyqtSlot(str)
-    def _on_name_filter_changed(self, text: str):
-        """Handle name filter change."""
-        if self._casting_cache:
-            self._apply_all_filters()
-    
-    @pyqtSlot(dict)
-    def _on_additional_filters_changed(self, filters: dict):
-        """Handle additional filter changes."""
+    def _on_name_filter_changed(self, _text: str):
+        """Handle changes to the name filter on the table widget."""
         if self._casting_cache:
             self._apply_all_filters()
 
+    @pyqtSlot(dict)
+    def _on_advanced_filters_changed(self, _filters: dict):
+        """Handle changes to the advanced filters widget."""
+        if self._casting_cache:
+            self._apply_all_filters()
+    
     @pyqtSlot()
     def _on_apply_filters_requested(self):
         """Handle the explicit "Apply Filters for Role" button click.

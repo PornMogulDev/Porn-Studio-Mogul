@@ -162,6 +162,7 @@ class TalentTabPresenter(QObject):
     def on_open_advanced_filters(self, current_filters: dict):
         if self.filter_dialog is None:
             self.filter_dialog = TalentFilterDialog(
+                self.controller,
                 ethnicities_hierarchy=self.controller.get_ethnicity_hierarchy(),
                 cup_sizes=self.controller.get_available_cup_sizes(),
                 nationalities=self.controller.get_available_nationalities(),

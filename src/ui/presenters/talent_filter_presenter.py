@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QMessageBox
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ui.dialogs.talent_filter_dialog import TalentFilterDialog
+    from core.interfaces import IGameController
 from data.settings_manager import SettingsManager
 
 class TalentFilterPresenter(QObject):
@@ -12,13 +13,18 @@ class TalentFilterPresenter(QObject):
     including presets, live unit conversion, and all user actions.
     This is the "brain" of the operation.
     """
-    def __init__(self, view: 'TalentFilterDialog', initial_filters: dict, settings_manager: 'SettingsManager'):
+    def __init__(self, view: 'TalentFilterDialog', controller: 'IGameController', initial_filters: dict, settings_manager: 'SettingsManager'):
         super().__init__()
+        self.controller = controller
         self.view = view
         self.settings_manager = settings_manager
 
         # Capture a snapshot of the filters as they were when the dialog was opened.
         self.initial_filters = initial_filters.copy()
+        
+        # Track current role selection
+        self.current_scene_id = None
+        self.current_vp_id = None
 
         # Define a hardcoded "factory default" state for the reset functionality.
         self.default_filters = {
@@ -35,16 +41,23 @@ class TalentFilterPresenter(QObject):
             'ethnicities': [],
             'cup_sizes': [],
             'nationalities': [],
-            'locations': []
+            'locations': [],
+            'scene_id': None,
+            'vp_id': None,
         }
 
         self._connect_signals()
 
     def load_initial_data(self):
         """
-        Commands the view to populate its controls with the initial filter state
-        and loads the available presets.
+        Commands the view to populate its controls with the initial filter state,
+        loads available scenes, and loads presets.
         """
+        # Load castable scenes for the new role filter section
+        scenes = self.controller.get_castable_scenes()
+        self.view.populate_scenes(scenes)
+        
+        # Load initial filter values and presets
         self.view.load_filters(self.initial_filters)
         self._update_presets_in_view()
 
@@ -52,7 +65,6 @@ class TalentFilterPresenter(QObject):
         """Connects signals from the view to the presenter's slots."""
         self.view.apply_requested.connect(self.on_apply_requested)
         self.view.reset_requested.connect(self.on_reset_requested)
-        self.view.apply_and_close_requested.connect(self.on_apply_and_close_requested)
         self.view.go_to_toggled.connect(self.on_go_to_toggled)
         
         # Connect to preset management signals from the view
@@ -60,8 +72,47 @@ class TalentFilterPresenter(QObject):
         self.view.save_preset_requested.connect(self.on_save_preset)
         self.view.delete_preset_requested.connect(self.on_delete_preset)
         
+        # Connect to new scene/role signals
+        self.view.scene_selected.connect(self._on_scene_selected)
+        self.view.role_selected.connect(self._on_role_selected)
+        
         # Listen for global settings changes
         self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
+
+    @pyqtSlot(int)
+    def _on_scene_selected(self, scene_id: int):
+        """Handles when a scene is selected from the dropdown."""
+        self.current_scene_id = scene_id
+        
+        if scene_id is not None and scene_id > -1:
+            roles = self.controller.get_uncast_roles_for_scene(scene_id)
+            self.view.populate_roles(roles)
+        else: # "Any Scene" selected
+            self.current_scene_id = None
+            self.current_vp_id = None
+            self.view.populate_roles([])
+            # Re-enable general filters
+            self.view.set_gender_filter_enabled(True)
+            self.view.set_ethnicity_filter_enabled(True)
+            self.view.set_physical_filters_for_gender('Any')
+
+    @pyqtSlot(int, int)
+    def _on_role_selected(self, scene_id: int, vp_id: int):
+        """Handles when a role is selected from the dropdown."""
+        self.current_vp_id = vp_id
+
+        if vp_id is not None and vp_id > -1:
+            # A specific role is chosen, disable and override general filters
+            role_details = self.controller.get_role_details_for_ui(scene_id, vp_id)
+            self.view.set_gender_filter_enabled(False)
+            self.view.set_ethnicity_filter_enabled(False)
+            self.view.set_physical_filters_for_gender(role_details.get('gender', 'Any'))
+        else: # "Any Role" selected
+            self.current_vp_id = None
+            # Re-enable general filters as we are not filtering by a specific role
+            self.view.set_gender_filter_enabled(True)
+            self.view.set_ethnicity_filter_enabled(True)
+            self.view.set_physical_filters_for_gender('Any')
 
     @pyqtSlot()
     def on_apply_requested(self):
@@ -80,15 +131,12 @@ class TalentFilterPresenter(QObject):
         default (factory) state.
         """
         self.view.load_filters(self.default_filters)
-
-    @pyqtSlot()
-    def on_apply_and_close_requested(self):
-        """
-        First, applies the current filters, then commands the view to close
-        with an 'Accepted' result.
-        """
-        self.on_apply_requested()
-        self.view.accept()
+        # Also reset scene/role selection and re-enable general filters
+        self.view.populate_scenes(self.controller.get_castable_scenes())
+        self.view.populate_roles([])
+        self.view.set_gender_filter_enabled(True)
+        self.view.set_ethnicity_filter_enabled(True)
+        self.view.set_physical_filters_for_gender('Any')
 
     @pyqtSlot(bool)
     def on_go_to_toggled(self, is_checked: bool):

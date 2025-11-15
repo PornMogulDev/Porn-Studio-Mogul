@@ -56,7 +56,7 @@ class MainGameWindow(QWidget):
         self.scenes_tab = ScenesTab()
         self.scenes_tab_presenter = ScenesTabPresenter(self.controller, self.scenes_tab, self.ui_manager, parent=self.scenes_tab)
 
-        self.hiring_dashboard_tab = HiringDashboardTab(self.controller, self.ui_manager)
+        #self.hiring_dashboard_tab = HiringDashboardTab(self.controller, self.ui_manager)
 
         self.schedule_tab = ScheduleTab()
         self.schedule_tab_presenter = ScheduleTabPresenter(self.controller, self.schedule_tab, self.ui_manager, parent=self.schedule_tab)
@@ -67,7 +67,7 @@ class MainGameWindow(QWidget):
         tabs.addTab(self.schedule_tab, "Schedule")
         tabs.addTab(self.talent_tab, "Talent")
         tabs.addTab(self.scenes_tab, "Scenes")
-        tabs.addTab(self.hiring_dashboard_tab, "Hiring")
+        #tabs.addTab(self.hiring_dashboard_tab, "Hiring")
         tabs.addTab(self.market_tab, "Market")
         
         layout.addWidget(tabs)
@@ -120,8 +120,8 @@ class MainGameWindow(QWidget):
         if self.market_tab_presenter:
             self.market_tab_presenter.load_initial_data()
 
-        if getattr(self.hiring_dashboard_tab, "presenter", None):
-            self.hiring_dashboard_tab.presenter.refresh()
+        #if getattr(self.hiring_dashboard_tab, "presenter", None):
+         #   self.hiring_dashboard_tab.presenter.refresh()
 
     def game_over_ui(self, reason: str):
         self.setEnabled(False) 

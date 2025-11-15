@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt, QSize
 
 from ui.widgets.hiring_dashboard.scene_role_selector_widget import SceneRoleSelectorWidget
 from ui.widgets.hiring_dashboard.role_details_widget import RoleDetailsWidget
+from ui.widgets.hiring_dashboard.talent_filter_widget import HiringTalentFilterWidget
 from ui.widgets.hiring_dashboard.talent_table_widget import HiringTalentTableWidget
 from ui.widgets.hiring_dashboard.talent_profile_widget import HiringTalentProfileWidget
 from ui.presenters.hiring_dashboard_presenter import HiringDashboardPresenter
@@ -61,7 +62,18 @@ class HiringDashboardTab(QMainWindow):
             Qt.DockWidgetArea.RightDockWidgetArea
         )
         
-        # Talent Table (middle, spanning width)
+        # Talent Filters (bottom area)
+        self.talent_filter_widget = HiringTalentFilterWidget(
+            self.settings_manager,
+            self.controller.get_available_cup_sizes(),
+        )
+        talent_filter_dock = self._add_dock(
+            "Talent Filters",
+            self.talent_filter_widget,
+            Qt.DockWidgetArea.BottomDockWidgetArea,
+        )
+
+        # Talent Table (bottom area)
         self.talent_table_widget = HiringTalentTableWidget(self.settings_manager)
         talent_table_dock = self._add_dock(
             "Available Talent",
@@ -97,6 +109,7 @@ class HiringDashboardTab(QMainWindow):
             controller=self.controller,
             scene_role_widget=self.scene_role_widget,
             role_details_widget=self.role_details_widget,
+            talent_filter_widget=self.talent_filter_widget,
             talent_table_widget=self.talent_table_widget,
             talent_profile_widget=self.talent_profile_widget,
             parent=self
