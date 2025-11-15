@@ -96,6 +96,12 @@ class CheckableHierarchyTreeView(QTreeView):
                         checked_items.append(child.text())
         return checked_items
 
+    def uncheck_all(self):
+        """Convenience method to uncheck all items in the tree."""
+        # The existing method for setting checked items handles an empty list
+        # by unchecking everything, which is exactly what we need.
+        self.set_checked_items([])
+
     def _on_item_changed(self, item: QStandardItem):
         """
         Internal slot to handle user clicks and synchronize check states.

@@ -75,7 +75,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.role_filter_group = CollapsibleGroupBox("Role Filter")
         role_filter_layout = QHBoxLayout(self.role_filter_group)
         self.scene_combo = QComboBox(); self.scene_combo.setPlaceholderText("Filter by Scene..."); role_filter_layout.addWidget(self.scene_combo)
-        self.role_combo = QComboBox(); self.role_combo.setPlaceholderText("Filter by Role..."); self.role_combo.setEnabled(False); role_filter_layout.addWidget(self.role_combo)
+        self.role_combo = QComboBox(); self.role_combo.setPlaceholderText("Filter by Role..."); self.role_combo.addItem("Any Role", -1); self.role_combo.setEnabled(False); role_filter_layout.addWidget(self.role_combo)
         main_layout.addWidget(self.role_filter_group)
         
         # --- Go-To List ---
@@ -146,10 +146,11 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.scene_combo.blockSignals(True)
         self.scene_combo.clear()
         if not scenes:
-            self.role_filter_group.setEnabled(False)
+            self.scene_combo.setEnabled(False)
             self.scene_combo.setPlaceholderText("No Scenes in Casting")
         else:
-            self.role_filter_group.setEnabled(True)
+            self.scene_combo.setEnabled(True)
+            self.scene_combo.addItem("Any Scene", -1)
             self.scene_combo.setPlaceholderText("Select Scene...")
             for scene in scenes:
                 self.scene_combo.addItem(scene['title'], scene['id'])
@@ -166,13 +167,21 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         self.role_combo.setCurrentIndex(0)
         self.role_combo.blockSignals(False)
 
+    def _set_layout_widgets_enabled(self, layout, enabled: bool):
+        """Helper to enable/disable all widgets within a given layout."""
+        if layout is None: return
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+            if item and item.widget():
+                item.widget().setEnabled(enabled)
+
     def set_gender_filter_enabled(self, enabled: bool):
-        self.gender_group.setEnabled(enabled)
+        self._set_layout_widgets_enabled(self.gender_group.layout(), enabled)
         if not enabled:
             self.gender_any_radio.setChecked(True)
-
+ 
     def set_ethnicity_filter_enabled(self, enabled: bool):
-        self.ethnicity_group.setEnabled(enabled)
+        self._set_layout_widgets_enabled(self.ethnicity_group.layout(), enabled)
         if not enabled:
             self.ethnicity_tree.uncheck_all()
 

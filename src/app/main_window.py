@@ -2,7 +2,7 @@ import logging
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
-    QMessageBox, QTabWidget, QWidget, QVBoxLayout,
+    QMessageBox, QWidget, QVBoxLayout,
 )
 
 from core.notifications_manager import NotificationManager
@@ -10,7 +10,9 @@ from ui.tabs.talent_tab import TalentTab
 from ui.tabs.scenes_tab import ScenesTab
 from ui.tabs.schedule_tab import ScheduleTab
 from ui.tabs.market_tab import MarketTab
+from ui.windows.hiring_dashboard import HiringDashboardTab
 from ui.presenters.talent_tab_presenter import TalentTabPresenter
+from ui.presenters.hiring_dashboard_presenter import HiringDashboardPresenter
 from ui.presenters.scenes_tab_presenter import ScenesTabPresenter
 from ui.presenters.schedule_tab_presenter import ScheduleTabPresenter
 from ui.presenters.market_tab_presenter import MarketTabPresenter
@@ -56,8 +58,10 @@ class MainGameWindow(QWidget):
         self.scenes_tab = ScenesTab()
         self.scenes_tab_presenter = ScenesTabPresenter(self.controller, self.scenes_tab, self.ui_manager, parent=self.scenes_tab)
 
-        #self.hiring_dashboard_tab = HiringDashboardTab(self.controller, self.ui_manager)
-
+        self.hiring_dashboard_tab = HiringDashboardTab(self.controller, self.ui_manager)
+        self.hiring_dashboard_presenter = HiringDashboardPresenter(self.controller, self.ui_manager, self.hiring_dashboard_tab, parent=self.hiring_dashboard_tab)
+        self.hiring_dashboard_tab.presenter = self.hiring_dashboard_presenter
+        
         self.schedule_tab = ScheduleTab()
         self.schedule_tab_presenter = ScheduleTabPresenter(self.controller, self.schedule_tab, self.ui_manager, parent=self.schedule_tab)
 
@@ -67,7 +71,7 @@ class MainGameWindow(QWidget):
         tabs.addTab(self.schedule_tab, "Schedule")
         tabs.addTab(self.talent_tab, "Talent")
         tabs.addTab(self.scenes_tab, "Scenes")
-        #tabs.addTab(self.hiring_dashboard_tab, "Hiring")
+        tabs.addTab(self.hiring_dashboard_tab, "Hiring")
         tabs.addTab(self.market_tab, "Market")
         
         layout.addWidget(tabs)
@@ -120,8 +124,8 @@ class MainGameWindow(QWidget):
         if self.market_tab_presenter:
             self.market_tab_presenter.load_initial_data()
 
-        #if getattr(self.hiring_dashboard_tab, "presenter", None):
-         #   self.hiring_dashboard_tab.presenter.refresh()
+        if getattr(self.hiring_dashboard_tab, "presenter", None):
+            self.hiring_dashboard_tab.presenter.refresh()
 
     def game_over_ui(self, reason: str):
         self.setEnabled(False) 

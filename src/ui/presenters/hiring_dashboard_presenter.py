@@ -1,395 +1,200 @@
 import logging
 from PyQt6.QtCore import QObject, pyqtSlot
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Dict
 
-from core.interfaces import IGameController
 from data.game_state import Talent
+from database.db_models import TalentDB
 from utils.formatters import get_fuzzed_skill_range
-from ui.presenters.talent_filter_cache import CastingTalentCache
+from ui.presenters.talent_filter_cache import TalentFilterCache, CastingTalentCache
+from ui.presenters.talent_filter_panel_presenter import TalentFilterPanelPresenter
+from ui.presenters.talent_table_presenter import TalentTablePresenter
+from ui.presenters.role_details_presenter import RoleDetailsPresenter
+
 
 if TYPE_CHECKING:
-    from ui.widgets.hiring_dashboard.scene_role_selector_widget import SceneRoleSelectorWidget
-    from ui.widgets.hiring_dashboard.role_details_widget import RoleDetailsWidget
-    from ui.widgets.hiring_dashboard.talent_filter_widget import HiringTalentFilterWidget
-    from ui.widgets.hiring_dashboard.talent_table_widget import HiringTalentTableWidget
-    from ui.widgets.hiring_dashboard.talent_profile_widget import HiringTalentProfileWidget
+    from core.interfaces import IGameController
+    from ui.ui_manager import UIManager
+    from ui.windows.hiring_dashboard import HiringDashboardTab
 
 logger = logging.getLogger(__name__)
 
 class HiringDashboardPresenter(QObject):
     """
-    Presenter coordinating all hiring dashboard widgets.
-    Manages the workflow: scene/role selection -> talent filtering -> hiring.
+    Coordinator presenter for the hiring dashboard.
+    This presenter instantiates and manages the interactions between the
+    filter panel, talent table, and role details presenters. It contains
+    the business logic for fetching and filtering talent based on the
+    user's selections across all components.
     """
     
-    def __init__(self, controller: IGameController,
-                 scene_role_widget: 'SceneRoleSelectorWidget',
-                 role_details_widget: 'RoleDetailsWidget',
-                 talent_filter_widget: 'HiringTalentFilterWidget',
-                 talent_table_widget: 'HiringTalentTableWidget',
-                 talent_profile_widget: 'HiringTalentProfileWidget',
+    def __init__(self, controller: 'IGameController',
+                 ui_manager: 'UIManager',
+                 view: 'HiringDashboardTab',
                  parent=None):
         super().__init__(parent)
         self.controller = controller
-        self.scene_role_widget = scene_role_widget
-        self.role_details_widget = role_details_widget
-        self.talent_filter_widget = talent_filter_widget
-        self.talent_table_widget = talent_table_widget
-        self.talent_profile_widget = talent_profile_widget
+        self.ui_manager = ui_manager
+        self.view = view
         
-        # Current state
+        # Instantiate child presenters and wire them to their views
+        self.filter_presenter = TalentFilterPanelPresenter(
+            view=self.view.talent_filter_panel,
+            controller=self.controller,
+            settings_manager=self.controller.settings_manager,
+            parent=self
+        )
+        self.table_presenter = TalentTablePresenter(
+            controller=self.controller,
+            view=self.view.talent_table_widget,
+            parent=self
+        )
+        self.role_details_presenter = RoleDetailsPresenter(
+            controller=self.controller,
+            view=self.view.role_details_widget,
+            parent=self
+        )
+        
+        # State
         self.current_scene_id = None
         self.current_vp_id = None
-        self._casting_cache = []
-        self._filtered_cache = []
-        # Track whether the talent table model has been initialized so we
-        # do not recreate it every time global data changes.
-        self._model_initialized = False
+        
+        # --- Caching Mechanism ---
+        self._all_talents_for_filtering: List[TalentDB] = []
+        self._talent_filter_cache: Dict[int, TalentFilterCache] = {}
+        self._cache_is_dirty = True
 
         self._connect_signals()
     
     def _connect_signals(self):
-        """Connect all widget signals."""
-        # Scene/Role selection
-        self.scene_role_widget.scene_changed.connect(self._on_scene_changed)
-        self.scene_role_widget.role_changed.connect(self._on_role_changed)
-        # The "Apply Filters for Role" button should explicitly trigger
-        # the expensive talent loading/filtering pipeline.
-        self.scene_role_widget.refresh_requested.connect(self._on_apply_filters_requested)
-        
-        # Talent filtering
-        # The name filter lives on the table widget; all other filters are
-        # provided by the dedicated filter widget. Both feed into the same
-        # _apply_all_filters pipeline.
-        self.talent_table_widget.name_filter_changed.connect(self._on_name_filter_changed)
-        self.talent_filter_widget.filters_changed.connect(self._on_advanced_filters_changed)
-        self.talent_table_widget.talent_selected.connect(self._on_talent_selected)
-        
-        # Hiring
-        self.talent_profile_widget.hire_requested.connect(self._on_hire_requested)
-        
-        # Controller signals
-        self.controller.signals.scenes_changed.connect(self.load_initial_data)
-    
-    def load_initial_data(self):
-        """Load or refresh data needed by the hiring dashboard.
+        """Connect signals between presenters and the controller."""
+        # Listen for filter changes from the filter panel presenter
+        self.filter_presenter.filters_applied.connect(self._on_filters_applied)
+        # The coordinator listens to the raw view signal to orchestrate role details
+        self.filter_presenter.view.role_selected.connect(self._on_role_selected)
 
-        This method is safe to call multiple times (e.g. when the global
-        ``scenes_changed`` signal fires). It will only initialize the
-        talent table model once, and on subsequent calls it will simply
-        refresh the available scenes and reset selections.
+        # Listen for actions from the talent table presenter
+        self.table_presenter.open_talent_profile_requested.connect(self._on_open_talent_profile)
+        self.table_presenter.filters_changed.connect(self._trigger_filter_application) # For name filter
+
+        # Listen for global game state changes
+        self.controller.signals.talent_pool_changed.connect(self._invalidate_filter_cache)
+
+    def refresh(self):
         """
-        # Initialize the talent table model only once
-        if not self._model_initialized:
-            self.talent_table_widget.initialize_model(
-                self.controller.get_available_cup_sizes()
-            )
-            self._model_initialized = True
-
-        # Refresh scenes available for casting
-        scenes = self.controller.get_castable_scenes()
-        self.scene_role_widget.populate_scenes(scenes)
-
-        # Reset current selection and clear any previously loaded data so
-        # the table remains empty until the user explicitly applies
-        # filters for a chosen role.
-        self.current_scene_id = None
-        self.current_vp_id = None
-        self._casting_cache = []
-        self._filtered_cache = []
-        self.talent_table_widget.update_talent_table([])
-        self.talent_profile_widget.clear()
-        self.role_details_widget.clear()
-    
-    @pyqtSlot(int)
-    def _on_scene_changed(self, scene_id: int):
-        """Handle scene selection change.
-
-        Selecting a scene loads the available uncast roles for that
-        scene into the role combobox, but does not yet perform any
-        expensive talent filtering. That work remains behind the
-        explicit "Apply Filters for Role" action.
+        Loads initial data into the sub-presenters and triggers the initial
+        talent list population. This is the main entry point for this presenter.
         """
-        self.current_scene_id = scene_id
-        self.current_vp_id = None
+        self.filter_presenter.load_initial_data()
+        self.role_details_presenter.clear()
+        self._trigger_filter_application()
 
-        # Load uncast roles for this scene and populate the roles
-        # combobox. The widget will enable the combobox but leave it
-        # unselected so the user must explicitly choose a role.
-        roles = self.controller.get_uncast_roles_for_scene(scene_id)
-        self.scene_role_widget.populate_roles(roles)
-
-        # Clear any previously displayed details, table data, and
-        # cached talent so we do not show stale information.
-        self.role_details_widget.clear()
-        self.talent_table_widget.update_talent_table([])
-        self.talent_profile_widget.clear()
-        self._casting_cache = []
-        self._filtered_cache = []
+    @pyqtSlot()
+    def _invalidate_filter_cache(self):
+        """Marks the cache as dirty and reloads data when the talent pool changes."""
+        self._cache_is_dirty = True
+        self.filter_presenter.load_initial_data() 
+        self._trigger_filter_application()
+        
+    @pyqtSlot()
+    def _trigger_filter_application(self):
+        """Gathers all filters and calls the main filtering logic."""
+        all_filters = self.filter_presenter.view.gather_current_filters()
+        all_filters['text'] = self.table_presenter.get_name_filter()
+        self._on_filters_applied(all_filters)
     
     @pyqtSlot(int, int)
-    def _on_role_changed(self, scene_id: int, vp_id: int):
-        """Handle role selection change.
+    def _on_role_selected(self, scene_id: int, vp_id: int):
+        """Handles role selection, updating details and clearing the table."""
+        self.current_scene_id = scene_id if vp_id > -1 else None
+        self.current_vp_id = vp_id if vp_id > -1 else None
 
-        Selecting a role does not automatically load or filter talent;
-        that work is deferred until the user explicitly clicks the
-        "Apply Filters for Role" button in the scene/role selector.
-        """
-        self.current_scene_id = scene_id
-        self.current_vp_id = vp_id
+        if self.current_scene_id and self.current_vp_id:
+            self.role_details_presenter.display_role(self.current_scene_id, self.current_vp_id)
+        else:
+            self.role_details_presenter.clear()
 
-        # Always refresh the role details immediately for user feedback.
-        self._load_role_details()
-
-        # Reset any previously loaded talent so the table does not show
-        # stale results for a different role.
-        self._casting_cache = []
-        self._filtered_cache = []
-        self.talent_table_widget.update_talent_table([])
-        self.talent_profile_widget.clear()
+        # Clear table; user must click "Apply" to see new results.
+        self.table_presenter.update_data([])
+        if not (self.current_scene_id and self.current_vp_id):
+            self._trigger_filter_application()
     
-    def _load_role_details(self):
-        """Load and display role details."""
-        role_details = self.controller.get_role_details_for_ui(
-            self.current_scene_id, self.current_vp_id
-        )
-        
-        # Build HTML (same as RoleCastingPresenter)
-        html = "<ul>"
-        html += f"<li><b>Gender:</b> {role_details.get('gender', 'N/A')}</li>"
-        html += f"<li><b>Ethnicity:</b> {role_details.get('ethnicity', 'N/A')}</li>"
-        if role_details.get('is_protagonist'): 
-            html += "<li><b>Protagonist Role</b></li>"
-        if role_details.get('disposition') != 'Switch': 
-            html += f"<li><b>Disposition:</b> {role_details.get('disposition', 'N/A')}</li>"
-
-        if physical_tags := role_details.get('physical_tags'): 
-            html += f"<br><li><b>Physical Tags:</b><br>{', '.join(physical_tags)}</li>"
-        if action_roles := role_details.get('action_roles'): 
-            html += f"<br><li><b>Action Roles:</b><br>{', '.join(action_roles)}</li>"
-        html += "</ul>"
-        
-        self.role_details_widget.update_role_details(html)
-
-        # Inform the filter widget of the role gender so it can enable/disable
-        # conflicting physical sliders (e.g. dick size vs. cup size).
-        self.talent_filter_widget.set_role_gender(role_details.get('gender'))
-    
-    def _load_eligible_talent(self):
-        """Load eligible talent for the currently selected role.
-
-        This performs the heavy, role-specific query and cache
-        preparation. It is only called when the user explicitly requests
-        to apply filters for the active scene/role.
-        """
-        try:
-            # Get all TalentDB objects who are eligible and willing
-            eligible_talents_db = self.controller.get_eligible_talent_for_role(
-                self.current_scene_id, self.current_vp_id
-            )
-            
-            # Build CastingTalentCache objects with all pre-calculated values
-            self._casting_cache = []
-            for t_db in eligible_talents_db:
-                # Calculate all 5 fuzzed skill ranges
-                perf_fuzzed = get_fuzzed_skill_range(t_db.performance, t_db.experience, t_db.id)
-                act_fuzzed = get_fuzzed_skill_range(t_db.acting, t_db.experience, t_db.id)
-                stam_fuzzed = get_fuzzed_skill_range(t_db.stamina, t_db.experience, t_db.id)
-                dom_fuzzed = get_fuzzed_skill_range(t_db.dom_skill, t_db.experience, t_db.id)
-                sub_fuzzed = get_fuzzed_skill_range(t_db.sub_skill, t_db.experience, t_db.id)
-                
-                # Pre-calculate popularity
-                popularity = round(sum(p.score for p in t_db.popularity_scores) if t_db.popularity_scores else 0)
-                
-                # Calculate role-specific demand
-                _, _, demand = self.controller.calculate_total_demand(
-                    t_db.id, self.current_scene_id, self.current_vp_id
-                )
-                
-                cache_item = CastingTalentCache(
-                    talent_db=t_db,
-                    perf_range=(perf_fuzzed, perf_fuzzed) if isinstance(perf_fuzzed, int) else perf_fuzzed,
-                    act_range=(act_fuzzed, act_fuzzed) if isinstance(act_fuzzed, int) else act_fuzzed,
-                    stam_range=(stam_fuzzed, stam_fuzzed) if isinstance(stam_fuzzed, int) else stam_fuzzed,
-                    dom_range=(dom_fuzzed, dom_fuzzed) if isinstance(dom_fuzzed, int) else dom_fuzzed,
-                    sub_range=(sub_fuzzed, sub_fuzzed) if isinstance(sub_fuzzed, int) else sub_fuzzed,
-                    popularity=popularity,
-                    demand=demand
-                )
-                self._casting_cache.append(cache_item)
-
-            # Apply initial filters and update table
-            self._apply_all_filters()
-            
-        except Exception as e:
-            logger.error(f"Error loading eligible talent: {e}", exc_info=True)
-            self._casting_cache = []
-            self._filtered_cache = []
-            self.talent_table_widget.update_talent_table([])
-    
-    def _apply_all_filters(self):
-        """Apply all current filters to the talent cache.
-
-        The full filter set is composed of:
-        - the name filter sitting on the HiringTalentTableWidget, and
-        - all other ranges and toggles from the HiringTalentFilterWidget.
-        """
-        filters = self.talent_filter_widget.get_current_filters()
-        # Inject the table's name filter into the combined filter dict so we
-        # treat it uniformly with the rest of the filters.
-        filters['name'] = self.talent_table_widget.get_name_filter()
-        
-        # Start with full cache
-        filtered = self._casting_cache.copy()
-        
-        # Apply name filter
-        name_filter = filters.get('name', '').strip().lower()
-        if name_filter:
-            filtered = [
-                cache_item for cache_item in filtered
-                if name_filter in cache_item.talent_db.alias.lower()
-            ]
-        
-        # Apply age filter
-        age_min = filters.get('age_min', 18)
-        age_max = filters.get('age_max', 99)
-        if age_min > 18 or age_max < 99:
-            filtered = [
-                cache_item for cache_item in filtered
-                if age_min <= cache_item.talent_db.age <= age_max
-            ]
-        
-        # Apply go-to list filter
-        if filters.get('go_to_list_only', False):
-            # Filter to only show talent in go-to lists
-            filtered = [
-                cache_item for cache_item in filtered
-                if self.controller.is_talent_in_go_to_list(cache_item.talent_db.id)
-            ]
-        
-        # Apply skill range filters using pre-calculated fuzzed ranges.
-        perf_min = filters.get('performance_min', 0)
-        perf_max = filters.get('performance_max', 100)
-        act_min = filters.get('acting_min', 0)
-        act_max = filters.get('acting_max', 100)
-        stam_min = filters.get('stamina_min', 0)
-        stam_max = filters.get('stamina_max', 100)
-        dom_min = filters.get('dominance_min', 0)
-        dom_max = filters.get('dominance_max', 100)
-        sub_min = filters.get('submission_min', 0)
-        sub_max = filters.get('submission_max', 100)
-
-        def _range_overlaps(user_min, user_max, talent_range):
-            talent_min, talent_max = talent_range
-            return talent_min <= user_max and talent_max >= user_min
-
-        filtered = [
-            cache_item for cache_item in filtered
-            if _range_overlaps(perf_min, perf_max, cache_item.perf_range)
-            and _range_overlaps(act_min, act_max, cache_item.act_range)
-            and _range_overlaps(stam_min, stam_max, cache_item.stam_range)
-            and _range_overlaps(dom_min, dom_max, cache_item.dom_range)
-            and _range_overlaps(sub_min, sub_max, cache_item.sub_range)
-        ]
-
-        # Apply physical filters.
-        dick_min = filters.get('dick_size_min')
-        dick_max = filters.get('dick_size_max')
-        if dick_min is not None and dick_max is not None:
-            filtered = [
-                cache_item for cache_item in filtered
-                if cache_item.talent_db.dick_size is not None
-                and dick_min <= cache_item.talent_db.dick_size <= dick_max
-            ]
-
-        cup_sizes = filters.get('cup_sizes')
-        if cup_sizes:
-            cup_sizes_set = set(cup_sizes)
-            filtered = [
-                cache_item for cache_item in filtered
-                if cache_item.talent_db.cup_size in cup_sizes_set
-            ]
-        
-        self._filtered_cache = filtered
-        self.talent_table_widget.update_talent_table(self._filtered_cache)
-    
-    @pyqtSlot(str)
-    def _on_name_filter_changed(self, _text: str):
-        """Handle changes to the name filter on the table widget."""
-        if self._casting_cache:
-            self._apply_all_filters()
-
     @pyqtSlot(dict)
-    def _on_advanced_filters_changed(self, _filters: dict):
-        """Handle changes to the advanced filters widget."""
-        if self._casting_cache:
-            self._apply_all_filters()
-    
-    @pyqtSlot()
-    def _on_apply_filters_requested(self):
-        """Handle the explicit "Apply Filters for Role" button click.
+    def _on_filters_applied(self, filters: dict):
+        """Main logic trigger. Decides whether to do a general or role-specific search."""
+        if self._cache_is_dirty: self._build_filter_cache()
 
-        Only when a complete (scene, role) selection exists do we load
-        eligible talent and apply the current filter set.
-        """
-        if not self.current_scene_id or not self.current_vp_id:
-            logger.debug(
-                "Apply filters requested without a complete scene/role "
-                "selection; ignoring."
-            )
-            return
+        scene_id = filters.get('scene_id'); vp_id = filters.get('vp_id')
+        if scene_id is not None and vp_id is not None and vp_id > -1:
+            self._execute_role_specific_filter(scene_id, vp_id, filters)
+        else:
+            self._execute_general_filter(filters)
 
-        # Load eligible talent for the selected role and apply filters.
-        self._load_eligible_talent()
-        self.talent_profile_widget.clear()
-    
-    @pyqtSlot(object)
-    def _on_talent_selected(self, talent: Talent):
-        """Handle talent selection from table."""
-        # Find the cached demand for this talent
-        cache_item = next(
-            (c for c in self._filtered_cache if c.talent_db.id == talent.id), 
-            None
-        )
+    def _build_filter_cache(self):
+        self._all_talents_for_filtering = self.controller.get_filtered_talents({})
+        self._talent_filter_cache.clear()
+        for t_db in self._all_talents_for_filtering:
+            perf = get_fuzzed_skill_range(t_db.performance, t_db.experience, t_db.id)
+            act = get_fuzzed_skill_range(t_db.acting, t_db.experience, t_db.id)
+            stam = get_fuzzed_skill_range(t_db.stamina, t_db.experience, t_db.id)
+            dom = get_fuzzed_skill_range(t_db.dom_skill, t_db.experience, t_db.id)
+            sub = get_fuzzed_skill_range(t_db.sub_skill, t_db.experience, t_db.id)
+            pop = round(sum(p.score for p in t_db.popularity_scores) if t_db.popularity_scores else 0)
+            self._talent_filter_cache[t_db.id] = TalentFilterCache(
+                talent_db=t_db,
+                perf_range=(perf, perf) if isinstance(perf, int) else perf,
+                act_range=(act, act) if isinstance(act, int) else act,
+                stam_range=(stam, stam) if isinstance(stam, int) else stam,
+                dom_range=(dom, dom) if isinstance(dom, int) else dom,
+                sub_range=(sub, sub) if isinstance(sub, int) else sub,
+                popularity=pop)
+        self._cache_is_dirty = False
+
+    def _talent_passes_cached_skill_filters(self, cache_item: TalentFilterCache, filters: dict) -> bool:
+        skill_filters = {
+            'performance': cache_item.perf_range, 'acting': cache_item.act_range,
+            'stamina': cache_item.stam_range, 'dominance': cache_item.dom_range,
+            'submission': cache_item.sub_range}
+        for skill, (t_min, t_max) in skill_filters.items():
+            u_min, u_max = filters.get(f'{skill}_min', 0), filters.get(f'{skill}_max', 100)
+            if not (t_min <= u_max and t_max >= u_min): return False
+        return True
+
+    def _execute_general_filter(self, filters: dict):
+        """Filters all talent without considering a specific role (no demand)."""
+        db_filters = {k: v for k, v in filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission'))}
+        talents_from_db = self.controller.get_filtered_talents(db_filters)
+        cache_items = [
+            self._talent_filter_cache[t_db.id] for t_db in talents_from_db
+            if t_db.id in self._talent_filter_cache and self._talent_passes_cached_skill_filters(self._talent_filter_cache[t_db.id], filters)
+        ]
+        self.table_presenter.update_data(cache_items)
+
+    def _execute_role_specific_filter(self, scene_id: int, vp_id: int, filters: dict):
+        """Filters talent eligible for a role and calculates demand."""
+        base_candidates = self.controller.get_eligible_talent_for_role(scene_id, vp_id)
+        attr_filters = {k: v for k, v in filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission', 'gender', 'ethnicities'))}
         
-        if cache_item:
-            # Convert to Talent dataclass and display
-            talent_dataclass = cache_item.talent_db.to_dataclass(Talent)
-            self.talent_profile_widget.display_talent(talent_dataclass, cache_item.demand)
-    
-    @pyqtSlot(object)
-    def _on_hire_requested(self, talent: Talent):
-        """Handle hiring request for talent."""
-        try:
-            # Find the cached demand for this talent
-            cache_item = next(
-                (c for c in self._filtered_cache if c.talent_db.id == talent.id), 
-                None
-            )
+        role_details = self.controller.get_role_details_for_ui(scene_id, vp_id)
+        role_gender = (role_details.get('gender') or 'any').lower()
+        if role_gender == 'female': attr_filters['dick_size_min'] = attr_filters['dick_size_max'] = None
+        elif role_gender == 'male' and 'cup_sizes' in attr_filters: del attr_filters['cup_sizes']
             
-            if cache_item:
-                cost = cache_item.demand
-            else:
-                _, _, cost = self.controller.calculate_total_demand(
-                    talent.id, self.current_scene_id, self.current_vp_id
-                )
-            
-            # Perform the hiring
-            self.controller.cast_talent_for_virtual_performer(
-                talent.id, self.current_scene_id, self.current_vp_id, cost
-            )
-            
-            # Refresh data after successful hire
-            self._on_role_changed(self.current_scene_id, self.current_vp_id)
-            
-        except Exception as e:
-            logger.error(f"Error hiring talent {talent.id}: {e}", exc_info=True)
-    
-    def refresh(self):
-        """Refresh all data and reset the current selection.
+        attr_filtered = self.controller.filter_talent_list_by_attributes(base_candidates, attr_filters)
+        final_dbs = [t_db for t_db in attr_filtered if t_db.id in self._talent_filter_cache and self._talent_passes_cached_skill_filters(self._talent_filter_cache[t_db.id], filters)]
 
-        This is equivalent to re-opening the dashboard: it reloads
-        scenes and clears any loaded talent so that the user must
-        explicitly select a scene/role and apply filters again.
-        """
-        self.load_initial_data()
+        casting_cache = []
+        for t_db in final_dbs:
+            base_cache = self._talent_filter_cache[t_db.id]
+            _, _, demand = self.controller.calculate_total_demand(t_db.id, scene_id, vp_id)
+            casting_cache.append(CastingTalentCache(
+                talent_db=t_db, demand=demand,
+                perf_range=base_cache.perf_range, act_range=base_cache.act_range,
+                stam_range=base_cache.stam_range, dom_range=base_cache.dom_range,
+                sub_range=base_cache.sub_range, popularity=base_cache.popularity
+            ))
+        self.table_presenter.update_data(casting_cache)
+
+    @pyqtSlot(object)
+    def _on_open_talent_profile(self, talent: Talent):
+        """Handles request from the table presenter to open a talent profile window."""
+        self.ui_manager.show_talent_profile(talent)
