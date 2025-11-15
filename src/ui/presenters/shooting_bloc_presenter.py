@@ -29,6 +29,7 @@ class ShootingBlocPresenter:
         This should be called from the view's __init__ after UI setup.
         """
         self._load_and_apply_defaults()
+        self._update_week_range_for_selected_year()
         self.request_cost_update()
 
     def _load_and_apply_defaults(self):
@@ -37,6 +38,20 @@ class ShootingBlocPresenter:
         if last_settings:
             # The view is responsible for knowing how to apply these settings to its widgets.
             self.view.apply_defaults(last_settings)
+
+    def _update_week_range_for_selected_year(self):
+        """
+        Makes past weeks unselectable for the curren year while allowing to be selected in future years.
+        If we ever change how the schedule tab handles past weeks, we need to update this.
+        """
+        current_year = self.controller.game_state.year
+        current_week = self.controller.game_state.week
+        selected_year = self.view.get_selected_year()
+        if selected_year == current_year:
+            min_week = current_week
+        else:
+            min_week = 1
+        self.view.set_week_range(min_week, 52)
 
     def request_cost_update(self):
         """
@@ -53,6 +68,9 @@ class ShootingBlocPresenter:
         
         calculated_cost = self.controller.calculate_shooting_bloc_cost(num_scenes, prod_settings, policies)
         self.view.set_total_cost_display(calculated_cost)
+
+    def on_year_changed(self, _year: int):
+        self._update_week_range_for_selected_year()
 
     def confirm_plan(self):
         """

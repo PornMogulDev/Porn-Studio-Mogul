@@ -137,6 +137,9 @@ class ShootingBlocDialog(GeometryManagerMixin, QDialog):
         for checkbox in self.policy_checkboxes.values():
             checkbox.stateChanged.connect(self.presenter.request_cost_update)
 
+        # Notify the presenter whenever the year changes so it can adjust the week range.
+        self.year_spinbox.valueChanged.connect(self.presenter.on_year_changed)
+
     def accept(self):
         """
         Overrides the default QDialog.accept() behavior. Instead of closing
@@ -179,6 +182,14 @@ class ShootingBlocDialog(GeometryManagerMixin, QDialog):
             "policies": policies,
         }
 
+    def get_selected_year(self) -> int:
+        """Returns the currently selected year in the dialog."""
+        return self.year_spinbox.value()
+
+    def set_week_range(self, min_week: int, max_week: int):
+        """Sets the allowed range for the week spinbox."""
+        self.week_spinbox.setRange(min_week, max_week)
+
     def apply_defaults(self, defaults: Dict):
         """
         Applies a set of default values, provided by the presenter, to the UI widgets.
@@ -209,16 +220,17 @@ class ShootingBlocDialog(GeometryManagerMixin, QDialog):
         current_year = self.presenter.controller.game_state.year
         current_week = self.presenter.controller.game_state.week
         
-        self.week_spinbox.setRange(1, 52)
+        # Let the presenter decide the valid week range based on the selected year.
         self.year_spinbox.setRange(current_year, current_year + 10)
         
-        self.week_spinbox.setValue(current_week)
         self.year_spinbox.setValue(current_year)
+        self.week_spinbox.setValue(current_week)
 
     def set_schedule(self, week: int, year: int):
         """Allows external callers (like the UIManager) to preset the schedule."""
-        self.week_spinbox.setValue(week)
+        # Set the year first so the presenter can adjust the week range accordingly.
         self.year_spinbox.setValue(year)
+        self.week_spinbox.setValue(week)
 
     def _update_tooltip(self, combo_box: QComboBox):
         """Updates the tooltip of a combo box based on its current selection."""
