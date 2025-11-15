@@ -6,6 +6,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from typing import Optional
 
 from data.game_state import Talent
+from utils.formatters import format_orientation
 
 class HiringTalentProfileWidget(QWidget):
     """Simplified talent profile widget for viewing and hiring."""
@@ -88,7 +89,7 @@ class HiringTalentProfileWidget(QWidget):
         basic_layout.addRow("Age:", QLabel(str(talent.age)))
         basic_layout.addRow("Gender:", QLabel(talent.gender))
         basic_layout.addRow("Ethnicity:", QLabel(talent.ethnicity))
-        basic_layout.addRow("Orientation:", QLabel(talent.orientation))
+        basic_layout.addRow("Orientation:", QLabel(format_orientation(talent.orientation_score, talent.gender)))
         basic_layout.addRow("Nationality:", QLabel(talent.nationality))
         basic_layout.addRow("Location:", QLabel(talent.base_location))
         
@@ -120,7 +121,7 @@ class HiringTalentProfileWidget(QWidget):
         skills_layout.addRow("Stamina:", QLabel(format_range(stam_range)))
         
         # Popularity
-        pop = sum(p['score'] for p in talent.popularity_scores) if talent.popularity_scores else 0
+        pop = sum(p['score'] for p in talent.popularity) if talent.popularity else 0
         skills_layout.addRow("Popularity:", QLabel(str(round(pop))))
         
         self.profile_layout.addWidget(skills_group)
@@ -131,14 +132,6 @@ class HiringTalentProfileWidget(QWidget):
         attr_layout = QFormLayout(attr_group)
         
         unit_system = self.settings_manager.get_setting("unit_system", "imperial")
-        
-        # Height
-        if unit_system == "imperial":
-            from utils.formatters import format_height_imperial
-            height_str = format_height_imperial(talent.height)
-        else:
-            height_str = f"{talent.height} cm"
-        attr_layout.addRow("Height:", QLabel(height_str))
         
         # Dick size
         if talent.dick_size:

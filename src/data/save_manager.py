@@ -117,7 +117,8 @@ class SaveManager:
         state = GameState(
             week=int(game_info.get('week', 1)),
             year=int(game_info.get('year', 0)),
-            money=int(game_info.get('money', 0))
+            money=int(game_info.get('money', 0)),
+            studio_location=str(game_info.get('studio_location'))
         )
         return state
 

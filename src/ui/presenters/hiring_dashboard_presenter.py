@@ -62,14 +62,14 @@ class HiringDashboardPresenter(QObject):
     
     def load_initial_data(self):
         """Load scenes available for casting."""
-        scenes = self.controller.get_castable_scenes()
-        self.scene_role_widget.populate_scenes(scenes)
-        
         # Initialize talent table model
         self.talent_table_widget.initialize_model(
             self.controller.get_available_cup_sizes()
         )
-    
+
+        scenes = self.controller.get_castable_scenes()
+        self.scene_role_widget.populate_scenes(scenes)
+        
     @pyqtSlot(int)
     def _on_scene_changed(self, scene_id: int):
         """Handle scene selection change."""
