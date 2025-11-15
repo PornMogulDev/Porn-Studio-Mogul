@@ -13,7 +13,6 @@ class RoleDetailsWidget(QWidget):
         
         self.details_display = QTextEdit()
         self.details_display.setReadOnly(True)
-        self.details_display.setMaximumHeight(250)
         layout.addWidget(self.details_display)
         
         self.no_selection_label = QLabel("Select a scene and role to view details")

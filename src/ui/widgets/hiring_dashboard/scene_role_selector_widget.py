@@ -45,11 +45,8 @@ class SceneRoleSelectorWidget(QWidget):
         refresh_layout = QHBoxLayout()
         self.refresh_button = QPushButton("Refresh Scenes")
         self.refresh_button.clicked.connect(self.refresh_requested.emit)
-        refresh_layout.addStretch()
         refresh_layout.addWidget(self.refresh_button)
         layout.addLayout(refresh_layout)
-        
-        layout.addStretch()
         
         # Connect signals
         self.scene_combo.currentIndexChanged.connect(self._on_scene_changed)

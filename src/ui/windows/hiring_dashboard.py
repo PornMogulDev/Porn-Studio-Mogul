@@ -33,7 +33,6 @@ class HiringDashboardTab(QMainWindow):
         """Initialize the core UI components."""
         # Central widget (hidden, we use docks)
         central_widget = QWidget()
-        central_widget.setMaximumSize(0, 0)
         self.setCentralWidget(central_widget)
         
         # Enable dock nesting
