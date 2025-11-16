@@ -1,4 +1,4 @@
-from typing import Union, List, Dict, TYPE_CHECKING
+from typing import Union, List, Dict, TYPE_CHECKING, Optional, Tuple
 from PyQt6.QtCore import QObject, pyqtSlot, QPoint, QRunnable, QThreadPool, pyqtSignal
 
 from core.interfaces import IGameController
@@ -52,6 +52,9 @@ class TalentTabPresenter(QObject):
         # --- Caching Mechanism ---
         self._all_talents_for_filtering: List[TalentDB] = []
         self._talent_filter_cache: Dict[int, TalentFilterCache] = {}
+        # Role-specific cache for calculated demands to prevent re-calculation on sub-filters
+        self._demand_cache: Dict[int, int] = {}
+        self._current_casting_context: Optional[Tuple[int, int]] = None # (scene_id, vp_id)
         self._cache_is_dirty = True
 
         self._connect_signals()
@@ -151,23 +154,35 @@ class TalentTabPresenter(QObject):
             
             attribute_filtered_db = self.controller.filter_talent_list_by_attributes(base_candidates_db, attribute_filters)
 
-            # --- Step 1: Immediate UI update with placeholder data ---
-            placeholder_cache_items = []
+            # --- Step 1: Check if casting context has changed, if so, clear demand cache ---
+            new_context = (scene_id, vp_id)
+            if self._current_casting_context != new_context:
+                self._demand_cache.clear()
+                self._current_casting_context = new_context
+
+            # --- Step 2: Build the list for the UI, using cached demands where available ---
+            final_cache_items = []
+            talent_ids_to_calculate = []
             for t_db in attribute_filtered_db:
                 filter_cache_item = self._talent_filter_cache.get(t_db.id)
                 if filter_cache_item and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters):
-                    # Demand is None, which the model will interpret as "Calculating..."
-                    placeholder_cache_items.append(CastingTalentCache(**filter_cache_item.__dict__, demand=None))
-            self.view.update_talent_list(placeholder_cache_items)
+                    # Use cached demand if it exists, otherwise mark for calculation
+                    cached_demand = self._demand_cache.get(t_db.id)
+                    final_cache_items.append(CastingTalentCache(**filter_cache_item.__dict__, demand=cached_demand))
+                    if cached_demand is None:
+                        talent_ids_to_calculate.append(t_db.id)
+            
+            # --- Step 3: Update UI immediately. Rows without demand will show "Calculating..." ---
+            self.view.update_talent_list(final_cache_items)
 
-            # --- Step 2: Start background calculation ---
-            talent_ids_for_demand = [item.talent_db.id for item in placeholder_cache_items]
-            if talent_ids_for_demand:
-                worker = DemandCalculationWorker(self.controller, talent_ids_for_demand, scene_id, vp_id)
+            # --- Step 4: Start background calculation ONLY for missing demands ---
+            if talent_ids_to_calculate:
+                worker = DemandCalculationWorker(self.controller, talent_ids_to_calculate, scene_id, vp_id)
                 worker.signals.finished.connect(self._on_demand_calculation_finished)
                 self.thread_pool.start(worker)
         else:
             # --- PATH B: Standard, General Filtering ---
+            self._current_casting_context = None # Clear context when not in casting mode
             self._stop_casting_mode()
             db_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission'))}
             talents_from_db = self.controller.get_filtered_talents(db_filters)
@@ -182,11 +197,15 @@ class TalentTabPresenter(QObject):
     @pyqtSlot(dict)
     def _on_demand_calculation_finished(self, demands: dict):
         """Slot to receive results from the background worker and update the model."""
-        # Update the underlying data in the model
+        # Update the presenter's demand cache first
+        self._demand_cache.update(demands)
+
+        # Then, update the underlying data in the model with the newly calculated values
         model_data = self.view.talent_model.raw_data
         for item in model_data:
             if isinstance(item, CastingTalentCache):
-                item.demand = demands.get(item.talent_db.id)
+                if item.demand is None: # Only update if it was previously None
+                    item.demand = demands.get(item.talent_db.id)
         
         # Tell the view to redraw itself with the new data
         self.view.talent_model.refresh()
