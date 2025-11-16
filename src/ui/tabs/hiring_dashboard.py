@@ -66,8 +66,13 @@ class HiringDashboardTab(QWidget):
         self.left_splitter.addWidget(self.talent_filter_panel)
         self.main_splitter.addWidget(self.talent_table_widget)
 
+        # Allow splitter children to be resized down to zero size, giving the user full control.
+        self.role_details_widget.setMinimumHeight(1)
+        self.talent_filter_panel.setMinimumHeight(1)
+        self.talent_table_widget.setMinimumSize(1, 1)
+
         # --- Fine-tune initial layout ---
-        self.main_splitter.setSizes([1, 2]) # Left side vs Right side
-        self.left_splitter.setSizes([1, 3]) # Role details vs Filters
+        self.main_splitter.setSizes([3000, 7000]) # Left side vs Right side
+        self.left_splitter.setSizes([100, 1000]) # Role details vs Filters
         self.left_splitter.setStretchFactor(1, 1) # Allow filter panel to grow more
-        self.main_splitter.setStretchFactor(1, 1) # Allow table to grow more
+        self.main_splitter.setStretchFactor(2, 2) # Allow table to grow more

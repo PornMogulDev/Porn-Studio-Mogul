@@ -46,9 +46,6 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
 
     def _setup_ui(self):
         """Initializes the core UI components of the main window."""
-        # QMainWindow requires a central widget, even if it's just a placeholder.
-        # The dock widgets will be arranged around it.
-        self.setCentralWidget(QWidget())
 
         # The dockNestingEnabled property allows dock widgets to be tabbed together.
         self.setDockNestingEnabled(True)
