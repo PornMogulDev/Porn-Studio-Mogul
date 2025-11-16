@@ -7,7 +7,8 @@ from ui.dialogs.talent_filter_dialog import TalentFilterDialog
 from data.game_state import Talent
 from database.db_models import TalentDB
 from utils.formatters import get_fuzzed_skill_range
-from ui.presenters.talent_filter_cache import TalentFilterCache
+# MODIFIED: Import CastingTalentCache as well
+from ui.presenters.talent_filter_cache import TalentFilterCache, CastingTalentCache
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
@@ -132,73 +133,69 @@ class TalentTabPresenter(QObject):
 
     @pyqtSlot(dict)
     def on_standard_filters_changed(self, all_filters: dict):
-        # Step 1: Ensure the cache is up-to-date.
         if self._cache_is_dirty:
             self._build_filter_cache()
 
-        # Step 2: Decide which filtering path to take based on whether a specific role is selected.
         scene_id = all_filters.get('scene_id')
         vp_id = all_filters.get('vp_id')
 
         if scene_id is not None and vp_id is not None and vp_id > -1:
             # --- PATH A: Role-Specific Filtering ---
-            # 1. Get the base list of candidates who are eligible for the role.
             base_candidates_db = self.controller.get_eligible_talent_for_role(scene_id, vp_id)
-
-            # 2. Prepare attribute filters. This is where we implement the "Smarter Caller" logic.
-            attribute_filters = {
-                k: v for k, v in all_filters.items()
-                if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission', 'gender', 'ethnicities'))
-            }
-            
-            # Get role details to determine which physical filter is irrelevant.
+            attribute_filters = { k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission', 'gender', 'ethnicities')) }
             role_details = self.controller.get_role_details_for_ui(scene_id, vp_id)
             role_gender = (role_details.get('gender') or 'any').lower()
-
             if role_gender == 'female':
-                # For a female role, the dick size filter is irrelevant.
-                # Setting its keys to None ensures the service's `is not None` check will fail, correctly skipping it.
                 attribute_filters['dick_size_min'] = None
                 attribute_filters['dick_size_max'] = None
             elif role_gender == 'male':
-                # For a male role, the cup size filter is irrelevant.
-                if 'cup_sizes' in attribute_filters:
-                    del attribute_filters['cup_sizes']
+                if 'cup_sizes' in attribute_filters: del attribute_filters['cup_sizes']
             
-            # 3. Call the service to perform in-memory attribute filtering.
-            attribute_filtered_db = self.controller.filter_talent_list_by_attributes(
-                base_candidates_db,
-                attribute_filters
-            )
+            attribute_filtered_db = self.controller.filter_talent_list_by_attributes(base_candidates_db, attribute_filters)
 
-            # 4. Perform final, UI-cached skill filtering on the refined list.
-            final_cache_items = [
-                self._talent_filter_cache[t_db.id]
-                for t_db in attribute_filtered_db
-                if t_db.id in self._talent_filter_cache and
-                   self._talent_passes_cached_skill_filters(self._talent_filter_cache[t_db.id], all_filters)
-            ]
+            # MODIFIED: Build CastingTalentCache with calculated demand
+            final_cache_items = []
+            for t_db in attribute_filtered_db:
+                filter_cache_item = self._talent_filter_cache.get(t_db.id)
+                if filter_cache_item and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters):
+                    _, _, demand = self.controller.calculate_total_demand(t_db.id, scene_id, vp_id)
+                    final_cache_items.append(CastingTalentCache(
+                        talent_db=filter_cache_item.talent_db,
+                        perf_range=filter_cache_item.perf_range,
+                        act_range=filter_cache_item.act_range,
+                        stam_range=filter_cache_item.stam_range,
+                        dom_range=filter_cache_item.dom_range,
+                        sub_range=filter_cache_item.sub_range,
+                        popularity=filter_cache_item.popularity,
+                        demand=demand
+                    ))
             self.view.update_talent_list(final_cache_items)
 
         else:
-            # --- PATH B: Standard, General Filtering (Existing Logic) ---
-            # 1. Apply fast database-side filters.
+            # --- PATH B: Standard, General Filtering ---
             db_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission'))}
             talents_from_db = self.controller.get_filtered_talents(db_filters)
 
-            # 2. Apply slow Python-side filters using the pre-calculated cache.
-            cache_items_passing_skills = [
-                self._talent_filter_cache[t_db.id]
-                for t_db in talents_from_db
-                if t_db.id in self._talent_filter_cache and
-                   self._talent_passes_cached_skill_filters(self._talent_filter_cache[t_db.id], all_filters)
-            ]
+            # Build CastingTalentCache with demand=None
+            cache_items_passing_skills = []
+            for t_db in talents_from_db:
+                filter_cache_item = self._talent_filter_cache.get(t_db.id)
+                if filter_cache_item and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters):
+                    cache_items_passing_skills.append(CastingTalentCache(
+                        talent_db=filter_cache_item.talent_db,
+                        perf_range=filter_cache_item.perf_range,
+                        act_range=filter_cache_item.act_range,
+                        stam_range=filter_cache_item.stam_range,
+                        dom_range=filter_cache_item.dom_range,
+                        sub_range=filter_cache_item.sub_range,
+                        popularity=filter_cache_item.popularity,
+                        demand=None # No role, so no demand
+                    ))
             self.view.update_talent_list(cache_items_passing_skills)
 
     @pyqtSlot(list, QPoint)
     def on_context_menu_requested(self, talents: List[Talent], pos: QPoint):
         all_categories = self.controller.get_go_to_list_categories()
-        # For multi-select, we don't need to get specific talent categories, just all possible ones.
         self.view.display_talent_context_menu(talents, all_categories, pos)
 
     @pyqtSlot(dict)
@@ -215,7 +212,6 @@ class TalentTabPresenter(QObject):
                 settings_manager=self.controller.settings_manager,
                 parent=self.view
             )
-            # The dialog now only emits when 'Apply' is clicked.
             self.filter_dialog.filters_applied.connect(self.view.on_filters_applied)
             self.filter_dialog.finished.connect(self.on_filter_dialog_closed)
             self.filter_dialog.show()
@@ -228,7 +224,6 @@ class TalentTabPresenter(QObject):
     
     @pyqtSlot(object)
     def on_open_talent_profile(self, talent: Union[Talent, TalentDB]):
-        # The UserRole might now return a TalentDB object, handle both cases.
         if isinstance(talent, TalentDB):
             talent = talent.to_dataclass(Talent)
         self.ui_manager.show_talent_profile(talent)

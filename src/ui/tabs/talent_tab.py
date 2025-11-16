@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 from data.game_state import Talent, Scene
 from ui.widgets.help_button import HelpButton
 from ui.models.talent_table_model import TalentTableModel
+from ui.widgets.view_menu_button import ViewMenuButton
 
 class TalentTab(QWidget):
     standard_filters_changed = pyqtSignal(dict)
@@ -28,6 +29,7 @@ class TalentTab(QWidget):
         super().__init__()
         self.talent_model = None
         self.advanced_filters = {}
+        self.view_options_button: ViewMenuButton = None
         self.setup_ui()
 
     def create_model_and_load(self, settings_manager, cup_size_order: List[str]):
@@ -36,10 +38,13 @@ class TalentTab(QWidget):
             self.talent_model = TalentTableModel(
                 settings_manager=settings_manager, 
                 cup_size_order=cup_size_order,
-                mode='default' # Explicitly use default mode
+                mode='casting' # MODIFIED: Use casting mode to show Demand column
              )
             self.talent_table_view.setModel(self.talent_model)
             self._configure_table_view_headers()
+            # NEW: Load visibility settings and set up the control button
+            self._load_and_apply_column_visibility()
+            self._setup_column_visibility_control()
             self.initial_load_requested.emit()
 
     def setup_ui(self):
@@ -51,12 +56,20 @@ class TalentTab(QWidget):
         main_layout.addWidget(talent_list_container)
 
         top_bar_layout = QHBoxLayout()
+        # Help 
         help_btn = HelpButton("talent"); top_bar_layout.addWidget(help_btn)
+        # View Options
+        self.view_options_button = ViewMenuButton(self)
+        self.view_options_button.setToolTip("Show/Hide Columns")
+        top_bar_layout.addWidget(self.view_options_button)
+        # Name Filter
         self.name_filter_input = QLineEdit(placeholderText="Filter by name...")
         top_bar_layout.addWidget(self.name_filter_input)
+        # Advanced Filter
         self.advanced_filter_btn = QPushButton("Advanced Filter...")
-
         top_bar_layout.addWidget(self.advanced_filter_btn)
+        
+
         talent_list_layout.addLayout(top_bar_layout)
         
         self.talent_table_view = QTableView()
@@ -79,6 +92,7 @@ class TalentTab(QWidget):
         
         self.name_filter_input.textChanged.connect(self.filter_talent_list)
         self.advanced_filter_btn.clicked.connect(lambda: self.open_advanced_filters_requested.emit(self.advanced_filters))
+        self.view_options_button.visibility_changed.connect(self._on_column_visibility_changed) # NEW
 
         help_btn.help_requested.connect(self.help_requested)
 
@@ -101,6 +115,56 @@ class TalentTab(QWidget):
         header.resizeSection(12, 100) # Sub
         header.resizeSection(13, 100) # Stamina
         header.resizeSection(14, 100) # Popularity
+        if self.talent_model and 'Demand' in self.talent_model.headers:
+            header.resizeSection(15, 100) # Demand
+
+    # --- Column Visibility ---
+
+    def _setup_column_visibility_control(self):
+        """Configures the ViewMenuButton to control column visibility."""
+        if not self.talent_model: return
+        items = [
+            {
+                'key': header,
+                'name': header,
+                'visible': not self.talent_table_view.isColumnHidden(i),
+            } for i, header in enumerate(self.talent_model.headers)
+        ]
+        self.view_options_button.set_items(items)
+    
+    def _on_column_visibility_changed(self, column_key: str, visible: bool):
+        """Hides or shows a column based on the key (header text)."""
+        if not self.talent_model: return
+        try:
+            index = self.talent_model.headers.index(column_key)
+            self.talent_table_view.setColumnHidden(index, not visible)
+            self._save_column_visibility_settings()
+        except ValueError:
+            pass # Header not found
+            
+    def _save_column_visibility_settings(self):
+        if not self.talent_model: return
+            
+        visible_columns = [
+            self.talent_model.headers[i]
+            for i in range(len(self.talent_model.headers))
+            if not self.talent_table_view.isColumnHidden(i)
+        ]
+        
+        self.talent_model.settings_manager.set_setting(
+            "talent_tab_visible_columns", visible_columns # Use a unique key
+        )
+        
+    def _load_and_apply_column_visibility(self):
+        if not self.talent_model: return
+
+        visible_columns = self.talent_model.settings_manager.get_setting(
+            "talent_tab_visible_columns", self.talent_model.headers # Use a unique key
+        )
+        visible_set = set(visible_columns)
+        
+        for i, header_text in enumerate(self.talent_model.headers):
+            self.talent_table_view.setColumnHidden(i, header_text not in visible_set)
 
     def update_talent_list(self, talents: list):
         self.talent_model.update_data(talents)
@@ -121,13 +185,10 @@ class TalentTab(QWidget):
         if not index.isValid():
             return
 
-        # If the right-clicked item is not already selected, clear selection and select it.
-        # This makes single right-clicks behave intuitively.
         if not self.talent_table_view.selectionModel().isSelected(index):
             self.talent_table_view.clearSelection()
             self.talent_table_view.selectRow(index.row())
 
-        # Now, gather all selected talents
         selected_indexes = self.talent_table_view.selectionModel().selectedRows()
         selected_talents = [self.talent_model.data(idx, Qt.ItemDataRole.UserRole) for idx in selected_indexes]
         
@@ -152,8 +213,6 @@ class TalentTab(QWidget):
             add_menu.setEnabled(False)
 
         remove_menu = menu.addMenu("Remove from Go-To Category...")
-        # For multi-select, it's simpler to show all categories for removal.
-        # The service layer is smart enough to only remove existing assignments.
         if all_categories:
             for category in sorted(all_categories, key=lambda c: c['name']):
                 action = QAction(category['name'], self)

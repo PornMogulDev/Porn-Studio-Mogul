@@ -120,6 +120,12 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         self.tabifyDockWidget(history_dock, chem_dock)
         history_dock.raise_() # Make history the default visible tab
 
+        self.details_widget.setMinimumSize(1,1)
+        self.preferences_widget.setMinimumSize(1,1)
+        self.hiring_widget.setMinimumSize(1,1)
+        self.history_widget.setMinimumSize(1,1)
+        self.chemistry_widget.setMinimumSize(1,1)
+
     def _add_dock(self, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
         """Helper function to create, add, and connect a QDockWidget."""
         dock = QDockWidget(title, self)
@@ -256,6 +262,7 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
                 del layouts[layout_name]
                 self.settings_manager.set_talent_profile_layouts(layouts)
                 self._populate_layouts_combobox()
+
     @pyqtSlot(str)
     def _load_layout_by_name(self, layout_name: str):
         """
