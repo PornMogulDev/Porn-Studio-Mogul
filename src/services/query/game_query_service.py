@@ -100,6 +100,21 @@ class GameQueryService:
             if t:
                 return t.to_dataclass(Talent)
             return None
+        
+    def get_multiple_talents_by_ids(self, talent_ids: List[int]) -> List[Talent]:
+        """
+        Efficiently fetches multiple talents by their IDs in a single query.
+        """
+        if not talent_ids:
+            return []
+        with self.session_factory() as session:
+            talents_db = session.query(TalentDB).options(
+                selectinload(TalentDB.popularity_scores),
+                selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
+                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a)
+            ).filter(TalentDB.id.in_(talent_ids)).all()
+            
+            return [t.to_dataclass(Talent) for t in talents_db]
 
     def get_talent_chemistry(self, talent_id: int) -> Dict[int, Dict]:
         """Fetches all chemistry relationships for a given talent."""

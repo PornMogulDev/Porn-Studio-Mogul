@@ -1,5 +1,5 @@
 from typing import Union, List, Dict, TYPE_CHECKING
-from PyQt6.QtCore import QObject, pyqtSlot, QPoint
+from PyQt6.QtCore import QObject, pyqtSlot, QPoint, QRunnable, QThreadPool, pyqtSignal
 
 from core.interfaces import IGameController
 from ui.tabs.talent_tab import TalentTab
@@ -13,6 +13,26 @@ from ui.presenters.role_details_presenter import RoleDetailsPresenter
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
 
+# --- Asynchronous Worker for Demand Calculation ---
+class WorkerSignals(QObject):
+    """Defines signals available from a running worker thread."""
+    finished = pyqtSignal(dict) # dict will be {talent_id: demand_cost}
+
+class DemandCalculationWorker(QRunnable):
+    """Worker thread for calculating talent demands without freezing the UI."""
+    def __init__(self, controller: IGameController, talent_ids: List[int], scene_id: int, vp_id: int):
+        super().__init__()
+        self.controller = controller
+        self.talent_ids = talent_ids
+        self.scene_id = scene_id
+        self.vp_id = vp_id
+        self.signals = WorkerSignals()
+
+    @pyqtSlot()
+    def run(self):
+        demands = self.controller.calculate_demands_for_multiple_talents(self.talent_ids, self.scene_id, self.vp_id)
+        self.signals.finished.emit(demands)
+
 class TalentTabPresenter(QObject):
     def __init__(self, controller: IGameController, view: TalentTab, ui_manager: 'UIManager'):
         super().__init__()
@@ -22,6 +42,9 @@ class TalentTabPresenter(QObject):
         self.filter_dialog = None
 
         self.view.presenter = self
+
+        # --- Thread Pool for Background Tasks ---
+        self.thread_pool = QThreadPool()
 
         # --- Sub-presenter for Role Details ---
         self.role_details_presenter = RoleDetailsPresenter(self.controller, self.view.role_details_widget, parent=self)
@@ -34,7 +57,6 @@ class TalentTabPresenter(QObject):
         self._connect_signals()
         self.view.create_model_and_load(
             self.controller.settings_manager,
-            self.controller, # Pass controller to the model now
             self.controller.get_available_cup_sizes()
         )
 
@@ -57,7 +79,6 @@ class TalentTabPresenter(QObject):
 
         self.role_details_presenter.clear()
         self.view.set_role_details_panel_visible(False)
-        self.view.talent_model.set_casting_context(None, None)
 
     @pyqtSlot()
     def _invalidate_filter_cache(self):
@@ -118,12 +139,11 @@ class TalentTabPresenter(QObject):
 
         if scene_id is not None and vp_id is not None and vp_id > -1:
             # --- PATH A: Role-Specific Filtering ---
-            self.view.talent_model.set_casting_context(scene_id, vp_id) # Tell the model
             self.role_details_presenter.display_role(scene_id, vp_id) # Update the details panel
             self.view.set_role_details_panel_visible(True) # Show the panel
 
             base_candidates_db = self.controller.get_eligible_talent_for_role(scene_id, vp_id)
-            attribute_filters = { k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission', 'gender', 'ethnicities')) }
+            attribute_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission', 'gender', 'ethnicities'))}
             role_details = self.controller.get_role_details_for_ui(scene_id, vp_id)
             if (role_gender := (role_details.get('gender') or 'any').lower()) == 'female':
                 attribute_filters['dick_size_min'] = None; attribute_filters['dick_size_max'] = None
@@ -131,12 +151,21 @@ class TalentTabPresenter(QObject):
             
             attribute_filtered_db = self.controller.filter_talent_list_by_attributes(base_candidates_db, attribute_filters)
 
-            final_cache_items = []
+            # --- Step 1: Immediate UI update with placeholder data ---
+            placeholder_cache_items = []
             for t_db in attribute_filtered_db:
                 filter_cache_item = self._talent_filter_cache.get(t_db.id)
                 if filter_cache_item and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters):
-                    final_cache_items.append(CastingTalentCache(**filter_cache_item.__dict__, demand=None))
-            self.view.update_talent_list(final_cache_items)
+                    # Demand is None, which the model will interpret as "Calculating..."
+                    placeholder_cache_items.append(CastingTalentCache(**filter_cache_item.__dict__, demand=None))
+            self.view.update_talent_list(placeholder_cache_items)
+
+            # --- Step 2: Start background calculation ---
+            talent_ids_for_demand = [item.talent_db.id for item in placeholder_cache_items]
+            if talent_ids_for_demand:
+                worker = DemandCalculationWorker(self.controller, talent_ids_for_demand, scene_id, vp_id)
+                worker.signals.finished.connect(self._on_demand_calculation_finished)
+                self.thread_pool.start(worker)
         else:
             # --- PATH B: Standard, General Filtering ---
             self._stop_casting_mode()
@@ -147,8 +176,20 @@ class TalentTabPresenter(QObject):
             for t_db in talents_from_db:
                 filter_cache_item = self._talent_filter_cache.get(t_db.id)
                 if filter_cache_item and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters):
-                    cache_items_passing_skills.append(CastingTalentCache(**filter_cache_item.__dict__, demand=None))
+                    cache_items_passing_skills.append(filter_cache_item)
             self.view.update_talent_list(cache_items_passing_skills)
+
+    @pyqtSlot(dict)
+    def _on_demand_calculation_finished(self, demands: dict):
+        """Slot to receive results from the background worker and update the model."""
+        # Update the underlying data in the model
+        model_data = self.view.talent_model.raw_data
+        for item in model_data:
+            if isinstance(item, CastingTalentCache):
+                item.demand = demands.get(item.talent_db.id)
+        
+        # Tell the view to redraw itself with the new data
+        self.view.talent_model.refresh()
 
     @pyqtSlot(list, QPoint)
     def on_context_menu_requested(self, talents: List[Talent], pos: QPoint):

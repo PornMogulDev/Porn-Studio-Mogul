@@ -22,6 +22,8 @@ class HiringConfig:
     max_scenes_per_week_ambition_modifier: float
     fatigue_refusal_threshold: int
     burnout_penalty_scenes: int
+    rush_fee_multiplier: float
+    bulk_discount_tiers: Dict[int, float]
 
 @dataclass(frozen=True)
 class MarketConfig:

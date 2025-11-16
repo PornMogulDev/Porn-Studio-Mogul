@@ -239,7 +239,9 @@ class ServiceContainer:
             max_scenes_per_week_base=game_config.get("max_scenes_per_week_base", 2),
             max_scenes_per_week_ambition_modifier=game_config.get("max_scenes_per_week_ambition_modifier", 0.1),
             fatigue_refusal_threshold=game_config.get("fatigue_refusal_threshold", 80),
-            burnout_penalty_scenes=game_config.get("burnout_penalty_scenes", 1)
+            burnout_penalty_scenes=game_config.get("burnout_penalty_scenes", 1),
+            rush_fee_multiplier=game_config.get("hiring_rush_fee_multiplier", 1.25),
+            bulk_discount_tiers={int(k): v for k, v in game_config.get("hiring_bulk_discount_tiers", {}).items()}
         )
         
         ds_weights_str_keys = game_config.get("scene_quality_ds_weights", {})

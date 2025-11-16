@@ -1,32 +1,28 @@
 from typing import List, Union, Dict, Optional
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
 
-from core.interfaces import IGameController
 from data.game_state import Talent
 from utils.formatters import format_orientation, format_dick_size, format_skill_range
 from ui.models.talent_view_model import TalentViewModel
 from ui.presenters.talent_filter_cache import TalentFilterCache, CastingTalentCache
 
 class TalentTableModel(QAbstractTableModel):
-    def __init__(self, settings_manager, controller: IGameController, cup_size_order: List[str], parent=None):
+    """
+    A Qt Table Model for displaying talent data.
+
+    This model is designed to be "dumb" and stateless. It receives a list of
+    pre-processed cache objects from a presenter and is responsible only for
+    displaying that data in a table view. It performs no business logic or
+    database queries.
+    """
+    def __init__(self, settings_manager, cup_size_order: List[str], parent=None):
         super().__init__(parent)
         self.raw_data: List[Union[TalentFilterCache, CastingTalentCache]] = []
         self._viewmodel_cache: Dict[int, TalentViewModel] = {}
         self.settings_manager = settings_manager
-        self.controller = controller
-        
-        # --- Casting Context ---
-        self._scene_id: Optional[int] = None
-        self._vp_id: Optional[int] = None
 
         self._cup_map = {cup: i for i, cup in enumerate(cup_size_order)} if cup_size_order else {}
         self.headers = ["Alias", "Age", "Gender", "Orientation", "Ethnicity", "Nationality", "Location", "Dick Size", "Cup Size", "Perf.", "Act.", "Dom", "Sub", "Stam.", "Pop.", "Demand"]
-    
-    def set_casting_context(self, scene_id: Optional[int], vp_id: Optional[int]):
-        """Sets the current role context for demand calculation."""
-        self._scene_id = scene_id
-        self._vp_id = vp_id
-        self.refresh() # Clear cache and redraw
 
     def data(self, index: QModelIndex, role: int):
         if not index.isValid() or not (0 <= index.row() < len(self.raw_data)): return None
@@ -65,9 +61,14 @@ class TalentTableModel(QAbstractTableModel):
         return None
 
     def update_data(self, new_data: List[Union[TalentFilterCache, CastingTalentCache]]):
+        """
+        Updates the model's data from the presenter. Accepts both cache types to handle
+        general browsing and role-specific casting modes.
+        """
         self.beginResetModel(); self.raw_data = new_data; self._viewmodel_cache.clear(); self.endResetModel()
 
     def refresh(self):
+        """Forces the viewmodels to be recalculated and the view to be redrawn."""
         self.beginResetModel(); self._viewmodel_cache.clear(); self.endResetModel()
     
     def _get_or_create_viewmodel(self, row: int) -> Optional[TalentViewModel]:
@@ -78,10 +79,19 @@ class TalentTableModel(QAbstractTableModel):
         talent_obj = cache_item.talent_db
         unit_system = self.settings_manager.get_setting("unit_system", "imperial")
         
-        # --- Lazy Load Demand Calculation ---
+        # Check if the cache item is for casting mode and get its demand value
         demand_val = None
-        if self._scene_id is not None and self._vp_id is not None:
-            _, _, demand_val = self.controller.calculate_total_demand(talent_obj.id, self._scene_id, self._vp_id)
+        is_casting_mode = isinstance(cache_item, CastingTalentCache)
+        if is_casting_mode:
+            demand_val = cache_item.demand
+
+        # Determine the display string for the demand column
+        if demand_val is not None:
+            demand_display = f"${demand_val:,}"
+        elif is_casting_mode:
+            demand_display = "Calculating..."
+        else:
+            demand_display = "N/A"
         
         perf_range, act_range, stam_range, dom_range, sub_range = cache_item.perf_range, cache_item.act_range, cache_item.stam_range, cache_item.dom_range, cache_item.sub_range
         
@@ -95,7 +105,7 @@ class TalentTableModel(QAbstractTableModel):
             performance=format_skill_range(perf_range), acting=format_skill_range(act_range),
             dom=format_skill_range(dom_range), sub=format_skill_range(sub_range),
             stamina=format_skill_range(stam_range), popularity=str(cache_item.popularity),
-            demand=f"${demand_val:,}" if demand_val is not None else "N/A",
+            demand=demand_display,
             _age_sort=talent_obj.age, _orientation_sort=talent_obj.orientation_score,
             _nationality_sort=talent_obj.nationality or "", _location_sort=talent_obj.base_location or "",
             _dick_size_sort=talent_obj.dick_size if talent_obj.dick_size is not None else -1,
@@ -111,14 +121,11 @@ class TalentTableModel(QAbstractTableModel):
         return vm
 
     def sort(self, column: int, order: Qt.SortOrder):
-        # --- Pre-calculation for demand sorting ---
-        if self.headers[column] == "Demand" and self._scene_id is not None:
-            for i in range(len(self.raw_data)): self._get_or_create_viewmodel(i)
-        
         self.layoutAboutToBeChanged.emit()
         reverse = (order == Qt.SortOrder.DescendingOrder)
 
         def get_sort_key(row_index: int):
+            # Sorting requires all viewmodels to be created to access their sort keys.
             vm = self._get_or_create_viewmodel(row_index)
             if vm is None: return 0
             if column == 0: return vm.alias.lower()
@@ -139,12 +146,18 @@ class TalentTableModel(QAbstractTableModel):
             if column == 15: return vm._demand_sort
             return 0
         
+        # Create a mapping of old row index to new row index after sorting
         indices = sorted(range(len(self.raw_data)), key=get_sort_key, reverse=reverse)
+        
+        # Reorder the raw data based on the sorted indices
         sorted_raw_data = [self.raw_data[i] for i in indices]
         
-        old_cache = self._viewmodel_cache.copy(); self._viewmodel_cache.clear()
+        # Remap the viewmodel cache to the new indices to avoid recalculation
+        old_cache = self._viewmodel_cache.copy()
+        self._viewmodel_cache.clear()
         for new_idx, old_idx in enumerate(indices):
-            if old_idx in old_cache: self._viewmodel_cache[new_idx] = old_cache[old_idx]
+            if old_idx in old_cache:
+                self._viewmodel_cache[new_idx] = old_cache[old_idx]
         
         self.raw_data = sorted_raw_data
         self.layoutChanged.emit()

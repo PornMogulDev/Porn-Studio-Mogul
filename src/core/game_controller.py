@@ -281,8 +281,9 @@ class GameController(QObject):
 
     def find_available_roles_for_talent(self, talent_id: int) -> List[Dict]:
         if not self.talent_query_service: return []
-        return self.talent_query_service.find_available_roles_for_talent(talent_id, self.game_state.studio_location)
-    
+        return self.talent_query_service.find_available_roles_for_talent(
+            talent_id, self.game_state.studio_location, self.game_state.week, self.game_state.year
+        )
     def get_eligible_talent_for_role(self, scene_id: int, vp_id: int) -> List[TalentDB]:
         if not self.talent_query_service: return []
         return self.talent_query_service.get_eligible_talent_for_role(scene_id, vp_id)
@@ -291,10 +292,19 @@ class GameController(QObject):
         if not self.talent_query_service: return {}
         return self.talent_query_service.get_role_details_for_ui(scene_id, vp_id)
 
-    def calculate_total_demand(self, talent_id: int, scene_id: int, vp_id: int) -> Tuple[int, int, int]:
-        if not self.talent_demand_calculator: return 0, 0, 0
+    def calculate_total_demand(self, talent_id: int, scene_id: int, vp_id: int) -> Dict[str, int]:
+        if not self.talent_demand_calculator: return {}
         return self.talent_demand_calculator.calculate_total_demand(
-            talent_id, scene_id, vp_id, self.game_state.studio_location
+            talent_id, scene_id, vp_id, self.game_state.studio_location,
+            self.game_state.week, self.game_state.year
+        )
+    
+    def calculate_demands_for_multiple_talents(self, talent_ids: List[int], scene_id: int, vp_id: int) -> Dict[int, int]:
+        if not self.talent_demand_calculator: return {}
+        return self.talent_demand_calculator.calculate_demands_for_multiple_talents(
+            talent_ids, scene_id, vp_id,
+            self.game_state.studio_location, 
+            self.game_state.week, self.game_state.year
         )
 
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int):

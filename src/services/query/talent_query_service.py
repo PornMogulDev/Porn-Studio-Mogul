@@ -100,7 +100,8 @@ class TalentQueryService:
             query = session.query(TalentDB).options(
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a),
-                selectinload(TalentDB.chemistry_b)
+                selectinload(TalentDB.chemistry_b),
+                selectinload(TalentDB.go_to_list_assignments)
             )
             query = query.filter(TalentDB.gender == vp.gender)
             
@@ -224,7 +225,7 @@ class TalentQueryService:
 
         return filtered_candidates
 
-    def find_available_roles_for_talent(self, talent_id: int, studio_location: str) -> List[Dict]:
+    def find_available_roles_for_talent(self, talent_id: int, studio_location: str, current_week: int, current_year: int) -> List[Dict]:
         """
         Finds all uncast roles that a talent is eligible for, calculating hiring cost and availability.
         """
@@ -286,16 +287,19 @@ class TalentQueryService:
                         estimated_fatigue
                     )
 
-                    base_cost, travel_fee, total_cost = self.demand_calculator.calculate_total_demand(
-                        talent_id, scene_db.id, vp_db.id, studio_location,
-                        scene=scene,
-                        talent=talent_dc
+                    cost_breakdown = self.demand_calculator.calculate_total_demand(
+                        talent_id=talent_id, scene_id=scene_db.id, vp_id=vp_db.id,
+                        studio_location=studio_location, current_week=current_week, current_year=current_year,
+                        scene=scene, talent=talent_dc
                     )
 
                     role_info = {
                         'scene_id': scene_db.id, 'scene_title': scene_db.title,
                         'virtual_performer_id': vp_db.id, 'vp_name': vp_db.name,
-                        'cost': total_cost, 'base_cost': base_cost, 'travel_fee': travel_fee,
+                        'cost': cost_breakdown['total_cost'], 
+                        'base_cost': cost_breakdown['base_cost'], 
+                        'travel_fee': cost_breakdown['travel_fee'],
+                        'rush_fee': cost_breakdown['rush_fee'],
                         'tags': self._get_role_tags_for_display(scene, vp_db.id),
                         'is_available': result.is_available, 'refusal_reason': result.reason
                     }

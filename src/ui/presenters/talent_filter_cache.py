@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Optional
 
 from database.db_models import TalentDB
 
@@ -21,4 +21,4 @@ class TalentFilterCache:
 @dataclass
 class CastingTalentCache(TalentFilterCache):
     """Extends TalentFilterCache with role-specific demand for casting dialogs."""
-    demand: int  # Role-specific demand/cost
+    demand: Optional[int] = None # Role-specific demand/cost, None while calculating
