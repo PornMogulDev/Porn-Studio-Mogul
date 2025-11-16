@@ -9,22 +9,24 @@ from ui.presenters.talent_filter_cache import TalentFilterCache, CastingTalentCa
 from ui.presenters.talent_filter_panel_presenter import TalentFilterPanelPresenter
 from ui.presenters.talent_table_presenter import TalentTablePresenter
 from ui.presenters.role_details_presenter import RoleDetailsPresenter
-
+# We need to import the widgets themselves now, as the presenter creates them
+from ui.panels.talent_filter_panel import TalentFilterPanel
+from ui.widgets.hiring_dashboard.talent_table_widget import TalentTableWidget
+from ui.widgets.hiring_dashboard.role_details_widget import RoleDetailsWidget
 
 if TYPE_CHECKING:
     from core.interfaces import IGameController
     from ui.ui_manager import UIManager
-    from ui.windows.hiring_dashboard import HiringDashboardTab
+    from ui.tabs.hiring_dashboard import HiringDashboardTab
 
 logger = logging.getLogger(__name__)
 
 class HiringDashboardPresenter(QObject):
     """
     Coordinator presenter for the hiring dashboard.
-    This presenter instantiates and manages the interactions between the
-    filter panel, talent table, and role details presenters. It contains
-    the business logic for fetching and filtering talent based on the
-    user's selections across all components.
+    This presenter instantiates and manages its view, its child widgets, and the
+    interactions between them. It contains the business logic for fetching and
+    filtering talent based on the user's selections across all components.
     """
     
     def __init__(self, controller: 'IGameController',
@@ -35,22 +37,44 @@ class HiringDashboardPresenter(QObject):
         self.controller = controller
         self.ui_manager = ui_manager
         self.view = view
-        
-        # Instantiate child presenters and wire them to their views
+
+        # --- Create Widgets (Presenter Responsibility) ---
+        role_details_widget = RoleDetailsWidget()
+        talent_filter_panel = TalentFilterPanel(
+            settings_manager=self.controller.settings_manager,
+            ethnicities_hierarchy=self.controller.get_ethnicity_hierarchy(),
+            cup_sizes=self.controller.get_available_cup_sizes(),
+            nationalities=self.controller.get_available_nationalities(),
+            locations_by_region=self.controller.get_locations_by_region(),
+            go_to_categories=self.controller.get_go_to_list_categories()
+        )
+        talent_table_widget = TalentTableWidget()
+
+        # --- Inject Widgets into the Passive View ---
+        self.view.set_widgets(role_details_widget, talent_filter_panel, talent_table_widget)
+
+        # Define panels for visibility management
+        self.panels = {
+            'details': {'widget': role_details_widget, 'name': 'Role Details'},
+            'filters': {'widget': talent_filter_panel, 'name': 'Talent Filters'},
+            'table': {'widget': talent_table_widget, 'name': 'Talent Table'}
+        }
+
+        # --- Instantiate child presenters and wire them to their views ---
         self.filter_presenter = TalentFilterPanelPresenter(
-            view=self.view.talent_filter_panel,
+            view=talent_filter_panel,
             controller=self.controller,
             settings_manager=self.controller.settings_manager,
             parent=self
         )
         self.table_presenter = TalentTablePresenter(
             controller=self.controller,
-            view=self.view.talent_table_widget,
+            view=talent_table_widget,
             parent=self
         )
         self.role_details_presenter = RoleDetailsPresenter(
             controller=self.controller,
-            view=self.view.role_details_widget,
+            view=role_details_widget,
             parent=self
         )
         
@@ -64,20 +88,67 @@ class HiringDashboardPresenter(QObject):
         self._cache_is_dirty = True
 
         self._connect_signals()
+        
+        # --- Panel Visibility Management (Presenter Responsibility) ---
+        self._load_and_apply_panel_visibility()
+        self._setup_panel_visibility_control()
     
+    # --- Panel Visibility Logic (Fix for Issue #2) ---
+
+    def _load_and_apply_panel_visibility(self):
+        """Loads panel visibility from settings, applies it, and stores the state."""
+        default_visibility = {key: True for key in self.panels}
+        visibility = self.controller.settings_manager.get_setting(
+            "hiring_dashboard_panel_visibility", default_visibility
+        )
+        
+        for key, data in self.panels.items():
+            is_visible = visibility.get(key, True)
+            data['widget'].setVisible(is_visible)
+            # Explicitly store the loaded state to avoid relying on isVisible() during setup
+            data['visible'] = is_visible
+
+    def _save_panel_visibility_settings(self):
+        """Saves the current visibility state of all panels to settings."""
+        visibility_state = {
+            key: data['visible'] for key, data in self.panels.items()
+        }
+        self.controller.settings_manager.set_setting(
+            "hiring_dashboard_panel_visibility", visibility_state
+        )
+
+    def _setup_panel_visibility_control(self):
+        """Configures the ViewMenuButton to control panel visibility."""
+        items = [
+            # Use the explicitly stored 'visible' state, not isVisible()
+            {'key': key, 'name': data['name'], 'visible': data['visible']}
+            for key, data in self.panels.items()
+        ]
+        self.view.view_options_button.set_items(items)
+        self.view.view_options_button.visibility_changed.connect(self._on_panel_visibility_changed)
+
+    @pyqtSlot(str, bool)
+    def _on_panel_visibility_changed(self, panel_key: str, visible: bool):
+        """Shows or hides a panel, updates the state, saves, and re-syncs the button."""
+        if panel_key in self.panels:
+            self.panels[panel_key]['widget'].setVisible(visible)
+            # Update our internal state tracker
+            self.panels[panel_key]['visible'] = visible
+            self._save_panel_visibility_settings()
+            # Re-configure the button with the new state to keep its checkboxes in sync
+            self._setup_panel_visibility_control()
+
+    # --- Signal Connection Logic ---
+
     def _connect_signals(self):
         """Connect signals between presenters and the controller."""
-        # Listen for filter changes from the filter panel presenter
         self.filter_presenter.filters_applied.connect(self._on_filters_applied)
-        # The coordinator listens to the raw view signal to orchestrate role details
         self.filter_presenter.view.role_selected.connect(self._on_role_selected)
-
-        # Listen for actions from the talent table presenter
         self.table_presenter.open_talent_profile_requested.connect(self._on_open_talent_profile)
-        self.table_presenter.filters_changed.connect(self._trigger_filter_application) # For name filter
-
-        # Listen for global game state changes
+        self.table_presenter.filters_changed.connect(self._trigger_filter_application)
         self.controller.signals.talent_pool_changed.connect(self._invalidate_filter_cache)
+
+    # --- Main Presenter Logic ---
 
     def refresh(self):
         """
@@ -104,7 +175,10 @@ class HiringDashboardPresenter(QObject):
     
     @pyqtSlot(int, int)
     def _on_role_selected(self, scene_id: int, vp_id: int):
-        """Handles role selection, updating details and clearing the table."""
+        """
+        Handles role selection. This method ONLY updates UI state. It does not
+        trigger a filter run. The user must click "Apply".
+        """
         self.current_scene_id = scene_id if vp_id > -1 else None
         self.current_vp_id = vp_id if vp_id > -1 else None
 
@@ -112,11 +186,6 @@ class HiringDashboardPresenter(QObject):
             self.role_details_presenter.display_role(self.current_scene_id, self.current_vp_id)
         else:
             self.role_details_presenter.clear()
-
-        # Clear table; user must click "Apply" to see new results.
-        self.table_presenter.update_data([])
-        if not (self.current_scene_id and self.current_vp_id):
-            self._trigger_filter_application()
     
     @pyqtSlot(dict)
     def _on_filters_applied(self, filters: dict):
@@ -171,14 +240,17 @@ class HiringDashboardPresenter(QObject):
 
     def _execute_role_specific_filter(self, scene_id: int, vp_id: int, filters: dict):
         """Filters talent eligible for a role and calculates demand."""
+    
         base_candidates = self.controller.get_eligible_talent_for_role(scene_id, vp_id)
         attr_filters = {k: v for k, v in filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission', 'gender', 'ethnicities'))}
         
         role_details = self.controller.get_role_details_for_ui(scene_id, vp_id)
         role_gender = (role_details.get('gender') or 'any').lower()
-        if role_gender == 'female': attr_filters['dick_size_min'] = attr_filters['dick_size_max'] = None
-        elif role_gender == 'male' and 'cup_sizes' in attr_filters: del attr_filters['cup_sizes']
-            
+        if role_gender == 'female': 
+            attr_filters['dick_size_min'] = attr_filters['dick_size_max'] = None
+        elif role_gender == 'male' and 'cup_sizes' in attr_filters: 
+            del attr_filters['cup_sizes']
+        
         attr_filtered = self.controller.filter_talent_list_by_attributes(base_candidates, attr_filters)
         final_dbs = [t_db for t_db in attr_filtered if t_db.id in self._talent_filter_cache and self._talent_passes_cached_skill_filters(self._talent_filter_cache[t_db.id], filters)]
 

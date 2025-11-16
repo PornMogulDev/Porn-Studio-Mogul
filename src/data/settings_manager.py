@@ -52,6 +52,7 @@ class SettingsManager:
             "talent_profile_layouts": {},
             "talent_profile_last_layout": None,
             "talent_filter_presets": {},
+            "hiring_dashboard_panel_visibility": {},
         }
         self.settings = self._load_settings()
 

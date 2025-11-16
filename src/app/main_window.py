@@ -10,7 +10,7 @@ from ui.tabs.talent_tab import TalentTab
 from ui.tabs.scenes_tab import ScenesTab
 from ui.tabs.schedule_tab import ScheduleTab
 from ui.tabs.market_tab import MarketTab
-from ui.windows.hiring_dashboard import HiringDashboardTab
+from ui.tabs.hiring_dashboard import HiringDashboardTab
 from ui.presenters.talent_tab_presenter import TalentTabPresenter
 from ui.presenters.hiring_dashboard_presenter import HiringDashboardPresenter
 from ui.presenters.scenes_tab_presenter import ScenesTabPresenter
@@ -19,7 +19,7 @@ from ui.presenters.market_tab_presenter import MarketTabPresenter
 from ui.widgets.main_window.detachable_tab_widget import DetachableTabWidget
 from ui.widgets.main_window.top_bar_widget import TopBarWidget
 from ui.widgets.main_window.bottom_bar_widget import BottomBarWidget
-from ui.windows.hiring_dashboard import HiringDashboardTab
+from ui.tabs.hiring_dashboard import HiringDashboardTab
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ class MainGameWindow(QWidget):
         self.scenes_tab = ScenesTab()
         self.scenes_tab_presenter = ScenesTabPresenter(self.controller, self.scenes_tab, self.ui_manager, parent=self.scenes_tab)
 
-        self.hiring_dashboard_tab = HiringDashboardTab(self.controller, self.ui_manager)
+        self.hiring_dashboard_tab = HiringDashboardTab()
         self.hiring_dashboard_presenter = HiringDashboardPresenter(self.controller, self.ui_manager, self.hiring_dashboard_tab, parent=self.hiring_dashboard_tab)
         self.hiring_dashboard_tab.presenter = self.hiring_dashboard_presenter
         

@@ -136,10 +136,8 @@ class TalentFilterPanel(QWidget):
         self.role_combo.blockSignals(True)
         self.role_combo.clear()
         self.role_combo.setEnabled(bool(roles))
-        self.role_combo.addItem("Any Role", -1)
         for role in roles:
             self.role_combo.addItem(role['name'], role['id'])
-        self.role_combo.setCurrentIndex(0)
         self.role_combo.blockSignals(False)
 
     def _set_layout_widgets_enabled(self, layout, enabled: bool):

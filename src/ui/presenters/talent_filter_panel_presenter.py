@@ -61,9 +61,10 @@ class TalentFilterPanelPresenter(QObject):
 
     @pyqtSlot()
     def _reload_scenes(self):
-        """Reloads the list of castable scenes from the controller."""
+        """Reloads the list of castable scenes from the controller, resetting the scene and role selectors."""
         scenes = self.controller.get_castable_scenes()
         self.view.populate_scenes(scenes)
+        self.view.populate_roles([])
 
     def _connect_signals(self):
         """Connects signals from the view to the presenter's slots."""

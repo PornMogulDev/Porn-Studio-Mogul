@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (
-QWidget, QVBoxLayout, QLineEdit,
-QTableView, QHeaderView, QLabel, QMenu
+QWidget, QVBoxLayout, QLineEdit, QHBoxLayout,
+QTableView, QHeaderView, QLabel, QMenu,
+QWidgetAction, QCheckBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QModelIndex, QPoint
 from PyQt6.QtGui import QAction
@@ -8,6 +9,7 @@ from typing import List, Dict
 
 from data.game_state import Talent
 from ui.models.talent_table_model import TalentTableModel
+from ui.widgets.view_menu_button import ViewMenuButton
 
 class TalentTableWidget(QWidget):
     """
@@ -35,10 +37,21 @@ class TalentTableWidget(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
 
+         # --- Top controls layout ---
+        top_controls_layout = QHBoxLayout()
+
         # Name filter
         self.name_filter = QLineEdit()
         self.name_filter.setPlaceholderText("Filter by name...")
-        layout.addWidget(self.name_filter)
+        top_controls_layout.addWidget(self.name_filter) # Add to the new HBox
+
+        # View Button
+        self.view_options_button = ViewMenuButton(self)
+        self.view_options_button.setToolTip("Show/Hide Columns")
+        top_controls_layout.addWidget(self.view_options_button)
+
+        # Add the entire horizontal layout to the main vertical layout
+        layout.addLayout(top_controls_layout)
 
         # Talent table
         self.talent_table_view = QTableView()
@@ -59,6 +72,7 @@ class TalentTableWidget(QWidget):
         self.name_filter.textChanged.connect(self.name_filter_changed.emit)
         self.talent_table_view.doubleClicked.connect(self._on_talent_double_clicked)
         self.talent_table_view.customContextMenuRequested.connect(self._on_context_menu_requested)
+        self.view_options_button.visibility_changed.connect(self._on_column_visibility_changed)
 
     def initialize_model(self, settings_manager, cup_size_order: List[str]):
         """Initialize the table model with dependencies."""
@@ -71,8 +85,22 @@ class TalentTableWidget(QWidget):
             mode='casting'  # Use casting mode for this widget
         )
         self.talent_table_view.setModel(self.talent_model)
+        self._load_and_apply_column_visibility() 
+        self._setup_column_visibility_control()
         self.talent_table_view.sortByColumn(0, Qt.SortOrder.AscendingOrder)
         self._configure_table_headers()
+    
+    def _setup_column_visibility_control(self):
+        """Configures the ViewMenuButton to control column visibility."""
+        if not self.talent_model: return
+        items = [
+            {
+                'key': header,
+                'name': header,
+                'visible': not self.talent_table_view.isColumnHidden(i),
+            } for i, header in enumerate(self.talent_model.headers)
+        ]
+        self.view_options_button.set_items(items)
 
     def _configure_table_headers(self):
         """Configure column widths and resize modes."""
@@ -93,6 +121,40 @@ class TalentTableWidget(QWidget):
         header.resizeSection(12, 100) # Sub
         header.resizeSection(13, 100) # Stamina
         header.resizeSection(14, 100) # Popularity
+
+    def _on_column_visibility_changed(self, column_key: str, visible: bool):
+        """Hides or shows a column based on the key (header text)."""
+        if not self.talent_model: return
+        try:
+            index = self.talent_model.headers.index(column_key)
+            self.talent_table_view.setColumnHidden(index, not visible)
+            self._save_column_visibility_settings()
+        except ValueError:
+            pass # Header not found
+
+    def _save_column_visibility_settings(self):
+        if not self.talent_model: return
+            
+        visible_columns = [
+            self.talent_model.headers[i]
+            for i in range(len(self.talent_model.headers))
+            if not self.talent_table_view.isColumnHidden(i)
+        ]
+        
+        self.talent_model.settings_manager.set_setting(
+            "hiring_table_visible_columns", visible_columns
+        )
+
+    def _load_and_apply_column_visibility(self):
+        if not self.talent_model: return
+
+        visible_columns = self.talent_model.settings_manager.get_setting(
+            "hiring_table_visible_columns", self.talent_model.headers
+        )
+        visible_set = set(visible_columns)
+        
+        for i, header_text in enumerate(self.talent_model.headers):
+            self.talent_table_view.setColumnHidden(i, header_text not in visible_set)
 
     def update_talent_table(self, talent_data: List[Dict]):
         """Update table with talent data. Expects a list of CastingTalentCache items."""
