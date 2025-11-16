@@ -128,7 +128,6 @@ class PerformerEditorViewModel:
     is_ethnicity_editable: bool
     is_disposition_editable: bool
     is_protagonist_editable: bool
-    is_hire_button_enabled: bool
 
 @dataclass
 class TotalRuntimeViewModel:

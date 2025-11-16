@@ -12,18 +12,13 @@ from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from utils.scene_summary_builder import prepare_summary_data
 from services.builders.scene_state_editor import SceneStateEditor
 
-if TYPE_CHECKING:
-    from ui.ui_manager import UIManager
-
 logger = logging.getLogger(__name__)
 
 class ScenePlannerPresenter(QObject):
-    def __init__(self, controller: IGameController, scene_id: int, view: ScenePlannerDialog, ui_manager: 'UIManager'):
+    def __init__(self, controller: IGameController, scene_id: int, view: ScenePlannerDialog):
         super().__init__(view) # Parent the presenter to the view for lifecycle management
         self.controller = controller
         self.view = view
-        self.ui_manager = ui_manager
-        
         original_scene = self.controller.get_scene_for_planner(scene_id)
         if not original_scene: raise ValueError(f"Scene with ID {scene_id} not found.")
             
@@ -89,8 +84,7 @@ class ScenePlannerPresenter(QObject):
         self.view.segment_runtime_changed.connect(self.on_segment_runtime_changed)
         self.view.segment_parameter_changed.connect(self.on_segment_parameter_changed)
         self.view.slot_assignment_changed.connect(self.on_slot_assignment_changed)
-
-        self.view.hire_for_role_requested.connect(self.on_hire_for_role)     
+  
         self.controller.signals.favorites_changed.connect(self.on_favorites_changed)
 
         self.controller.signals.scenes_changed.connect(self.on_external_scene_change)
@@ -137,10 +131,8 @@ class ScenePlannerPresenter(QObject):
         ds_level = self.working_scene.dom_sub_dynamic_level
         protagonist_ids = self.working_scene.protagonist_vp_ids
         for vp in self.working_scene.virtual_performers:
-            talent = self.get_talent_by_id(self.working_scene.final_cast.get(str(vp.id)))
-            is_cast = talent is not None
-            is_role_uncast = not is_cast
-            is_role_editable = is_role_uncast and is_design_editable
+            talent = self.get_talent_by_id(self.working_scene.final_cast.get(str(vp.id))); is_cast = talent is not None
+            is_role_uncast = not is_cast; is_role_editable = is_role_uncast and is_design_editable
 
             model = PerformerEditorViewModel(
                 vp_id=vp.id,
@@ -151,8 +143,7 @@ class ScenePlannerPresenter(QObject):
                 is_name_editable=is_role_editable, is_gender_editable=is_role_editable,
                 is_ethnicity_editable=is_role_editable,
                 is_disposition_editable=ds_level > 0 and is_role_editable,
-                is_protagonist_editable=is_role_editable,
-                is_hire_button_enabled=is_casting_enabled and is_role_uncast
+                is_protagonist_editable=is_role_editable
             )
             performer_models.append(model)
         self.view.update_performer_editors(performer_models)
@@ -390,29 +381,6 @@ class ScenePlannerPresenter(QObject):
     def on_favorites_changed(self): self.update_favorites(); self._refresh_thematic_panel(); self._refresh_physical_panel(); self._refresh_action_segment_panel()
     def on_toggle_favorite_requested(self, tag_name: str, tag_type: str): self.toggle_favorite_tag(tag_name, tag_type)
 
-    @pyqtSlot(int)
-    def on_hire_for_role(self, vp_id: int):
-        # Sanity check to ensure the scene is in the right state.
-        fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
-        if not fresh_scene or fresh_scene.status.lower() != 'casting':
-            QMessageBox.warning(self.view, "Casting Error",
-                                "Scene is not ready for casting. Please ensure it is saved in 'Casting' status.")
-            return
-
-        # 1. Show the casting dialog. The vp_id is already permanent.
-        result = self.ui_manager.show_role_casting_dialog(self.working_scene.id, vp_id)
-
-        if result == QDialog.DialogCode.Accepted:
-            # 2. A hire was made. The database is updated, but our local 'working_scene'
-            # in the editor service is now stale. We need to refresh it.
-            updated_scene = self.controller.get_scene_for_planner(self.working_scene.id)
-            if updated_scene:
-                self.state_editor.reset_with_scene(updated_scene)
-                self._refresh_full_view()
-            else:
-                logger.error(f"Could not re-fetch scene {self.working_scene.id} after hiring. Closing dialog.")
-                self.view.close()
-
     # --- Data Access & Helpers ---
     def _update_summary(self):
         """Prepares and sends summary data to the view."""
@@ -447,17 +415,17 @@ class ScenePlannerPresenter(QObject):
     def get_filtered_available_thematic_tags(self) -> List[Dict]:
         all_tags, _, _ = self.controller.get_thematic_tags_for_planner()
         return self._filter_tags(all_tags, self.thematic_tag_filters, self.thematic_search_text, 
-                                 set(self.working_scene.global_tags), self.favorite_thematic_tags)
+                                set(self.working_scene.global_tags), self.favorite_thematic_tags)
 
     def get_filtered_available_physical_tags(self) -> List[Dict]:
         all_tags, _, _ = self.controller.get_physical_tags_for_planner()
         return self._filter_tags(all_tags, self.physical_tag_filters, self.physical_search_text, 
-                                 set(self.working_scene.assigned_tags.keys()), self.favorite_physical_tags)
+                                set(self.working_scene.assigned_tags.keys()), self.favorite_physical_tags)
 
     def get_filtered_available_action_tags(self) -> List[Dict]:
         all_tags, _, _ = self.controller.get_action_tags_for_planner()
         return self._filter_tags(all_tags, self.action_tag_filters, self.action_search_text, 
-                                 set(), self.favorite_action_tags)
+                                set(), self.favorite_action_tags)
 
     def _filter_tags(self, all_tags: List[Dict], filters: Dict, search_text: str, current_selected_names: Set, favorite_tags: Set) -> List[Dict]:
         selected_cats = set(filters.get('categories', [])); match_mode = filters.get('match_mode', 'any')

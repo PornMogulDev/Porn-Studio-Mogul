@@ -60,7 +60,6 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     segment_runtime_changed = pyqtSignal(int, int) # segment_id, new_value
     segment_parameter_changed = pyqtSignal(int, str, int) # segment_id, role, new_value
     slot_assignment_changed = pyqtSignal(int, str, int) # segment_id, slot_id, vp_id or 0 for None
-    hire_for_role_requested = pyqtSignal(int) # vp_id
 
     def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
@@ -359,15 +358,10 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
                 if ethnicity_combo.itemText(idx).strip() == model.ethnicity:
                     ethnicity_combo.setCurrentIndex(idx); break
             disposition_combo.setCurrentText(model.disposition)
-            protagonist_checkbox.setChecked(model.is_protagonist)
-            name_edit.setToolTip(model.tooltip)
-            hire_button = QPushButton("Hire")
-            hire_button.clicked.connect(lambda checked=False, vp_id=model.vp_id: self.hire_for_role_requested.emit(vp_id))
-            hire_button.setEnabled(model.is_hire_button_enabled)
-            
-            h_layout.addWidget(QLabel(f"{i+1}:")); h_layout.addWidget(name_edit); h_layout.addWidget(QLabel("Gender:")); h_layout.addWidget(gender_combo)
-            h_layout.addWidget(QLabel("Ethnicity:")); h_layout.addWidget(ethnicity_combo); h_layout.addWidget(QLabel("Disposition:")); h_layout.addWidget(disposition_combo)
-            h_layout.addWidget(protagonist_checkbox); h_layout.addStretch(); h_layout.addWidget(hire_button)
+            protagonist_checkbox.setChecked(model.is_protagonist); name_edit.setToolTip(model.tooltip)
+            h_layout.addWidget(QLabel(f"{i+1}:")); h_layout.addWidget(name_edit); h_layout.addWidget(QLabel("Gender:")); h_layout.addWidget(gender_combo); h_layout.addWidget(QLabel("Ethnicity:")); h_layout.addWidget(ethnicity_combo)
+            h_layout.addWidget(QLabel("Disposition:")); h_layout.addWidget(disposition_combo); h_layout.addWidget(protagonist_checkbox)
+            h_layout.addStretch()
             name_edit.setEnabled(model.is_name_editable); gender_combo.setEnabled(model.is_gender_editable); ethnicity_combo.setEnabled(model.is_ethnicity_editable)
             disposition_combo.setEnabled(model.is_disposition_editable); protagonist_checkbox.setEnabled(model.is_protagonist_editable)
             protagonist_checkbox.toggled.connect(lambda checked, vid=model.vp_id: self.protagonist_toggled.emit(vid, checked))

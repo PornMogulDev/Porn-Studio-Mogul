@@ -10,9 +10,8 @@ from ui.presenters.email_presenter import EmailPresenter
 from ui.dialogs.scene_planner_dialog import ScenePlannerDialog
 from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
 from ui.windows.talent_profile_window import TalentProfileWindow
+from ui.tabs.talent_tab import TalentTab
 from ui.presenters.talent_profile_presenter import TalentProfilePresenter
-from ui.dialogs.role_casting_dialog import RoleCastingDialog
-from ui.presenters.role_casting_presenter import RoleCastingPresenter
 from ui.dialogs.go_to_list import GoToTalentDialog
 from ui.presenters.go_to_list_presenter import GoToListPresenter
 from ui.dialogs.help_dialog import HelpDialog
@@ -24,9 +23,9 @@ from ui.dialogs.shot_scene_details_dialog import ShotSceneDetailsDialog
 from ui.presenters.shot_scene_details_presenter import ShotSceneDetailsPresenter
 from ui.dialogs.game_menu_dialog import GameMenuDialog, ExitDialog
 from ui.dialogs.shooting_bloc_dialog import ShootingBlocDialog
+from ui.widgets.main_window.detachable_tab_widget import DetachableTabWidget
 
 logger = logging.getLogger(__name__)
-
 
 class UIManager:
     def __init__(self, controller, parent_widget: QWidget = None):
@@ -37,7 +36,7 @@ class UIManager:
         self._open_scene_dialogs = {}
         self._talent_profile_window_singleton = None
         self._open_shot_scene_dialogs = {}
-
+    
     def _get_dialog(self, dialog_class, *args, **kwargs):
         dialog_name = dialog_class.__name__
         if dialog_name not in self._dialog_instances:
@@ -45,7 +44,7 @@ class UIManager:
                 self.controller, *args, **kwargs, parent=self.parent_widget
             )
         return self._dialog_instances[dialog_name]
-    
+
     def _on_dialog_closed(self, dialog_name: str):
         if dialog_name in self._dialog_instances:
             del self._dialog_instances[dialog_name]
@@ -223,7 +222,7 @@ class UIManager:
             QApplication.setActiveWindow(dialog)
         else:
             dialog = ScenePlannerDialog(self.settings_manager, parent=self.parent_widget)
-            presenter = ScenePlannerPresenter(self.controller, scene_id, dialog, self)
+            presenter = ScenePlannerPresenter(self.controller, scene_id, dialog)
             dialog.presenter = presenter
             
             # Connect the destroyed signal to our cleanup slot.
@@ -283,18 +282,6 @@ class UIManager:
         dialog.set_schedule(week, year)
         return dialog.exec() == QDialog.DialogCode.Accepted
 
-    def show_role_casting_dialog(self, scene_id: int, vp_id: int) -> int:
-        """
-        Shows a modal Role Casting dialog and returns the result code.
-        """
-        dialog = RoleCastingDialog(self.controller, scene_id, vp_id, parent=self.parent_widget)
-        
-        # The presenter's lifecycle is tied to the dialog's lifecycle because
-        # we parent the presenter to the dialog.
-        _ = RoleCastingPresenter(self.controller, dialog, scene_id, vp_id)
-        
-        return dialog.exec()
-
     def show_talent_profile(self, talent: Talent):
         """
         Shows a talent profile dialog
@@ -312,7 +299,7 @@ class UIManager:
         window.presenter.open_talent(talent)
         window.raise_()
         window.activateWindow()
-    
+
     def show_talent_profile_by_id(self, talent_id: int):
         if talent := self.controller.get_talent_by_id(talent_id):
             self.show_talent_profile(talent)

@@ -39,6 +39,21 @@ class ViewMenuButton(QPushButton):
         """
         self._items = items
 
+    def update_item_visibility(self, key: str, visible: bool):
+        """
+        Programmatically updates the visibility state of a menu item.
+        This does not emit a signal; it's for synchronizing the UI state
+        when visibility is changed by external code.
+
+        Args:
+            key: The unique key of the item to update.
+            visible: The new visibility state (True for visible/checked).
+        """
+        for item in self._items:
+            if item.get('key') == key:
+                item['visible'] = visible
+                break
+
     def _show_menu(self):
         """Creates and displays the checkable menu based on the current items."""
         if not self._items:

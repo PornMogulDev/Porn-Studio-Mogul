@@ -4,7 +4,7 @@ from PyQt6.QtCore import QObject
 
 if TYPE_CHECKING:
     from core.interfaces import IGameController
-    from ui.widgets.hiring_dashboard.role_details_widget import RoleDetailsWidget
+    from ui.widgets.role_details_widget import RoleDetailsWidget
 
 logger = logging.getLogger(__name__)
 
