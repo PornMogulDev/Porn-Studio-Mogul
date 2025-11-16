@@ -162,6 +162,10 @@ class GameController(QObject):
     def get_talent_chemistry(self, talent_id: int) -> Dict[int, Dict]:
         if not self.query_service: return []
         return self.query_service.get_talent_chemistry(talent_id)
+    
+    def get_talent_bookings_for_year(self, talent_id: int, year: int) -> Dict[int, List[SceneDB]]:
+        if not self.talent_query_service: return {}
+        return self.talent_query_service.get_talent_bookings_for_year(talent_id, year)
 
     # --- Go-To List Data Access (Proxy Methods) ---
     def get_go_to_list_talents(self) -> List[Talent]:

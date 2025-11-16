@@ -5,9 +5,8 @@ from data.game_state import (
     Scene, Talent, ShootingBloc, MarketGroupState,
     EmailMessage
 )
-from services.query.talent_query_service import TalentQueryService
 from data.data_manager import DataManager
-from database.db_models import TalentDB
+from database.db_models import TalentDB, SceneDB
 from data.settings_manager import SettingsManager
 from ui.theme_manager import ThemeManager, Theme
     
@@ -48,6 +47,7 @@ class IGameController(Protocol):
     def get_scene_history_for_talent(self, talent_id: int) -> List[Scene]: ...
     def get_talent_by_id(self, talent_id: int) -> Optional[Talent]: ...
     def get_talent_chemistry(self, talent_id: int) -> Dict[int, Dict]: ...
+    def get_talent_bookings_for_year(self, talent_id: int, year: int) -> Dict[int, List[SceneDB]]: ...
     def get_scene_for_planner(self, scene_id: int) -> Optional[Scene]: ...
 
     # --- Talent ---

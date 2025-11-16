@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt, pyqtSlot, QEvent, QByteArray, QSize
 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.talent_profile.details_widget import DetailsWidget
-from ui.widgets.talent_profile.affinities_widget import AffinitiesWidget
+from ui.widgets.talent_profile.schedule_widget import ScheduleWidget
 from ui.widgets.talent_profile.preferences_widget import PreferencesWidget
 from ui.widgets.talent_profile.history_widget import HistoryWidget
 from ui.widgets.talent_profile.chemistry_widget import ChemistryWidget
@@ -27,7 +27,7 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         self._is_loading_layout = False # Flag to prevent signal loops
 
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.defaultSize = QSize(700, 800)
+        self.defaultSize = QSize(1360, 1200)
         self.setWindowTitle("Talent Profile")
 
         self._setup_ui()
@@ -105,7 +105,10 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         self._add_dock("Details & Skills", self.details_widget, Qt.DockWidgetArea.LeftDockWidgetArea)
 
         self.preferences_widget = PreferencesWidget()
-        self._add_dock("Preferences", self.preferences_widget, Qt.DockWidgetArea.RightDockWidgetArea)
+        self._add_dock("Preferences", self.preferences_widget, Qt.DockWidgetArea.LeftDockWidgetArea)
+
+        self.schedule_widget = ScheduleWidget()
+        self._add_dock("Schedule", self.schedule_widget, Qt.DockWidgetArea.RightDockWidgetArea)
 
         self.hiring_widget = HiringWidget()
         self._add_dock("Hiring", self.hiring_widget, Qt.DockWidgetArea.RightDockWidgetArea)
@@ -122,6 +125,7 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
 
         self.details_widget.setMinimumSize(1,1)
         self.preferences_widget.setMinimumSize(1,1)
+        self.schedule_widget.setMinimumSize(1,1)
         self.hiring_widget.setMinimumSize(1,1)
         self.history_widget.setMinimumSize(1,1)
         self.chemistry_widget.setMinimumSize(1,1)

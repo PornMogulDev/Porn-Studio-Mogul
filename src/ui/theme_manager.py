@@ -260,5 +260,25 @@ class ThemeManager:
             QLabel#emailDateLabel {{
                 color: {theme.color_neutral};
             }}
-        """
+
+            /* --- Talent Schedule Styling --- */
+            QLabel#scheduleWeekLabel {{
+                border: 1px solid {theme.border};
+                text-align: center;
+                padding: 2px;
+                font-weight: bold;
+            }}
+            QLabel#scheduleWeekLabel[status="available"] {{
+                background-color: {theme.color_good};
+                color: {theme.accent_text}; /* Ensure text is readable on colored background */
+            }}
+            QLabel#scheduleWeekLabel[status="partially_booked"] {{
+                background-color: {theme.color_warning};
+                color: #000000; /* Dark text on amber */
+            }}
+            QLabel#scheduleWeekLabel[status="unavailable"] {{
+                background-color: {theme.color_bad};
+                color: {theme.accent_text}; /* Ensure text is readable on colored background */
+            }}
+                """
         return qss

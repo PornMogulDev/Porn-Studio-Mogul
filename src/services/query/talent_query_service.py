@@ -59,6 +59,25 @@ class TalentQueryService:
                 weekly_bookings[week_key][entry.talent_id].append(entry.scene)
         return weekly_bookings
 
+    def get_talent_bookings_for_year(self, talent_id: int, year: int) -> Dict[int, List[SceneDB]]:
+        """Efficiently fetches all scene bookings for a single talent for a given year, grouped by week."""
+        bookings_by_week = defaultdict(list)
+        with self.session_factory() as session:
+            cast_entries = session.query(SceneCastDB)\
+                .join(SceneDB)\
+                .filter(
+                    SceneCastDB.talent_id == talent_id,
+                    SceneDB.scheduled_year == year,
+                    SceneDB.status == 'scheduled' # Only count firm bookings for the schedule
+                )\
+                .options(selectinload(SceneCastDB.scene))\
+                .all()
+
+            for entry in cast_entries:
+                bookings_by_week[entry.scene.scheduled_week].append(entry.scene)
+            
+            return bookings_by_week
+
     def get_eligible_talent_for_role(self, scene_id: int, vp_id: int) -> List[TalentDB]:
         """
         Gets a virtual performer from a scene and returns a list of talent that can be cast for the role.

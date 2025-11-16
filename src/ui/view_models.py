@@ -1,5 +1,18 @@
 from dataclasses import dataclass, field
 from typing import List, Tuple, Optional
+from enum import Enum, auto
+
+class ScheduleStatus(Enum):
+    AVAILABLE = auto()
+    PARTIALLY_BOOKED = auto()
+    UNAVAILABLE = auto()
+
+@dataclass
+class TalentScheduleWeekViewModel:
+    """Holds display data for a single week in the talent schedule."""
+    week_number: int
+    status_str: str  # e.g., 'available', 'partially_booked', 'unavailable'
+    tooltip: str
 
 # --- SHOT SCENE DETAILS ---
 @dataclass

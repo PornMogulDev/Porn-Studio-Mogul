@@ -7,6 +7,7 @@ from PyQt6 import sip
 from data.game_state import Talent
 from core.interfaces import IGameController
 from ui.windows.talent_profile_window import TalentProfileWindow
+from ui.view_models import ScheduleStatus, TalentScheduleWeekViewModel
 from utils.formatters import get_fuzzed_skill_range, format_skill_range, format_fatigue
 
 if TYPE_CHECKING:
@@ -111,6 +112,9 @@ class TalentProfilePresenter(QObject):
         
         # Preferences & Requirements
         self._load_and_display_preferences(talent)
+
+        # Schedule
+        self._load_and_display_schedule(talent)
         
         # Scene History & Chemistry
         history = self.controller.get_scene_history_for_talent(talent.id)
@@ -158,6 +162,58 @@ class TalentProfilePresenter(QObject):
             'experience': int(talent.experience)
         })
         self.view.details_widget.populate_physical_label(talent)
+
+    def _load_and_display_schedule(self, talent: Talent):
+        """Fetches, processes, and displays the talent's yearly schedule."""
+        current_year = self.controller.game_state.year
+        
+        # 1. Fetch data via the controller and query service
+        bookings_by_week = self.controller.get_talent_bookings_for_year(talent.id, current_year)
+
+        schedule_view_models = []
+
+        # 2. Define business logic thresholds (could be moved to config later)
+        # A high ambition talent is willing to work more scenes per week
+        ambition_threshold = 7
+        base_max_scenes = 2
+        max_scenes_per_week = base_max_scenes + 1 if talent.ambition >= ambition_threshold else base_max_scenes
+        fatigue_resting_threshold = 75 # At this level, talent will refuse new work to rest.
+
+        # 3. Process each week of the year
+        for week_num in range(1, 53):
+            bookings_this_week = bookings_by_week.get(week_num, [])
+            
+            # Determine status and tooltip
+            status_enum = ScheduleStatus.AVAILABLE
+            tooltip_text = "Available for booking."
+
+            scene_titles = [scene.title for scene in bookings_this_week]
+
+            # Logic for unavailability
+            if talent.fatigue >= fatigue_resting_threshold and not bookings_this_week:
+                status_enum = ScheduleStatus.UNAVAILABLE
+                tooltip_text = "Resting (High Fatigue)"
+            elif len(bookings_this_week) >= max_scenes_per_week:
+                status_enum = ScheduleStatus.UNAVAILABLE
+                tooltip_text = f"Fully Booked:\n- " + "\n- ".join(scene_titles)
+            # Logic for partial booking
+            elif bookings_this_week:
+                status_enum = ScheduleStatus.PARTIALLY_BOOKED
+                tooltip_text = f"Booked for:\n- " + "\n- ".join(scene_titles)
+
+            # Convert enum to the string the QSS expects
+            status_str = status_enum.name.lower()
+
+            # Create the view model
+            vm = TalentScheduleWeekViewModel(
+                week_number=week_num,
+                status_str=status_str,
+                tooltip=tooltip_text
+            )
+            schedule_view_models.append(vm)
+
+        # 4. Update the view
+        self.view.schedule_widget.display_schedule(current_year, schedule_view_models)
 
     @pyqtSlot()
     def refresh_available_roles(self):
