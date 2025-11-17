@@ -22,6 +22,7 @@ from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.calculation.bloc_cost_calculator import BlocCostCalculator
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_command_service import SceneCommandService
+from services.command.casting_command_service import CastingCommandService
 from services.command.scene_event_command_service import SceneEventCommandService
 from services.market_service import MarketService
 from services.time_service import TimeService
@@ -66,6 +67,7 @@ class GameController(QObject):
         self.tag_validation_checker : Optional[TagValidationChecker] = None
         self.talent_command_service: Optional[TalentCommandService] = None
         self.scene_command_service: Optional[SceneCommandService] = None
+        self.casting_command_service: Optional[CastingCommandService] = None
         self.market_service: Optional[MarketService] = None
         self.talent_query_service: Optional[TalentQueryService] = None
         self.talent_demand_calculator: Optional[TalentDemandCalculator] = None
@@ -308,7 +310,7 @@ class GameController(QObject):
         )
 
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int):
-        self.scene_command_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
+        self.casting_command_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
 
     def cast_talent_for_multiple_roles(self, talent_id: int, roles: List[Dict]):
         """Casts a single talent into multiple roles across different scenes."""
@@ -318,7 +320,7 @@ class GameController(QObject):
         if len(scene_ids) != len(set(scene_ids)):
             self.signals.notification_posted.emit("Casting failed: Cannot assign a talent to multiple roles in the same scene.")
             return
-        self.scene_command_service.cast_talent_for_multiple_roles(talent_id, roles)
+        self.casting_command_service.cast_talent_for_multiple_roles(talent_id, roles)
 
     def get_thematic_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
         return self.tag_query_service.get_tags_for_planner('Thematic')

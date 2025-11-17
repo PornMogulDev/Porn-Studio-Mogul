@@ -6,7 +6,6 @@ from data.data_manager import DataManager
 from data.save_manager import SaveManager
 from data.game_state import GameState
 from services.command.email_service import EmailService
-from services.game_session_service import GameSessionService
 from services.command.go_to_list_service import GoToListService
 from services.market_service import MarketService
 from services.player_settings_service import PlayerSettingsService
@@ -14,13 +13,14 @@ from services.time_service import TimeService
 from services.calculation.tag_validation_checker import TagValidationChecker
 from services.calculation.post_production_calculator import PostProductionCalculator
 from services.calculation.revenue_calculator import RevenueCalculator
-from services.command.scene_processing_service import SceneProcessingService
 from services.calculation.scene_quality_calculator import SceneQualityCalculator
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.command.scene_command_service import SceneCommandService
+from services.command.casting_command_service import CastingCommandService
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_event_command_service import SceneEventCommandService
+from services.command.scene_processing_service import SceneProcessingService
 from services.events.scene_event_trigger_service import SceneEventTriggerService
 from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig
 from services.query.game_query_service import GameQueryService
@@ -58,6 +58,7 @@ class ServiceContainer:
         self.tag_query_service: Optional[TagQueryService] = None
         self.talent_command_service: Optional[TalentCommandService] = None
         self.scene_command_service: Optional[SceneCommandService] = None
+        self.casting_command_service: Optional[CastingCommandService] = None
         self.market_service: Optional[MarketService] = None
         self.talent_query_service: Optional[TalentQueryService] = None
         self.bloc_cost_calculator: Optional[BlocCostCalculator] = None
@@ -111,6 +112,7 @@ class ServiceContainer:
         self.tag_validation_checker = TagValidationChecker(self.data_manager)
         
         # Level 2: Depends on Level 1 services
+        self.casting_command_service = CastingCommandService(session_factory, self.signals, self.query_service, self.talent_demand_calculator)
         self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
@@ -158,6 +160,7 @@ class ServiceContainer:
         controller.tag_validation_checker = self.tag_validation_checker
         controller.talent_command_service = self.talent_command_service
         controller.scene_command_service = self.scene_command_service
+        controller.casting_command_service = self.casting_command_service
         controller.market_service = self.market_service
         controller.talent_demand_calculator = self.talent_demand_calculator
         controller.bloc_cost_calculator = self.bloc_cost_calculator
@@ -176,6 +179,7 @@ class ServiceContainer:
         controller.tag_validation_checker = None
         controller.talent_command_service = None
         controller.scene_command_service = None
+        controller.casting_command_service = None
         controller.market_service = None
         controller.talent_demand_calculator = None
         controller.bloc_cost_calculator = None
@@ -192,6 +196,7 @@ class ServiceContainer:
         self.tag_query_service = None
         self.talent_command_service = None
         self.scene_command_service = None
+        self.casting_command_service = None
         self.market_service = None
         self.talent_demand_calculator = None
         self.bloc_cost_calculator

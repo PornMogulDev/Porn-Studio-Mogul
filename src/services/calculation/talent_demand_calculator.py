@@ -1,9 +1,11 @@
 import logging
 import numpy as np
+from collections import defaultdict
 from typing import Optional, List, Dict
 
 from data.data_manager import DataManager
 from data.game_state import Talent, Scene
+from database.db_models import SceneDB
 from services.query.game_query_service import GameQueryService
 from services.models.configs import HiringConfig
 from services.calculation.role_performance_calculator import RolePerformanceCalculator
@@ -137,3 +139,66 @@ class TalentDemandCalculator:
             demands[talent.id] = cost_breakdown["total_cost"]
 
         return demands
+    
+    def calculate_bulk_hiring_costs(self, talent_id: int, roles: List[Dict], studio_location: str,
+                                    current_week: int, current_year: int) -> Dict:
+        """
+        Calculates authoritative costs for a bulk hiring transaction, applying tiered discounts.
+        - Discounts only apply to the base_cost.
+        - Travel and Rush fees are paid in full.
+        - Returns a breakdown of upfront costs and final deferred salaries.
+        """
+        talent_dc = self.query_service.get_talent_by_id(talent_id)
+        if not talent_dc:
+            return {}
+
+        # 1. Get cost breakdown and bloc_id for each role
+        roles_with_costs = []
+        scene_ids = [role['scene_id'] for role in roles]
+        scenes_db = self.query_service.session_factory().query(SceneDB).filter(SceneDB.id.in_(scene_ids)).all()
+        scenes_by_id = {s.id: s for s in scenes_db}
+
+        for role in roles:
+            scene_db = scenes_by_id.get(role['scene_id'])
+            if not scene_db: continue
+            
+            scene_dc = self.query_service.get_scene_for_planner(role['scene_id'])
+            cost_breakdown = self.calculate_total_demand(
+                talent_id, role['scene_id'], role['virtual_performer_id'], studio_location,
+                current_week, current_year, scene=scene_dc, talent=talent_dc
+            )
+            roles_with_costs.append({**role, **cost_breakdown, 'bloc_id': scene_db.bloc_id})
+
+        # 2. Group roles by bloc
+        bloc_groups = defaultdict(list)
+        for role in roles_with_costs:
+            # Group scenes without a bloc individually to prevent incorrect discounts
+            bloc_id = role['bloc_id'] if role['bloc_id'] is not None else f"nobloc_{role['scene_id']}"
+            bloc_groups[bloc_id].append(role)
+
+        # 3. Calculate upfront travel and final salaries for each bloc
+        total_upfront_cost = sum(r['travel_fee'] for r in roles_with_costs)
+        final_role_salaries = []
+
+        for bloc_id, bloc_roles in bloc_groups.items():
+            num_roles = len(bloc_roles)
+            discount_multiplier = self.config.bulk_discount_tiers.get(str(num_roles), 1.0)
+
+            total_bloc_base_cost = sum(r['base_cost'] for r in bloc_roles)
+            discounted_total_bloc_base_cost = total_bloc_base_cost * discount_multiplier
+
+            for role in bloc_roles:
+                # Distribute discount proportionally based on the role's contribution to the bloc's base cost
+                proportion = role['base_cost'] / total_bloc_base_cost if total_bloc_base_cost > 0 else 0
+                final_base_salary = discounted_total_bloc_base_cost * proportion
+
+                # Final salary is the discounted base + any non-discounted fees (rush fee)
+                final_salary = final_base_salary + role['rush_fee']
+
+                final_role_salaries.append({
+                    'scene_id': role['scene_id'],
+                    'virtual_performer_id': role['virtual_performer_id'],
+                    'final_salary': int(final_salary)
+                })
+
+        return {"total_upfront_cost": total_upfront_cost, "roles_with_final_salaries": final_role_salaries}
