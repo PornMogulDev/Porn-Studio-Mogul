@@ -5,7 +5,7 @@ from PyQt6 import sip
 from data.game_state import Scene
 from core.interfaces import IGameController
 from ui.view_models import FinancialViewModel, EditingOptionViewModel, PostProductionViewModel
-from utils.scene_summary_builder import prepare_summary_data
+from ui.builders.scene_summary_builder import prepare_summary_data
 
 class ShotSceneDetailsPresenter(QObject):
     def __init__(self, scene_id: int, controller: IGameController, view, initial_tab: Optional[str] = None, parent=None):

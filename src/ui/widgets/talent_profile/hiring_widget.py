@@ -66,11 +66,6 @@ class HiringWidget(QWidget):
 
         self.roles_stack.setCurrentIndex(0)
         for role_data in available_roles:
-            tags_text = ""
-            if tags := role_data.get('tags'):
-                tags_to_show = tags[:3]
-                if len(tags) > 3: tags_to_show.append("...")
-                tags_text = f" (Tags: {', '.join(tags_to_show)})"
 
             # Display cost breakdown if there's a travel fee.            
             total_cost = role_data.get('cost', 0)
@@ -85,16 +80,30 @@ class HiringWidget(QWidget):
             cost_breakdown_text = ", ".join(cost_parts)
             cost_text = f"Cost: ${total_cost:,} ({cost_breakdown_text})"
 
-            display_text = f"{role_data['scene_title']} - Role: {role_data['vp_name']} ({cost_text}){tags_text}"
+            display_text = f"{role_data['scene_title']} - Role: {role_data['vp_name']} ({cost_text})"
+
             item = QListWidgetItem(display_text)
             item.setData(Qt.ItemDataRole.UserRole, role_data)  # Store the whole dict
-            
+
+            # TOOLTIP LOGIC
+            role_details_html = role_data.get('tooltip_html', 'Role details not available.')
+
             if not role_data['is_available']:
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
                 item.setForeground(QColor("gray"))
-                item.setToolTip(f"Unavailable: {role_data['refusal_reason']}")
-            elif tags:
-                item.setToolTip(f"Performs: {', '.join(tags)}")
+                
+                reason = role_data['refusal_reason']
+                combined_tooltip = (
+                    f"<p><b>Unavailable:</b> {reason}</p>"
+                    f"<hr>"
+                    f"{role_details_html}"
+                )
+                item.setToolTip(combined_tooltip)
+            else:
+                # For available items, just show the role details
+                item.setToolTip(role_details_html)
+
+            self.available_roles_list.addItem(item)
             
             self.available_roles_list.addItem(item)
 

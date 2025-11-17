@@ -2,6 +2,8 @@ import logging
 from typing import TYPE_CHECKING
 from PyQt6.QtCore import QObject
 
+from ui.builders.role_details_builder import prepare_role_details_data, format_role_details_html
+
 if TYPE_CHECKING:
     from core.interfaces import IGameController
     from ui.widgets.role_details_widget import RoleDetailsWidget
@@ -23,37 +25,24 @@ class RoleDetailsPresenter(QObject):
     def display_role(self, scene_id: int, vp_id: int):
         """
         Fetches details for a specific role and updates the view.
+        NOW USES THE BUILDER.
         """
-        if not scene_id or not vp_id:
-            self.clear()
-            return
-
-        role_details = self.controller.get_role_details_for_ui(scene_id, vp_id)
-        if not role_details:
-            logger.warning(f"Could not fetch role details for scene {scene_id}, vp {vp_id}")
+        details_data = prepare_role_details_data(scene_id, vp_id, self.controller)
+        
+        if not details_data:
             self.clear()
             return
             
-        # Format the details into an HTML string
-        html = "<ul>"
-        html += f"<li><b>Gender:</b> {role_details.get('gender', 'N/A')}</li>"
-        html += f"<li><b>Ethnicity:</b> {role_details.get('ethnicity', 'N/A')}</li>"
-        
-        if role_details.get('is_protagonist'):
-            html += "<li><b>Protagonist Role</b></li>"
-            
-        if role_details.get('disposition') != 'Switch':
-            html += f"<li><b>Disposition:</b> {role_details.get('disposition', 'N/A')}</li>"
-            
-        if physical_tags := role_details.get('physical_tags'):
-            html += f"<br><li><b>Physical Tags:</b><br>{', '.join(physical_tags)}</li>"
-            
-        if action_roles := role_details.get('action_roles'):
-            html += f"<br><li><b>Action Roles:</b><br>{', '.join(action_roles)}</li>"
-            
-        html += "</ul>"
-        
+        html = format_role_details_html(details_data)
         self.view.update_role_details(html)
+
+    def get_role_details_as_html(self, scene_id: int, vp_id: int) -> str:
+        """
+        Returns the formatted HTML for a role without updating a view.
+        This is a new helper method for our tooltip use case.
+        """
+        details_data = prepare_role_details_data(scene_id, vp_id, self.controller)
+        return format_role_details_html(details_data)
 
     def clear(self):
         """

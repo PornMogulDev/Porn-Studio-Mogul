@@ -9,6 +9,7 @@ from core.interfaces import IGameController
 from ui.windows.talent_profile_window import TalentProfileWindow
 from ui.view_models import ScheduleStatus, TalentScheduleWeekViewModel
 from utils.formatters import get_fuzzed_skill_range, format_skill_range, format_fatigue
+from ui.builders.role_details_builder import prepare_role_details_data, format_role_details_html
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
@@ -227,15 +228,24 @@ class TalentProfilePresenter(QObject):
         """Fetches and updates the list of available roles for the current talent."""
         if not self.current_talent_id: return
         
-        # Guard against accessing a deleted view (zombie presenter issue)
         if not self.view or sip.isdeleted(self.view):
             return
             
         available_roles = self.controller.find_available_roles_for_talent(self.current_talent_id)
+        
+        # Enrich the data before sending it to the view
+        for role_data in available_roles:
+            scene_id = role_data['scene_id']
+            vp_id = role_data['virtual_performer_id']
+            
+            # Use the new builder directly
+            details_dict = prepare_role_details_data(scene_id, vp_id, self.controller)
+            tooltip_html = format_role_details_html(details_dict)
+            role_data['tooltip_html'] = tooltip_html
+            
         try:
             self.view.hiring_widget.update_available_roles(available_roles)
         except RuntimeError:
-            # View was deleted between the check and the call
             pass
 
     @pyqtSlot(list)

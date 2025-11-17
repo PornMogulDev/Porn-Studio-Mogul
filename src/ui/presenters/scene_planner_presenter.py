@@ -9,7 +9,7 @@ from data.game_state import Scene, Talent, ShootingBloc
 from ui.view_models import PerformerEditorViewModel, TotalRuntimeViewModel
 from ui.dialogs.scene_planner_dialog import ScenePlannerDialog
 from ui.dialogs.scene_filter_dialog import SceneFilterDialog
-from utils.scene_summary_builder import prepare_summary_data
+from ui.builders.scene_summary_builder import prepare_summary_data
 from services.builders.scene_state_editor import SceneStateEditor
 
 logger = logging.getLogger(__name__)
