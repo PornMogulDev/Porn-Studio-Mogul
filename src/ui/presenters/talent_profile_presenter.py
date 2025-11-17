@@ -10,6 +10,7 @@ from ui.windows.talent_profile_window import TalentProfileWindow
 from ui.view_models import ScheduleStatus, TalentScheduleWeekViewModel
 from utils.formatters import get_fuzzed_skill_range, format_skill_range, format_fatigue
 from ui.builders.role_details_builder import prepare_role_details_data, format_role_details_html
+from ui.builders.preferences_view_model_builder import build_preferences_view_model
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
@@ -30,6 +31,11 @@ class TalentProfilePresenter(QObject):
         self.uimanager = uimanager
         self.open_talents = {}  # {talent_id: Talent}
         self.current_talent_id = None
+
+        # Pass theme-dependent colors to widgets that need them for dynamic drawing
+        current_theme_name = self.controller.settings_manager.get_setting("theme", "light")
+        current_theme = self.controller.theme_manager.get_theme(current_theme_name)
+        self.view.preferences_widget.set_theme_colors(danger_color=current_theme.danger)
 
         self._connect_signals()
 
@@ -128,7 +134,6 @@ class TalentProfilePresenter(QObject):
         history = self.controller.get_scene_history_for_talent(talent.id)
         self.view.history_widget.display_scene_history(history, talent.id)
         
-        current_theme = self.controller.get_current_theme()
         raw_chemistry_dict = self.controller.get_talent_chemistry(talent.id)
 
         chemistry_view_model = []
@@ -140,8 +145,7 @@ class TalentProfilePresenter(QObject):
                     'score': chem_details['score'] 
                 })
 
-        # Now, pass the correctly structured data to the view.
-        self.view.chemistry_widget.display_chemistry(chemistry_view_model, current_theme)
+        self.view.chemistry_widget.display_chemistry(chemistry_view_model)
 
         # Hiring Tab
         self.refresh_available_roles()
@@ -261,79 +265,27 @@ class TalentProfilePresenter(QObject):
             if self.current_talent_id:
                 talent = self.open_talents[self.current_talent_id]
                 self.view.details_widget.populate_physical_label(talent)
+        elif key == "theme":
+             # Update widgets with new theme colors if the theme changes
+            current_theme = self.controller.theme_manager.get_theme(self.controller.settings_manager.get_setting("theme", "light"))
+            self.view.preferences_widget.set_theme_colors(danger_color=current_theme.danger)
+            self._load_data_for_current_talent() # Reload chemistry to re-apply styles
             
     def _load_and_display_preferences(self, talent: Talent):
         """Processes and summarizes talent preferences for UI display."""
-        # Define thresholds for categorization and display
-        LOVES_THRESHOLD = 1.4
-        LIKES_THRESHOLD = 1.01 # Anything above 1.0 is a like
-        DISLIKES_THRESHOLD = 0.99 # Anything below 1.0 is a dislike
-        HATES_THRESHOLD = 0.60
-        REFUSAL_THRESHOLD = 0.2 # Preference so low they might refuse the role
-        NOTABLE_HIGH_THRESHOLD = 1.2
-        NOTABLE_LOW_THRESHOLD = 0.8
-
         tag_definitions = self.controller.data_manager.tag_definitions
-        
-        prefs_by_orientation = defaultdict(list)
+       
+        policy_definitions = self.controller.data_manager.on_set_policies_data
 
-        # 1. Group all preference scores by their orientation
-        for tag, roles in talent.tag_preferences.items():
-            tag_def = tag_definitions.get(tag)
-            if not tag_def or not (orientation := tag_def.get('orientation')):
-                continue
-            for role, score in roles.items():
-                prefs_by_orientation[orientation].append({'tag': tag, 'role': role, 'score': score})
-
-        # 2. Process each orientation group to create the final data structure
-        preferences_data = []
-        for orientation, items in sorted(prefs_by_orientation.items()):
-            if not items:
-                continue
-
-            scores = [item['score'] for item in items]
-            avg_score = sum(scores) / len(scores)
-        
-            # Determine summary string based on the average score
-            if avg_score >= LOVES_THRESHOLD:
-                summary = "Loves"
-            elif avg_score >= LIKES_THRESHOLD:
-                summary = "Likes"
-            elif avg_score > HATES_THRESHOLD: # Covers the range from 0.60 to 0.99
-                summary = "Dislikes"
-            else: # Anything 0.60 or below
-                summary = "Hates"
-        
-            # Check for potential refusals
-            has_refusals = any(item['score'] < REFUSAL_THRESHOLD for item in items)
-        
-            # Filter for notable items to display as children
-            notable_items = []
-            for item in items:
-                if item['score'] > NOTABLE_HIGH_THRESHOLD or item['score'] < NOTABLE_LOW_THRESHOLD:
-                    notable_items.append({
-                        'name': f"{item['tag']} ({item['role']})",
-                        'score': item['score']
-                    })
-                    
-            # Only add the orientation if there's something worth showing
-            if notable_items or has_refusals:
-                preferences_data.append({
-                    'orientation': orientation,
-                    'summary': summary,
-                    'average': avg_score,
-                    'has_refusals': has_refusals,
-                    'items': sorted(notable_items, key=lambda x: x['score'], reverse=True)
-                })
-
-        # Policy requirements
-        policy_names = {p['id']: p['name'] for p in self.controller.data_manager.on_set_policies_data.values()}
-        required_policies = [policy_names.get(pid, pid) for pid in sorted(talent.policy_requirements.get('requires', []))]
-        refused_policies = [policy_names.get(pid, pid) for pid in sorted(talent.policy_requirements.get('refuses', []))]
+        preferences_data, limits, required_policies, refused_policies = build_preferences_view_model(
+            talent=talent,
+            tag_definitions=tag_definitions,
+            policy_definitions=policy_definitions
+        )
 
         self.view.preferences_widget.display_preferences(
             preferences_data=preferences_data,
-            limits=sorted(talent.hard_limits),
+            limits=limits,
             required_policies=required_policies,
             refused_policies=refused_policies
         )

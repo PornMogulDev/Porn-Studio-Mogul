@@ -5,8 +5,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, pyqtSignal
 
-from ui.theme_manager import Theme
-from utils.formatters import get_chemistry_map
+from utils.formatters import get_chemistry_status
 
 class ChemistryWidget(QWidget):
     """A widget for displaying a talent's chemistry with other talent."""
@@ -42,21 +41,24 @@ class ChemistryWidget(QWidget):
             if talent_id := self.chemistry_table.item(item.row(), 0).data(Qt.ItemDataRole.UserRole):
                 self.talent_profile_requested.emit(talent_id)
 
-    def display_chemistry(self, chemistry_data: list, theme: Theme):
-        chemistry_map = get_chemistry_map(theme)
+    def display_chemistry(self, chemistry_data: list):
         self.chemistry_table.setRowCount(0) # Clear table before populating
+        if not chemistry_data:
+            return
+
         self.chemistry_table.setRowCount(len(chemistry_data))
         for row, chem_info in enumerate(chemistry_data):
-            score = chem_info['score']
-            display_text, color = chemistry_map.get(score, ("Unknown", QColor("black")))
-            
+            status, display_text = get_chemistry_status(chem_info['score'])
+             
             alias_item = QTableWidgetItem(chem_info['other_talent_alias'])
             alias_item.setData(Qt.ItemDataRole.UserRole, chem_info['other_talent_id'])
-
+ 
             chem_item = QTableWidgetItem(display_text)
-            chem_item.setForeground(color)
+            # Set the property that the stylesheet will use for coloring
+            chem_item.setData(Qt.ItemDataRole.UserRole, status) # Store for potential future use
+            chem_item.setProperty("status", status)
             chem_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-
+ 
             self.chemistry_table.setItem(row, 0, alias_item)
             self.chemistry_table.setItem(row, 1, chem_item)
         

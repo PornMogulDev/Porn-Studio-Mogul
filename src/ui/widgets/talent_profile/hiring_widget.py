@@ -68,45 +68,34 @@ class HiringWidget(QWidget):
         for role_data in available_roles:
 
             # Display cost breakdown if there's a travel fee.            
-            total_cost = role_data.get('cost', 0)
-            base_cost = role_data.get('base_cost', total_cost)
-            travel_fee = role_data.get('travel_fee', 0)
-            rush_fee = role_data.get('rush_fee', 0)
-
-            cost_parts = [f"Base: ${base_cost:,}"]
-            if travel_fee > 0: cost_parts.append(f"Travel: ${travel_fee:,}")
-            if rush_fee > 0: cost_parts.append(f"Rush: ${rush_fee:,}")
-            
-            cost_breakdown_text = ", ".join(cost_parts)
-            cost_text = f"Cost: ${total_cost:,} ({cost_breakdown_text})"
-
-            display_text = f"{role_data['scene_title']} - Role: {role_data['vp_name']} ({cost_text})"
-
-            item = QListWidgetItem(display_text)
+            item = QListWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, role_data)  # Store the whole dict
-
-            # TOOLTIP LOGIC
             role_details_html = role_data.get('tooltip_html', 'Role details not available.')
+            item.setToolTip(role_details_html)
 
-            if not role_data['is_available']:
+            if role_data['is_available']:
+                # Display cost breakdown for available roles.
+                total_cost = role_data.get('cost', 0)
+                base_cost = role_data.get('base_cost', total_cost)
+                travel_fee = role_data.get('travel_fee', 0)
+                rush_fee = role_data.get('rush_fee', 0)
+ 
+                cost_parts = [f"Base: ${base_cost:,}"]
+                if travel_fee > 0: cost_parts.append(f"Travel: ${travel_fee:,}")
+                if rush_fee > 0: cost_parts.append(f"Rush: ${rush_fee:,}")
+                cost_breakdown_text = ", ".join(cost_parts)
+                cost_text = f"Cost: ${total_cost:,} ({cost_breakdown_text})"
+ 
+                display_text = f"{role_data['scene_title']} - Role: {role_data['vp_name']} ({cost_text})"
+                item.setText(display_text)
+            else: # Role is unavailable
+                reason = role_data.get('refusal_reason', 'Unknown reason')
+                display_text = f"{role_data['scene_title']} - Role: {role_data['vp_name']} (Unavailable: {reason})"
+                item.setText(display_text)
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
-                item.setForeground(QColor("gray"))
-                
-                reason = role_data['refusal_reason']
-                combined_tooltip = (
-                    f"<p><b>Unavailable:</b> {reason}</p>"
-                    f"<hr>"
-                    f"{role_details_html}"
-                )
-                item.setToolTip(combined_tooltip)
-            else:
-                # For available items, just show the role details
-                item.setToolTip(role_details_html)
-
+ 
             self.available_roles_list.addItem(item)
-            
-            self.available_roles_list.addItem(item)
-
+ 
         # Trigger a recalculation in case a role was removed that was part of the selection
         self._update_total_cost_preview()
 

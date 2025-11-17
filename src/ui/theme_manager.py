@@ -19,6 +19,7 @@ class Theme:
     danger: str = "#C50F1F"
 
     # Semantic colors for good/bad/neutral states
+    color_great: str = "#00B294"     # Teal/Light Blue
     color_good: str = "#107C10"      # Green
     color_bad: str = "#D83B01"       # Red/Orange
     color_warning: str = "#F7A800"   # Amber
@@ -52,6 +53,7 @@ DEFAULT_DARK = Theme(
     danger="#D13438",
 
     # Brighter, more readable colors for the dark theme
+    color_great="#4DD0E1",  # A brighter cyan/teal for dark mode
     color_good="#66bb6a",
     color_bad="#ef5350",
     color_warning="#ffa726",
@@ -211,6 +213,13 @@ class ThemeManager:
                 selection-background-color: {theme.disabled_background};
             }}
 
+            /* Style for disabled list items, e.g., unavailable roles */
+            QListWidget::item:disabled {{
+                color: {theme.disabled_text};
+                background-color: transparent; /* Prevents selection highlight */
+                selection-background-color: transparent;
+            }}
+
             /* --- Tab Styling --- */
             QTabWidget::pane {{ /* The container for the tab pages */
                 border: 1px solid {theme.border};
@@ -248,6 +257,30 @@ class ThemeManager:
             }}
             QLabel#totalPercentLabel[status="neutral"] {{
                 color: {theme.text};
+            }}
+
+            /* --- Style for Hard Limits list in Preferences --- */
+            QListWidget#HardLimitsList::item {{
+                color: {theme.danger};
+                font-weight: bold;
+            }}
+
+            /* --- Talent Chemistry Styling --- */
+            QTableWidget::item[status="great"] {{
+                color: {theme.color_great};
+                font-weight: bold;
+            }}
+            QTableWidget::item[status="good"] {{
+                color: {theme.color_good};
+            }}
+            QTableWidget::item[status="neutral"] {{
+                color: {theme.text};
+            }}
+            QTableWidget::item[status="bad"] {{
+                color: {theme.color_warning};
+            }}
+            QTableWidget::item[status="terrible"] {{
+                color: {theme.color_bad};
             }}
 
             /* --- Specific Component Styling for Email Dialog --- */

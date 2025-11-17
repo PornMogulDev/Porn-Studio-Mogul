@@ -10,20 +10,22 @@ class PreferencesWidget(QWidget):
     """A widget for displaying talent preferences, limits, and policy requirements."""
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._danger_color = QColor("red") # Default fallback
+        self.refusal_icon = self._create_refusal_icon()
         self._setup_ui()
 
-    def _create_refusal_icon(self) -> QIcon:
+    def _create_refusal_icon(self) -> QIcon:    
         """Creates a small red dot icon to indicate a potential refusal."""
         pixmap = QPixmap(16, 16)
         pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setBrush(QColor("red"))
+        painter.setBrush(self._danger_color)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(4, 4, 8, 8)
         painter.end()
         return QIcon(pixmap)
-
+    
     def _setup_ui(self):
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -40,6 +42,7 @@ class PreferencesWidget(QWidget):
         prefs_grid_layout.addWidget(self.preferences_tree, 1, 0, 1, 2)
         prefs_grid_layout.addWidget(QLabel("<b>Hard Limits</b> (Will Refuse Roles):"), 2, 0, 1, 2)
         self.limits_list = QListWidget()
+        self.limits_list.setObjectName("HardLimitsList")
         prefs_grid_layout.addWidget(self.limits_list, 3, 0, 1, 2)
         prefs_grid_layout.setRowStretch(1, 3) 
         prefs_grid_layout.setRowStretch(3, 1)  
@@ -55,6 +58,10 @@ class PreferencesWidget(QWidget):
         policy_layout.addWidget(self.refuses_policies_list)
         main_layout.addWidget(policy_group, 1)
 
+    def set_theme_colors(self, danger_color: str):
+        """Receives theme colors from the presenter to style dynamic elements."""
+        self._danger_color = QColor(danger_color)
+        # Re-create the icon with the new color
         self.refusal_icon = self._create_refusal_icon()
 
     def display_preferences(self, preferences_data: list, limits: list, required_policies: list, refused_policies: list):
@@ -83,8 +90,7 @@ class PreferencesWidget(QWidget):
         self.limits_list.clear()
         if limits:
             for limit in limits:
-                item = QListWidgetItem(limit)
-                item.setForeground(QColor("red"))
+                item = QListWidgetItem(limit)   
                 self.limits_list.addItem(item)
         else:
             self.limits_list.addItem("None")

@@ -6,18 +6,22 @@ from data.game_state import Talent
 
 INCHES_TO_CM = 2.54
 
-def get_chemistry_map(theme: Theme) -> dict:
+def get_chemistry_status(score: int) -> Tuple[str, str]:
     """
-    Generates a chemistry map with colors from the current theme.
-    This replaces the static CHEMISTRY_MAP dictionary.
+    Maps a chemistry score to a status string (for QSS) and a display string.
     """
-    return {
-        2: ("Great", QColor(theme.color_good)),
-        1: ("Good", QColor(theme.color_good)),
-        0: ("Neutral", QColor(theme.color_neutral)),
-        -1: ("Bad", QColor(theme.color_warning)),
-        -2: ("Terrible", QColor(theme.color_bad)),
-    }
+    if score == 2:
+        return ("great", "Great")
+    elif score == 1:
+        return ("good", "Good")
+    elif score == 0:
+        return ("neutral", "Neutral")
+    elif score == -1:
+        return ("bad", "Bad")
+    elif score == -2:
+        return ("terrible", "Terrible")
+    else:
+        return ("neutral", "Unknown")
 
 def format_orientation(score: int, gender: str) -> str:
     """Converts an orientation score (-100 to 100) into a detailed display string."""
