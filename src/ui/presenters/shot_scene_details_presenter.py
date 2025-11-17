@@ -27,7 +27,7 @@ class ShotSceneDetailsPresenter(QObject):
 
     def load_initial_data(self):
         """Fetches the initial scene data and tells the view to populate."""
-        self.scene = self.controller.get_scene_for_planner(self.scene_id)
+        self.scene = self.controller.get_scene_by_id(self.scene_id)
         if self.scene:
             self.view.populate_data()
             if self.initial_tab:
@@ -169,7 +169,7 @@ class ShotSceneDetailsPresenter(QObject):
             self.disconnect_signals()
             return
             
-        fresh_scene = self.controller.get_scene_for_planner(self.scene_id)
+        fresh_scene = self.controller.get_scene_by_id(self.scene_id)
         if fresh_scene:
             self.scene = fresh_scene
             try:

@@ -1,8 +1,7 @@
-import json
-from sqlalchemy import ( create_engine, Column, Integer, String, Float, Boolean,
+from sqlalchemy import ( Column, Integer, String, Float, Boolean,
 ForeignKey, JSON, CheckConstraint, PrimaryKeyConstraint )
-from sqlalchemy.orm import relationship, sessionmaker, declarative_base, ColumnProperty
-from typing import Type, TypeVar, Any, Dict, List
+from sqlalchemy.orm import relationship, declarative_base, ColumnProperty
+from typing import Type, TypeVar, Any
 
 from data.game_state import *
 
@@ -41,6 +40,7 @@ class DataclassMapper:
         
         if dataclass_type == Scene:
             data['virtual_performers'] = [vp.to_dataclass(VirtualPerformer) for vp in self.virtual_performers]
+            data['location'] = "" # Default value, will be populated by the query service
             data['action_segments'] = [seg.to_dataclass(ActionSegment) for seg in self.action_segments]
             data['performer_contributions'] = [c.to_dataclass(ScenePerformerContribution) for c in self.performer_contributions_rel]
             
@@ -58,6 +58,8 @@ class DataclassMapper:
             for chem in self.chemistry_b:
                 chem_dict[chem.talent_a_id] = chem.chemistry_score
             data['chemistry'] = chem_dict
+            # Add tours to the dataclass
+            data['tours'] = [t.to_dataclass(Tour) for t in self.tours]
         
         elif dataclass_type == ActionSegment:
             data['slot_assignments'] = [sa.to_dataclass(SlotAssignment) for sa in self.slot_assignments]
@@ -77,6 +79,7 @@ class ShootingBlocDB(Base, DataclassMapper):
     __tablename__ = 'shooting_blocs'
     id = Column(Integer, primary_key=True)
     name = Column(String)
+    location = Column(String, nullable=False)
     scheduled_week = Column(Integer)
     scheduled_year = Column(Integer)
     production_settings = Column(JSON, default=dict)
@@ -135,6 +138,22 @@ class TalentDB(Base, DataclassMapper):
     is_on_tour = Column(Boolean, default=False, nullable=False)
     tour_end_week = Column(Integer, default=0, nullable=False)
     tour_end_year = Column(Integer, default=0, nullable=False)
+    tours = relationship("TourDB", back_populates="talent", cascade="all, delete-orphan")
+
+class TourDB(Base, DataclassMapper):
+    __tablename__ = 'tours'
+    id = Column(Integer, primary_key=True)
+    talent_id = Column(Integer, ForeignKey('talents.id'), nullable=False)
+    status = Column(String, nullable=False) # 'planned', 'active', 'completed'
+    destination_location = Column(String, nullable=False)
+    start_week = Column(Integer, nullable=False)
+    start_year = Column(Integer, nullable=False)
+    duration_weeks = Column(Integer, nullable=False)
+    sponsor_type = Column(String, nullable=False) # 'self', 'player', 'ai_studio'
+    accommodation_tier_id = Column(String)
+    upfront_fee_paid = Column(Integer, default=0)
+    
+    talent = relationship("TalentDB", back_populates="tours")
 
 class SceneCastDB(Base, DataclassMapper):
     __tablename__ = 'scene_cast'

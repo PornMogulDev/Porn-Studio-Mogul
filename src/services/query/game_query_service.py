@@ -5,14 +5,13 @@ from sqlalchemy import or_
 
 from data.game_state import Talent, Scene, ShootingBloc, MarketGroupState, EmailMessage
 from database.db_models import (TalentDB, TalentChemistryDB, SceneDB, ShootingBlocDB, 
-                                SceneCastDB, ActionSegmentDB, GoToListAssignmentDB,
+                                SceneCastDB, ActionSegmentDB, GoToListAssignmentDB, GameInfoDB,
                                 GoToListCategoryDB, MarketGroupStateDB, EmailMessageDB )
 
 class GameQueryService:
     """
     A unified, read-only service for fetching game data for the UI.
     """
-
     def __init__(self, session_factory):
         self.session_factory = session_factory
 
@@ -25,7 +24,8 @@ class GameQueryService:
             query = session.query(TalentDB).options(
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a),
-                selectinload(TalentDB.chemistry_b)
+                selectinload(TalentDB.chemistry_b),
+                selectinload(TalentDB.tours)
             )
             
             # Support both 'name' and 'text' keys for name filtering
@@ -95,11 +95,26 @@ class GameQueryService:
             t = session.query(TalentDB).options(
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
-                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a)
+                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a),
+                selectinload(TalentDB.tours)
             ).get(talent_id)
             if t:
                 return t.to_dataclass(Talent)
             return None
+        
+    def get_talent_by_id_db(self, talent_id: int) -> Optional[TalentDB]:
+        """
+        Fetches a single TalentDB database model by ID without converting it to a dataclass.
+        This is for services that need to operate on the DB model directly.
+        """
+        if talent_id is None:
+            return None
+        with self.session_factory() as session:
+            # Eagerly load relationships that downstream services might need
+            # to prevent DetachedInstanceError.
+            return session.query(TalentDB).options(
+                selectinload(TalentDB.popularity_scores)
+            ).get(talent_id)
         
     def get_multiple_talents_by_ids(self, talent_ids: List[int]) -> List[Talent]:
         """
@@ -111,7 +126,8 @@ class GameQueryService:
             talents_db = session.query(TalentDB).options(
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
-                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a)
+                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a),
+                selectinload(TalentDB.tours)
             ).filter(TalentDB.id.in_(talent_ids)).all()
             
             return [t.to_dataclass(Talent) for t in talents_db]
@@ -121,7 +137,7 @@ class GameQueryService:
         with self.session_factory() as session:
             chemistry_relations_db = session.query(TalentChemistryDB).options(
                 joinedload(TalentChemistryDB.talent_a),
-                joinedload(TalentChemistryDB.talent_b)
+                joinedload(TalentChemistryDB.talent_b),
             ).filter(
                 or_(TalentChemistryDB.talent_a_id == talent_id, TalentChemistryDB.talent_b_id == talent_id)
             ).all()
@@ -138,7 +154,8 @@ class GameQueryService:
             talents_db = session.query(TalentDB).options(
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
-                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a)
+                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a),
+                selectinload(TalentDB.tours)
             ).join(GoToListAssignmentDB)\
                 .distinct()\
                 .order_by(TalentDB.alias).all()
@@ -158,7 +175,8 @@ class GameQueryService:
             talents_db = session.query(TalentDB).options(
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
-                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a)
+                selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a),
+                selectinload(TalentDB.tours)
             ).join(GoToListAssignmentDB)\
                 .filter(GoToListAssignmentDB.category_id == category_id)\
                 .order_by(TalentDB.alias)\
@@ -197,42 +215,99 @@ class GameQueryService:
     def get_shot_scenes(self) -> List[Scene]:
         """Fetches all scenes that have been shot or released for the scenes tab."""
         with self.session_factory() as session:
+            studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar() or ""
             scenes_db = session.query(SceneDB).populate_existing().options(
-                selectinload(SceneDB.performer_contributions_rel)
+                selectinload(SceneDB.performer_contributions_rel),
+                joinedload(SceneDB.bloc)
             ).filter(
                 SceneDB.status.in_(['shot', 'in_editing', 'ready_to_release', 'released'])
             ).all()
-            return [s.to_dataclass(Scene) for s in scenes_db]
+            scenes_dc = []
+            for s in scenes_db:
+                scene = s.to_dataclass(Scene)
+                scene.location = s.bloc.location if s.bloc and s.bloc.location else studio_loc
+                scenes_dc.append(scene)
+            return scenes_dc
 
-    def get_scene_for_planner(self, scene_id: int) -> Optional[Scene]:
-        """Fetches a single scene with all its relationships for the SceneDialog."""
+    def get_scene_by_id(self, scene_id: int) -> Optional[Scene]:
+        """Fetches a single scene with all its relationships, including its location."""
         with self.session_factory() as session:
             scene_db = session.query(SceneDB).options(
                 selectinload(SceneDB.virtual_performers),
                 selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments),
-                selectinload(SceneDB.cast) # Also load cast for salary info
+                selectinload(SceneDB.cast), # Also load cast for salary info
+                joinedload(SceneDB.bloc) # Eager load the bloc
             ).get(scene_id)
-            return scene_db.to_dataclass(Scene) if scene_db else None
+
+            if not scene_db:
+                return None
+
+            scene_dc = scene_db.to_dataclass(Scene)
+
+            # Populate the location
+            if scene_db.bloc and scene_db.bloc.location:
+                scene_dc.location = scene_db.bloc.location
+            else:
+                studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar()
+                scene_dc.location = studio_loc or ""
+                
+            return scene_dc
+        
+    def get_multiple_scenes_by_ids(self, scene_ids: List[int]) -> List[Scene]:
+        """Efficiently fetches multiple scenes by their IDs, including location data."""
+        if not scene_ids:
+            return []
+        with self.session_factory() as session:
+            scenes_db = session.query(SceneDB).options(
+                joinedload(SceneDB.bloc) # Eager load the bloc for location
+            ).filter(SceneDB.id.in_(scene_ids)).all()
+
+            if not scenes_db:
+                return []
+            
+            studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar() or ""
+            scenes_dc = []
+            for s in scenes_db:
+                scene = s.to_dataclass(Scene)
+                scene.location = s.bloc.location if s.bloc and s.bloc.location else studio_loc
+                scenes_dc.append(scene)
+
+            return scenes_dc
 
     def get_scene_history_for_talent(self, talent_id: int) -> List[Scene]:
         with self.session_factory() as session:
+            studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar() or ""
             scenes_db = session.query(SceneDB)\
+                .options(joinedload(SceneDB.bloc))\
                 .join(SceneCastDB)\
                 .filter(SceneCastDB.talent_id == talent_id)\
                 .filter(SceneDB.status.in_(['shot', 'in_editing', 'ready_to_release', 'released']))\
                 .order_by(SceneDB.scheduled_year.desc(), SceneDB.scheduled_week.desc())\
                 .all()
-            return [s.to_dataclass(Scene) for s in scenes_db]
+        
+            scenes_dc = []
+            for s in scenes_db:
+                    scene = s.to_dataclass(Scene)
+                    scene.location = s.bloc.location if s.bloc and s.bloc.location else studio_loc
+                    scenes_dc.append(scene)
+            return scenes_dc
     
     def get_incomplete_scenes_for_week(self, week: int, year: int) -> List[Scene]:
         """Finds scenes scheduled for a given week that are not fully cast or are still in design."""
         with self.session_factory() as session:
+            studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar() or ""
             scenes_db = session.query(SceneDB).filter(
                 SceneDB.status.in_(['casting', 'design']),
                 SceneDB.scheduled_week == week,
                 SceneDB.scheduled_year == year
-            ).options(selectinload(SceneDB.cast)).all()
-            return [s.to_dataclass(Scene) for s in scenes_db]
+            ).options(selectinload(SceneDB.cast), joinedload(SceneDB.bloc)).all()
+
+            scenes_dc = []
+            for s in scenes_db:
+                scene = s.to_dataclass(Scene)
+                scene.location = s.bloc.location if s.bloc and s.bloc.location else studio_loc
+                scenes_dc.append(scene)
+            return scenes_dc
 
     def get_castable_scenes_for_ui(self) -> List[Dict]:
         """
@@ -270,6 +345,23 @@ class GameQueryService:
             cast_vp_ids = {c.virtual_performer_id for c in scene_db.cast}
             uncast_roles = [{'id': vp.id, 'name': vp.name} for vp in scene_db.virtual_performers if vp.id not in cast_vp_ids]
             return sorted(uncast_roles, key=lambda x: x['name'])
+        
+    def get_scene_location(self, scene_id: int) -> str:
+        """Gets the authoritative location for a single scene."""
+        with self.session_factory() as session:
+            scene_db = session.query(SceneDB).options(
+                joinedload(SceneDB.bloc)
+            ).get(scene_id)
+            
+            if not scene_db:
+                return ""
+
+            if scene_db.bloc and scene_db.bloc.location:
+                return scene_db.bloc.location
+            
+            # Fallback to studio location
+            studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar()
+            return studio_loc or ""
     
     # --- Market ---
 

@@ -48,6 +48,10 @@ class ScheduleWidget(QWidget):
             # Set the custom property that the QSS in ThemeManager will use for styling
             label.setProperty("status", vm.status_str)
 
+            # Add a second property for tour status
+            if vm.tour and vm.tour.status in ['planned', 'active']:
+                 label.setProperty("on_tour", True)
+
             # Force the widget to re-evaluate its style based on the new property
             label.style().unpolish(label)
             label.style().polish(label)

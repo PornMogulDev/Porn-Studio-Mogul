@@ -152,7 +152,7 @@ class UIManager:
     def handle_incomplete_scenes(self, scenes: list):
         all_resolved = True
         for scene_data in scenes:
-            fresh_scene_data = self.controller.get_scene_for_planner(scene_data.id)
+            fresh_scene_data = self.controller.get_scene_by_id(scene_data.id)
             if not fresh_scene_data:
                 continue
 
@@ -172,7 +172,7 @@ class UIManager:
             self.controller.advance_week()
 
     def show_interactive_event(self, event_data: dict, scene_id: int, talent_id: int):
-        scene_data = self.controller.get_scene_for_planner(scene_id)
+        scene_data = self.controller.get_scene_by_id(scene_id)
         talent_data = self.controller.get_talent_by_id(talent_id)
         current_money = self.controller.game_state.money
 

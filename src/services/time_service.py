@@ -2,9 +2,10 @@ import logging
 from typing import Tuple
 from sqlalchemy.orm import selectinload, Session
 
-from database.db_models import GameInfoDB, SceneDB, TalentDB, Talent
+from database.db_models import GameInfoDB, SceneDB
 from services.command.scene_command_service import SceneCommandService
 from services.command.talent_command_service import TalentCommandService
+from services.command.tour_command_service import TourCommandService
 from services.market_service import MarketService
 from services.models.results import WeekAdvancementResult
 
@@ -12,12 +13,14 @@ logger = logging.getLogger(__name__)
 
 class TimeService:
     def __init__(self, session_factory, signals, scene_command_service: SceneCommandService, 
-                 talent_command_service: TalentCommandService, market_service: MarketService):
+                 talent_command_service: TalentCommandService, market_service: MarketService,
+                 tour_command_service: TourCommandService):
         self.session_factory = session_factory
         self.signals = signals
         self.scene_command_service = scene_command_service
         self.talent_command_service = talent_command_service
         self.market_service = market_service
+        self.tour_command_service = tour_command_service
 
     def _get_current_time(self, session: Session) -> Tuple[int, int]:
         """Reads the current time directly from the database."""
@@ -34,6 +37,8 @@ class TimeService:
             money_info = session.query(GameInfoDB).filter_by(key='money').one()
         
             # --- 1. Perform all weekly updates ---
+            # Update tour statuses first, so talent locations are correct for this week's logic.
+            self.tour_command_service.process_weekly_tour_updates(session, current_week, current_year)
             market_changed = self.market_service.recover_all_market_saturation(session)
             
             # Shoot scheduled scenes
@@ -74,6 +79,9 @@ class TimeService:
                     is_new_year = True
 
             talent_pool_changed = self.talent_command_service.process_weekly_updates(session, is_new_year, talents_who_worked_ids)
+
+            # Let talent decide on future tours after all of this week's events are resolved.
+            self.tour_command_service.process_autonomous_tour_decisions(session)
 
             # --- 2. Persist the new time ---
             week_info = session.query(GameInfoDB).filter_by(key='week').one()

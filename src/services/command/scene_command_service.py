@@ -66,7 +66,7 @@ class SceneCommandService:
         """Calculates the authoritative cost for creating a shooting bloc."""
         return self.bloc_cost_calculator.calculate_shooting_bloc_cost(num_scenes, settings, policies)
     
-    def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str]) -> bool:
+    def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str], studio_location: str) -> bool:
         """Creates a new ShootingBloc and its associated blank scenes in the database."""
         session = self.session_factory()
         try:
@@ -80,7 +80,7 @@ class SceneCommandService:
             money_info.value = str(new_money)
 
             bloc_db = ShootingBlocDB(
-                name=name, scheduled_week=week, scheduled_year=year,
+                name=name, scheduled_week=week, scheduled_year=year, location=studio_location,
                 production_settings=settings, production_cost=cost, on_set_policies=policies
             )
             session.add(bloc_db)

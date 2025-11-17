@@ -1,9 +1,9 @@
 import logging
 from PyQt6.QtWidgets import ( 
     QMainWindow, QWidget, QMenuBar, QDockWidget, QToolBar, QTabBar,
-    QHBoxLayout, QLabel, QComboBox, QPushButton, QMessageBox
+    QLabel, QComboBox, QPushButton, QMessageBox
 )
-from PyQt6.QtCore import Qt, pyqtSlot, QEvent, QByteArray, QSize
+from PyQt6.QtCore import Qt, pyqtSlot, QEvent, QByteArray, QSize, pyqtSignal
 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.talent_profile.details_widget import DetailsWidget
@@ -12,6 +12,7 @@ from ui.widgets.talent_profile.preferences_widget import PreferencesWidget
 from ui.widgets.talent_profile.history_widget import HistoryWidget
 from ui.widgets.talent_profile.chemistry_widget import ChemistryWidget
 from ui.widgets.talent_profile.hiring_widget import HiringWidget
+from ui.dialogs.sponsor_tour_dialog import SponsorTourDialog
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,9 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
     The main window for displaying talent profiles.
     Uses a QMainWindow to support a dockable, customizable layout.
     """
+    # Emitted after the user confirms the tour details in the dialog.
+    tour_sponsorship_confirmed = pyqtSignal(int, list, dict, int) # talent_id, roles_to_cast, tour_details, total_cost
+
     def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
@@ -97,6 +101,7 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         self.tab_bar.tabCloseRequested.connect(self._on_tab_close_requested)
         self.save_layout_button.clicked.connect(self._on_save_layout)
         self.delete_layout_button.clicked.connect(self._on_delete_layout)
+        self.hiring_widget.sponsor_tour_requested.connect(self._on_sponsor_tour_requested)
         self.load_layout_button.clicked.connect(self._on_load_button_clicked)
 
     def _create_dock_widgets(self):
@@ -187,6 +192,39 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
             talent_id = self.tab_bar.tabData(index)
             if talent_id:
                 self.presenter.close_talent(talent_id)
+
+    @pyqtSlot(list)
+    def _on_sponsor_tour_requested(self, roles_for_tour: list):
+        """
+        Handles the request from the HiringWidget to sponsor a tour.
+        This method manages the entire UI flow for the negotiation.
+        """
+        if not self.presenter or not self.presenter.current_talent_id:
+            return
+
+        # 1. Ask the presenter to fetch and prepare the preview data.
+        preview_data_dict = self.presenter.get_tour_sponsorship_preview(roles_for_tour)
+
+        # 2. Handle the case where the tour is not feasible.
+        if not preview_data_dict.get('is_feasible'):
+            reason = preview_data_dict.get('refusal_reason', "Unknown reason.")
+            QMessageBox.warning(self, "Tour Infeasible", f"Cannot sponsor this tour: {reason}")
+            return
+
+        # 3. Create and show the negotiation dialog.
+        talent_alias = self.presenter.open_talents[self.presenter.current_talent_id].alias
+        dialog = SponsorTourDialog(talent_alias, preview_data_dict, self)
+
+        # 4. If the user confirms, emit a high-level signal with the final details.
+        if dialog.exec():
+            if final_tour_details := dialog.get_selected_tour_details():
+                total_cost = final_tour_details.pop("total_upfront_cost", 0)
+                self.tour_sponsorship_confirmed.emit(
+                    self.presenter.current_talent_id, roles_for_tour,
+                    final_tour_details, total_cost
+                )
+            else:
+                logger.warning("SponsorTourDialog accepted but returned no details.")
 
     # --- Layout Management ---
     def _populate_layouts_combobox(self):

@@ -32,9 +32,9 @@
   "skill_gain_ambition_scalar": 0.015,
   "skill_gain_diminishing_returns_cap": 100.0,
   "maximum_skill_level": 100.0,
-  "base_bad_event_chance_per_category": 0.50,
-  "base_good_event_chance_per_category": 0.50,
-  "base_policy_event_chance": 0.15,
+  "base_bad_event_chance_per_category": 0.0,
+  "base_good_event_chance_per_category": 0.0,
+  "base_policy_event_chance": 0.0,
   "protagonist_contribution_weight": 1.25,
   "chemistry_performance_scalar": 0.125,
   "chemistry_discovery_weights": {

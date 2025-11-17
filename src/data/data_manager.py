@@ -38,6 +38,7 @@ class DataManager:
         self.scene_events = self._load_scene_events()
         self.talent_archetypes = self._load_talent_archetypes()
         self.help_topics = self._load_help_topics(help_file_path)
+        self.accommodation_tiers = self._load_accommodation_tiers()
         self.travel_matrix = self._load_travel_matrix()
         
         logger.info("All game data loaded into memory.")
@@ -266,6 +267,18 @@ class DataManager:
             if archetype_id:
                 archetypes[archetype_id] = archetype_data
         return archetypes
+    
+    def _load_accommodation_tiers(self) -> Dict[str, Dict]:
+        """Loads all accommodation tier definitions from the database."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM accommodation_tiers ORDER BY cost_per_week")
+        tiers = {}
+        for row in cursor.fetchall():
+            tier_data = dict(row)
+            tier_id = tier_data.get('id')
+            if tier_id:
+                tiers[tier_id] = tier_data
+        return tiers
 
     def _load_help_topics(self, file_path: str) -> Dict[str, Any]:
         """Loads help topic data from a JSON file."""

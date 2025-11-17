@@ -1,15 +1,16 @@
 import logging
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 from sqlalchemy.orm import selectinload, Session
 
-from data.game_state import Scene, Talent
+from data.game_state import Scene, Talent, Tour
 from data.data_manager import DataManager
 from database.db_models import (
     TalentDB, SceneDB, ActionSegmentDB,
-    ShootingBlocDB, SceneCastDB
+    ShootingBlocDB, SceneCastDB, TourDB
 )
 from services.query.game_query_service import GameQueryService
+from services.query.talent_location_service import TalentLocationService
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.models.configs import HiringConfig
 from services.calculation.talent_availability_checker import TalentAvailabilityChecker
@@ -18,13 +19,14 @@ from services.calculation.shoot_results_calculator import ShootResultsCalculator
 logger = logging.getLogger(__name__)
 
 class TalentQueryService:
-    def __init__(self, session_factory, data_manager: DataManager, demand_calculator: TalentDemandCalculator, 
-                 query_service: GameQueryService, config: HiringConfig, 
-                 availability_checker: TalentAvailabilityChecker, shoot_results_calculator: ShootResultsCalculator):
+    def __init__(self, session_factory, data_manager: DataManager, query_service: GameQueryService, location_service: TalentLocationService,
+                 demand_calculator: TalentDemandCalculator, config: HiringConfig, availability_checker: TalentAvailabilityChecker, 
+                 shoot_results_calculator: ShootResultsCalculator):
         self.session_factory = session_factory
         self.data_manager = data_manager
-        self.demand_calculator = demand_calculator
         self.query_service = query_service
+        self.location_service = location_service
+        self.demand_calculator = demand_calculator
         self.config = config
         self.availability_checker = availability_checker
         self.shoot_results_calculator = shoot_results_calculator
@@ -77,6 +79,23 @@ class TalentQueryService:
                 bookings_by_week[entry.scene.scheduled_week].append(entry.scene)
             
             return bookings_by_week
+        
+    def get_talent_tours_for_year(self, talent_id: int, year: int) -> List[Tour]:
+        """
+        Fetches all tours for a talent that are active at any point during a given year.
+        """
+        with self.session_factory() as session:
+            # A tour is relevant if it starts this year OR ends this year.
+            # A simple approximation is to get all non-completed tours. A more precise
+            # filter would be complex with year boundaries. We'll filter in Python.
+            tours_db = session.query(TourDB).filter(
+                TourDB.talent_id == talent_id,
+                TourDB.status != 'completed',
+                TourDB.start_year <= year # Starts this year or before
+            ).all()
+            
+            # Filter out tours that end before this year starts (not needed with current query)
+            return [t.to_dataclass(Tour) for t in tours_db]
 
     def get_eligible_talent_for_role(self, scene_id: int, vp_id: int) -> List[TalentDB]:
         """
@@ -90,7 +109,7 @@ class TalentQueryService:
                 selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments)
             ).get(scene_id)
             if not scene_db: return []
-            scene = scene_db.to_dataclass(Scene)
+            scene = self.query_service.get_scene_by_id(scene_id)
 
             vp = next((v for v in scene.virtual_performers if v.id == vp_id), None)
             if not vp: return []
@@ -231,11 +250,18 @@ class TalentQueryService:
         """
         with self.session_factory() as session:
             talent_db = session.query(TalentDB).options(
-                selectinload(TalentDB.popularity_scores),
-                selectinload(TalentDB.chemistry_a),
-                selectinload(TalentDB.chemistry_b)
+                selectinload(TalentDB.popularity_scores)
             ).get(talent_id)
             if not talent_db: return []
+
+            # Because the demand calculator needs the full dataclass with relationships,
+            # we need to fetch it separately here. This ensures this query service
+            # doesn't create circular dependencies by trying to hydrate everything itself.
+            talent_dc_full = self.query_service.get_talent_by_id(talent_id)
+            if not talent_dc_full:
+                logger.warning(f"Could not fully hydrate talent dataclass for ID {talent_id} in find_available_roles.")
+                return []
+
             talent_dc = talent_db.to_dataclass(Talent) # For travel fee calculation
             talent = talent_db # For availability check
 
@@ -255,7 +281,9 @@ class TalentQueryService:
             all_weekly_bookings = self._get_weekly_bookings_for_talents(session, [talent_id])
             
             for scene_db in scenes_in_casting:
-                scene = scene_db.to_dataclass(Scene)
+                # Use the query service to get the fully hydrated scene with its location
+                scene = self.query_service.get_scene_by_id(scene_db.id)
+                if not scene: continue
                 cast_talent_ids = {c.talent_id for c in scene_db.cast}
                 if talent.id in cast_talent_ids: continue
                 adjacent_weeks = self._get_adjacent_weeks(scene.scheduled_week, scene.scheduled_year)
@@ -287,15 +315,22 @@ class TalentQueryService:
                         estimated_fatigue
                     )
 
+                    # --- New Orchestration Flow ---
+                    # 1. Ask the Location Oracle for the talent's effective location on the scene's date.
+                    talent_effective_location = self.location_service.get_effective_location_at_date(
+                        talent_id, scene.scheduled_week, scene.scheduled_year
+                    )
+                    # 2. Call the pure calculator with all the pre-fetched data.
                     cost_breakdown = self.demand_calculator.calculate_total_demand(
-                        talent_id=talent_id, scene_id=scene_db.id, vp_id=vp_db.id,
-                        studio_location=studio_location, current_week=current_week, current_year=current_year,
-                        scene=scene, talent=talent_dc
+                        talent_dc_full, scene, vp_db.id, talent_effective_location,
+                        current_week, current_year
                     )
 
                     role_info = {
                         'scene_id': scene_db.id, 'scene_title': scene_db.title,
                         'bloc_id': scene_db.bloc_id,
+                        'scheduled_week': scene_db.scheduled_week,
+                        'scheduled_year': scene_db.scheduled_year,
                         'virtual_performer_id': vp_db.id, 'vp_name': vp_db.name,
                         'cost': cost_breakdown['total_cost'], 
                         'base_cost': cost_breakdown['base_cost'], 

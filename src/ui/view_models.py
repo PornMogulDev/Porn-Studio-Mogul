@@ -2,10 +2,14 @@ from dataclasses import dataclass, field
 from typing import List, Tuple, Optional
 from enum import Enum, auto
 
+from data.game_state import Tour
+
+# --- Talent Profile ---
 class ScheduleStatus(Enum):
     AVAILABLE = auto()
     PARTIALLY_BOOKED = auto()
     UNAVAILABLE = auto()
+    ON_TOUR = auto()
 
 @dataclass
 class TalentScheduleWeekViewModel:
@@ -13,6 +17,17 @@ class TalentScheduleWeekViewModel:
     week_number: int
     status_str: str  # e.g., 'available', 'partially_booked', 'unavailable'
     tooltip: str
+    tour: Optional['TourViewModel'] = None
+
+@dataclass
+class TourViewModel:
+    """Holds display data for a tour overlay on the schedule."""
+    status: str
+    destination_location: str
+
+    @classmethod
+    def from_dataclass(cls, tour_dc: 'Tour'):
+        return cls(status=tour_dc.status, destination_location=tour_dc.destination_location)
 
 # --- SHOT SCENE DETAILS ---
 @dataclass

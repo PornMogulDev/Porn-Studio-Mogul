@@ -4,7 +4,7 @@ from PyQt6.QtCore import QObject, pyqtSlot, QPoint, QRunnable, QThreadPool, pyqt
 from core.interfaces import IGameController
 from ui.tabs.talent_tab import TalentTab
 from ui.dialogs.talent_filter_dialog import TalentFilterDialog
-from data.game_state import Talent
+from data.game_state import Talent, Scene
 from database.db_models import TalentDB
 from utils.formatters import get_fuzzed_skill_range
 from ui.presenters.talent_filter_cache import TalentFilterCache, CastingTalentCache
@@ -20,17 +20,26 @@ class WorkerSignals(QObject):
 
 class DemandCalculationWorker(QRunnable):
     """Worker thread for calculating talent demands without freezing the UI."""
-    def __init__(self, controller: IGameController, talent_ids: List[int], scene_id: int, vp_id: int):
+    def __init__(self, controller: IGameController, talents_data: List[Talent], scene_data: Scene, vp_id: int, talent_locations: Dict[int, str]):
         super().__init__()
         self.controller = controller
-        self.talent_ids = talent_ids
-        self.scene_id = scene_id
+        self.talents = talents_data
+        self.scene = scene_data
         self.vp_id = vp_id
+        self.talent_locations = talent_locations
         self.signals = WorkerSignals()
 
     @pyqtSlot()
     def run(self):
-        demands = self.controller.calculate_demands_for_multiple_talents(self.talent_ids, self.scene_id, self.vp_id)
+        # This worker is now "dumb". It receives all data and just calls the calculator.
+        demands = {}
+        game_state = self.controller.game_state
+        for talent in self.talents:
+            effective_location = self.talent_locations.get(talent.id, talent.base_location)
+            cost_breakdown = self.controller.talent_demand_calculator.calculate_total_demand(
+                talent, self.scene, self.vp_id, effective_location, game_state.week, game_state.year
+            )
+            demands[talent.id] = cost_breakdown['total_cost']
         self.signals.finished.emit(demands)
 
 class TalentTabPresenter(QObject):
@@ -154,13 +163,19 @@ class TalentTabPresenter(QObject):
             
             attribute_filtered_db = self.controller.filter_talent_list_by_attributes(base_candidates_db, attribute_filters)
 
-            # --- Step 1: Check if casting context has changed, if so, clear demand cache ---
+            # --- Orchestration Step 1: Prepare data for the worker ---
             new_context = (scene_id, vp_id)
             if self._current_casting_context != new_context:
                 self._demand_cache.clear()
                 self._current_casting_context = new_context
 
-            # --- Step 2: Build the list for the UI, using cached demands where available ---
+            # Pre-fetch scene and talent location data ONCE here in the main thread.
+            scene_dc = self.controller.get_scene_by_id(scene_id)
+            if not scene_dc:
+                self.view.update_talent_list([])
+                return
+
+            # --- Orchestration Step 2: Build the list for the UI, using cached demands where available ---
             final_cache_items = []
             talent_ids_to_calculate = []
             for t_db in attribute_filtered_db:
@@ -172,12 +187,17 @@ class TalentTabPresenter(QObject):
                     if cached_demand is None:
                         talent_ids_to_calculate.append(t_db.id)
             
-            # --- Step 3: Update UI immediately. Rows without demand will show "Calculating..." ---
+            # --- Orchestration Step 3: Update UI immediately. Rows without demand will show "Calculating..." ---
             self.view.update_talent_list(final_cache_items)
 
-            # --- Step 4: Start background calculation ONLY for missing demands ---
+            # --- Orchestration Step 4: Start background calculation ONLY for missing demands ---
             if talent_ids_to_calculate:
-                worker = DemandCalculationWorker(self.controller, talent_ids_to_calculate, scene_id, vp_id)
+                # Pass all pre-fetched data to the worker.
+                talents_to_calc = self.controller.get_multiple_talents_by_ids(talent_ids_to_calculate)
+                talent_locations = self.controller.get_effective_locations_for_multiple_talents(
+                    talent_ids_to_calculate, scene_dc.scheduled_week, scene_dc.scheduled_year
+                )
+                worker = DemandCalculationWorker(self.controller, talents_to_calc, scene_dc, vp_id, talent_locations)
                 worker.signals.finished.connect(self._on_demand_calculation_finished)
                 self.thread_pool.start(worker)
         else:

@@ -1,12 +1,9 @@
 import logging
 import numpy as np
-from collections import defaultdict
-from typing import Optional, List, Dict
+from typing import List, Dict, Any
 
 from data.data_manager import DataManager
 from data.game_state import Talent, Scene
-from database.db_models import SceneDB
-from services.query.game_query_service import GameQueryService
 from services.models.configs import HiringConfig
 from services.calculation.role_performance_calculator import RolePerformanceCalculator
 from services.calculation.talent_availability_checker import TalentAvailabilityChecker
@@ -14,12 +11,15 @@ from services.calculation.talent_availability_checker import TalentAvailabilityC
 logger = logging.getLogger(__name__)
 
 class TalentDemandCalculator:
-    def __init__(self, session_factory, data_manager: DataManager, query_service: GameQueryService,
-                 config: HiringConfig, availability_checker: TalentAvailabilityChecker,
+    """
+    A pure, stateless calculator for determining talent hiring costs.
+    It has no side effects and does not access the database. It relies
+    on the caller to provide all necessary, pre-fetched data.
+    """
+    def __init__(self, data_manager: DataManager, config: HiringConfig,
+                 availability_checker: TalentAvailabilityChecker,
                  role_perf_calculator: RolePerformanceCalculator):
-        self.session_factory = session_factory
         self.data_manager = data_manager
-        self.query_service = query_service
         self.config = config
         self.availability_checker = availability_checker
         self.role_performance_calculator = role_perf_calculator
@@ -56,25 +56,24 @@ class TalentDemandCalculator:
         
         return np.mean(preference_scores) if preference_scores else 1.0
 
-    def _calculate_travel_fee(self, talent: Talent, studio_location: str) -> int:
-        """Calculates the travel fee for a talent based on their location vs. the studio's."""
-        talent_location = talent.current_location
-        if talent_location == studio_location:
+    def _calculate_travel_fee(self, origin_location: str, destination_location: str) -> int:
+        """Calculates the travel fee based on origin and destination locations."""
+        if origin_location == destination_location:
             return 0
 
         location_map = self.data_manager.get_location_to_region_map()
-        talent_region = location_map.get(talent_location)
-        studio_region = location_map.get(studio_location)
+        origin_region = location_map.get(origin_location)
+        destination_region = location_map.get(destination_location)
 
-        if talent_region and studio_region:
-            if talent_region == studio_region:
+        if origin_region and destination_region:
+            if origin_region == destination_region:
                 return self.config.location_to_location_cost
-            if cost_data := self.data_manager.travel_matrix.get(talent_region, {}).get(studio_region):
+            if cost_data := self.data_manager.travel_matrix.get(origin_region, {}).get(destination_region):
                 return cost_data.get('cost', 0)
         return 0
 
     def _calculate_base_demand(self, talent: Talent, scene: Scene, vp_id: int) -> int:
-        """Calculates the base hiring cost (without travel) for a specific talent in a specific role, using pre-fetched data."""
+        """Calculates the base hiring cost (without travel) for a specific talent in a specific role."""
         if not talent or not scene: return 0
         base_multipliers = self._calculate_base_multipliers(talent)
         role_modifier = self._calculate_role_modifier(scene, vp_id)
@@ -88,25 +87,33 @@ class TalentDemandCalculator:
         
         return max(self.config.minimum_talent_demand, int(base_demand))
 
-    def calculate_total_demand(self, talent_id: int, scene_id: int, vp_id: int,
-                               studio_location: str, current_week: int, current_year: int, *,
-                               scene: Optional[Scene] = None,
-                               talent: Optional[Talent] = None) -> Dict[str, int]:
+    def calculate_total_demand(self, talent: Talent, scene: Scene, vp_id: int,
+                               talent_effective_location: str,
+                               current_week: int, current_year: int) -> Dict[str, int]:
         """
         Calculates the total hiring cost for a single talent for a specific role.
-        Returns a dictionary with a cost breakdown.
-        """
-        if talent is None:
-            talent = self.query_service.get_talent_by_id(talent_id)
-        if scene is None:
-            scene = self.query_service.get_scene_for_planner(scene_id)
+        This method is pure and relies on the caller to provide all data.
 
+        Args:
+            talent: The Talent dataclass.
+            scene: The Scene dataclass.
+            vp_id: The ID of the virtual performer for the role.
+            talent_effective_location: The talent's location on the scene's date,
+                                       as determined by the TalentLocationService.
+            current_week: The game's current week.
+            current_year: The game's current year.
+
+        Returns:
+            A dictionary with a cost breakdown.
+        """
         base_cost = self._calculate_base_demand(talent, scene, vp_id)
-        travel_fee = self._calculate_travel_fee(talent, studio_location) if talent else 0
+        
+        travel_fee = self._calculate_travel_fee(talent_effective_location, scene.location)
         
         # Calculate Rush Fee if the scene is for the current week
         rush_fee = 0
-        if scene and scene.scheduled_week == current_week and scene.scheduled_year == current_year:
+        if scene.scheduled_week == current_week and scene.scheduled_year == current_year:
+            # Rush fee applies to the cost of getting the talent there, not just their salary.
             rush_fee = (base_cost + travel_fee) * (self.config.rush_fee_multiplier - 1.0)
 
         total_cost = base_cost + travel_fee + rush_fee
@@ -118,69 +125,49 @@ class TalentDemandCalculator:
             "total_cost": int(total_cost)
         }
     
-    def calculate_demands_for_multiple_talents(self, talent_ids: List[int], scene_id: int, vp_id: int,
-                                               studio_location: str, current_week: int, current_year: int) -> Dict[int, int]:
-        """
-        Efficiently calculates the total demand for a list of talents for a single role.
-        Returns a dictionary mapping {talent_id: total_cost}.
-        """
-        if not talent_ids:
-            return {}
-
-        scene = self.query_service.get_scene_for_planner(scene_id)
-        if not scene:
-            return {}
-
-        demands = {}
-        talents_dc = self.query_service.get_multiple_talents_by_ids(talent_ids)
-
-        for talent in talents_dc:
-            cost_breakdown = self.calculate_total_demand(talent.id, scene_id, vp_id, studio_location, current_week, current_year, scene=scene, talent=talent)
-            demands[talent.id] = cost_breakdown["total_cost"]
-
-        return demands
-    
-    def calculate_bulk_hiring_costs(self, talent_id: int, roles: List[Dict], studio_location: str,
+    def calculate_bulk_hiring_costs(self, talent: Talent,
+                                    roles_with_context: List[Dict[str, Any]],
                                     current_week: int, current_year: int) -> Dict:
         """
         Calculates authoritative costs for a bulk hiring transaction, applying tiered discounts.
-        - Discounts only apply to the base_cost.
-        - Travel and Rush fees are paid in full.
-        - Returns a breakdown of upfront costs and final deferred salaries.
+        This method is pure and relies on the caller to provide all data.
+
+        Args:
+            talent: The Talent dataclass.
+            roles_with_context: A list of dictionaries, where each dict contains:
+                                'scene': The Scene dataclass.
+                                'virtual_performer_id': The VP ID for the role.
+                                'bloc_id': The bloc ID for the scene.
+                                'talent_effective_location': Talent's location for this scene's date.
+            current_week: The game's current week.
+            current_year: The game's current year.
+
+        Returns:
+            A dictionary breakdown of upfront costs and final deferred salaries.
         """
-        talent_dc = self.query_service.get_talent_by_id(talent_id)
-        if not talent_dc:
-            return {}
+        from collections import defaultdict
 
-        # 1. Get cost breakdown and bloc_id for each role
+        # 1. Get cost breakdown for each role using the single-role calculator
         roles_with_costs = []
-        scene_ids = [role['scene_id'] for role in roles]
-        scenes_db = self.query_service.session_factory().query(SceneDB).filter(SceneDB.id.in_(scene_ids)).all()
-        scenes_by_id = {s.id: s for s in scenes_db}
-
-        for role in roles:
-            scene_db = scenes_by_id.get(role['scene_id'])
-            if not scene_db: continue
-            
-            scene_dc = self.query_service.get_scene_for_planner(role['scene_id'])
+        for role_context in roles_with_context:
             cost_breakdown = self.calculate_total_demand(
-                talent_id, role['scene_id'], role['virtual_performer_id'], studio_location,
-                current_week, current_year, scene=scene_dc, talent=talent_dc
+                talent, role_context['scene'], role_context['virtual_performer_id'],
+                role_context['talent_effective_location'], current_week, current_year
             )
-            roles_with_costs.append({**role, **cost_breakdown, 'bloc_id': scene_db.bloc_id})
+            roles_with_costs.append({**role_context, **cost_breakdown})
 
         # 2. Group roles by bloc
         bloc_groups = defaultdict(list)
         for role in roles_with_costs:
             # Group scenes without a bloc individually to prevent incorrect discounts
-            bloc_id = role['bloc_id'] if role['bloc_id'] is not None else f"nobloc_{role['scene_id']}"
+            bloc_id = role['bloc_id'] if role['bloc_id'] is not None else f"nobloc_{role['scene'].id}"
             bloc_groups[bloc_id].append(role)
 
         # 3. Calculate upfront travel and final salaries for each bloc
         total_upfront_cost = sum(r['travel_fee'] for r in roles_with_costs)
         final_role_salaries = []
 
-        for bloc_id, bloc_roles in bloc_groups.items():
+        for _, bloc_roles in bloc_groups.items():
             num_roles = len(bloc_roles)
             discount_multiplier = self.config.bulk_discount_tiers.get(num_roles, 1.0)
 
@@ -196,7 +183,7 @@ class TalentDemandCalculator:
                 final_salary = final_base_salary + role['rush_fee']
 
                 final_role_salaries.append({
-                    'scene_id': role['scene_id'],
+                    'scene_id': role['scene'].id,
                     'virtual_performer_id': role['virtual_performer_id'],
                     'final_salary': int(final_salary)
                 })

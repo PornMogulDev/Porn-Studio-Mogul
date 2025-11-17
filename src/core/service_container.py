@@ -16,16 +16,21 @@ from services.calculation.revenue_calculator import RevenueCalculator
 from services.calculation.scene_quality_calculator import SceneQualityCalculator
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
+from services.calculation.upfront_tour_cost_calculator import UpfrontTourCostCalculator
+from services.tour_feasibility_service import TourFeasibilityService
+from services.tour_sponsorship_preview_service import TourSponsorshipPreviewService
 from services.command.scene_command_service import SceneCommandService
 from services.command.casting_command_service import CastingCommandService
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_event_command_service import SceneEventCommandService
 from services.command.scene_processing_service import SceneProcessingService
+from services.command.tour_command_service import TourCommandService
 from services.events.scene_event_trigger_service import SceneEventTriggerService
 from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
 from services.query.tag_query_service import TagQueryService
+from services.query.talent_location_service import TalentLocationService
 from services.calculation.market_group_resolver import MarketGroupResolver
 from services.calculation.role_performance_calculator import RolePerformanceCalculator
 from services.calculation.talent_availability_checker import TalentAvailabilityChecker
@@ -59,14 +64,19 @@ class ServiceContainer:
         self.talent_command_service: Optional[TalentCommandService] = None
         self.scene_command_service: Optional[SceneCommandService] = None
         self.casting_command_service: Optional[CastingCommandService] = None
+        self.tour_command_service: Optional[TourCommandService] = None
         self.market_service: Optional[MarketService] = None
         self.talent_query_service: Optional[TalentQueryService] = None
+        self.talent_location_service: Optional[TalentLocationService] = None
         self.bloc_cost_calculator: Optional[BlocCostCalculator] = None
         self.talent_demand_calculator: Optional[TalentDemandCalculator] = None
         self.role_performance_calculator: Optional[RolePerformanceCalculator] = None
         self.tag_validation_checker: Optional[TagValidationChecker] = None
         self.talent_affinity_calculator: Optional[TalentAffinityCalculator] = None
         self.availability_checker: Optional[TalentAvailabilityChecker] = None
+        self.tour_feasibility_service: Optional[TourFeasibilityService] = None
+        self.tour_sponsorship_service: Optional[TourSponsorshipPreviewService] = None
+        self.upfront_tour_calculator: Optional[UpfrontTourCostCalculator] = None
         self.shoot_results_calculator: Optional[ShootResultsCalculator] = None
         self.scene_quality_calculator: Optional[SceneQualityCalculator] = None
         self.post_production_calculator: Optional[PostProductionCalculator] = None
@@ -95,24 +105,31 @@ class ServiceContainer:
         # Level 0: No dependencies on other services
         market_resolver = MarketGroupResolver(self.data_manager.market_data)
         self.role_performance_calculator = RolePerformanceCalculator()
+        self.talent_location_service = TalentLocationService(session_factory)
+        self.upfront_tour_calculator = UpfrontTourCostCalculator(self.data_manager)
 
         # Level 1: Depends on Level 0 services
         self.market_service = MarketService(market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.talent_affinity_calculator = TalentAffinityCalculator(self.scene_calc_config)
         self.availability_checker = TalentAvailabilityChecker(self.data_manager, self.hiring_config)
+        self.tour_feasibility_service = TourFeasibilityService(self.data_manager, self.hiring_config)
         self.query_service = GameQueryService(session_factory)
         self.tag_query_service = TagQueryService(self.data_manager)
-        self.talent_demand_calculator = TalentDemandCalculator(session_factory, self.data_manager, self.query_service, self.hiring_config, self.availability_checker, self.role_performance_calculator)
         self.bloc_cost_calculator = BlocCostCalculator(self.data_manager)
         self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_calculator)
-        self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.talent_demand_calculator, self.query_service, self.hiring_config, self.availability_checker, self.shoot_results_calculator)
         self.player_settings_service = PlayerSettingsService(session_factory, self.signals)
         self.go_to_list_service = GoToListService(session_factory, self.signals)
         self.email_service = EmailService(session_factory, self.signals, game_state)
         self.tag_validation_checker = TagValidationChecker(self.data_manager)
         
         # Level 2: Depends on Level 1 services
-        self.casting_command_service = CastingCommandService(session_factory, self.signals, self.query_service, self.talent_demand_calculator)
+        self.talent_demand_calculator = TalentDemandCalculator(
+            self.data_manager, self.hiring_config, self.availability_checker,
+            self.role_performance_calculator
+        )
+        self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.query_service, self.talent_location_service,
+            self.talent_demand_calculator, self.hiring_config, self.availability_checker, self.shoot_results_calculator
+        )
         self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
@@ -123,15 +140,27 @@ class ServiceContainer:
             self.scene_quality_calculator, self.post_production_calculator
         )
         self.scene_event_trigger_service = SceneEventTriggerService(self.data_manager)
+        self.tour_sponsorship_service = TourSponsorshipPreviewService(self.data_manager, self.query_service,
+            self.talent_query_service, self.tour_feasibility_service, self.upfront_tour_calculator
+        )
 
         # Level 3: Depends on Level 2 services
+        self.casting_command_service = CastingCommandService(session_factory, self.signals, self.query_service,
+            self.talent_location_service, self.talent_demand_calculator
+        )
+        self.tour_command_service = TourCommandService(
+            session_factory, self.signals, self.casting_command_service, self.query_service,
+            self.talent_query_service, self.talent_location_service, self.talent_demand_calculator
+        )
         self.scene_command_service = SceneCommandService(
             session_factory, self.signals, self.data_manager, self.query_service, self.talent_command_service,
             self.market_service, self.email_service, self.scene_processing_service, self.revenue_calculator,
             self.scene_event_trigger_service, self.bloc_cost_calculator
         )
         self.scene_event_command_service = SceneEventCommandService(session_factory, self.data_manager, self.query_service)
-        self.time_service = TimeService(session_factory, self.signals, self.scene_command_service, self.talent_command_service, self.market_service)
+        self.time_service = TimeService(
+            session_factory, self.signals, self.scene_command_service, self.talent_command_service, self.market_service, self.tour_command_service
+        )
 
         # --- Populate Controller ---
         self._populate_controller(controller)
@@ -163,6 +192,9 @@ class ServiceContainer:
         controller.casting_command_service = self.casting_command_service
         controller.market_service = self.market_service
         controller.talent_demand_calculator = self.talent_demand_calculator
+        controller.tour_command_service = self.tour_command_service
+        controller.talent_location_service = self.talent_location_service
+        controller.tour_sponsorship_service = self.tour_sponsorship_service
         controller.bloc_cost_calculator = self.bloc_cost_calculator
         controller.talent_query_service = self.talent_query_service
         controller.time_service = self.time_service
@@ -170,7 +202,6 @@ class ServiceContainer:
         controller.scene_event_command_service = self.scene_event_command_service
         controller.player_settings_service = self.player_settings_service
         controller.email_service = self.email_service
-        # Inject other services as needed by the controller
     
     def _clear_controller_services(self, controller: 'GameController'):
         """Sets all service references on the controller to None."""
@@ -180,8 +211,11 @@ class ServiceContainer:
         controller.talent_command_service = None
         controller.scene_command_service = None
         controller.casting_command_service = None
+        controller.tour_command_service = None
+        controller.tour_sponsorship_service = None
         controller.market_service = None
         controller.talent_demand_calculator = None
+        controller.talent_location_service = None
         controller.bloc_cost_calculator = None
         controller.talent_query_service = None
         controller.time_service = None
@@ -201,6 +235,11 @@ class ServiceContainer:
         self.talent_demand_calculator = None
         self.bloc_cost_calculator
         self.talent_query_service = None
+        self.tour_command_service = None
+        self.tour_feasibility_service = None
+        self.tour_sponsorship_service = None
+        self.upfront_tour_calculator = None
+        self.talent_location_service = None
         self.role_performance_calculator = None
         self.tag_validation_checker = None
         self.talent_affinity_calculator = None

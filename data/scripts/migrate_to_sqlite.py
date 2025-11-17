@@ -27,7 +27,7 @@ def create_tables(cursor):
     )
     """)
 
-    # New tables for nationality-based generation
+    # Tables for nationality-based generation
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS nationalities (
         name TEXT PRIMARY KEY,
@@ -80,7 +80,7 @@ def create_tables(cursor):
     )
     """)
 
-    # NEW: Table for travel costs between regions
+    # Table for travel costs between regions
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS region_travel_costs (
         origin_region TEXT NOT NULL,
@@ -216,6 +216,17 @@ def create_tables(cursor):
         stat_modifiers_json TEXT,
         max_scene_partners INTEGER NOT NULL DEFAULT 10,
         concurrency_limits_json TEXT
+    )
+    """)
+
+    # accommodation_tiers
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS accommodation_tiers (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        cost_per_week INTEGER NOT NULL,
+        pickiness_requirement INTEGER NOT NULL,
+        description TEXT
     )
     """)
     
@@ -538,6 +549,25 @@ def migrate_talent_archetypes(cursor, data):
         count += 1
     print(f"{count} talent archetype entries migrated.")
 
+def migrate_accommodation_tiers(cursor, data):
+    """Migrates accommodation tiers from JSON to the database."""
+    print("Migrating accommodation_tiers.json...")
+    count = 0
+    for tier in data:
+        cursor.execute("""
+        INSERT OR REPLACE INTO accommodation_tiers (
+            id, name, cost_per_week, pickiness_requirement, description
+        ) VALUES (?, ?, ?, ?, ?)
+        """, (
+            tier.get('id'),
+            tier.get('name'),
+            tier.get('cost_per_week'),
+            tier.get('pickiness_requirement'),
+            tier.get('description')
+        ))
+        count += 1
+    print(f"{count} accommodation tier entries migrated.")
+
 def main():
     # Get the project root directory (parent of scripts/)
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -585,6 +615,7 @@ def main():
         migrate_on_set_policies(cursor, load_json("scene_settings/on_set_policies.json"))
         migrate_scene_events(cursor, load_json("events/scene_events.json"))
         migrate_talent_archetypes(cursor, load_json("talent_generation/talent_archetypes.json"))
+        migrate_accommodation_tiers(cursor, load_json("accommodation_tiers.json"))
 
     except FileNotFoundError as e:
         print(f"ERROR: Missing data file '{e.filename}'. Cannot continue migration.")

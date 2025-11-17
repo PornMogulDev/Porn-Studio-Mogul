@@ -313,5 +313,9 @@ class ThemeManager:
                 background-color: {theme.color_bad};
                 color: {theme.accent_text}; /* Ensure text is readable on colored background */
             }}
+            /* Add a distinct style for when the 'on_tour' property is set */
+            QLabel#scheduleWeekLabel[on_tour="true"] {{
+                background-color: {theme.accent};
+            }}
                 """
         return qss

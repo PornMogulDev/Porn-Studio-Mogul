@@ -5,24 +5,26 @@ from sqlalchemy import func
 
 from core.service_container import ServiceContainer
 from core.game_signals import GameSignals
-from core.interfaces import IGameController
 from data.game_state import *
 from data.save_manager import SaveManager
 from core.talent_generator import TalentGenerator
 from data.data_manager import DataManager
 from data.settings_manager import SettingsManager
 from ui.theme_manager import Theme, ThemeManager
-from database.db_models import *
+from database.db_models import TalentDB, SceneDB
 
 from services.query.tag_query_service import TagQueryService
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
+from services.query.talent_location_service import TalentLocationService
 from services.calculation.tag_validation_checker import TagValidationChecker
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.calculation.bloc_cost_calculator import BlocCostCalculator
+from services.tour_sponsorship_preview_service import TourSponsorshipPreviewService
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_command_service import SceneCommandService
 from services.command.casting_command_service import CastingCommandService
+from services.command.tour_command_service import TourCommandService
 from services.command.scene_event_command_service import SceneEventCommandService
 from services.market_service import MarketService
 from services.time_service import TimeService
@@ -30,7 +32,7 @@ from services.command.go_to_list_service import GoToListService
 from services.game_session_service import GameSessionService
 from services.player_settings_service import PlayerSettingsService
 from services.command.email_service import EmailService
-from services.models.results import EventAction
+from services.models.results import EventAction, TourSponsorshipPreviewResult
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +71,9 @@ class GameController(QObject):
         self.scene_command_service: Optional[SceneCommandService] = None
         self.casting_command_service: Optional[CastingCommandService] = None
         self.market_service: Optional[MarketService] = None
+        self.talent_location_service: Optional[TalentLocationService] = None
+        self.tour_command_service: Optional[TourCommandService] = None
+        self.tour_sponsorship_service: Optional[TourSponsorshipPreviewService] = None
         self.talent_query_service: Optional[TalentQueryService] = None
         self.talent_demand_calculator: Optional[TalentDemandCalculator] = None
         self.bloc_cost_calculator: Optional[BlocCostCalculator] = None
@@ -118,6 +123,10 @@ class GameController(QObject):
         if not self.query_service: return None
         return self.query_service.get_talent_by_id(talent_id)
     
+    def get_multiple_talents_by_ids(self, talent_ids: List[int]) -> List[Talent]:
+        if not self.query_service: return []
+        return self.query_service.get_multiple_talents_by_ids(talent_ids)
+    
     def get_filtered_talents(self, filters: dict) -> List[Talent]:
         if not self.query_service: return []
         logger.debug(f"Filtering talents with: {filters}")
@@ -135,9 +144,13 @@ class GameController(QObject):
         if not self.query_service: return None
         return self.query_service.get_bloc_by_id(bloc_id)
 
-    def get_scene_for_planner(self, scene_id: int) -> Optional[Scene]:
+    def get_scene_by_id(self, scene_id: int) -> Optional[Scene]:
         if not self.query_service: return None
-        return self.query_service.get_scene_for_planner(scene_id)
+        return self.query_service.get_scene_by_id(scene_id)
+    
+    def get_multiple_scenes_by_ids(self, scene_ids: List[int]) -> List[Scene]:
+        if not self.query_service: return []
+        return self.query_service.get_multiple_scenes_by_ids(scene_ids)
         
     def get_shot_scenes(self) -> List[Scene]:
         if not self.query_service: return []
@@ -168,7 +181,14 @@ class GameController(QObject):
     def get_talent_bookings_for_year(self, talent_id: int, year: int) -> Dict[int, List[SceneDB]]:
         if not self.talent_query_service: return {}
         return self.talent_query_service.get_talent_bookings_for_year(talent_id, year)
+    
+    def get_talent_tours_for_year(self, talent_id: int, year: int) -> List[Tour]:
+        if not self.talent_query_service: return []
+        return self.talent_query_service.get_talent_tours_for_year(talent_id, year)
 
+    def get_effective_locations_for_multiple_talents(self, talent_ids: List[int], week: int, year: int) -> Dict[int, str]:
+        if not self.talent_location_service: return {}
+        return self.talent_location_service.get_effective_locations_for_multiple_talents(talent_ids, week, year)
     # --- Go-To List Data Access (Proxy Methods) ---
     def get_go_to_list_talents(self) -> List[Talent]:
         if not self.query_service: return []
@@ -262,7 +282,8 @@ class GameController(QObject):
         Calculates the cost authoritatively and creates a shooting bloc.
         This version does NOT accept a 'cost' parameter from the UI.
         """
-        return self.scene_command_service.create_shooting_bloc(week, year, num_scenes, settings, name, policies)
+        studio_location = self.game_state.studio_location
+        return self.scene_command_service.create_shooting_bloc(week, year, num_scenes, settings, name, policies, studio_location)
     
     def calculate_shooting_bloc_cost(self, num_scenes: int, settings: Dict, policies: List[str]) -> int:
         """Proxy method for the UI to get a cost estimate from the authoritative service."""
@@ -302,25 +323,55 @@ class GameController(QObject):
         )
     
     def calculate_demands_for_multiple_talents(self, talent_ids: List[int], scene_id: int, vp_id: int) -> Dict[int, int]:
-        if not self.talent_demand_calculator: return {}
-        return self.talent_demand_calculator.calculate_demands_for_multiple_talents(
-            talent_ids, scene_id, vp_id,
-            self.game_state.studio_location, 
-            self.game_state.week, self.game_state.year
+        """Orchestrates the calculation of hiring costs for multiple talents for a single role."""
+        if not self.talent_demand_calculator or not self.query_service or not self.talent_location_service:
+            return {talent_id: 0 for talent_id in talent_ids}
+
+        # --- Orchestration Step 1: Fetch all required data upfront ---
+        scene = self.query_service.get_scene_by_id(scene_id)
+        if not scene: return {talent_id: 0 for talent_id in talent_ids}
+        
+        talents = self.query_service.get_multiple_talents_by_ids(talent_ids)
+        
+        # Get effective locations for all talents on the scene's date in one call
+        talent_locations = self.talent_location_service.get_effective_locations_for_multiple_talents(
+            talent_ids, scene.scheduled_week, scene.scheduled_year
         )
+
+        # --- Orchestration Step 2: Call the pure calculator for each talent ---
+        demands = {}
+        for talent in talents:
+            effective_location = talent_locations.get(talent.id, talent.base_location)
+            cost_breakdown = self.talent_demand_calculator.calculate_total_demand(
+                talent, scene, vp_id, effective_location, self.game_state.week, self.game_state.year
+            )
+            demands[talent.id] = cost_breakdown['total_cost']
+        return demands
 
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int):
         self.casting_command_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
 
     def cast_talent_for_multiple_roles(self, talent_id: int, roles: List[Dict]):
         """Casts a single talent into multiple roles across different scenes."""
-
         # Server-side validation as a safeguard against client-side errors or other entry points
         scene_ids = [role['scene_id'] for role in roles]
         if len(scene_ids) != len(set(scene_ids)):
             self.signals.notification_posted.emit("Casting failed: Cannot assign a talent to multiple roles in the same scene.")
             return
         self.casting_command_service.cast_talent_for_multiple_roles(talent_id, roles)
+
+    def get_tour_sponsorship_preview(self, talent_id: int, roles: List[Dict]) -> TourSponsorshipPreviewResult:
+        """Gets all necessary data for the tour sponsorship negotiation dialog."""
+        if not self.tour_sponsorship_service:
+            return TourSponsorshipPreviewResult(is_feasible=False, refusal_reason="Tour calculation service not available.")
+        studio_location = self.game_state.studio_location
+        return self.tour_sponsorship_service.generate_preview(talent_id, roles, studio_location)
+    
+    def sponsor_tour(self, talent_id: int, roles_to_cast: list, tour_details: dict, total_upfront_cost: int):
+        """Player-initiated action that sponsors a tour AND casts the talent in a set of roles."""
+        if not self.tour_command_service: return
+        # Delegate to the command service, passing the authoritative cost from the UI.
+        self.tour_command_service.sponsor_tour(talent_id, roles_to_cast, tour_details, total_upfront_cost)
 
     def get_thematic_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
         return self.tag_query_service.get_tags_for_planner('Thematic')

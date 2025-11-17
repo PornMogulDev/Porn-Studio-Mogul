@@ -1,13 +1,13 @@
 import logging
-from typing import TYPE_CHECKING
-from collections import defaultdict
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from typing import TYPE_CHECKING, Dict
+from dataclasses import asdict
+from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal
 from PyQt6 import sip
 
 from data.game_state import Talent
 from core.interfaces import IGameController
 from ui.windows.talent_profile_window import TalentProfileWindow
-from ui.view_models import ScheduleStatus, TalentScheduleWeekViewModel
+from ui.view_models import ScheduleStatus, TalentScheduleWeekViewModel, TourViewModel
 from utils.formatters import get_fuzzed_skill_range, format_skill_range, format_fatigue
 from ui.builders.role_details_builder import prepare_role_details_data, format_role_details_html
 from ui.builders.preferences_view_model_builder import build_preferences_view_model
@@ -19,9 +19,8 @@ logger = logging.getLogger(__name__)
 
 class TalentProfilePresenter(QObject):
     """
-    Handles the logic for the TalentProfileDialog.
+    Handles the logic for the TalentProfileWindow.
     """
-    # Signal to request opening another talent's profile.
     open_talent_profile_requested = pyqtSignal(int)
 
     def __init__(self, controller: IGameController, view: TalentProfileWindow, uimanager: 'UIManager', parent=None):
@@ -40,23 +39,31 @@ class TalentProfilePresenter(QObject):
         self._connect_signals()
 
         # Pass configuration data to the view widgets that need it
-        # The config has string keys ("2", "3"), but the widget needs integer keys.
-        # The presenter is responsible for cleaning up the data for the view.
         raw_discount_tiers = self.controller.data_manager.game_config.get("hiring_bulk_discount_tiers", {})
         cleaned_discount_tiers = {int(k): v for k, v in raw_discount_tiers.items()}
         self.view.hiring_widget.set_discount_tiers(cleaned_discount_tiers)
 
     def _connect_signals(self):
         """Connect signals from the view to slots in the presenter."""
-        # Connect signals from the new panel widgets
+        # Connect to the view's high-level signal for tour confirmation
+        self.view.tour_sponsorship_confirmed.connect(self._on_tour_sponsorship_confirmed)
+
+        # Connect signals from the panel widgets
         self.view.hiring_widget.hire_confirmed.connect(self._on_hire_confirmed)
-        self.view.chemistry_widget.talent_profile_requested.connect(self.open_talent_profile_requested)
+        self.view.chemistry_widget.talent_profile_requested.connect(self.uimanager.show_talent_profile)
         self.view.hiring_widget.open_scene_dialog_requested.connect(self.uimanager.show_scene_planner)
         self.view.history_widget.open_scene_dialog_requested.connect(self._on_shot_scene_details_requested)
         
         # Connect to global signals to stay up-to-date
-        self.controller.signals.scenes_changed.connect(self.refresh_available_roles)
+        self.controller.signals.scenes_changed.connect(self._refresh_current_talent_data_on_change)
+        self.controller.signals.roster_changed.connect(self._refresh_current_talent_data_on_change)
         self.controller.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
+
+    def _refresh_current_talent_data_on_change(self):
+        """A single slot to reload all relevant data for the current talent when game state changes."""
+        if self.current_talent_id:
+            self._load_and_display_schedule()
+            self.refresh_available_roles()
 
     @pyqtSlot(int)
     def _on_shot_scene_details_requested(self, scene_id: int):
@@ -64,7 +71,7 @@ class TalentProfilePresenter(QObject):
         Slot to handle a request to open a scene's details.
         It fetches the full scene object before calling the UIManager.
         """
-        if scene := self.controller.get_scene_for_planner(scene_id):
+        if scene := self.controller.get_scene_by_id(scene_id):
             self.uimanager.show_shot_scene_details(scene.id)
         else:
             logger.warning(f"Could not find scene with ID {scene_id} to show details.")
@@ -72,19 +79,14 @@ class TalentProfilePresenter(QObject):
     def open_talent(self, talent: Talent):
         """Opens a talent in the window, creating a new tab if necessary."""
         if talent.id in self.open_talents:
-            # If talent is already open, just switch to it.
-            # The switch_to_talent method has a guard to prevent redundant reloads,
-            # but it will ensure the view is updated if needed.
             self.switch_to_talent(talent.id)
         else:
             self.open_talents[talent.id] = talent
             self.view.add_talent_tab(talent.id, talent.alias)
-            # Explicitly call switch_to_talent to ensure the first-time load occurs.
             self.switch_to_talent(talent.id)
 
     def switch_to_talent(self, talent_id: int):
         """Switches the view to display data for the given talent_id."""
-        # Guard against redundant reloads if the tab is already active
         if self.current_talent_id == talent_id:
             return
         if talent_id not in self.open_talents:
@@ -92,7 +94,6 @@ class TalentProfilePresenter(QObject):
 
         self.current_talent_id = talent_id
         self.view.set_active_talent_tab(talent_id)
-        # The view is already showing the correct tab, we just need to load data.
         self._load_data_for_current_talent()
 
     def close_talent(self, talent_id: int):
@@ -102,17 +103,12 @@ class TalentProfilePresenter(QObject):
 
         del self.open_talents[talent_id]
         
-        # When the view removes the tab, if it was the active one,
-        # the QTabBar will automatically select a new tab and emit currentChanged.
-        # This will naturally trigger our switch_to_talent logic.
         self.view.remove_talent_tab(talent_id)
  
         if not self.open_talents:
             self.current_talent_id = None
             self.view.close()
         elif self.current_talent_id == talent_id:
-            # The closed tab was the active one. Clear the current_talent_id.
-            # The currentChanged signal from the tab bar will set the new one.
             self.current_talent_id = None
 
     def _load_data_for_current_talent(self):
@@ -121,16 +117,10 @@ class TalentProfilePresenter(QObject):
             return
         talent = self.open_talents[self.current_talent_id]
 
-        # Details & Skills
         self._load_and_display_details(talent)
-        
-        # Preferences & Requirements
         self._load_and_display_preferences(talent)
-
-        # Schedule
-        self._load_and_display_schedule(talent)
+        self._load_and_display_schedule()
         
-        # Scene History & Chemistry
         history = self.controller.get_scene_history_for_talent(talent.id)
         self.view.history_widget.display_scene_history(history, talent.id)
         
@@ -146,12 +136,9 @@ class TalentProfilePresenter(QObject):
                 })
 
         self.view.chemistry_widget.display_chemistry(chemistry_view_model)
-
-        # Hiring Tab
         self.refresh_available_roles()
 
     def _load_and_display_details(self, talent: Talent):
-        # Create a more descriptive ethnicity string
         ethnicity_str = talent.ethnicity
         if talent.primary_ethnicity and talent.ethnicity != talent.primary_ethnicity:
             ethnicity_str = f"{talent.ethnicity}"
@@ -175,88 +162,109 @@ class TalentProfilePresenter(QObject):
         })
         self.view.details_widget.populate_physical_label(talent)
 
-    def _load_and_display_schedule(self, talent: Talent):
+    def _load_and_display_schedule(self):
         """Fetches, processes, and displays the talent's yearly schedule."""
+        if not self.current_talent_id: return
+        talent = self.open_talents[self.current_talent_id]
         current_year = self.controller.game_state.year
         
-        # 1. Fetch data via the controller and query service
         bookings_by_week = self.controller.get_talent_bookings_for_year(talent.id, current_year)
+        tours_this_year = self.controller.get_talent_tours_for_year(talent.id, current_year)
 
         schedule_view_models = []
+        tour_map = {}
+        for tour in tours_this_year:
+            for i in range(tour.duration_weeks):
+                week_num = tour.start_week + i
+                year_offset = (week_num - 1) // 52
+                if tour.start_year + year_offset == current_year:
+                    actual_week = (week_num - 1) % 52 + 1
+                    tour_map[actual_week] = tour
 
-        # 2. Define business logic thresholds (could be moved to config later)
-        # A high ambition talent is willing to work more scenes per week
         ambition_threshold = 7
         base_max_scenes = 2
         max_scenes_per_week = base_max_scenes + 1 if talent.ambition >= ambition_threshold else base_max_scenes
-        fatigue_resting_threshold = 75 # At this level, talent will refuse new work to rest.
+        fatigue_resting_threshold = 75
 
-        # 3. Process each week of the year
         for week_num in range(1, 53):
             bookings_this_week = bookings_by_week.get(week_num, [])
+            tour_this_week = tour_map.get(week_num)
             
-            # Determine status and tooltip
             status_enum = ScheduleStatus.AVAILABLE
             tooltip_text = "Available for booking."
-
+            tour_vm = None
             scene_titles = [scene.title for scene in bookings_this_week]
 
-            # Logic for unavailability
-            if talent.fatigue >= fatigue_resting_threshold and not bookings_this_week:
+            if tour_this_week:
+                status_enum = ScheduleStatus.ON_TOUR
+                tooltip_text = f"On Tour in {tour_this_week.destination_location}"
+                tour_vm = TourViewModel.from_dataclass(tour_this_week)
+
+            if talent.fatigue >= fatigue_resting_threshold and not bookings_this_week and not tour_this_week:
                 status_enum = ScheduleStatus.UNAVAILABLE
                 tooltip_text = "Resting (High Fatigue)"
             elif len(bookings_this_week) >= max_scenes_per_week:
                 status_enum = ScheduleStatus.UNAVAILABLE
                 tooltip_text = f"Fully Booked:\n- " + "\n- ".join(scene_titles)
-            # Logic for partial booking
             elif bookings_this_week:
                 status_enum = ScheduleStatus.PARTIALLY_BOOKED
                 tooltip_text = f"Booked for:\n- " + "\n- ".join(scene_titles)
 
-            # Convert enum to the string the QSS expects
             status_str = status_enum.name.lower()
-
-            # Create the view model
             vm = TalentScheduleWeekViewModel(
-                week_number=week_num,
-                status_str=status_str,
-                tooltip=tooltip_text
+                week_number=week_num, status_str=status_str,
+                tooltip=tooltip_text, tour=tour_vm
             )
             schedule_view_models.append(vm)
 
-        # 4. Update the view
         self.view.schedule_widget.display_schedule(current_year, schedule_view_models)
 
     @pyqtSlot()
     def refresh_available_roles(self):
         """Fetches and updates the list of available roles for the current talent."""
         if not self.current_talent_id: return
-        
-        if not self.view or sip.isdeleted(self.view):
-            return
+        if not self.view or sip.isdeleted(self.view): return
             
         available_roles = self.controller.find_available_roles_for_talent(self.current_talent_id)
         
-        # Enrich the data before sending it to the view
         for role_data in available_roles:
-            scene_id = role_data['scene_id']
-            vp_id = role_data['virtual_performer_id']
-            
-            # Use the new builder directly
-            details_dict = prepare_role_details_data(scene_id, vp_id, self.controller)
+            details_dict = prepare_role_details_data(role_data['scene_id'], role_data['virtual_performer_id'], self.controller)
             tooltip_html = format_role_details_html(details_dict)
             role_data['tooltip_html'] = tooltip_html
             
+        talent = self.open_talents[self.current_talent_id]
+        studio_location = self.controller.game_state.studio_location
         try:
-            self.view.hiring_widget.update_available_roles(available_roles)
+            self.view.hiring_widget.update_available_roles(available_roles, talent.base_location, studio_location)
         except RuntimeError:
             pass
+
+    def get_tour_sponsorship_preview(self, roles_for_tour: list) -> Dict:
+        """
+        Calls the controller to get a tour preview DTO and converts it to a dict
+        for consumption by the view's dialog.
+        """
+        if not self.current_talent_id:
+            return {'is_feasible': False, 'refusal_reason': 'No active talent.'}
+        
+        # 1. Call controller, get the DTO back
+        result_dto = self.controller.get_tour_sponsorship_preview(self.current_talent_id, roles_for_tour)
+        
+        # 2. Convert DTO to a plain dict for the view. The view shouldn't know about DTOs.
+        return asdict(result_dto)
+
+    @pyqtSlot(int, list, dict, int)
+    def _on_tour_sponsorship_confirmed(self, talent_id: int, roles_to_cast: list, tour_details: dict, total_cost: int):
+        """
+        Handles the final command to sponsor a tour after the view has confirmed it.
+        """
+        # The view has already done all the UI work. This is just the final, clean call.
+        self.controller.sponsor_tour(talent_id, roles_to_cast, tour_details, total_cost)
 
     @pyqtSlot(list)
     def _on_hire_confirmed(self, roles_to_cast: list):
         """Handles the logic when the user confirms a hiring decision."""
         if not self.current_talent_id: return
-        # The view has already done the basic validation. We can proceed.
         self.controller.cast_talent_for_multiple_roles(self.current_talent_id, roles_to_cast)
 
     @pyqtSlot(str)
@@ -266,15 +274,13 @@ class TalentProfilePresenter(QObject):
                 talent = self.open_talents[self.current_talent_id]
                 self.view.details_widget.populate_physical_label(talent)
         elif key == "theme":
-             # Update widgets with new theme colors if the theme changes
             current_theme = self.controller.theme_manager.get_theme(self.controller.settings_manager.get_setting("theme", "light"))
             self.view.preferences_widget.set_theme_colors(danger_color=current_theme.danger)
-            self._load_data_for_current_talent() # Reload chemistry to re-apply styles
+            self._load_data_for_current_talent()
             
     def _load_and_display_preferences(self, talent: Talent):
         """Processes and summarizes talent preferences for UI display."""
         tag_definitions = self.controller.data_manager.tag_definitions
-       
         policy_definitions = self.controller.data_manager.on_set_policies_data
 
         preferences_data, limits, required_policies, refused_policies = build_preferences_view_model(

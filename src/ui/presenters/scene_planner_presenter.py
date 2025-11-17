@@ -19,7 +19,7 @@ class ScenePlannerPresenter(QObject):
         super().__init__(view) # Parent the presenter to the view for lifecycle management
         self.controller = controller
         self.view = view
-        original_scene = self.controller.get_scene_for_planner(scene_id)
+        original_scene = self.controller.get_scene_by_id(scene_id)
         if not original_scene: raise ValueError(f"Scene with ID {scene_id} not found.")
             
         self.state_editor = SceneStateEditor(original_scene, self.controller.data_manager)
@@ -465,7 +465,7 @@ class ScenePlannerPresenter(QObject):
 
                 self.controller.update_scene_full(self.state_editor.finalize_for_saving())
                 # After saving, temp IDs become permanent. We must refresh our local state.
-                fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
+                fresh_scene = self.controller.get_scene_by_id(self.working_scene.id)
                 if fresh_scene:
                     self.state_editor.reset_with_scene(fresh_scene)
                     self._refresh_full_view()
@@ -492,7 +492,7 @@ class ScenePlannerPresenter(QObject):
             return
             
         # Re-fetch the scene data from the authoritative source
-        fresh_scene = self.controller.get_scene_for_planner(self.working_scene.id)
+        fresh_scene = self.controller.get_scene_by_id(self.working_scene.id)
 
         if fresh_scene == self.state_editor.original_scene:
             return

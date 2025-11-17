@@ -1,14 +1,14 @@
 from collections import defaultdict
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QStackedWidget, QLabel, QListWidget,
-    QPushButton, QMenu, QMessageBox, QListWidgetItem
+    QPushButton, QMenu, QMessageBox, QListWidgetItem, QHBoxLayout
 )
-from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, pyqtSignal
 
 class HiringWidget(QWidget):
     """A widget for assigning a talent to available roles."""
     hire_confirmed = pyqtSignal(list)  # roles_to_cast
+    sponsor_tour_requested = pyqtSignal(list) # roles_for_tour
     open_scene_dialog_requested = pyqtSignal(int)  # scene_id
 
     def __init__(self, parent=None):
@@ -16,6 +16,8 @@ class HiringWidget(QWidget):
         self._setup_ui()
         self._connect_signals()
         self._bulk_discount_tiers = {}
+        self._current_talent_base_location = ""
+        self._current_studio_location = ""
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -40,9 +42,15 @@ class HiringWidget(QWidget):
         self.roles_stack.addWidget(roles_list_widget)
         self.roles_stack.addWidget(roles_no_scenes_widget)
         contract_layout.addWidget(self.roles_stack)
-        
+
+        button_layout = QHBoxLayout()
         self.hire_button = QPushButton("Assign Talent to Selected Role(s)")
-        contract_layout.addWidget(self.hire_button)
+        self.sponsor_tour_button = QPushButton("Sponsor Tour...")
+        self.sponsor_tour_button.setToolTip("Select multiple non-local (for the talent) roles within a 4-week period to enable.")
+        button_layout.addWidget(self.hire_button)
+        button_layout.addWidget(self.sponsor_tour_button)
+        self.sponsor_tour_button.setEnabled(False) # Disabled by default
+        contract_layout.addLayout(button_layout)
 
         self.total_cost_label = QLabel("Select role(s) to see total cost.")
         self.total_cost_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -53,12 +61,16 @@ class HiringWidget(QWidget):
 
     def _connect_signals(self):
         self.available_roles_list.itemSelectionChanged.connect(self._update_total_cost_preview)
+        self.available_roles_list.itemSelectionChanged.connect(self._update_ui_state)
         self.available_roles_list.itemDoubleClicked.connect(self._on_role_double_clicked)
         self.available_roles_list.customContextMenuRequested.connect(self._show_role_context_menu)
         self.hire_button.clicked.connect(self._confirm_hire)
+        self.sponsor_tour_button.clicked.connect(self._on_sponsor_tour_clicked)
 
-    def update_available_roles(self, available_roles: list):
+    def update_available_roles(self, available_roles: list, talent_base_location: str, studio_location: str):
         self.available_roles_list.clear()
+        self._current_talent_base_location = talent_base_location
+        self._current_studio_location = studio_location
 
         if not available_roles:
             self.roles_stack.setCurrentIndex(1)
@@ -97,16 +109,52 @@ class HiringWidget(QWidget):
             self.available_roles_list.addItem(item)
  
         # Trigger a recalculation in case a role was removed that was part of the selection
-        self._update_total_cost_preview()
+        self._update_ui_state()
 
     def set_discount_tiers(self, tiers: dict):
         """Receives the discount configuration from the presenter."""
         self._bulk_discount_tiers = tiers
 
+    def _update_ui_state(self):
+        """Calculates cost preview and updates the state of UI elements like buttons."""
+        self._update_total_cost_preview()
+        self._update_sponsor_tour_button_state()
+
+    def _update_sponsor_tour_button_state(self):
+        """Checks if the current selection is eligible for a tour sponsorship."""
+        selected_items = self.available_roles_list.selectedItems()
+
+        # Rule 1: Must have at least 2 roles selected
+        if len(selected_items) < 2:
+            self.sponsor_tour_button.setEnabled(False)
+            return
+
+        # Rule 2: Talent must not be local to the studio
+        if self._current_talent_base_location == self._current_studio_location:
+             self.sponsor_tour_button.setEnabled(False)
+             return
+
+        roles_data = [item.data(Qt.ItemDataRole.UserRole) for item in selected_items]
+
+        # Rule 3: The roles must span a period of 1 to 4 weeks.
+        # We can use a simple week-of-all-time calculation for comparison.
+        role_dates = [(r['scheduled_year'] * 52 + r['scheduled_week']) for r in roles_data]
+        min_date, max_date = min(role_dates), max(role_dates)
+        duration_weeks = (max_date - min_date) + 1
+        
+        if not (1 <= duration_weeks <= 4):
+            self.sponsor_tour_button.setEnabled(False)
+            return
+
+        # All rules passed
+        self.sponsor_tour_button.setEnabled(True)
+
     def _update_total_cost_preview(self):
         """Calculates and displays the total cost preview for selected roles."""
         selected_items = self.available_roles_list.selectedItems()
+
         if not selected_items:
+            self.hire_button.setEnabled(False)
             self.total_cost_label.setText("Select role(s) to see total cost.")
             return
 
@@ -135,11 +183,24 @@ class HiringWidget(QWidget):
             
         grand_total = total_upfront_cost + total_deferred_cost
         
+        self.hire_button.setEnabled(True)
         self.total_cost_label.setText(f"<b>Total:</b> ${int(grand_total):,} (Upfront: ${int(total_upfront_cost):,}, On Shoot: ${int(total_deferred_cost):,})")
 
     def _on_role_double_clicked(self, item: QListWidgetItem):
         if role_data := item.data(Qt.ItemDataRole.UserRole):
             self.open_scene_dialog_requested.emit(role_data['scene_id'])
+
+    def _on_sponsor_tour_clicked(self):
+        selected_items = self.available_roles_list.selectedItems()
+        if not selected_items:
+            return
+
+        roles_for_tour = [{
+            'scene_id': item.data(Qt.ItemDataRole.UserRole)['scene_id'],
+            'virtual_performer_id': item.data(Qt.ItemDataRole.UserRole)['virtual_performer_id']
+        } for item in selected_items]
+
+        self.sponsor_tour_requested.emit(roles_for_tour)
 
     def _show_role_context_menu(self, pos):
         item = self.available_roles_list.itemAt(pos)

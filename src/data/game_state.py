@@ -13,6 +13,19 @@ class MarketGroupState:
 @dataclass
 class EmailMessage:
     id: int; subject: str; body: str; week: int; year: int; is_read: bool = False
+    
+@dataclass_json
+@dataclass
+class Tour:
+    id: int
+    talent_id: int
+    status: str
+    destination_location: str
+    start_week: int
+    start_year: int
+    duration_weeks: int
+    sponsor_type: str
+    accommodation_tier_id: Optional[str] = None
 
 @dataclass_json
 @dataclass
@@ -43,6 +56,7 @@ class Talent: #type: ignore
     is_on_tour: bool = False
     tour_end_week: int = 0
     tour_end_year: int = 0
+    tours: List[Tour] = field(default_factory=list)
 
 @dataclass_json
 @dataclass
@@ -82,7 +96,7 @@ class ScenePerformerContribution:
 @dataclass
 class Scene:
     id: int; title: str; status: str; focus_target: str
-    scheduled_week: int; scheduled_year: int
+    scheduled_week: int; scheduled_year: int; location: str
     bloc_id: Optional[int] = None
     dom_sub_dynamic_level: int = 0
     protagonist_vp_ids: List[int] = field(default_factory=list)
@@ -173,6 +187,7 @@ class Scene:
 @dataclass
 class ShootingBloc:
     id: int
+    location: str
     name: str
     scheduled_week: int
     scheduled_year: int
