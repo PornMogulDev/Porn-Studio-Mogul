@@ -40,7 +40,10 @@ class ScheduleWidget(QWidget):
 
         num_cols = 13 # 13 weeks per row, 4 rows total
         for i, vm in enumerate(week_data):
-            label = QLabel(str(vm.week_number))
+            is_on_tour = vm.tour and vm.tour.status in ['planned', 'active']
+            label_text = f"✈ {vm.week_number}" if is_on_tour else str(vm.week_number)
+
+            label = QLabel(label_text)
             label.setObjectName("scheduleWeekLabel")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setToolTip(vm.tooltip)
@@ -48,9 +51,9 @@ class ScheduleWidget(QWidget):
             # Set the custom property that the QSS in ThemeManager will use for styling
             label.setProperty("status", vm.status_str)
 
-            # Add a second property for tour status
-            if vm.tour and vm.tour.status in ['planned', 'active']:
-                 label.setProperty("on_tour", True)
+            # Add a second property for tour status, used by QSS for border styling
+            if is_on_tour:
+                label.setProperty("on_tour", True)
 
             # Force the widget to re-evaluate its style based on the new property
             label.style().unpolish(label)

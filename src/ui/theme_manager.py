@@ -315,7 +315,8 @@ class ThemeManager:
             }}
             /* Add a distinct style for when the 'on_tour' property is set */
             QLabel#scheduleWeekLabel[on_tour="true"] {{
-                background-color: {theme.accent};
+                border-width: 2px;
+                border-color: {theme.accent};
             }}
                 """
         return qss

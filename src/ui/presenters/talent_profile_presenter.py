@@ -190,26 +190,38 @@ class TalentProfilePresenter(QObject):
             bookings_this_week = bookings_by_week.get(week_num, [])
             tour_this_week = tour_map.get(week_num)
             
-            status_enum = ScheduleStatus.AVAILABLE
-            tooltip_text = "Available for booking."
+            tooltip_parts = []
             tour_vm = None
             scene_titles = [scene.title for scene in bookings_this_week]
 
-            if tour_this_week:
-                status_enum = ScheduleStatus.ON_TOUR
-                tooltip_text = f"On Tour in {tour_this_week.destination_location}"
-                tour_vm = TourViewModel.from_dataclass(tour_this_week)
-
+            # 1. Determine the primary background color status
+            status_enum = ScheduleStatus.AVAILABLE
             if talent.fatigue >= fatigue_resting_threshold and not bookings_this_week and not tour_this_week:
                 status_enum = ScheduleStatus.UNAVAILABLE
-                tooltip_text = "Resting (High Fatigue)"
+                tooltip_parts.append("<b>Resting:</b> High Fatigue")
             elif len(bookings_this_week) >= max_scenes_per_week:
                 status_enum = ScheduleStatus.UNAVAILABLE
-                tooltip_text = f"Fully Booked:\n- " + "\n- ".join(scene_titles)
+
+                # Use <br> for HTML tooltips, not \n
+                bulleted_titles = [f"- {title}" for title in scene_titles]
+                details = "<br>".join(bulleted_titles)
+                tooltip_parts.append(f"<b>Fully Booked:</b><br>{details}")
             elif bookings_this_week:
                 status_enum = ScheduleStatus.PARTIALLY_BOOKED
-                tooltip_text = f"Booked for:\n- " + "\n- ".join(scene_titles)
+                # Use <br> for HTML tooltips, not \n
+                bulleted_titles = [f"- {title}" for title in scene_titles]
+                details = "<br>".join(bulleted_titles)
+                tooltip_parts.append(f"<b>Booked for:</b><br>{details}")
 
+            # 2. Add tour information to the tooltip and set the tour view model
+            # This is done separately so booking and tour info can coexist.
+            if tour_this_week:
+                tour_vm = TourViewModel.from_dataclass(tour_this_week)
+                # Prepend tour info so it appears first in the tooltip
+                tooltip_parts.insert(0, f"<b>On Tour:</b> {tour_this_week.destination_location}")
+
+            # 3. Assemble the final tooltip string
+            tooltip_text = "<br>".join(tooltip_parts) if tooltip_parts else "Available for booking."
             status_str = status_enum.name.lower()
             vm = TalentScheduleWeekViewModel(
                 week_number=week_num, status_str=status_str,
