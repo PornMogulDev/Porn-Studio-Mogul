@@ -182,7 +182,7 @@ class TalentDemandCalculator:
 
         for bloc_id, bloc_roles in bloc_groups.items():
             num_roles = len(bloc_roles)
-            discount_multiplier = self.config.bulk_discount_tiers.get(str(num_roles), 1.0)
+            discount_multiplier = self.config.bulk_discount_tiers.get(num_roles, 1.0)
 
             total_bloc_base_cost = sum(r['base_cost'] for r in bloc_roles)
             discounted_total_bloc_base_cost = total_bloc_base_cost * discount_multiplier

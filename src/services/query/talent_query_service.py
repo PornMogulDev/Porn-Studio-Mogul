@@ -295,6 +295,7 @@ class TalentQueryService:
 
                     role_info = {
                         'scene_id': scene_db.id, 'scene_title': scene_db.title,
+                        'bloc_id': scene_db.bloc_id,
                         'virtual_performer_id': vp_db.id, 'vp_name': vp_db.name,
                         'cost': cost_breakdown['total_cost'], 
                         'base_cost': cost_breakdown['base_cost'], 

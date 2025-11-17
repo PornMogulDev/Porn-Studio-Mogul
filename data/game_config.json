@@ -27,7 +27,7 @@
   "popularity_demand_scalar": 0.01,
   "minimum_talent_demand": 100,
   "hiring_rush_fee_multiplier": 1.25,
-  "hiring_bulk_discount_tiers_json": { "2": 0.95, "3": 0.90, "4": 0.85 },
+  "hiring_bulk_discount_tiers": { "2": 0.95, "3": 0.90, "4": 0.85 },
   "skill_gain_base_rate_per_minute": 0.02,
   "skill_gain_ambition_scalar": 0.015,
   "skill_gain_diminishing_returns_cap": 100.0,

@@ -32,6 +32,13 @@ class TalentProfilePresenter(QObject):
 
         self._connect_signals()
 
+        # Pass configuration data to the view widgets that need it
+        # The config has string keys ("2", "3"), but the widget needs integer keys.
+        # The presenter is responsible for cleaning up the data for the view.
+        raw_discount_tiers = self.controller.data_manager.game_config.get("hiring_bulk_discount_tiers", {})
+        cleaned_discount_tiers = {int(k): v for k, v in raw_discount_tiers.items()}
+        self.view.hiring_widget.set_discount_tiers(cleaned_discount_tiers)
+
     def _connect_signals(self):
         """Connect signals from the view to slots in the presenter."""
         # Connect signals from the new panel widgets
@@ -235,7 +242,7 @@ class TalentProfilePresenter(QObject):
     def _on_hire_confirmed(self, roles_to_cast: list):
         """Handles the logic when the user confirms a hiring decision."""
         if not self.current_talent_id: return
-         # The view has already done the basic validation. We can proceed.
+        # The view has already done the basic validation. We can proceed.
         self.controller.cast_talent_for_multiple_roles(self.current_talent_id, roles_to_cast)
 
     @pyqtSlot(str)
