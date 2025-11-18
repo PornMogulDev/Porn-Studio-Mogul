@@ -16,7 +16,8 @@ class TalentFilterCache:
     sub_range: Tuple[int, int]
     # Pre-calculated popularity
     popularity: int
-
+    # "Smart" location, calculated by the presenter
+    effective_location: str
 
 @dataclass
 class CastingTalentCache(TalentFilterCache):

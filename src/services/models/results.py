@@ -95,10 +95,8 @@ class TourSponsorshipPreviewResult:
     is_feasible: bool
     refusal_reason: Optional[str] = None
     destination_location: Optional[str] = None
-    start_week: int = 0
-    start_year: int = 0
-    duration_weeks: int = 0
+    start_week: Optional[int] = None; start_year: Optional[int] = None
+    minimum_duration_weeks: Optional[int] = None
     travel_cost: int = 0
-    accommodation_options: List[Dict] = field(default_factory=list) # Tiers the talent will accept
     required_accommodation_tier_id: Optional[str] = None
     all_accommodation_tiers: Dict = field(default_factory=dict) # All tiers for reference

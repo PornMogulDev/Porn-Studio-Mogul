@@ -116,7 +116,8 @@ class TalentTabPresenter(QObject):
                 stam_range=(stam_fuzzed, stam_fuzzed) if isinstance(stam_fuzzed, int) else stam_fuzzed,
                 dom_range=(dom_fuzzed, dom_fuzzed) if isinstance(dom_fuzzed, int) else dom_fuzzed,
                 sub_range=(sub_fuzzed, sub_fuzzed) if isinstance(sub_fuzzed, int) else sub_fuzzed,
-                popularity=popularity
+                popularity=popularity,
+                effective_location=t_db.current_location # Default "smart" location is current location
             )
         self._cache_is_dirty = False
 
@@ -169,20 +170,33 @@ class TalentTabPresenter(QObject):
                 self._demand_cache.clear()
                 self._current_casting_context = new_context
 
-            # Pre-fetch scene and talent location data ONCE here in the main thread.
+            # Pre-fetch scene data.
             scene_dc = self.controller.get_scene_by_id(scene_id)
             if not scene_dc:
                 self.view.update_talent_list([])
                 return
+            
+            # --- New Step 1.5: Pre-filter talents and pre-fetch all necessary location data ---
+            talents_passing_skills_db = [
+                t_db for t_db in attribute_filtered_db 
+                if (filter_cache_item := self._talent_filter_cache.get(t_db.id)) and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters)
+            ]
+            all_relevant_ids = [t_db.id for t_db in talents_passing_skills_db]
+            
+            talent_locations = self.controller.get_effective_locations_for_multiple_talents(
+                all_relevant_ids, scene_dc.scheduled_week, scene_dc.scheduled_year
+            )
 
             # --- Orchestration Step 2: Build the list for the UI, using cached demands where available ---
             final_cache_items = []
             talent_ids_to_calculate = []
-            for t_db in attribute_filtered_db:
+            for t_db in talents_passing_skills_db:
                 filter_cache_item = self._talent_filter_cache.get(t_db.id)
-                if filter_cache_item and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters):
+                if filter_cache_item: # We know this is true from the pre-filter above
                     # Use cached demand if it exists, otherwise mark for calculation
                     cached_demand = self._demand_cache.get(t_db.id)
+                    # Update the effective location for the context of this scene
+                    filter_cache_item.effective_location = talent_locations.get(t_db.id, t_db.base_location)
                     final_cache_items.append(CastingTalentCache(**filter_cache_item.__dict__, demand=cached_demand))
                     if cached_demand is None:
                         talent_ids_to_calculate.append(t_db.id)
@@ -193,10 +207,8 @@ class TalentTabPresenter(QObject):
             # --- Orchestration Step 4: Start background calculation ONLY for missing demands ---
             if talent_ids_to_calculate:
                 # Pass all pre-fetched data to the worker.
+                # The talent_locations dictionary is already calculated for all relevant talents.
                 talents_to_calc = self.controller.get_multiple_talents_by_ids(talent_ids_to_calculate)
-                talent_locations = self.controller.get_effective_locations_for_multiple_talents(
-                    talent_ids_to_calculate, scene_dc.scheduled_week, scene_dc.scheduled_year
-                )
                 worker = DemandCalculationWorker(self.controller, talents_to_calc, scene_dc, vp_id, talent_locations)
                 worker.signals.finished.connect(self._on_demand_calculation_finished)
                 self.thread_pool.start(worker)
@@ -211,6 +223,8 @@ class TalentTabPresenter(QObject):
             for t_db in talents_from_db:
                 filter_cache_item = self._talent_filter_cache.get(t_db.id)
                 if filter_cache_item and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters):
+                    # In general mode, ensure effective location is the current location
+                    filter_cache_item.effective_location = t_db.current_location
                     cache_items_passing_skills.append(filter_cache_item)
             self.view.update_talent_list(cache_items_passing_skills)
 

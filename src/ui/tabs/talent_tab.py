@@ -118,16 +118,17 @@ class TalentTab(QWidget):
         header.resizeSection(3, 120) # Orientation
         header.resizeSection(4, 150) # Ethnicity
         header.resizeSection(5, 100) # Nationality
-        header.resizeSection(6, 160) # Location
-        header.resizeSection(7, 75) # Dick Size
-        header.resizeSection(8, 75) # Cup Size
-        header.resizeSection(9, 75) # Performance
-        header.resizeSection(10, 75) # Acting
-        header.resizeSection(11, 75) # Dom
-        header.resizeSection(12, 75) # Sub
-        header.resizeSection(13, 75) # Stamina
-        header.resizeSection(14, 75) # Popularity
-        header.resizeSection(15, 50) # Demand
+        header.resizeSection(6, 160) # Base Location
+        header.resizeSection(7, 160) # Effective Location
+        header.resizeSection(8, 75) # Dick Size
+        header.resizeSection(9, 75) # Cup Size
+        header.resizeSection(10, 75) # Performance
+        header.resizeSection(11, 75) # Acting
+        header.resizeSection(12, 75) # Dom
+        header.resizeSection(13, 75) # Sub
+        header.resizeSection(14, 75) # Stamina
+        header.resizeSection(15, 75) # Popularity
+        header.resizeSection(16, 50) # Demand
         if self.talent_model and 'Demand' in self.talent_model.headers:
             demand_index = self.talent_model.headers.index('Demand')
             header.resizeSection(demand_index, 100)

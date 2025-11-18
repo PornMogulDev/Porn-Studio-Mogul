@@ -68,14 +68,6 @@ class TourSponsorshipPreviewService:
         if not required_tier_id:
             return TourSponsorshipPreviewResult(is_feasible=False, refusal_reason="No suitable accommodation found for their standards.")
 
-        required_tier_cost = self.data_manager.accommodation_tiers.get(required_tier_id, {}).get('cost_per_week', 0)
-
-        acceptable_options = [
-            tier for tier in self.data_manager.accommodation_tiers.values()
-            if tier['cost_per_week'] >= required_tier_cost
-        ]
-        acceptable_options.sort(key=lambda x: x['cost_per_week'])
-
         # --- 5. Orchestration: Calculate base travel cost ---
         travel_cost = self.cost_calculator.calculate_travel_cost(talent_db_model.base_location, studio_location)
 
@@ -85,9 +77,8 @@ class TourSponsorshipPreviewService:
             destination_location=studio_location,
             start_week=start_week,
             start_year=start_year,
-            duration_weeks=duration_weeks,
+            minimum_duration_weeks=duration_weeks,
             travel_cost=travel_cost,
-            accommodation_options=acceptable_options,
             required_accommodation_tier_id=required_tier_id,
             all_accommodation_tiers=self.data_manager.accommodation_tiers
         )

@@ -1,0 +1,33 @@
+This project is a turn-based, text-driven management and business simulation game. Its primary inspirations include Total Extreme Wrestling, Football Manager, Hollywood Mogul, Free Cities, and Paradox grand-strategy titles.
+
+The player’s role is similar to a producer or studio manager. Their core responsibilities include:
+
+Planning, designing, and scheduling scenes (from pre-production to release)
+
+Hiring and managing talent
+
+Responding to dynamic events, ranging from one-screen prompts to multi-week story developments
+
+Making strategic choices that influence finances, studio reputation, talent relationships, and long-term narrative direction
+
+The game generates substantial data—talent profiles, scene records, market statistics—which is intentionally exposed to the player to support analysis, planning, and emergent storytelling.
+
+A key design goal is to simulate the adult-film industry in a grounded, systemic way rather than applying a simple management-game template. Important industry characteristics include:
+
+A highly fluid talent pool with frequent turnover (many careers last under two years)
+
+Cross-role mobility, where individuals may take on multiple responsibilities (e.g., actor, director, producer, camera operator)
+
+Market segmentation, where viewer groups have distinct tastes, purchasing power, demographics, and market shares that influence both demand and revenue
+
+The world is designed to feel dynamic and reactive. Over time, numerous variables evolve, including:
+
+Talent skills, attributes, psychology, and relationships
+
+Viewer-group preferences, spending behavior, and market share
+
+Rival studios’ performance and market presence
+
+Economic and cultural trends that shape demand and opportunities
+
+These interacting systems allow for rich emergent narratives that reflect both player decisions and autonomous world simulation.

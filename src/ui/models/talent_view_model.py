@@ -23,7 +23,8 @@ class TalentViewModel:
     orientation: str
     ethnicity: str
     nationality: str
-    location: str
+    base_location: str
+    effective_location: str
     dick_size: str
     cup_size: str
     performance: str
@@ -39,7 +40,8 @@ class TalentViewModel:
     _age_sort: int
     _orientation_sort: int
     _nationality_sort: str
-    _location_sort: str
+    _base_location_sort: str
+    _effective_location_sort: str
     _dick_size_sort: float
     _cup_size_sort: int
     _performance_sort: int

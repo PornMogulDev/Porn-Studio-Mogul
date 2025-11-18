@@ -318,5 +318,11 @@ class ThemeManager:
                 border-width: 2px;
                 border-color: {theme.accent};
             }}
+
+            /* --- Sponsor Tour Dialog Styling --- */
+            QLabel#characterComment {{
+                font-style: italic;
+                color: {theme.color_neutral};
+             }}
                 """
         return qss
