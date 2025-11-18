@@ -50,6 +50,7 @@ class TalentProfilePresenter(QObject):
 
         # Connect signals from the panel widgets
         self.view.hiring_widget.hire_confirmed.connect(self._on_hire_confirmed)
+        self.view.hiring_widget.preview_cost_requested.connect(self._calculate_bulk_hiring_preview)
         self.view.chemistry_widget.talent_profile_requested.connect(self.uimanager.show_talent_profile)
         self.view.hiring_widget.open_scene_dialog_requested.connect(self.uimanager.show_scene_planner)
         self.view.history_widget.open_scene_dialog_requested.connect(self._on_shot_scene_details_requested)
@@ -274,10 +275,20 @@ class TalentProfilePresenter(QObject):
         self.controller.sponsor_tour(talent_id, roles_to_cast, tour_details, total_cost)
 
     @pyqtSlot(list)
-    def _on_hire_confirmed(self, roles_to_cast: list):
+    def _calculate_bulk_hiring_preview(self, selected_roles_data: list):
+        """Orchestrates getting a cost preview and pushes it back to the view."""
+        if not self.current_talent_id or not selected_roles_data:
+            self.view.hiring_widget.update_cost_preview(None)
+            return
+
+        cost_breakdown = self.controller.calculate_bulk_hiring_costs(self.current_talent_id, selected_roles_data)
+        self.view.hiring_widget.update_cost_preview(cost_breakdown)
+
+    @pyqtSlot(dict)
+    def _on_hire_confirmed(self, hiring_data: dict):
         """Handles the logic when the user confirms a hiring decision."""
         if not self.current_talent_id: return
-        self.controller.cast_talent_for_multiple_roles(self.current_talent_id, roles_to_cast)
+        self.controller.cast_talent_for_multiple_roles(self.current_talent_id, hiring_data)
 
     @pyqtSlot(str)
     def _on_setting_changed(self, key: str):

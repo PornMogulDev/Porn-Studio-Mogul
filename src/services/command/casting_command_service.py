@@ -52,64 +52,30 @@ class CastingCommandService:
         
         return messages
     
-    def _cast_talent_for_multiple_roles_internal(self, session: Session, talent_id: int, roles: List[Dict], is_tour_casting: bool = False):
+    def cast_roles_with_precalculated_salaries(self, session: Session, talent_id: int, hiring_data: Dict) -> tuple[int, int]:
         """
-        Internal helper for multi-casting logic. Operates on the provided session.
-        If is_tour_casting is True, it assumes upfront costs have already been paid.
+        Casts a talent for multiple roles using authoritative costs (salaries and
+        upfront fees) calculated by an orchestrator. This is the sole entry
+        point for complex, multi-role casting actions.
         """
-        if not is_tour_casting:
-             # --- 1. Orchestration: Prepare data for the pure calculator ---
-            game_info = {row.key: row.value for row in session.query(GameInfoDB).filter(GameInfoDB.key.in_(['week', 'year'])).all()}
-            current_week = int(game_info.get('week', 1))
-            current_year = int(game_info.get('year', 0))
-            talent_dc = self.query_service.get_talent_by_id(talent_id)
-            if not talent_dc: raise ValueError(f"Talent with ID {talent_id} not found.")
+        upfront_cost = hiring_data.get('upfront_cost', 0)
+        roles_with_salaries = hiring_data.get('roles', [])
 
-            roles_with_context = []
-            for role in roles:
-                scene_id = role['scene_id']
-                scene_dc = self.query_service.get_scene_by_id(scene_id)
-                if not scene_dc: raise ValueError(f"Scene with ID {scene_id} not found.")
-                
-                talent_loc = self.location_service.get_effective_location_at_date(
-                    talent_id, scene_dc.scheduled_week, scene_dc.scheduled_year
-                )
-                roles_with_context.append({
-                    'scene': scene_dc,
-                    'virtual_performer_id': role['virtual_performer_id'],
-                    'bloc_id': scene_dc.bloc_id,
-                    'talent_effective_location': talent_loc
-                })
+        # --- 1. Apply changes to the database ---
+        # Deduct upfront costs (e.g., travel fees). For tours, this will be 0
+        # as the main tour cost is handled by TourCommandService.
+        money_info = session.query(GameInfoDB).filter_by(key='money').one()
+        current_money = int(float(money_info.value))
+        new_money = current_money - upfront_cost
+        money_info.value = str(new_money)
 
-            # --- 2. Get authoritative costs from the pure calculator service ---
-            cost_results = self.demand_calculator.calculate_bulk_hiring_costs(
-                talent_dc, roles_with_context, current_week, current_year
+        # Cast each role with its final, authoritative salary
+        for role_data in roles_with_salaries:
+            self._cast_talent_for_role_internal(
+                session, talent_id, role_data['scene_id'],
+                role_data['virtual_performer_id'], role_data['final_salary']
             )
-            if not cost_results: raise ValueError("Could not calculate hiring costs.")
-
-            # --- 3. Apply changes to the database ---
-            # Deduct upfront costs (travel fees)
-            money_info = session.query(GameInfoDB).filter_by(key='money').one()
-            current_money = int(float(money_info.value))
-            new_money = current_money - cost_results['total_upfront_cost']
-            money_info.value = str(new_money)
-
-            # Cast each role with its final, discounted salary
-            for role_data in cost_results['roles_with_final_salaries']:
-                self._cast_talent_for_role_internal(
-                    session, talent_id, role_data['scene_id'], 
-                    role_data['virtual_performer_id'], role_data['final_salary']
-                )
-            return new_money, cost_results['total_upfront_cost']
-        else:
-            # For tour casting, upfront costs are handled by TourCommandService.
-            # We just need to cast with the salaries passed in.
-            for role_data in roles:
-                self._cast_talent_for_role_internal(
-                    session, talent_id, role_data['scene_id'], 
-                    role_data['virtual_performer_id'], role_data['final_salary']
-                )
-            return None, None # No money change to report from here
+        return new_money, upfront_cost
 
     def cast_talent_for_role(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int) -> bool:
         """Public method for casting a single talent. Creates and manages its own session."""
@@ -131,14 +97,15 @@ class CastingCommandService:
         finally:
             session.close()
 
-    def cast_talent_for_multiple_roles(self, talent_id: int, roles: List[Dict]) -> bool:
+    def cast_talent_for_multiple_roles(self, talent_id: int, hiring_data: Dict) -> bool:
         """Casts a single talent for multiple roles within a single transaction."""
         session = self.session_factory()
         try:
-            new_money, upfront_cost = self._cast_talent_for_multiple_roles_internal(session, talent_id, roles)
+            new_money, upfront_cost = self.cast_roles_with_precalculated_salaries(session, talent_id, hiring_data)
 
             session.commit()
-            self.signals.notification_posted.emit(f"Successfully hired talent in {len(roles)} role(s). Upfront cost: ${upfront_cost:,}")
+            num_roles = len(hiring_data.get('roles', []))
+            self.signals.notification_posted.emit(f"Successfully hired talent in {num_roles} role(s). Upfront cost: ${upfront_cost:,}")
             self.signals.money_changed.emit(new_money)
             self.signals.scenes_changed.emit()
             return True

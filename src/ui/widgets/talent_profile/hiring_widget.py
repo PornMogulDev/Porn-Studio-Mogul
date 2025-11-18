@@ -7,7 +7,8 @@ from PyQt6.QtCore import Qt, pyqtSignal
 
 class HiringWidget(QWidget):
     """A widget for assigning a talent to available roles."""
-    hire_confirmed = pyqtSignal(list)  # roles_to_cast
+    preview_cost_requested = pyqtSignal(list) # Emits list of selected role data dicts
+    hire_confirmed = pyqtSignal(dict)  # {'roles': [...], 'upfront_cost': X}
     sponsor_tour_requested = pyqtSignal(list) # roles_for_tour
     open_scene_dialog_requested = pyqtSignal(int)  # scene_id
 
@@ -18,6 +19,8 @@ class HiringWidget(QWidget):
         self._bulk_discount_tiers = {}
         self._current_talent_base_location = ""
         self._current_studio_location = ""
+        # Stores the latest authoritative calculation result from the presenter
+        self._current_cost_breakdown = None
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -60,7 +63,7 @@ class HiringWidget(QWidget):
         main_layout.addWidget(contract_container)
 
     def _connect_signals(self):
-        self.available_roles_list.itemSelectionChanged.connect(self._update_total_cost_preview)
+        self.available_roles_list.itemSelectionChanged.connect(self._request_cost_preview)
         self.available_roles_list.itemSelectionChanged.connect(self._update_ui_state)
         self.available_roles_list.itemDoubleClicked.connect(self._on_role_double_clicked)
         self.available_roles_list.customContextMenuRequested.connect(self._show_role_context_menu)
@@ -117,7 +120,7 @@ class HiringWidget(QWidget):
 
     def _update_ui_state(self):
         """Calculates cost preview and updates the state of UI elements like buttons."""
-        self._update_total_cost_preview()
+        self._request_cost_preview()
         self._update_sponsor_tour_button_state()
 
     def _update_sponsor_tour_button_state(self):
@@ -149,38 +152,33 @@ class HiringWidget(QWidget):
         # All rules passed
         self.sponsor_tour_button.setEnabled(True)
 
-    def _update_total_cost_preview(self):
-        """Calculates and displays the total cost preview for selected roles."""
+    def _request_cost_preview(self):
+        """Gathers selected roles and emits a signal requesting a cost preview calculation."""
         selected_items = self.available_roles_list.selectedItems()
 
         if not selected_items:
             self.hire_button.setEnabled(False)
             self.total_cost_label.setText("Select role(s) to see total cost.")
+            self._current_cost_breakdown = None
+            return
+            
+        self.total_cost_label.setText("<i>Calculating...</i>")
+        roles_data = [item.data(Qt.ItemDataRole.UserRole) for item in selected_items]
+        self.preview_cost_requested.emit(roles_data)
+
+    def update_cost_preview(self, cost_breakdown: dict):
+        """Public slot for the Presenter to update the UI with calculated costs."""
+        if not cost_breakdown:
+            self.total_cost_label.setText("<span style='color:red;'>Error calculating cost.</span>")
+            self._current_cost_breakdown = None
+            self.hire_button.setEnabled(False)
             return
 
-        bloc_groups = defaultdict(list)
-        for item in selected_items:
-            role_data = item.data(Qt.ItemDataRole.UserRole)
-            bloc_id = role_data.get('bloc_id') if role_data.get('bloc_id') is not None else f"nobloc_{role_data['scene_id']}"
-            bloc_groups[bloc_id].append(role_data)
-        
-        total_upfront_cost = 0
-        total_deferred_cost = 0
+        self._current_cost_breakdown = cost_breakdown
+        total_upfront_cost = cost_breakdown.get('total_upfront_cost', 0)
+        roles_with_salaries = cost_breakdown.get('roles_with_final_salaries', [])
+        total_deferred_cost = sum(role['final_salary'] for role in roles_with_salaries)
 
-        for bloc_id, roles in bloc_groups.items():
-            num_roles = len(roles)
-            discount_multiplier = self._bulk_discount_tiers.get(num_roles, 1.0)
-            
-            bloc_base_subtotal = sum(r.get('base_cost', 0) for r in roles)
-            bloc_rush_subtotal = sum(r.get('rush_fee', 0) for r in roles)
-            bloc_travel_subtotal = sum(r.get('travel_fee', 0) for r in roles)
-            
-            # Apply discount multiplier only to the base salary portion
-            discounted_base_cost = bloc_base_subtotal * discount_multiplier
-            
-            total_upfront_cost += bloc_travel_subtotal
-            total_deferred_cost += (discounted_base_cost + bloc_rush_subtotal)
-            
         grand_total = total_upfront_cost + total_deferred_cost
         
         self.hire_button.setEnabled(True)
@@ -223,16 +221,12 @@ class HiringWidget(QWidget):
             QMessageBox.warning(self, "No Roles Selected", "Please select one or more roles to assign the talent to.")
             return
         
-        roles_to_cast, scene_ids = [], set()
-        for item in selected_items:
-            role_data = item.data(Qt.ItemDataRole.UserRole)
-            if role_data['scene_id'] in scene_ids:
+        if not self._current_cost_breakdown:
+            QMessageBox.critical(self, "Calculation Error", "Could not confirm hire because the final cost has not been calculated.")
+            return
+        
+        if len(self._current_cost_breakdown['roles']) != len(set(r['scene_id'] for r in self._current_cost_breakdown['roles'])):
                 QMessageBox.warning(self, "Casting Error", "Cannot cast for multiple roles in the same scene.\nA talent can only be cast once per scene.")
                 return
-            scene_ids.add(role_data['scene_id'])
-            # We only need to pass a subset of the data to the controller
-            roles_to_cast.append({
-                'scene_id': role_data['scene_id'], 
-                'virtual_performer_id': role_data['virtual_performer_id']
-            })
-        self.hire_confirmed.emit(roles_to_cast)
+        
+        self.hire_confirmed.emit(self._current_cost_breakdown)

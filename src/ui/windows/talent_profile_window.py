@@ -217,14 +217,13 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
 
         # 4. If the user confirms, emit a high-level signal with the final details.
         if dialog.exec():
-            if final_tour_details := dialog.get_selected_tour_details():
-                total_cost = final_tour_details.pop("total_upfront_cost", 0)
+            final_tour_details = dialog.get_selected_tour_details()
+            if final_tour_details:
+                total_cost = dialog.get_final_cost()
                 self.tour_sponsorship_confirmed.emit(
                     self.presenter.current_talent_id, roles_for_tour,
                     final_tour_details, total_cost
                 )
-            else:
-                logger.warning("SponsorTourDialog accepted but returned no details.")
 
     # --- Layout Management ---
     def _populate_layouts_combobox(self):

@@ -189,6 +189,7 @@ class GameController(QObject):
     def get_effective_locations_for_multiple_talents(self, talent_ids: List[int], week: int, year: int) -> Dict[int, str]:
         if not self.talent_location_service: return {}
         return self.talent_location_service.get_effective_locations_for_multiple_talents(talent_ids, week, year)
+    
     # --- Go-To List Data Access (Proxy Methods) ---
     def get_go_to_list_talents(self) -> List[Talent]:
         if not self.query_service: return []
@@ -311,6 +312,35 @@ class GameController(QObject):
         if not self.talent_query_service: return []
         return self.talent_query_service.get_eligible_talent_for_role(scene_id, vp_id)
     
+    def calculate_bulk_hiring_costs(self, talent_id: int, roles: List[Dict]) -> Optional[Dict]:
+        """
+        Orchestrates the calculation of bulk hiring costs by fetching all necessary
+        data and passing it to the pure calculator service.
+        """
+        if not self.talent_demand_calculator or not self.query_service or not self.talent_location_service:
+            return None
+
+        talent_dc = self.query_service.get_talent_by_id(talent_id)
+        if not talent_dc: return None
+
+        roles_with_context = []
+        for role in roles:
+            scene_id = role['scene_id']
+            scene_dc = self.query_service.get_scene_by_id(scene_id)
+            if not scene_dc: return None
+            
+            talent_loc = self.talent_location_service.get_effective_location_at_date(
+                talent_id, scene_dc.scheduled_week, scene_dc.scheduled_year
+            )
+            roles_with_context.append({
+                'scene': scene_dc, 'virtual_performer_id': role['virtual_performer_id'],
+                'bloc_id': scene_dc.bloc_id, 'talent_effective_location': talent_loc
+            })
+        
+        return self.talent_demand_calculator.calculate_bulk_hiring_costs(
+            talent_dc, roles_with_context, self.game_state.week, self.game_state.year
+        )
+
     def get_role_details_for_ui(self, scene_id: int, vp_id: int) -> Dict:
         if not self.talent_query_service: return {}
         return self.talent_query_service.get_role_details_for_ui(scene_id, vp_id)
@@ -351,14 +381,14 @@ class GameController(QObject):
     def cast_talent_for_virtual_performer(self, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int):
         self.casting_command_service.cast_talent_for_role(talent_id, scene_id, virtual_performer_id, cost)
 
-    def cast_talent_for_multiple_roles(self, talent_id: int, roles: List[Dict]):
+    def cast_talent_for_multiple_roles(self, talent_id: int, hiring_data: Dict):
         """Casts a single talent into multiple roles across different scenes."""
         # Server-side validation as a safeguard against client-side errors or other entry points
-        scene_ids = [role['scene_id'] for role in roles]
+        scene_ids = [role['scene_id'] for role in hiring_data['roles']]
         if len(scene_ids) != len(set(scene_ids)):
             self.signals.notification_posted.emit("Casting failed: Cannot assign a talent to multiple roles in the same scene.")
             return
-        self.casting_command_service.cast_talent_for_multiple_roles(talent_id, roles)
+        self.casting_command_service.cast_talent_for_multiple_roles(talent_id, hiring_data)
 
     def get_tour_sponsorship_preview(self, talent_id: int, roles: List[Dict]) -> TourSponsorshipPreviewResult:
         """Gets all necessary data for the tour sponsorship negotiation dialog."""

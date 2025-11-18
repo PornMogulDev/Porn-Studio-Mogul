@@ -80,12 +80,16 @@ class TourCommandService:
             )
             roles_with_final_salaries = cost_results['roles_with_final_salaries']
 
+            # Prepare the authoritative payload for the casting service.
+            # The upfront_cost here is 0 because inter-role travel on a tour is nil.
+            hiring_data = {
+                'roles': roles_with_final_salaries,
+                'upfront_cost': 0
+            }
+
             # --- 4. Delegate Casting to CastingCommandService ---
-            # Pass the active session to ensure atomicity. This is an internal-only method.
-            # We pass the roles with their final, calculated salaries.
-            self.casting_command_service._cast_talent_for_multiple_roles_internal(
-                session, talent_id, roles_with_final_salaries, is_tour_casting=True
-            )
+            # Call the new public method, passing the active session to ensure atomicity.
+            self.casting_command_service.cast_roles_with_precalculated_salaries(session, talent_id, hiring_data)
  
             # --- 5. Commit & Signal ---
             session.commit()

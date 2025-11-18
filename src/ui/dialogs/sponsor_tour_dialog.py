@@ -113,7 +113,10 @@ class SponsorTourDialog(QDialog):
                 "start_week": self.tour_data.get('start_week'),
                 "start_year": self.tour_data.get('start_year'),
                 "duration_weeks": self.tour_data.get('duration_weeks'),
-                "accommodation_tier_id": self.selected_accommodation_id,
-                "total_upfront_cost": self.final_total_cost
+                "accommodation_tier_id": self.selected_accommodation_id
             }
         return None
+    
+    def get_final_cost(self) -> int:
+        """Returns the final calculated upfront cost for the selected tour options."""
+        return self.final_total_cost
