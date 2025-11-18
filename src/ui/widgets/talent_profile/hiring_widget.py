@@ -49,7 +49,8 @@ class HiringWidget(QWidget):
         button_layout = QHBoxLayout()
         self.hire_button = QPushButton("Assign Talent to Selected Role(s)")
         self.sponsor_tour_button = QPushButton("Sponsor Tour...")
-        self.sponsor_tour_button.setToolTip("Select multiple non-local (for the talent) roles within a 4-week period to enable.")
+        self.sponsor_tour_button.setToolTip("Select multiple non-local (for the talent) roles within a 4-week period to enable.\n" \
+        "The start of the tour must be at least 3 weeks away from the date of hiring.")
         button_layout.addWidget(self.hire_button)
         button_layout.addWidget(self.sponsor_tour_button)
         self.sponsor_tour_button.setEnabled(False) # Disabled by default
@@ -225,8 +226,16 @@ class HiringWidget(QWidget):
             QMessageBox.critical(self, "Calculation Error", "Could not confirm hire because the final cost has not been calculated.")
             return
         
-        if len(self._current_cost_breakdown['roles']) != len(set(r['scene_id'] for r in self._current_cost_breakdown['roles'])):
+        # We must read the correct key, perform validation, and then emit the
+        # payload with the key re-mapped for the command service.
+        roles_list = self._current_cost_breakdown.get('roles_with_final_salaries', [])
+        
+        if len(roles_list) != len(set(r['scene_id'] for r in roles_list)):
                 QMessageBox.warning(self, "Casting Error", "Cannot cast for multiple roles in the same scene.\nA talent can only be cast once per scene.")
                 return
-        
-        self.hire_confirmed.emit(self._current_cost_breakdown)
+        # Construct the final payload with the key name expected by the command service.
+        hiring_payload = {
+            'upfront_cost': self._current_cost_breakdown.get('total_upfront_cost', 0),
+            'roles': roles_list
+        }
+        self.hire_confirmed.emit(hiring_payload)

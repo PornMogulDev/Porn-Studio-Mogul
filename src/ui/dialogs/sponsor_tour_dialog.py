@@ -68,16 +68,12 @@ class SponsorTourDialog(QDialog):
         self.duration_label.setText(f"{self.tour_data.get('duration_weeks', 0)} weeks")
         self.destination_label.setText(self.tour_data.get('destination_location', 'N/A'))
         
-        required_tier_id = self.tour_data.get('required_accommodation_tier_id')
-
+        
+        # The 'accommodation_options' list is pre-filtered by the service layer
+        # to only include tiers the talent will accept. We just need to display them.
         for tier in self.tour_data.get('accommodation_options', []):
             display_text = f"{tier['name']} (+${tier['cost_per_week']:,}/week)"
             self.accommodation_combo.addItem(display_text, userData=tier['id'])
-            # Disable options that are below the talent's required standard
-            if required_tier_id and tier['id'] != required_tier_id:
-                if self.tour_data['accommodation_tiers'][tier['id']]['cost_per_week'] < self.tour_data['accommodation_tiers'][required_tier_id]['cost_per_week']:
-                    index = self.accommodation_combo.count() - 1
-                    self.accommodation_combo.model().item(index).setEnabled(False)
 
     def _connect_signals(self):
         self.accommodation_combo.currentIndexChanged.connect(self._on_accommodation_changed)

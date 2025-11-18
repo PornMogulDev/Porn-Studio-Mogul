@@ -32,31 +32,27 @@ class TourFeasibilityService:
         return None
 
     def determine_accommodation_tier(self, talent: TalentDB) -> Optional[str]:
-        """Determines the required or acceptable accommodation tier for a talent based on their pickiness."""
+        """
+        Determines the required accommodation tier for a talent.
+        - A talent DEMANDS the single most expensive tier whose requirements they meet.
+        - If they don't demand any tier, they are assigned the cheapest available tier.
+        """
         pop_scalar = self.config.pickiness_popularity_scalar
         amb_scalar = self.config.pickiness_ambition_scalar
         total_popularity = sum(p.score for p in talent.popularity_scores) if talent.popularity_scores else 0
         pickiness_score = (total_popularity * pop_scalar) + (talent.ambition * amb_scalar)
 
-        # Tiers are pre-sorted by cost in DataManager
+        # Tiers are pre-sorted by cost (cheapest to most expensive) in DataManager
         available_tiers = list(self.data_manager.accommodation_tiers.values())
-        
-        # Find the cheapest tier the talent demands (their pickiness is >= requirement)
-        demanded_tier_id = None
-        for tier in available_tiers:
-            if pickiness_score >= tier['pickiness_requirement']:
-                demanded_tier_id = tier['id']
-                # Because tiers are sorted by cost, the first one they demand is the cheapest they'll demand.
-                # However, a very picky talent might demand the most expensive, so we keep checking.
-        
-        # If they have specific demands, that's what they get.
-        if demanded_tier_id:
-            return demanded_tier_id
+        if not available_tiers:
+            return None # No accommodation configured in game data
 
-        # If they have no demands, find the most expensive tier they will tolerate (pickiness < requirement)
-        # Iterate in reverse (most expensive first) to find the best they'll accept.
+        # 1. Iterate from most expensive to cheapest to find what they demand.
+        #    The first match is the highest tier they qualify for, which is their demand.
         for tier in reversed(available_tiers):
-             if pickiness_score < tier['pickiness_requirement']:
-                 return tier['id']
+            if pickiness_score >= tier['pickiness_requirement']:
+                return tier['id']
 
-        return None # Should not happen if data is configured correctly
+        # 2. If the loop completes, their pickiness is too low to demand even the
+        #    cheapest tier. In this case, they are assigned the absolute cheapest tier.
+        return available_tiers[0]['id']
