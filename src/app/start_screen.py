@@ -1,5 +1,5 @@
 import logging
-from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import ( QDialog, QLabel, QPushButton, QSizePolicy, 
                              QVBoxLayout, QWidget, QTextEdit, QGridLayout,
                               QDialogButtonBox )
@@ -47,7 +47,7 @@ class MenuScreen(QWidget):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("font-size: 30pt; font-weight: bold;") # Override for title
         
-        version_label = QLabel("0.5.7c (presenters refactor)")
+        version_label = QLabel("0.6.0 (tours)")
         version_label.setAlignment(Qt.AlignmentFlag.AlignAbsolute | Qt.AlignmentFlag.AlignBottom)
         version_label.setStyleSheet("font-size: 12pt;") # And for version
 
