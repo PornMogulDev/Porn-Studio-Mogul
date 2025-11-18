@@ -65,6 +65,9 @@ class TalentTabPresenter(QObject):
         self._demand_cache: Dict[int, int] = {}
         self._current_casting_context: Optional[Tuple[int, int]] = None # (scene_id, vp_id)
         self._cache_is_dirty = True
+        
+        # Sequence ID to handle race conditions in background calculation updates
+        self._filter_sequence_id = 0
 
         self._connect_signals()
         self.view.create_model_and_load(
@@ -145,6 +148,10 @@ class TalentTabPresenter(QObject):
 
     @pyqtSlot(dict)
     def on_filters_changed(self, all_filters: dict):
+        # Increment sequence to invalidate any pending workers from previous filter state
+        self._filter_sequence_id += 1
+        current_seq_id = self._filter_sequence_id
+
         if self._cache_is_dirty: self._build_filter_cache()
 
         scene_id = all_filters.get('scene_id')
@@ -155,14 +162,18 @@ class TalentTabPresenter(QObject):
             self.role_details_presenter.display_role(scene_id, vp_id) # Update the details panel
             self.view.set_role_details_panel_visible(True) # Show the panel
 
-            base_candidates_db = self.controller.get_eligible_talent_for_role(scene_id, vp_id)
+            # Separate attributes that can be filtered in SQL from skills that are fuzzy/in-memory
             attribute_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission', 'gender', 'ethnicities'))}
+            
+            # Role Logic: Handle Gender/Cup size filters based on role requirements
             role_details = self.controller.get_role_details_for_ui(scene_id, vp_id)
             if (role_gender := (role_details.get('gender') or 'any').lower()) == 'female':
                 attribute_filters['dick_size_min'] = None; attribute_filters['dick_size_max'] = None
-            elif role_gender == 'male' and 'cup_sizes' in attribute_filters: del attribute_filters['cup_sizes']
+            elif role_gender == 'male' and 'cup_sizes' in attribute_filters: 
+                del attribute_filters['cup_sizes']
             
-            attribute_filtered_db = self.controller.filter_talent_list_by_attributes(base_candidates_db, attribute_filters)
+            # Perform optimized DB fetch with attribute filters applied
+            base_candidates_db = self.controller.get_eligible_talent_for_role(scene_id, vp_id, attribute_filters)
 
             # --- Orchestration Step 1: Prepare data for the worker ---
             new_context = (scene_id, vp_id)
@@ -177,8 +188,9 @@ class TalentTabPresenter(QObject):
                 return
             
             # --- Step 1.5: Pre-filter talents and pre-fetch all necessary location data ---
+            # base_candidates_db is already filtered by attributes. Now apply fuzzy skill filters (in-memory)
             talents_passing_skills_db = [
-                t_db for t_db in attribute_filtered_db 
+                t_db for t_db in base_candidates_db 
                 if (filter_cache_item := self._talent_filter_cache.get(t_db.id)) and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters)
             ]
             all_relevant_ids = [t_db.id for t_db in talents_passing_skills_db]
@@ -213,10 +225,10 @@ class TalentTabPresenter(QObject):
             # --- Orchestration Step 4: Start background calculation ONLY for missing demands ---
             if talent_ids_to_calculate:
                 # Pass all pre-fetched data to the worker.
-                # The talent_locations dictionary is already calculated for all relevant talents.
                 talents_to_calc = self.controller.get_multiple_talents_by_ids(talent_ids_to_calculate)
                 worker = DemandCalculationWorker(self.controller, talents_to_calc, scene_dc, vp_id, talent_locations)
-                worker.signals.finished.connect(self._on_demand_calculation_finished)
+                # Use lambda to capture the current sequence ID
+                worker.signals.finished.connect(lambda res: self._on_demand_calculation_finished(res, current_seq_id))
                 self.thread_pool.start(worker)
         else:
             # --- PATH B: Standard, General Filtering ---
@@ -241,8 +253,12 @@ class TalentTabPresenter(QObject):
             self.view.update_talent_list(cache_items_passing_skills)
 
     @pyqtSlot(dict)
-    def _on_demand_calculation_finished(self, demands: dict):
+    def _on_demand_calculation_finished(self, demands: dict, seq_id: int):
         """Slot to receive results from the background worker and update the model."""
+        # Race condition check: Discard results if filters have changed since this worker started
+        if seq_id != self._filter_sequence_id:
+            return
+
         # Update the presenter's demand cache first
         self._demand_cache.update(demands)
 

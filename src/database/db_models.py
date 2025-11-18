@@ -38,33 +38,11 @@ class DataclassMapper:
                 value = getattr(self, key)
                 data[key] = value
         
-        if dataclass_type == Scene:
-            data['virtual_performers'] = [vp.to_dataclass(VirtualPerformer) for vp in self.virtual_performers]
-            data['location'] = "" # Default value, will be populated by the query service
-            data['action_segments'] = [seg.to_dataclass(ActionSegment) for seg in self.action_segments]
-            data['performer_contributions'] = [c.to_dataclass(ScenePerformerContribution) for c in self.performer_contributions_rel]
-            
-            # Re-create the dictionaries from the SceneCastDB relationship
-            data['final_cast'] = {str(c.virtual_performer_id): c.talent_id for c in self.cast}
-            data['pps_salaries'] = {str(c.talent_id): c.salary for c in self.cast}
-
-        elif dataclass_type == Talent:
-            # Re-create the popularity dictionary from the TalentPopularityDB relationship
-            data['popularity'] = {p.market_group_name: p.score for p in self.popularity_scores}
-            # Combine the two-way chemistry relationships into one dictionary
-            chem_dict = {}
-            for chem in self.chemistry_a:
-                chem_dict[chem.talent_b_id] = chem.chemistry_score
-            for chem in self.chemistry_b:
-                chem_dict[chem.talent_a_id] = chem.chemistry_score
-            data['chemistry'] = chem_dict
-            # Add tours to the dataclass
-            data['tours'] = [t.to_dataclass(Tour) for t in self.tours]
-        
-        elif dataclass_type == ActionSegment:
-            data['slot_assignments'] = [sa.to_dataclass(SlotAssignment) for sa in self.slot_assignments]
-        elif dataclass_type == ShootingBloc:
-            data['scenes'] = [s.to_dataclass(Scene) for s in self.scenes]
+        # Allow specific model classes to customize the data dictionary,
+        # primarily for handling relationships. This avoids violating the
+        # Open/Closed Principle in this generic mixin.
+        if hasattr(self, '_customize_dataclass_data'):
+            data = self._customize_dataclass_data(data, dataclass_type)
         
         # Use from_dict for dataclasses_json compatibility
         return dataclass_type.from_dict(data)
@@ -86,6 +64,11 @@ class ShootingBlocDB(Base, DataclassMapper):
     production_cost = Column(Integer, default=0)
     on_set_policies = Column(JSON, default=list)
     scenes = relationship("SceneDB", back_populates="bloc", cascade="all, delete-orphan")
+
+    def _customize_dataclass_data(self, data: dict, dataclass_type: Type[T]) -> dict:
+        """Handles relationship mapping for ShootingBloc."""
+        data['scenes'] = [s.to_dataclass(Scene) for s in self.scenes]
+        return data
 
 class TalentChemistryDB(Base):
     __tablename__ = 'talent_chemistry'
@@ -139,6 +122,18 @@ class TalentDB(Base, DataclassMapper):
     tour_end_week = Column(Integer, default=0, nullable=False)
     tour_end_year = Column(Integer, default=0, nullable=False)
     tours = relationship("TourDB", back_populates="talent", cascade="all, delete-orphan")
+
+    def _customize_dataclass_data(self, data: dict, dataclass_type: Type[T]) -> dict:
+        """Handles relationship mapping for Talent."""
+        data['popularity'] = {p.market_group_name: p.score for p in self.popularity_scores}
+        chem_dict = {}
+        for chem in self.chemistry_a:
+            chem_dict[chem.talent_b_id] = chem.chemistry_score
+        for chem in self.chemistry_b:
+            chem_dict[chem.talent_a_id] = chem.chemistry_score
+        data['chemistry'] = chem_dict
+        data['tours'] = [t.to_dataclass(Tour) for t in self.tours]
+        return data
 
 class TourDB(Base, DataclassMapper):
     __tablename__ = 'tours'
@@ -207,6 +202,16 @@ class SceneDB(Base, DataclassMapper):
     action_segments = relationship("ActionSegmentDB", back_populates="scene", cascade="all, delete-orphan")
     performer_contributions_rel = relationship("ScenePerformerContributionDB", back_populates="scene", cascade="all, delete-orphan")
 
+    def _customize_dataclass_data(self, data: dict, dataclass_type: Type[T]) -> dict:
+        """Handles relationship mapping for Scene."""
+        data['virtual_performers'] = [vp.to_dataclass(VirtualPerformer) for vp in self.virtual_performers]
+        data['location'] = "" # Default value, populated by the query service
+        data['action_segments'] = [seg.to_dataclass(ActionSegment) for seg in self.action_segments]
+        data['performer_contributions'] = [c.to_dataclass(ScenePerformerContribution) for c in self.performer_contributions_rel]
+        data['final_cast'] = {str(c.virtual_performer_id): c.talent_id for c in self.cast}
+        data['pps_salaries'] = {str(c.talent_id): c.salary for c in self.cast}
+        return data
+
 class VirtualPerformerDB(Base, DataclassMapper):
     __tablename__ = 'virtual_performers'
     id = Column(Integer, primary_key=True)
@@ -226,6 +231,11 @@ class ActionSegmentDB(Base, DataclassMapper):
     parameters = Column(JSON, default=dict)
     scene = relationship("SceneDB", back_populates="action_segments")
     slot_assignments = relationship("SlotAssignmentDB", back_populates="segment", cascade="all, delete-orphan")
+
+    def _customize_dataclass_data(self, data: dict, dataclass_type: Type[T]) -> dict:
+        """Handles relationship mapping for ActionSegment."""
+        data['slot_assignments'] = [sa.to_dataclass(SlotAssignment) for sa in self.slot_assignments]
+        return data
 
 class SlotAssignmentDB(Base, DataclassMapper):
     __tablename__ = 'slot_assignments'

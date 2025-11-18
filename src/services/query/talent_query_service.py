@@ -7,7 +7,8 @@ from data.game_state import Scene, Talent, Tour
 from data.data_manager import DataManager
 from database.db_models import (
     TalentDB, SceneDB, ActionSegmentDB,
-    ShootingBlocDB, SceneCastDB, TourDB
+    ShootingBlocDB, SceneCastDB, TourDB,
+    GoToListAssignmentDB
 )
 from services.query.game_query_service import GameQueryService
 from services.query.talent_location_service import TalentLocationService
@@ -97,9 +98,11 @@ class TalentQueryService:
             # Filter out tours that end before this year starts (not needed with current query)
             return [t.to_dataclass(Tour) for t in tours_db]
 
-    def get_eligible_talent_for_role(self, scene_id: int, vp_id: int) -> List[TalentDB]:
+    def get_eligible_talent_for_role(self, scene_id: int, vp_id: int, filters: Dict = None) -> List[TalentDB]:
         """
-        Gets a virtual performer from a scene and returns a list of talent that can be cast for the role.
+        Gets a virtual performer from a scene and returns a list of talent that can be cast for the role,
+        applying both role-based requirements and user-supplied attribute filters at the database level
+        before performing expensive availability checks.
         """
         session = self.session_factory()
         try:
@@ -124,6 +127,7 @@ class TalentQueryService:
             )
             query = query.filter(TalentDB.gender == vp.gender)
             
+            # --- 1. Mandatory Role Constraints ---
             if vp.ethnicity != "Any":
                 # Hierarchical ethnicity check for the database query
                 primary_ethnicities_map = self.data_manager.generator_data.get('primary_ethnicities', {})
@@ -135,12 +139,47 @@ class TalentQueryService:
                     # The VP requires a specific sub-group (or a primary group with no subs), so do a direct match.
                     query = query.filter(TalentDB.ethnicity == vp.ethnicity)
 
+            # --- 2. User Attribute Filters (SQL) ---
+            if filters:
+                if text_filter := (filters.get('name') or filters.get('text')):
+                    query = query.filter(TalentDB.alias.ilike(f"%{text_filter}%"))
+                
+                if filters.get('go_to_list_only'):
+                    query = query.join(TalentDB.go_to_list_assignments)
+                
+                if (cat_id := filters.get('go_to_category_id', -1)) > -1:
+                    # Filter talents who have an assignment to this specific category
+                    query = query.filter(TalentDB.go_to_list_assignments.any(GoToListAssignmentDB.category_id == cat_id))
+                
+                if (age_min := filters.get('age_min')) is not None:
+                    query = query.filter(TalentDB.age >= age_min)
+                if (age_max := filters.get('age_max')) is not None:
+                    query = query.filter(TalentDB.age <= age_max)
+                
+                if nationalities := filters.get('nationalities'):
+                    query = query.filter(TalentDB.nationality.in_(nationalities))
+                
+                if locations := filters.get('locations'):
+                    # Filter by base location (current location is dynamic and handled later if needed,
+                    # though typically location filters in casting apply to base location for travel logic)
+                    query = query.filter(TalentDB.base_location.in_(locations))
+                
+                if (d_min := filters.get('dick_size_min')) is not None:
+                    query = query.filter(TalentDB.dick_size >= d_min)
+                if (d_max := filters.get('dick_size_max')) is not None:
+                    query = query.filter(TalentDB.dick_size <= d_max)
+                
+                if cup_sizes := filters.get('cup_sizes'):
+                    query = query.filter(TalentDB.cup_size.in_(cup_sizes))
+
+            # --- 3. Exclusion Constraints ---
             if cast_talent_ids := {c.talent_id for c in scene_db.cast}:
                 query = query.filter(TalentDB.id.notin_(cast_talent_ids))
 
+            # Execute Query
             potential_candidates_db = query.all()
 
-            # --- Orchestration: Pre-fetch weekly bookings for all candidates ---
+            # --- 4. Orchestration: Pre-fetch weekly bookings for all candidates ---
             candidate_ids = [t.id for t in potential_candidates_db]
             all_weekly_bookings = self._get_weekly_bookings_for_talents(session, candidate_ids)
             scene_week_key = (scene.scheduled_week, scene.scheduled_year)
@@ -172,82 +211,7 @@ class TalentQueryService:
         finally:
             session.close()
 
-    def filter_talent_list_by_attributes(self, candidates: List[TalentDB], filters: dict) -> List[TalentDB]:
-        """
-        Performs in-memory filtering on a pre-fetched list of TalentDB objects.
-
-        This is used to apply secondary filters (like age, nationality, etc.)
-        to a list of candidates that has already been generated by a more
-        complex initial query, such as get_eligible_talent_for_role.
-
-        Args:
-            candidates: The initial list of TalentDB objects to filter.
-            filters: A dictionary of filter criteria.
-
-        Returns:
-            A new, filtered list of TalentDB objects.
-        """
-        if not filters:
-            return candidates
-
-        filtered_candidates = []
-
-        # Pre-process filters for efficiency
-        text_filter = (filters.get('name') or filters.get('text', '')).lower()
-        go_to_only = filters.get('go_to_list_only', False)
-        category_id = filters.get('go_to_category_id', -1)
-        age_min = filters.get('age_min', 18)
-        age_max = filters.get('age_max', 99)
-        nationalities = set(filters.get('nationalities', []))
-        locations = set(filters.get('locations', []))
-        dick_min = filters.get('dick_size_min')
-        dick_max = filters.get('dick_size_max')
-        cup_sizes = set(filters.get('cup_sizes', []))
-
-        for talent in candidates:
-            # Name filter
-            if text_filter and text_filter not in talent.alias.lower():
-                continue
-
-            # Go-To List filter
-            if go_to_only and not talent.go_to_list_entries:
-                continue
-
-            # Go-To Category filter
-            if category_id > -1:
-                if not any(entry.category_id == category_id for entry in talent.go_to_list_entries):
-                    continue
-
-            # Age filter
-            if not (age_min <= talent.age <= age_max):
-                continue
-
-            # Nationality filter
-            if nationalities and talent.nationality not in nationalities:
-                continue
-
-            # Location filter
-            if locations and talent.base_location not in locations:
-                continue
-
-            # Dick Size filter
-            if dick_min is not None:
-                if talent.dick_size is None or not (dick_min <= talent.dick_size <= dick_max):
-                    continue
-
-            # Cup Size filter
-            if cup_sizes and talent.cup_size not in cup_sizes:
-                continue
-
-            # If all checks pass, add the talent to the results
-            filtered_candidates.append(talent)
-
-        return filtered_candidates
-
     def find_available_roles_for_talent(self, talent_id: int, studio_location: str, current_week: int, current_year: int) -> List[Dict]:
-        """
-        Finds all uncast roles that a talent is eligible for, calculating hiring cost and availability.
-        """
         with self.session_factory() as session:
             talent_db = session.query(TalentDB).options(
                 selectinload(TalentDB.popularity_scores)
@@ -344,7 +308,6 @@ class TalentQueryService:
             return available_roles
     
     def get_role_details_for_ui(self, scene_id: int, vp_id: int) -> Dict:
-        """Fetches a comprehensive dictionary of a specific role's details for UI display."""
         session = self.session_factory()
         try:
             scene_db = session.query(SceneDB).options(

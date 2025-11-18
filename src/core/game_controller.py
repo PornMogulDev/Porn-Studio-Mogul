@@ -89,7 +89,7 @@ class GameController(QObject):
 
         self._available_ethnicities = None
         self.game_over = False
-
+        
     def get_current_theme(self) -> Theme:
         """Convenience method to get the current theme object."""
         theme_name = self.settings_manager.get_setting("theme", "dark")
@@ -131,10 +131,6 @@ class GameController(QObject):
         if not self.query_service: return []
         logger.debug(f"Filtering talents with: {filters}")
         return self.query_service.get_filtered_talents(filters)
-    
-    def filter_talent_list_by_attributes(self, candidates: List[TalentDB], filters: dict) -> List[TalentDB]:
-        if not self.talent_query_service: return []
-        return self.talent_query_service.filter_talent_list_by_attributes(candidates, filters)
 
     def get_blocs_for_schedule_view(self, year: int) -> List[ShootingBloc]:
         if not self.query_service: return []
@@ -308,9 +304,14 @@ class GameController(QObject):
         return self.talent_query_service.find_available_roles_for_talent(
             talent_id, self.game_state.studio_location, self.game_state.week, self.game_state.year
         )
-    def get_eligible_talent_for_role(self, scene_id: int, vp_id: int) -> List[TalentDB]:
+        
+    def get_eligible_talent_for_role(self, scene_id: int, vp_id: int, filters: dict = None) -> List[TalentDB]:
+        """
+        Retrieves a list of talents eligible for a specific role, applying both
+        role constraints and user-defined attribute filters.
+        """
         if not self.talent_query_service: return []
-        return self.talent_query_service.get_eligible_talent_for_role(scene_id, vp_id)
+        return self.talent_query_service.get_eligible_talent_for_role(scene_id, vp_id, filters)
     
     def calculate_bulk_hiring_costs(self, talent_id: int, roles: List[Dict]) -> Optional[Dict]:
         """

@@ -149,7 +149,9 @@ class TalentAvailabilityChecker:
         
         for category, tier_name in (bloc_db.production_settings or {}).items():
             tier_data = next((t for t in self.data_manager.production_settings_data.get(category, []) if t['tier_name'] == tier_name), None)
-            if tier_data and tier_data.get('is_low_tier', False) and random.random() * 100 < pickiness_score:
+            # Deterministic seed
+            rng = random.Random(f"{talent.id}_{bloc_db.scheduled_week}_{bloc_db.scheduled_year}")
+            if tier_data.get('is_low_tier', False) and rng.random() * 100 < pickiness_score:
                 return AvailabilityResult(False, f"Considers the '{tier_name}' {category} setting beneath them.")
         return AvailabilityResult(is_available=True)    
     

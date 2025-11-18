@@ -30,7 +30,9 @@ class GameQueryService:
             
             # Support both 'name' and 'text' keys for name filtering
             if name_filter := (all_filters.get('name') or all_filters.get('text')):
-                query = query.filter(TalentDB.alias.ilike(f"%{name_filter}%"))
+                # Escape special wildcard characters in the input
+                sanitized = name_filter.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                query = query.filter(TalentDB.alias.ilike(f"%{sanitized}%", escape='\\'))
             
             if gender_filter := all_filters.get('gender'):
                 if gender_filter != 'Any':
