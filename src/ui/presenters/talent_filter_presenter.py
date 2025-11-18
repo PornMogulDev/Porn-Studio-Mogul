@@ -22,7 +22,7 @@ class TalentFilterPresenter(QObject):
             'acting_min': 0, 'acting_max': 100, 'stamina_min': 0, 'stamina_max': 100,
             'dominance_min': 0, 'dominance_max': 100, 'submission_min': 0, 'submission_max': 100,
             'dick_size_min': 0, 'dick_size_max': 20, 'ethnicities': [], 'cup_sizes': [],
-            'nationalities': [], 'locations': [], 'scene_id': None, 'vp_id': None,
+            'nationalities': [], 'locations': [], 'effective_locations': [], 'scene_id': None, 'vp_id': None,
         }
         self._connect_signals()
 

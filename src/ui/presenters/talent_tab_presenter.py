@@ -176,7 +176,7 @@ class TalentTabPresenter(QObject):
                 self.view.update_talent_list([])
                 return
             
-            # --- New Step 1.5: Pre-filter talents and pre-fetch all necessary location data ---
+            # --- Step 1.5: Pre-filter talents and pre-fetch all necessary location data ---
             talents_passing_skills_db = [
                 t_db for t_db in attribute_filtered_db 
                 if (filter_cache_item := self._talent_filter_cache.get(t_db.id)) and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters)
@@ -186,6 +186,12 @@ class TalentTabPresenter(QObject):
             talent_locations = self.controller.get_effective_locations_for_multiple_talents(
                 all_relevant_ids, scene_dc.scheduled_week, scene_dc.scheduled_year
             )
+            # --- Step 1.6: Apply effective location filter after fetching locations ---
+            if effective_location_filters := all_filters.get('effective_locations'):
+                talents_passing_skills_db = [
+                    t_db for t_db in talents_passing_skills_db
+                    if talent_locations.get(t_db.id) in effective_location_filters
+                ]
 
             # --- Orchestration Step 2: Build the list for the UI, using cached demands where available ---
             final_cache_items = []
@@ -216,7 +222,10 @@ class TalentTabPresenter(QObject):
             # --- PATH B: Standard, General Filtering ---
             self._current_casting_context = None # Clear context when not in casting mode
             self._stop_casting_mode()
+            # Separate filters for the DB query vs. the in-memory cache filter
             db_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission'))}
+            # Exclude effective_locations from the initial DB query as it's a dynamic value
+            effective_location_filters = db_filters.pop('effective_locations', [])
             talents_from_db = self.controller.get_filtered_talents(db_filters)
 
             cache_items_passing_skills = []
@@ -225,6 +234,9 @@ class TalentTabPresenter(QObject):
                 if filter_cache_item and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters):
                     # In general mode, ensure effective location is the current location
                     filter_cache_item.effective_location = t_db.current_location
+                    # Apply the effective location filter in-memory
+                    if effective_location_filters and filter_cache_item.effective_location not in effective_location_filters:
+                        continue
                     cache_items_passing_skills.append(filter_cache_item)
             self.view.update_talent_list(cache_items_passing_skills)
 

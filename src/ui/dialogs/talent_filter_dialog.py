@@ -98,7 +98,14 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         # --- Nationality & Location ---
         from PyQt6.QtWidgets import QListWidget # Import locally for nationality
         self.nationality_group = CollapsibleGroupBox("Nationality"); nationality_layout = QVBoxLayout(self.nationality_group); self.nationality_filter_input = QLineEdit(); self.nationality_filter_input.setPlaceholderText("Filter nationalities..."); nationality_layout.addWidget(self.nationality_filter_input); self.nationality_list = QListWidget(); self.nationality_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection); self.nationality_list.addItems(sorted(self.all_nationalities)); nationality_layout.addWidget(self.nationality_list); main_layout.addWidget(self.nationality_group)
-        self.location_group = CollapsibleGroupBox("Location"); location_layout = QVBoxLayout(self.location_group); self.location_tree = CheckableHierarchyTreeView(); self.location_tree.populate_data(self.locations_by_region); location_layout.addWidget(self.location_tree); main_layout.addWidget(self.location_group)
+
+        # --- Location Filters (Side-by-Side) ---
+        self.location_group = CollapsibleGroupBox("Location")
+        location_main_layout = QHBoxLayout(self.location_group)
+        base_location_layout = QVBoxLayout(); base_location_layout.addWidget(QLabel("<b>Base Location</b>")); self.base_location_tree = CheckableHierarchyTreeView(); self.base_location_tree.populate_data(self.locations_by_region); base_location_layout.addWidget(self.base_location_tree)
+        effective_location_layout = QVBoxLayout(); effective_location_layout.addWidget(QLabel("<b>Effective Location</b>")); self.effective_location_tree = CheckableHierarchyTreeView(); self.effective_location_tree.populate_data(self.locations_by_region); effective_location_layout.addWidget(self.effective_location_tree)
+        location_main_layout.addLayout(base_location_layout); location_main_layout.addLayout(effective_location_layout)
+        main_layout.addWidget(self.location_group)
 
         # --- Ethnicity ---
         self.ethnicity_group = CollapsibleGroupBox("Ethnicity"); ethnicity_layout = QVBoxLayout(self.ethnicity_group); self.ethnicity_tree = CheckableHierarchyTreeView(); self.ethnicity_tree.populate_data(self.ethnicities_hierarchy); ethnicity_layout.addWidget(self.ethnicity_tree); main_layout.addWidget(self.ethnicity_group)
@@ -253,7 +260,8 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
 
         # --- Tree View Loading ---
         self.ethnicity_tree.set_checked_items(filters.get('ethnicities', []))
-        self.location_tree.set_checked_items(filters.get('locations', []))
+        self.base_location_tree.set_checked_items(filters.get('locations', [])) # Legacy presets load into base
+        self.effective_location_tree.set_checked_items(filters.get('effective_locations', []))
 
     def gather_current_filters(self) -> dict:
         """Reads all controls and returns the current filter dictionary."""
@@ -267,7 +275,8 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
 
         filters.update({
             'go_to_list_only': self.go_to_only_checkbox.isChecked(), 'go_to_category_id': self.category_combo.currentData(), 'age_min': age_min, 'age_max': age_max, 'performance_min': perf_min, 'performance_max': perf_max, 'acting_min': act_min, 'acting_max': act_max, 'stamina_min': stam_min, 'stamina_max': stam_max, 'dominance_min': dom_min, 'dominance_max': dom_max, 'submission_min': sub_min, 'submission_max': sub_max, 'dick_size_min': dick_size_min_in, 'dick_size_max': dick_size_max_in, 'nationalities': [item.text() for item in self.nationality_list.selectedItems()],
-            'locations': self.location_tree.get_checked_items(),
+            'locations': self.base_location_tree.get_checked_items(),
+            'effective_locations': self.effective_location_tree.get_checked_items(),
         })
 
         if not (cup_min_idx == 0 and cup_max_idx == len(self.all_cup_sizes) - 1):

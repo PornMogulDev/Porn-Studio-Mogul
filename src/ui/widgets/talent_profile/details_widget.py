@@ -61,7 +61,10 @@ class DetailsWidget(QWidget):
         self.orientation_label.setText(format_orientation(data['orientation'], data['gender']))
         self.ethnicity_label.setText(data['ethnicity'])
         self.nationality_label.setText(data['nationality'])
-        self.location_label.setText(data['location'])
+        if data['current_location'] == data['base_location']:
+            self.location_label.setText(data['current_location'])
+        else:
+            self.location_label.setText(f'{data['current_location']} (on tour from {data['base_location']})')
         self.popularity_label.setText(str(data['popularity']))
         self.fatigue_label.setText(data['fatigue'])
 

@@ -149,7 +149,8 @@ class TalentProfilePresenter(QObject):
             'orientation': talent.orientation_score,
             'ethnicity': ethnicity_str,
             'nationality': talent.nationality,
-            'location': talent.base_location,
+            'base_location': talent.base_location,
+            'current_location': talent.current_location,
             'popularity': round(sum(talent.popularity.values())),
             'fatigue': format_fatigue(talent.fatigue)
         })
