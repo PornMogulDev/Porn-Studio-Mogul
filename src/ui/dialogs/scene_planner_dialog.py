@@ -11,13 +11,14 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtGui import QKeyEvent
 
+from data.game_state import ActionSegment
 from ui.view_models import PerformerEditorViewModel, TotalRuntimeViewModel
 from ui.widgets.scene_summary_widget import SceneSummaryWidget
 from ui.widgets.scene_planner.draggable_list_widget import DraggableListWidget
 from ui.widgets.scene_planner.drop_enabled_list_widget import DropEnabledListWidget
 from ui.widgets.scene_planner.action_segment_widget import ActionSegmentItemWidget
 from ui.widgets.scene_planner.slot_assignment_widget import SlotAssignmentWidget
-from data.game_state import ActionSegment
+from ui.widgets.preset_widget import PresetWidget
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.help_button import HelpButton
     
@@ -92,6 +93,8 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         self.bloc_info_label = QLabel()
         font = self.bloc_info_label.font(); font.setItalic(True); self.bloc_info_label.setFont(font)
         header_layout.addWidget(self.bloc_info_label, 1)
+        self.preset_widget = PresetWidget()
+        header_layout.addWidget(self.preset_widget, 2)
         header_layout.addStretch()
         self.view_toggle_btn = QPushButton("View Summary")
         header_layout.addWidget(self.view_toggle_btn, 0)
@@ -331,6 +334,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     def update_summary_view(self, summary_data: dict):
         """Passes summary data to the summary widget."""
         self.summary_widget.update_summary(summary_data)
+
     def update_general_info(self, title: str, status: str, focus_target: str, runtime: int, ds_level: int, bloc_text: str):
         for w in [self.title_edit, self.status_combo, self.focus_target_combo, self.total_runtime_spinbox, self.ds_level_spinbox]: w.blockSignals(True)
         self.title_edit.setText(title)
@@ -471,7 +475,8 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         self.status_combo.setEnabled(not is_cast_locked)
         self.button_box.button(QDialogButtonBox.StandardButton.Ok).setText("Close" if is_cast_locked else "OK")
         widgets_to_toggle = [self.title_edit, self.delete_button, self.total_runtime_spinbox,
-                             self.focus_target_combo, self.performer_count_spinbox, self.ds_level_spinbox, self.content_tabs]
+                             self.focus_target_combo, self.performer_count_spinbox, self.ds_level_spinbox, self.content_tabs,
+                             self.preset_widget]
         for widget in widgets_to_toggle: widget.setEnabled(is_editable)
         self.runtime_percent_spinbox.setEnabled(is_editable)
         for i in range(self.slots_layout.count()):

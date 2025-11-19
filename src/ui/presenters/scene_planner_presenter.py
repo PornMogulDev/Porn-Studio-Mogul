@@ -1,16 +1,22 @@
 import logging
+import dataclasses
+import copy
 from typing import Optional, List, Dict, Set, TYPE_CHECKING
 from PyQt6.QtCore import Qt, pyqtSlot, QObject
 from PyQt6.QtWidgets import QDialog, QMessageBox
 from PyQt6 import sip
 
 from core.interfaces import IGameController
-from data.game_state import Scene, Talent, ShootingBloc
+from data.game_state import (
+    Scene, Talent, ShootingBloc,
+    VirtualPerformer, ActionSegment, SlotAssignment
+)
 from ui.view_models import PerformerEditorViewModel, TotalRuntimeViewModel
 from ui.dialogs.scene_planner_dialog import ScenePlannerDialog
 from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from ui.builders.scene_summary_builder import prepare_summary_data
 from services.builders.scene_state_editor import SceneStateEditor
+from utils.preset_handler import PresetHandler
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +24,7 @@ class ScenePlannerPresenter(QObject):
     def __init__(self, controller: IGameController, scene_id: int, view: ScenePlannerDialog):
         super().__init__(view) # Parent the presenter to the view for lifecycle management
         self.controller = controller
+        self.settings_manager = self.controller.settings_manager
         self.view = view
         original_scene = self.controller.get_scene_by_id(scene_id)
         if not original_scene: raise ValueError(f"Scene with ID {scene_id} not found.")
@@ -42,6 +49,16 @@ class ScenePlannerPresenter(QObject):
         self.update_favorites()
         self._connect_signals()
 
+        # --- Initialize Preset Handler ---
+        self.preset_handler = PresetHandler(
+            widget=self.view.preset_widget,
+            settings_manager=self.settings_manager,
+            settings_key="scene_planner_presets",
+            parent_view=self.view,
+            save_callback=self._get_scene_data_for_preset,
+            load_callback=self._apply_preset_to_scene
+        )
+
     @property
     def working_scene(self) -> Scene: return self.state_editor.working_scene
 
@@ -60,7 +77,7 @@ class ScenePlannerPresenter(QObject):
         self.view.protagonist_toggled.connect(self.on_protagonist_toggled)
         self.view.total_runtime_changed.connect(self.on_total_runtime_changed)
         self.view.toggle_favorite_requested.connect(self.on_toggle_favorite_requested)
-        
+
         # Thematic
         self.view.thematic_search_changed.connect(self.on_thematic_search_changed)
         self.view.thematic_filter_requested.connect(self.on_thematic_filter_requested)
@@ -377,7 +394,176 @@ class ScenePlannerPresenter(QObject):
 
     def on_cancel_requested(self):
         self.view.reject()
+
     def on_delete_requested(self, penalty_percentage: float): self.controller.delete_scene(self.working_scene.id, penalty_percentage=penalty_percentage); self.view.accept()
+    
+    # --- Preset Management ---
+
+    def _get_scene_data_for_preset(self) -> Dict:
+        """Callback for PresetHandler to get data to save."""
+
+        scene_data = dataclasses.asdict(self.working_scene)
+        
+        # DEBUG: Log what is about to be saved to verify if 'id' is leaking
+        logger.debug(f"[PRESET SAVE] Raw scene data keys before filter: {list(scene_data.keys())}")
+        if 'id' in scene_data:
+            logger.debug(f"[PRESET SAVE] Scene ID present in raw data: {scene_data['id']}")
+
+        fields_to_keep = [
+            'title', 'focus_target', 'total_runtime_minutes', 'dom_sub_dynamic_level',
+            'virtual_performers', 'global_tags', 'assigned_tags', 'action_segments',
+            'protagonist_vp_ids'
+        ]
+        
+        result = {key: scene_data.get(key) for key in fields_to_keep}
+        
+        # DEBUG: Verify final payload
+        if 'id' in result:
+            logger.error(f"[PRESET SAVE] CRITICAL: 'id' field leaked into saved preset data! Value: {result['id']}")
+        else:
+            logger.debug("[PRESET SAVE] 'id' field successfully excluded from preset.")
+
+        return result
+
+    def _apply_preset_to_scene(self, preset_data: Dict):
+        """Callback for PresetHandler to apply loaded data."""
+        
+        # DEBUG: Trace ID restoration
+        original_id = self.working_scene.id
+        logger.debug(f"[PRESET LOAD] Original Scene ID before apply: {original_id}")
+
+        if 'id' in preset_data:
+             logger.warning(f"[PRESET LOAD] Warning: Preset data contains 'id': {preset_data['id']}. This should have been filtered out.")
+
+        # Reconstruct a new Scene object from the preset data
+        scene_from_preset = self._scene_from_preset_data(preset_data)
+        
+        # DEBUG: Check ID of constructed scene object
+        logger.debug(f"[PRESET LOAD] Constructed Scene ID from preset: {scene_from_preset.id}")
+
+        # Preserve essential current scene data that should not be overwritten by a preset
+        original_status = self.working_scene.status
+        original_bloc_id = self.working_scene.bloc_id
+        original_scheduled_week = self.working_scene.scheduled_week
+        original_scheduled_year = self.working_scene.scheduled_year
+        original_final_cast = self.working_scene.final_cast
+        original_is_locked = self.working_scene.is_locked
+
+        # Overwrite the state editor's working scene
+        self.state_editor.working_scene = scene_from_preset
+
+        # Restore the preserved data
+        self.state_editor.working_scene.id = original_id
+        self.state_editor.working_scene.status = original_status
+        self.state_editor.working_scene.bloc_id = original_bloc_id
+        self.state_editor.working_scene.scheduled_week = original_scheduled_week
+        self.state_editor.working_scene.scheduled_year = original_scheduled_year
+        self.state_editor.working_scene.final_cast = original_final_cast
+        self.state_editor.working_scene.is_locked = original_is_locked
+        
+        # DEBUG: Final verification
+        if self.state_editor.working_scene.id != original_id:
+             logger.error(f"[PRESET LOAD] CRITICAL: Scene ID mismatch after restoration! Expected {original_id}, got {self.state_editor.working_scene.id}")
+        else:
+             logger.debug(f"[PRESET LOAD] Scene ID successfully restored to {self.state_editor.working_scene.id}")
+        
+        # The presenter's own selection state needs to be reset
+        self.selected_physical_tag_name = None
+        self.selected_segment_id = None
+
+        # Refresh entire UI from the new working_scene state
+        self._refresh_full_view()
+
+    def _scene_from_preset_data(self, data: dict) -> Scene:
+        """Helper to reconstruct a Scene object from preset data, creating new temporary IDs and remapping references."""
+        scene_data = copy.deepcopy(data) # Create a deep copy to avoid modifying the cached preset in SettingsManager
+        
+        # Inject placeholders for required Scene fields not present in presets.
+        # These will be overwritten by the actual scene context in _apply_preset_to_scene.
+        required_fields = {
+            'id': 0, 
+            'status': 'design', 
+            'scheduled_week': 0, 
+            'scheduled_year': 0, 
+            'location': 'Studio'
+        }
+        for k, v in required_fields.items():
+            scene_data.setdefault(k, v)
+        
+        new_vps, old_vp_id_map = [], {}
+        logger.debug("[PRESET MAP] Starting VP Mapping...")
+        for i, vp_data in enumerate(scene_data.get('virtual_performers', [])):
+            old_id = vp_data.get('id')
+            # Use a base offset (e.g. -100) to avoid the ID '-1', which can cause conflicts 
+            # with Qt sentinel values (Invalid Index) in QComboBox logic.
+            new_id = -(i + 101) 
+            
+            # Explicitly cast to int to handle potential string IDs from JSON
+            if old_id is not None:
+                try:
+                    old_id_int = int(old_id)
+                    old_vp_id_map[old_id_int] = new_id
+                    # Also map string version just in case key lookup uses string later
+                    old_vp_id_map[str(old_id)] = new_id 
+                except ValueError:
+                    logger.warning(f"[PRESET MAP] Could not convert VP ID '{old_id}' to int.")
+
+            logger.debug(f"[PRESET MAP] VP Index {i}: Old ID {old_id} -> New ID {new_id}")
+            
+            vp_data['id'] = new_id
+            new_vps.append(VirtualPerformer(**vp_data))
+            
+        scene_data['virtual_performers'] = new_vps
+        
+        # Remap Protagonists
+        new_protagonists = []
+        for old_id in scene_data.get('protagonist_vp_ids', []):
+             # Try int first, then as-is
+             mapped = old_vp_id_map.get(int(old_id) if isinstance(old_id, (int, str)) and str(old_id).lstrip('-').isdigit() else old_id)
+             if mapped is not None:
+                 new_protagonists.append(mapped)
+        scene_data['protagonist_vp_ids'] = sorted(new_protagonists)
+
+        # Remap Assigned Tags
+        if 'assigned_tags' in scene_data:
+            new_assigned_tags = {}
+            for tag, oids in scene_data['assigned_tags'].items():
+                new_oids = []
+                for oid in oids:
+                     mapped = old_vp_id_map.get(int(oid) if isinstance(oid, (int, str)) and str(oid).lstrip('-').isdigit() else oid)
+                     if mapped is not None: new_oids.append(mapped)
+                new_assigned_tags[tag] = new_oids
+            scene_data['assigned_tags'] = new_assigned_tags
+
+        # Remap Action Segments
+        new_segments = []
+        for i, seg_data in enumerate(scene_data.get('action_segments', [])):
+            seg_data['id'] = -(i + 101)
+            assignments_data = seg_data.pop('slot_assignments', [])
+            
+            new_assignments = []
+            for sa_dict in assignments_data:
+                sa = SlotAssignment(**sa_dict)
+                
+                # Handle type conversion for lookup
+                raw_vp_id = sa.virtual_performer_id
+                lookup_key = raw_vp_id
+                if raw_vp_id is not None and isinstance(raw_vp_id, (int, str)) and str(raw_vp_id).lstrip('-').isdigit():
+                     lookup_key = int(raw_vp_id)
+                
+                mapped_id = old_vp_id_map.get(lookup_key)
+                
+                # Log the mapping attempt for the first few segments/slots
+                if i == 0:
+                     logger.debug(f"[PRESET MAP] Seg 0 Slot {sa.slot_id}: Raw VP {raw_vp_id} (Key {lookup_key}) -> Mapped {mapped_id}")
+
+                sa.virtual_performer_id = mapped_id
+                new_assignments.append(sa)
+
+            segment = ActionSegment(**seg_data); segment.slot_assignments = new_assignments; new_segments.append(segment)
+        scene_data['action_segments'] = new_segments
+        return Scene(**{k: v for k, v in scene_data.items() if k in Scene.__annotations__})
+    
     def on_favorites_changed(self): self.update_favorites(); self._refresh_thematic_panel(); self._refresh_physical_panel(); self._refresh_action_segment_panel()
     def on_toggle_favorite_requested(self, tag_name: str, tag_type: str): self.toggle_favorite_tag(tag_name, tag_type)
 

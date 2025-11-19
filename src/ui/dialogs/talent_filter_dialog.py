@@ -10,6 +10,7 @@ from utils.formatters import inches_to_cm, cm_to_inches
 from ui.widgets.talent_filter.categorical_range_filter_widget import CategoricalRangeFilterWidget
 from ui.widgets.talent_filter.collapsible_group_box import CollapsibleGroupBox
 from ui.widgets.talent_filter.checkable_hierarchy_tree_view import CheckableHierarchyTreeView
+from ui.widgets.preset_widget import PresetWidget
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.talent_filter_presenter import TalentFilterPresenter
 
@@ -27,12 +28,6 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
     # New signals for role filtering
     scene_selected = pyqtSignal(int)
     role_selected = pyqtSignal(int, int) # scene_id, vp_id
-
-    # --- Signals for Presenter ---
-    load_preset_requested = pyqtSignal()
-    save_preset_requested = pyqtSignal()
-    delete_preset_requested = pyqtSignal()
-
 
     def __init__(self, controller, ethnicities_hierarchy: dict, cup_sizes: list, nationalities: list, locations_by_region: dict, go_to_categories: list, current_filters: dict, settings_manager, parent=None):
         super().__init__(parent)
@@ -69,7 +64,9 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         from ui.widgets.talent_filter.range_filter_widget import RangeFilterWidget
 
         # --- Presets ---
-        presets_group = CollapsibleGroupBox("Filter Presets"); presets_layout = QHBoxLayout(presets_group); presets_layout.addWidget(QLabel("Preset:")); self.preset_combo = QComboBox(); self.preset_combo.setEditable(True); self.preset_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert); self.preset_combo.setToolTip("Select a saved preset or type a new name to save."); presets_layout.addWidget(self.preset_combo); self.load_preset_button = QPushButton("Load"); presets_layout.addWidget(self.load_preset_button); self.save_preset_button = QPushButton("Save"); presets_layout.addWidget(self.save_preset_button); self.delete_preset_button = QPushButton("Delete"); presets_layout.addWidget(self.delete_preset_button); main_layout.addWidget(presets_group)
+        presets_group = CollapsibleGroupBox("Filter Presets"); presets_layout = QHBoxLayout(presets_group)
+        self.preset_widget = PresetWidget()
+        presets_layout.addWidget(self.preset_widget); main_layout.addWidget(presets_group)
 
         # --- Role Filter ---
         self.role_filter_group = CollapsibleGroupBox("Role Filter")
@@ -124,11 +121,6 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
             lambda state: self.go_to_toggled.emit(state == Qt.CheckState.Checked.value)
         )
         self.nationality_filter_input.textChanged.connect(self._filter_nationality_list)
-
-        # Connect UI actions to signals that the Presenter will handle
-        self.load_preset_button.clicked.connect(self.load_preset_requested)
-        self.save_preset_button.clicked.connect(self.save_preset_requested)
-        self.delete_preset_button.clicked.connect(self.delete_preset_requested)
 
         # Connect role filter signals
         self.scene_combo.currentIndexChanged.connect(self._on_scene_changed)
@@ -216,18 +208,6 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
             if label:
                 label.setText("Dick Size (in):")
             self.dick_range.set_range(0, 20)
-
-    def populate_presets(self, presets: List[str], select_text: str = None):
-        """Populates the presets combobox with a list of names."""
-        current_text = select_text or self.preset_combo.currentText()
-        self.preset_combo.blockSignals(True)
-        self.preset_combo.clear()
-        if presets:
-            self.preset_combo.addItems(sorted(presets))
-        
-        index = self.preset_combo.findText(current_text)
-        self.preset_combo.setCurrentIndex(index if index != -1 else -1)
-        self.preset_combo.blockSignals(False)
 
     def load_filters(self, filters: dict):
         """Loads a given filter dictionary into the UI controls."""

@@ -1,11 +1,12 @@
+from typing import Dict
 from PyQt6.QtCore import QObject, pyqtSlot
-from PyQt6.QtWidgets import QMessageBox
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ui.dialogs.talent_filter_dialog import TalentFilterDialog
     from core.interfaces import IGameController
 from data.settings_manager import SettingsManager
+from utils.preset_handler import PresetHandler
 
 class TalentFilterPresenter(QObject):
     def __init__(self, view: 'TalentFilterDialog', controller: 'IGameController', initial_filters: dict, settings_manager: 'SettingsManager'):
@@ -26,10 +27,19 @@ class TalentFilterPresenter(QObject):
         }
         self._connect_signals()
 
+        # --- Initialize Preset Handler ---
+        self.preset_handler = PresetHandler(
+            widget=self.view.preset_widget,
+            settings_manager=self.settings_manager,
+            settings_key="talent_filter_presets",
+            parent_view=self.view,
+            save_callback=self._get_filters_for_preset,
+            load_callback=self._apply_preset_filters
+        )
+
     def load_initial_data(self):
         self._reload_scenes()
         self.view.load_filters(self.initial_filters) # Load previous filters first
-        self._update_presets_in_view()
 
     @pyqtSlot()
     def _reload_scenes(self):
@@ -41,9 +51,6 @@ class TalentFilterPresenter(QObject):
         self.view.apply_requested.connect(self.on_apply_requested)
         self.view.reset_requested.connect(self.on_reset_requested)
         self.view.go_to_toggled.connect(self.on_go_to_toggled)
-        self.view.load_preset_requested.connect(self.on_load_preset)
-        self.view.save_preset_requested.connect(self.on_save_preset)
-        self.view.delete_preset_requested.connect(self.on_delete_preset)
         self.view.scene_selected.connect(self._on_scene_selected)
         self.view.role_selected.connect(self._on_role_selected)
         self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
@@ -89,40 +96,16 @@ class TalentFilterPresenter(QObject):
     @pyqtSlot(bool)
     def on_go_to_toggled(self, is_checked: bool):
         self.view.set_category_combo_enabled(is_checked)
-        
-    @pyqtSlot()
-    def on_load_preset(self):
-        preset_name = self.view.preset_combo.currentText()
-        if not preset_name: return
-        presets = self.settings_manager.get_talent_filter_presets()
-        if preset_data := presets.get(preset_name): self.view.load_filters(preset_data)
-        else: QMessageBox.warning(self.view, "Load Error", f"Could not find preset named '{preset_name}'.")
 
-    @pyqtSlot()
-    def on_save_preset(self):
-        preset_name = self.view.preset_combo.currentText()
-        if not preset_name:
-            QMessageBox.warning(self.view, "Save Preset", "Please enter a name for the preset."); return
-        presets = self.settings_manager.get_talent_filter_presets()
-        presets[preset_name] = self.view.gather_current_filters()
-        self.settings_manager.set_talent_filter_presets(presets)
-        self._update_presets_in_view(select_text=preset_name)
-        QMessageBox.information(self.view, "Preset Saved", f"Preset '{preset_name}' has been saved.")
+    # --- Preset Handler Callbacks ---
 
-    @pyqtSlot()
-    def on_delete_preset(self):
-        preset_name = self.view.preset_combo.currentText()
-        if not preset_name: return
-        reply = QMessageBox.question(self.view, "Delete Preset", f"Are you sure you want to delete the preset '{preset_name}'?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
-        if reply == QMessageBox.StandardButton.Yes:
-            presets = self.settings_manager.get_talent_filter_presets()
-            if preset_name in presets:
-                del presets[preset_name]
-                self.settings_manager.set_talent_filter_presets(presets)
-                self._update_presets_in_view()
-
-    def _update_presets_in_view(self, select_text: str = None):
-        self.view.populate_presets(list(self.settings_manager.get_talent_filter_presets().keys()), select_text)
+    def _get_filters_for_preset(self) -> Dict:
+        """Callback for PresetHandler to get data to save."""
+        return self.view.gather_current_filters()
+    
+    def _apply_preset_filters(self, preset_data: Dict):
+        """Callback for PresetHandler to apply loaded data."""
+        self.view.load_filters(preset_data)
 
     @pyqtSlot(str)
     def _on_setting_changed(self, key: str):

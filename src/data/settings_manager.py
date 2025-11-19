@@ -52,6 +52,7 @@ class SettingsManager:
             "talent_profile_layouts": {},
             "talent_profile_last_layout": None,
             "talent_filter_presets": {},
+            "scene_planner_presets": {},
             "hiring_dashboard_panel_visibility": {},
         }
         self.settings = self._load_settings()
@@ -67,8 +68,6 @@ class SettingsManager:
     def get_app_font(self) -> QFont:
         """Creates a QFont object from the current settings."""
         return QFont(self.font_family, self.font_size)
-
-
 
     def _load_settings(self) -> dict:
         """Loads settings from the JSON file, merging with defaults."""
@@ -93,6 +92,14 @@ class SettingsManager:
                 json.dump(self.settings, f, indent=4)
         except IOError as e:
             logger.error(f"Error: Could not save settings to {SETTINGS_FILE}: {e}")
+
+    def get_scene_planner_presets(self) -> dict:
+        """Returns the dictionary of saved scene planner presets."""
+        return self.get_setting('scene_planner_presets', {}).copy()
+
+    def set_scene_planner_presets(self, presets: dict):
+        """Sets the dictionary of saved scene planner presets."""
+        self.set_setting('scene_planner_presets', presets)
 
     def get_talent_profile_layouts(self) -> dict:
         """Returns the dictionary of saved talent profile layouts."""
