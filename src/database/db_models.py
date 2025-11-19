@@ -84,6 +84,22 @@ class TalentChemistryDB(Base):
     talent_a = relationship("TalentDB", foreign_keys=[talent_a_id], back_populates="chemistry_a")
     talent_b = relationship("TalentDB", foreign_keys=[talent_b_id], back_populates="chemistry_b")
 
+class ContractDB(Base, DataclassMapper):
+    __tablename__ = 'contracts'
+    id = Column(Integer, primary_key=True)
+    talent_id = Column(Integer, ForeignKey('talents.id'), unique=True, nullable=False)
+    start_week = Column(Integer, nullable=False)
+    start_year = Column(Integer, nullable=False)
+    duration_weeks = Column(Integer, nullable=False)
+    weekly_salary = Column(Integer, nullable=False)
+    compliance = Column(Integer, default=100)
+    allowed_orientations = Column(JSON, default=list)
+    allowed_concepts = Column(JSON, default=list)
+    max_dynamic = Column(Integer, default=3)
+    disposition = Column(String, nullable=True)
+    max_scenes_per_week = Column(Integer, default=1)
+    talent = relationship("TalentDB", back_populates="contract")
+
 class TalentDB(Base, DataclassMapper):
     __tablename__ = 'talents'
     id = Column(Integer, primary_key=True)
@@ -122,6 +138,7 @@ class TalentDB(Base, DataclassMapper):
     tour_end_week = Column(Integer, default=0, nullable=False)
     tour_end_year = Column(Integer, default=0, nullable=False)
     tours = relationship("TourDB", back_populates="talent", cascade="all, delete-orphan")
+    contract = relationship("ContractDB", uselist=False, back_populates="talent", cascade="all, delete-orphan")
 
     def _customize_dataclass_data(self, data: dict, dataclass_type: Type[T]) -> dict:
         """Handles relationship mapping for Talent."""
@@ -133,6 +150,8 @@ class TalentDB(Base, DataclassMapper):
             chem_dict[chem.talent_a_id] = chem.chemistry_score
         data['chemistry'] = chem_dict
         data['tours'] = [t.to_dataclass(Tour) for t in self.tours]
+        if self.contract:
+            data['contract'] = self.contract.to_dataclass(Contract)
         return data
 
 class TourDB(Base, DataclassMapper):

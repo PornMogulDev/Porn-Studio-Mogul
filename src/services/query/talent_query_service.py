@@ -62,7 +62,7 @@ class TalentQueryService:
                 weekly_bookings[week_key][entry.talent_id].append(entry.scene)
         return weekly_bookings
 
-    def get_talent_bookings_for_year(self, talent_id: int, year: int) -> Dict[int, List[SceneDB]]:
+    def get_talent_bookings_for_year(self, talent_id: int, year: int) -> Dict[int, List[Scene]]:
         """Efficiently fetches all scene bookings for a single talent for a given year, grouped by week."""
         bookings_by_week = defaultdict(list)
         with self.session_factory() as session:
@@ -77,7 +77,7 @@ class TalentQueryService:
                 .all()
 
             for entry in cast_entries:
-                bookings_by_week[entry.scene.scheduled_week].append(entry.scene)
+                 bookings_by_week[entry.scene.scheduled_week].append(entry.scene.to_dataclass(Scene))
             
             return bookings_by_week
         

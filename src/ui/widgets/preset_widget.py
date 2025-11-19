@@ -1,4 +1,3 @@
-# src/ui/widgets/preset_widget.py
 from typing import List, Optional, Set
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QComboBox, QPushButton
 from PyQt6.QtCore import pyqtSignal

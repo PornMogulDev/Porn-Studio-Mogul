@@ -2,6 +2,7 @@ import logging
 from typing import List, Dict, Optional, Tuple, Set
 from PyQt6.QtCore import QObject
 from sqlalchemy import func
+from collections import defaultdict
 
 from core.service_container import ServiceContainer
 from core.game_signals import GameSignals
@@ -20,6 +21,8 @@ from services.query.talent_location_service import TalentLocationService
 from services.calculation.tag_validation_checker import TagValidationChecker
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.calculation.bloc_cost_calculator import BlocCostCalculator
+from services.calculation.shoot_results_calculator import ShootResultsCalculator
+from services.calculation.bulk_booking_validator import BulkBookingValidator
 from services.tour_sponsorship_preview_service import TourSponsorshipPreviewService
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_command_service import SceneCommandService
@@ -32,7 +35,7 @@ from services.command.go_to_list_service import GoToListService
 from services.game_session_service import GameSessionService
 from services.player_settings_service import PlayerSettingsService
 from services.command.email_service import EmailService
-from services.models.results import EventAction, TourSponsorshipPreviewResult
+from services.models.results import EventAction, TourSponsorshipPreviewResult, ValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +80,7 @@ class GameController(QObject):
         self.talent_query_service: Optional[TalentQueryService] = None
         self.talent_demand_calculator: Optional[TalentDemandCalculator] = None
         self.bloc_cost_calculator: Optional[BlocCostCalculator] = None
+        self.shoot_results_calculator: Optional[ShootResultsCalculator] = None
         self.time_service: Optional[TimeService] = None
         self.go_to_list_service: Optional[GoToListService] = None
         self.scene_event_command_service: Optional[SceneEventCommandService] = None
@@ -341,6 +345,52 @@ class GameController(QObject):
         return self.talent_demand_calculator.calculate_bulk_hiring_costs(
             talent_dc, roles_with_context, self.game_state.week, self.game_state.year
         )
+    
+    def validate_potential_bookings(self, talent_id: int, roles_data: List[Dict]) -> Dict[Tuple[int, int], ValidationResult]:
+        """
+        Validates a batch of potential roles against the talent's limits (fatigue, max scenes).
+        Returns a dictionary mapping (scene_id, vp_id) to the ValidationResult.
+        """
+        if not self.query_service or not self.talent_query_service or not self.shoot_results_calculator or not self.talent_demand_calculator:
+            return {}
+
+        talent = self.query_service.get_talent_by_id(talent_id)
+        if not talent: return {}
+
+        # 1. Gather existing bookings across all relevant years
+        unique_years = {r['scheduled_year'] for r in roles_data}
+        existing_bookings = []
+        for year in unique_years:
+            bookings_map = self.talent_query_service.get_talent_bookings_for_year(talent_id, year)
+            for week_scenes in bookings_map.values():
+                existing_bookings.extend(week_scenes)
+        
+        # 2. Instantiate Validator
+        validator = BulkBookingValidator(
+            current_week=self.game_state.week,
+            current_year=self.game_state.year,
+            talent=talent,
+            existing_bookings=existing_bookings,
+            hiring_config=self.talent_demand_calculator.config,
+            shoot_calculator=self.shoot_results_calculator
+        )
+
+        # 3. Fetch Scenes (Dataclasses)
+        scene_ids = [r['scene_id'] for r in roles_data]
+        scenes_map = {s.id: s for s in self.get_multiple_scenes_by_ids(scene_ids)}
+
+        # 4. Validate
+        results = {}
+        for role in roles_data:
+            scene = scenes_map.get(role['scene_id'])
+            if not scene:
+                results[(role['scene_id'], role['virtual_performer_id'])] = ValidationResult(False, "Scene not found")
+                continue
+            
+            result = validator.try_book_role(scene, role['virtual_performer_id'])
+            results[(role['scene_id'], role['virtual_performer_id'])] = result
+            
+        return results
 
     def get_role_details_for_ui(self, scene_id: int, vp_id: int) -> Dict:
         if not self.talent_query_service: return {}

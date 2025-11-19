@@ -25,7 +25,8 @@ class GameQueryService:
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a),
                 selectinload(TalentDB.chemistry_b),
-                selectinload(TalentDB.tours)
+                selectinload(TalentDB.tours),
+                selectinload(TalentDB.contract)
             )
             
             # Support both 'name' and 'text' keys for name filtering
@@ -98,7 +99,8 @@ class GameQueryService:
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
                 selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a),
-                selectinload(TalentDB.tours)
+                selectinload(TalentDB.tours),
+                selectinload(TalentDB.contract)
             ).get(talent_id)
             if t:
                 return t.to_dataclass(Talent)
@@ -129,7 +131,8 @@ class GameQueryService:
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
                 selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a),
-                selectinload(TalentDB.tours)
+                selectinload(TalentDB.tours),
+                selectinload(TalentDB.contract)
             ).filter(TalentDB.id.in_(talent_ids)).all()
             
             return [t.to_dataclass(Talent) for t in talents_db]
@@ -157,7 +160,8 @@ class GameQueryService:
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
                 selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a),
-                selectinload(TalentDB.tours)
+                selectinload(TalentDB.tours),
+                selectinload(TalentDB.contract)
             ).join(GoToListAssignmentDB)\
                 .distinct()\
                 .order_by(TalentDB.alias).all()
@@ -178,7 +182,8 @@ class GameQueryService:
                 selectinload(TalentDB.popularity_scores),
                 selectinload(TalentDB.chemistry_a).joinedload(TalentChemistryDB.talent_b),
                 selectinload(TalentDB.chemistry_b).joinedload(TalentChemistryDB.talent_a),
-                selectinload(TalentDB.tours)
+                selectinload(TalentDB.tours),
+                selectinload(TalentDB.contract)
             ).join(GoToListAssignmentDB)\
                 .filter(GoToListAssignmentDB.category_id == category_id)\
                 .order_by(TalentDB.alias)\

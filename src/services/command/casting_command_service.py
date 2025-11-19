@@ -1,11 +1,14 @@
 import logging
 from typing import Dict, List, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from core.game_signals import GameSignals
-from database.db_models import SceneDB, SceneCastDB, GameInfoDB
+from database.db_models import SceneDB, SceneCastDB, GameInfoDB, ActionSegmentDB
+from data.game_state import Scene
 from services.query.game_query_service import GameQueryService
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
+from services.calculation.shoot_results_calculator import ShootResultsCalculator
+from services.calculation.bulk_booking_validator import BulkBookingValidator
 from services.query.talent_location_service import TalentLocationService
 
 logger = logging.getLogger(__name__)
@@ -15,30 +18,28 @@ class CastingCommandService:
     Command service for casting-related database operations.
     """
     def __init__(self, session_factory, signals: GameSignals, query_service: GameQueryService,
-                 location_service: TalentLocationService, demand_calculator: TalentDemandCalculator):
+                 location_service: TalentLocationService, demand_calculator: TalentDemandCalculator,
+                 shoot_results_calculator: ShootResultsCalculator):
         self.session_factory = session_factory
         self.signals = signals
         self.query_service = query_service
         self.demand_calculator = demand_calculator
         self.location_service = location_service
+        self.shoot_results_calculator = shoot_results_calculator
 
-    def _cast_talent_for_role_internal(self, session: Session, talent_id: int, scene_id: int, virtual_performer_id: int, cost: int) -> Optional[Dict]:
+    def _cast_talent_for_role_internal(self, session: Session, talent_alias: str, scene_db: SceneDB, talent_id: int, virtual_performer_id: int, cost: int) -> Optional[Dict]:
         """
         Internal helper for casting logic. Does NOT commit.
-        Receives session as parameter to work within caller's transaction.
+        Refactored to accept scene_db object to prevent N+1 queries in loops.
         """
-        scene_db = session.query(SceneDB).get(scene_id)
-        talent = self.query_service.get_talent_by_id(talent_id)
-        if not scene_db or not talent: return None
-
         new_cast_entry = SceneCastDB(
-            scene_id=scene_id, talent_id=talent_id,
+            scene_id=scene_db.id, talent_id=talent_id,
             virtual_performer_id=virtual_performer_id, salary=cost
         )
         scene_db.cast.append(new_cast_entry)
 
         messages = {
-            "main_message": f"Cast {talent.alias} in '{scene_db.title}' for ${cost:,}.",
+            "main_message": f"Cast {talent_alias} in '{scene_db.title}' for ${cost:,}.",
             "locked_message": None, "complete_message": None
         }
 
@@ -57,6 +58,7 @@ class CastingCommandService:
         Casts a talent for multiple roles using authoritative costs (salaries and
         upfront fees) calculated by an orchestrator. This is the sole entry
         point for complex, multi-role casting actions.
+        Now includes a strict guardrail validation to prevent abuse.
         """
         upfront_cost = hiring_data.get('upfront_cost', 0)
         roles_with_salaries = hiring_data.get('roles', [])
@@ -69,10 +71,50 @@ class CastingCommandService:
         new_money = current_money - upfront_cost
         money_info.value = str(new_money)
 
+        # --- 2. Guardrail: Validate Bulk Booking Constraints ---
+        # We must ensure the client/UI didn't bypass fatigue or weekly limits.
+        talent = self.query_service.get_talent_by_id(talent_id)
+        if not talent: raise ValueError("Talent not found")
+
+        game_week = int(session.query(GameInfoDB).filter_by(key='week').one().value)
+        game_year = int(session.query(GameInfoDB).filter_by(key='year').one().value)
+        
+        # Fetch existing bookings for validation context
+        # Since we are in a session, we do a direct query to avoid detachment issues
+        # We convert to Dataclass to satisfy Validator requirements
+        existing_bookings_db = session.query(SceneDB).join(SceneCastDB).filter(SceneCastDB.talent_id == talent_id).all()
+        existing_bookings = [s.to_dataclass(Scene) for s in existing_bookings_db]
+        
+        validator = BulkBookingValidator(
+            current_week=game_week,
+            current_year=game_year,
+            talent=talent, 
+            existing_bookings=existing_bookings,
+           hiring_config=self.demand_calculator.config,
+            shoot_calculator=self.shoot_results_calculator
+        )
+
+        # Pre-fetch scenes to avoid repeated queries inside the loop
+        scene_ids = [r['scene_id'] for r in roles_with_salaries]
+        # We must eager load segments to convert to dataclass correctly for calculation
+        scenes_db = session.query(SceneDB).options(
+            selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments)
+        ).filter(SceneDB.id.in_(scene_ids)).all()
+        
+        scenes_map = {s.id: s for s in scenes_db}
+
         # Cast each role with its final, authoritative salary
         for role_data in roles_with_salaries:
+            scene_db = scenes_map.get(role_data['scene_id'])
+            if not scene_db: continue
+
+            # Validate using dataclass (required for logic methods like get_expanded_action_segments)
+            result = validator.try_book_role(scene_db.to_dataclass(Scene), role_data['virtual_performer_id'])
+            if not result.success:
+                raise ValueError(f"Booking rejected by guardrail: {result.reason}")
+
             self._cast_talent_for_role_internal(
-                session, talent_id, role_data['scene_id'],
+                session, talent.alias, scene_db, talent_id, 
                 role_data['virtual_performer_id'], role_data['final_salary']
             )
         return new_money, upfront_cost
@@ -81,7 +123,12 @@ class CastingCommandService:
         """Public method for casting a single talent. Creates and manages its own session."""
         session = self.session_factory()
         try:
-            result = self._cast_talent_for_role_internal(session, talent_id, scene_id, virtual_performer_id, cost)
+            scene_db = session.query(SceneDB).get(scene_id)
+            talent_dc = self.query_service.get_talent_by_id(talent_id)
+            
+            if not scene_db or not talent_dc: return False
+
+            result = self._cast_talent_for_role_internal(session, talent_dc.alias, scene_db, talent_id, virtual_performer_id, cost)
             if result:
                 session.commit()
                 self.signals.notification_posted.emit(result['main_message'])

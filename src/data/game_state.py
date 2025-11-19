@@ -29,6 +29,20 @@ class Tour:
 
 @dataclass_json
 @dataclass
+class Contract:
+    start_week: int
+    start_year: int
+    duration_weeks: int
+    weekly_salary: int
+    compliance: int = 100
+    allowed_orientations: List[str] = field(default_factory=list)
+    allowed_concepts: List[str] = field(default_factory=list)
+    max_dynamic: int = 3
+    disposition: Optional[str] = None
+    max_scenes_per_week: int = 1
+
+@dataclass_json
+@dataclass
 class Talent: #type: ignore
     id: int; alias: str; age: int; gender: str
     nationality: str; primary_ethnicity: str
@@ -57,6 +71,7 @@ class Talent: #type: ignore
     tour_end_week: int = 0
     tour_end_year: int = 0
     tours: List[Tour] = field(default_factory=list)
+    contract: Optional[Contract] = None
 
 @dataclass_json
 @dataclass

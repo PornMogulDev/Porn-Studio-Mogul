@@ -42,9 +42,6 @@ class TourCommandService:
             money_info = session.query(GameInfoDB).filter_by(key='money').one()
             current_money = int(float(money_info.value))
             new_money = current_money - total_upfront_cost
-            if new_money < 0 and total_upfront_cost > 0: # Basic check
-                self.signals.notification_posted.emit("Cannot afford to sponsor this tour.")
-                return False
             money_info.value = str(new_money)
 
             # --- 2. Create Tour Record ---

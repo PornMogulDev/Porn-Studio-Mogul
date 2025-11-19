@@ -146,7 +146,7 @@ class ServiceContainer:
 
         # Level 3: Depends on Level 2 services
         self.casting_command_service = CastingCommandService(session_factory, self.signals, self.query_service,
-            self.talent_location_service, self.talent_demand_calculator
+            self.talent_location_service, self.talent_demand_calculator, self.shoot_results_calculator
         )
         self.tour_command_service = TourCommandService(
             session_factory, self.signals, self.casting_command_service, self.query_service,
@@ -196,6 +196,7 @@ class ServiceContainer:
         controller.talent_location_service = self.talent_location_service
         controller.tour_sponsorship_service = self.tour_sponsorship_service
         controller.bloc_cost_calculator = self.bloc_cost_calculator
+        controller.shoot_results_calculator = self.shoot_results_calculator
         controller.talent_query_service = self.talent_query_service
         controller.time_service = self.time_service
         controller.go_to_list_service = self.go_to_list_service
@@ -217,6 +218,7 @@ class ServiceContainer:
         controller.talent_demand_calculator = None
         controller.talent_location_service = None
         controller.bloc_cost_calculator = None
+        controller.shoot_results_calculator = None
         controller.talent_query_service = None
         controller.time_service = None
         controller.go_to_list_service = None

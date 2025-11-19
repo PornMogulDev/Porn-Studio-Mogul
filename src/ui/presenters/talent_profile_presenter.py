@@ -282,7 +282,34 @@ class TalentProfilePresenter(QObject):
             self.view.hiring_widget.update_cost_preview(None)
             return
 
-        cost_breakdown = self.controller.calculate_bulk_hiring_costs(self.current_talent_id, selected_roles_data)
+        # --- 1. Validation Phase (Delegated to Controller) ---
+        validation_results = self.controller.validate_potential_bookings(self.current_talent_id, selected_roles_data)
+
+        valid_roles = []
+        invalid_roles = []
+
+        for role_data in selected_roles_data:
+            key = (role_data['scene_id'], role_data['virtual_performer_id'])
+            result = validation_results.get(key)
+            
+            if not result:
+                continue
+
+            if result.success:
+                valid_roles.append(role_data)
+            else:
+                # Create a copy to add error info without polluting original data
+                error_role = role_data.copy()
+                error_role['error_reason'] = result.reason
+                invalid_roles.append(error_role)
+
+        # --- 2. Calculation Phase ---
+        # Only calculate costs for valid roles
+        cost_breakdown = self.controller.calculate_bulk_hiring_costs(self.current_talent_id, valid_roles)
+        
+        # Attach invalid items so the view can display them
+        if cost_breakdown:
+            cost_breakdown['invalid_roles'] = invalid_roles
         self.view.hiring_widget.update_cost_preview(cost_breakdown)
 
     @pyqtSlot(dict)

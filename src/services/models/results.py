@@ -89,7 +89,6 @@ class TourFeasibilityResult:
     total_upfront_cost: int = 0
     accommodation_tier_id: Optional[str] = None
 
-    
 @dataclass(frozen=True)
 class TourSponsorshipPreviewResult:
     is_feasible: bool
@@ -100,3 +99,8 @@ class TourSponsorshipPreviewResult:
     travel_cost: int = 0
     required_accommodation_tier_id: Optional[str] = None
     all_accommodation_tiers: Dict = field(default_factory=dict) # All tiers for reference
+
+@dataclass
+class ValidationResult:
+    success: bool
+    reason: Optional[str] = None

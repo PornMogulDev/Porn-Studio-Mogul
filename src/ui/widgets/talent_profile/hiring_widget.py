@@ -176,6 +176,30 @@ class HiringWidget(QWidget):
             return
 
         self._current_cost_breakdown = cost_breakdown
+
+        # Handle invalid roles (Validation Feedback)
+        invalid_roles = cost_breakdown.get('invalid_roles', [])
+        
+        # Reset visual state of all items first
+        for index in range(self.available_roles_list.count()):
+            item = self.available_roles_list.item(index)
+            item.setForeground(Qt.GlobalColor.black) # Or default theme color
+            
+        if invalid_roles:
+            self.hire_button.setEnabled(False)
+            reasons = set(r['error_reason'] for r in invalid_roles)
+            reason_text = "; ".join(reasons)
+            self.total_cost_label.setText(f"<span style='color:red;'>Cannot Hire: {reason_text}</span>")
+            
+            # Mark specific items in red
+            invalid_keys = set((r['scene_id'], r['virtual_performer_id']) for r in invalid_roles)
+            for index in range(self.available_roles_list.count()):
+                item = self.available_roles_list.item(index)
+                data = item.data(Qt.ItemDataRole.UserRole)
+                if (data['scene_id'], data['virtual_performer_id']) in invalid_keys:
+                    item.setForeground(Qt.GlobalColor.red)
+            return
+
         total_upfront_cost = cost_breakdown.get('total_upfront_cost', 0)
         roles_with_salaries = cost_breakdown.get('roles_with_final_salaries', [])
         total_deferred_cost = sum(role['final_salary'] for role in roles_with_salaries)
