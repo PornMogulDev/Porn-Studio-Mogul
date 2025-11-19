@@ -20,6 +20,7 @@ from services.calculation.upfront_tour_cost_calculator import UpfrontTourCostCal
 from services.tour_feasibility_service import TourFeasibilityService
 from services.tour_sponsorship_preview_service import TourSponsorshipPreviewService
 from services.command.scene_command_service import SceneCommandService
+from services.command.contract_command_service import ContractCommandService
 from services.command.casting_command_service import CastingCommandService
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_event_command_service import SceneEventCommandService
@@ -64,6 +65,7 @@ class ServiceContainer:
         self.talent_command_service: Optional[TalentCommandService] = None
         self.scene_command_service: Optional[SceneCommandService] = None
         self.casting_command_service: Optional[CastingCommandService] = None
+        self.contract_command_service: Optional[ContractCommandService] = None
         self.tour_command_service: Optional[TourCommandService] = None
         self.market_service: Optional[MarketService] = None
         self.talent_query_service: Optional[TalentQueryService] = None
@@ -123,6 +125,7 @@ class ServiceContainer:
         self.tag_validation_checker = TagValidationChecker(self.data_manager)
         
         # Level 2: Depends on Level 1 services
+        self.contract_command_service = ContractCommandService(session_factory, self.signals, self.query_service)
         self.talent_demand_calculator = TalentDemandCalculator(
             self.data_manager, self.hiring_config, self.availability_checker,
             self.role_performance_calculator
@@ -146,7 +149,8 @@ class ServiceContainer:
 
         # Level 3: Depends on Level 2 services
         self.casting_command_service = CastingCommandService(session_factory, self.signals, self.query_service,
-            self.talent_location_service, self.talent_demand_calculator, self.shoot_results_calculator
+            self.talent_location_service, self.talent_demand_calculator, self.shoot_results_calculator,
+            self.contract_command_service
         )
         self.tour_command_service = TourCommandService(
             session_factory, self.signals, self.casting_command_service, self.query_service,
@@ -159,7 +163,8 @@ class ServiceContainer:
         )
         self.scene_event_command_service = SceneEventCommandService(session_factory, self.data_manager, self.query_service)
         self.time_service = TimeService(
-            session_factory, self.signals, self.scene_command_service, self.talent_command_service, self.market_service, self.tour_command_service
+            session_factory, self.signals, self.scene_command_service, self.talent_command_service,
+            self.market_service, self.tour_command_service, self.contract_command_service
         )
 
         # --- Populate Controller ---
@@ -189,6 +194,7 @@ class ServiceContainer:
         controller.tag_validation_checker = self.tag_validation_checker
         controller.talent_command_service = self.talent_command_service
         controller.scene_command_service = self.scene_command_service
+        controller.contract_command_service = self.contract_command_service
         controller.casting_command_service = self.casting_command_service
         controller.market_service = self.market_service
         controller.talent_demand_calculator = self.talent_demand_calculator
@@ -211,6 +217,7 @@ class ServiceContainer:
         controller.tag_validation_checker = None
         controller.talent_command_service = None
         controller.scene_command_service = None
+        controller.contract_command_service = None
         controller.casting_command_service = None
         controller.tour_command_service = None
         controller.tour_sponsorship_service = None
@@ -233,6 +240,7 @@ class ServiceContainer:
         self.talent_command_service = None
         self.scene_command_service = None
         self.casting_command_service = None
+        self.contract_command_service = None
         self.market_service = None
         self.talent_demand_calculator = None
         self.bloc_cost_calculator

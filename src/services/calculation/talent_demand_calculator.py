@@ -42,7 +42,7 @@ class TalentDemandCalculator:
                 max_demand_mod = max(max_demand_mod, mod)
         return max_demand_mod
 
-    def _calculate_preference_multiplier(self, talent: Talent, scene: Scene, vp_id: int) -> float:
+    def get_role_preference_score(self, talent: Talent, scene: Scene, vp_id: int) -> float:
         """Calculates the average preference score for the roles the VP plays."""
         _, roles_by_tag = self.availability_checker.get_vp_role_context(scene, vp_id)
         if not roles_by_tag:
@@ -55,6 +55,9 @@ class TalentDemandCalculator:
                 preference_scores.append(score)
         
         return np.mean(preference_scores) if preference_scores else 1.0
+    
+    def _calculate_preference_multiplier(self, talent: Talent, scene: Scene, vp_id: int) -> float:
+        return self.get_role_preference_score(talent, scene, vp_id)
 
     def _calculate_travel_fee(self, origin_location: str, destination_location: str) -> int:
         """Calculates the travel fee based on origin and destination locations."""
@@ -84,6 +87,10 @@ class TalentDemandCalculator:
         # A preference > 1 reduces cost; a preference < 1 increases it.
         if preference_multiplier > 0:
             base_demand /= preference_multiplier
+
+        # Contract Check: If talent has a contract, per-scene base cost is 0.
+        if getattr(talent, 'contract', None):
+             return 0
         
         return max(self.config.minimum_talent_demand, int(base_demand))
 
@@ -125,6 +132,66 @@ class TalentDemandCalculator:
             "total_cost": int(total_cost)
         }
     
+    def calculate_contract_salary(self, talent: Talent, conditions: Dict[str, Any]) -> int:
+        """
+        Calculates the weekly salary for an exclusive contract based on the breadth
+        of the terms and the talent's affinity for those terms.
+        """
+        allowed_concepts = set(conditions.get('allowed_concepts', []))
+        allowed_orientations = set(conditions.get('allowed_orientations', []))
+        
+        relevant_tags = []
+        
+        # 1. Identify all tags covered by this contract
+        for tag in self.data_manager.tag_definitions.values():
+            # Filter by Concept
+            if tag.get('concept') not in allowed_concepts:
+                continue
+            
+            # Filter by Orientation (include if None, e.g., thematic/costume tags)
+            tag_orientation = tag.get('orientation')
+            if tag_orientation and tag_orientation not in allowed_orientations:
+                continue
+                
+            relevant_tags.append(tag['name'])
+
+        if not relevant_tags:
+            return self.config.minimum_talent_demand * 5 # Fallback
+
+        # 2. Calculate average preference multiplier for these tags
+        # We use the inverse of preference (High Preference = Low Cost multiplier) logic
+        # But for a contract, High Preference means they are happier to sign, so price might be lower?
+        # Actually, usually salary is based on Demand (Market Value).
+        # Let's base it on Base Demand + Premium.
+        
+        base_demand = self.config.base_talent_demand * self._calculate_base_multipliers(talent)
+        
+        # Calculate average preference modifier for the relevant tags
+        pref_sum = 0.0
+        for tag_name in relevant_tags:
+            # Get the highest preference among all roles for this tag (optimistic)
+            role_prefs = talent.tag_preferences.get(tag_name, {}).values()
+            if role_prefs:
+                pref_sum += max(role_prefs)
+            else:
+                pref_sum += 1.0
+        
+        avg_preference = pref_sum / len(relevant_tags) if relevant_tags else 1.0
+        
+        # A lower preference (< 1.0) should increase the salary.
+        # A higher preference (> 1.0) should decrease it.
+        adjusted_base = base_demand / max(0.1, avg_preference)
+        
+        # Apply Lock-in Premium (e.g. 1.5x standard rate because they can't work elsewhere)
+        # And scale by max scenes per week
+        max_scenes = conditions.get('max_scenes_per_week', 1)
+        contract_premium = 1.5 
+        
+        # Weekly salary covers the potential of 'max_scenes' shoots
+        weekly_salary = adjusted_base * max_scenes * contract_premium
+        
+        return int(max(self.config.minimum_talent_demand, weekly_salary))
+
     def calculate_bulk_hiring_costs(self, talent: Talent,
                                     roles_with_context: List[Dict[str, Any]],
                                     current_week: int, current_year: int) -> Dict:

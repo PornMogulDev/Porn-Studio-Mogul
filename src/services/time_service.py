@@ -6,21 +6,23 @@ from database.db_models import GameInfoDB, SceneDB
 from services.command.scene_command_service import SceneCommandService
 from services.command.talent_command_service import TalentCommandService
 from services.command.tour_command_service import TourCommandService
+from services.command.contract_command_service import ContractCommandService
 from services.market_service import MarketService
 from services.models.results import WeekAdvancementResult
 
 logger = logging.getLogger(__name__)
 
 class TimeService:
-    def __init__(self, session_factory, signals, scene_command_service: SceneCommandService, 
+    def __init__(self, session_factory, signals, scene_command_service: SceneCommandService,
                  talent_command_service: TalentCommandService, market_service: MarketService,
-                 tour_command_service: TourCommandService):
+                 tour_command_service: TourCommandService, contract_service: ContractCommandService):
         self.session_factory = session_factory
         self.signals = signals
         self.scene_command_service = scene_command_service
         self.talent_command_service = talent_command_service
         self.market_service = market_service
         self.tour_command_service = tour_command_service
+        self.contract_service = contract_service
 
     def _get_current_time(self, session: Session) -> Tuple[int, int]:
         """Reads the current time directly from the database."""
@@ -35,6 +37,12 @@ class TimeService:
             current_week, current_year = self._get_current_time(session)
             current_date_val = current_year * 52 + current_week
             money_info = session.query(GameInfoDB).filter_by(key='money').one()
+
+            # --- 0. Process Contracts (Salaries & Compliance) ---
+            contract_costs = self.contract_service.process_weekly_contracts(session)
+            current_money = int(float(money_info.value))
+            current_money -= contract_costs
+            money_info.value = str(current_money)
         
             # --- 1. Perform all weekly updates ---
             # Update tour statuses first, so talent locations are correct for this week's logic.

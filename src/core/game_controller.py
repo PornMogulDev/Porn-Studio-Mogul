@@ -26,6 +26,7 @@ from services.calculation.bulk_booking_validator import BulkBookingValidator
 from services.tour_sponsorship_preview_service import TourSponsorshipPreviewService
 from services.command.talent_command_service import TalentCommandService
 from services.command.scene_command_service import SceneCommandService
+from services.command.contract_command_service import ContractCommandService
 from services.command.casting_command_service import CastingCommandService
 from services.command.tour_command_service import TourCommandService
 from services.command.scene_event_command_service import SceneEventCommandService
@@ -72,6 +73,7 @@ class GameController(QObject):
         self.tag_validation_checker : Optional[TagValidationChecker] = None
         self.talent_command_service: Optional[TalentCommandService] = None
         self.scene_command_service: Optional[SceneCommandService] = None
+        self.contract_command_service: Optional[ContractCommandService] = None
         self.casting_command_service: Optional[CastingCommandService] = None
         self.market_service: Optional[MarketService] = None
         self.talent_location_service: Optional[TalentLocationService] = None
@@ -403,6 +405,24 @@ class GameController(QObject):
             self.game_state.week, self.game_state.year
         )
     
+    def calculate_contract_salary(self, talent_id: int, terms: Dict) -> int:
+        """Calculates the weekly salary for a proposed contract configuration."""
+        if not self.talent_demand_calculator or not self.query_service: return 0
+        talent = self.query_service.get_talent_by_id(talent_id)
+        if not talent: return 0
+        return self.talent_demand_calculator.calculate_contract_salary(talent, terms)
+
+    def sign_contract(self, talent_id: int, terms: Dict):
+        """Signs an exclusive contract with the talent using the provided terms."""
+        if not self.contract_command_service or not self.talent_demand_calculator or not self.query_service: return
+        
+        # Re-calculate salary to ensure server-side authority
+        talent = self.query_service.get_talent_by_id(talent_id)
+        if not talent: return
+        salary = self.talent_demand_calculator.calculate_contract_salary(talent, terms)
+        
+        self.contract_command_service.sign_contract(talent_id, terms, salary)
+    
     def calculate_demands_for_multiple_talents(self, talent_ids: List[int], scene_id: int, vp_id: int) -> Dict[int, int]:
         """Orchestrates the calculation of hiring costs for multiple talents for a single role."""
         if not self.talent_demand_calculator or not self.query_service or not self.talent_location_service:
@@ -462,6 +482,10 @@ class GameController(QObject):
 
     def get_action_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
         return self.tag_query_service.get_tags_for_planner('Action')
+    
+    def get_unique_contract_options(self) -> Tuple[List[str], List[str]]:
+        if not self.tag_query_service: return ([], [])
+        return self.tag_query_service.get_unique_contract_options()
     
     def is_performer_eligible_for_tag(self, performer, tag_name: str) -> bool:
         if not self.tag_validation_checker or not self.tag_query_service:

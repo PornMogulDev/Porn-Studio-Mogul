@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from collections import defaultdict
 from typing import Set, Dict, Optional, Union, List
 
-from data.game_state import Talent, Scene
+from data.game_state import Talent, Scene, Contract
 from database.db_models import TalentDB, ShootingBlocDB
 from data.data_manager import DataManager
 from services.models.configs import HiringConfig
@@ -153,7 +153,47 @@ class TalentAvailabilityChecker:
             rng = random.Random(f"{talent.id}_{bloc_db.scheduled_week}_{bloc_db.scheduled_year}")
             if tier_data.get('is_low_tier', False) and rng.random() * 100 < pickiness_score:
                 return AvailabilityResult(False, f"Considers the '{tier_name}' {category} setting beneath them.")
-        return AvailabilityResult(is_available=True)    
+        return AvailabilityResult(is_available=True)
+
+    def _check_contract_constraints(self, talent: Union[Talent, TalentDB], scene: Scene, roles_by_tag: Dict[str, Set[str]]) -> AvailabilityResult:
+        """
+        Validates if the scene adheres to the strict terms of the talent's exclusive contract.
+        Contract constraints override standard willingness.
+        """
+        contract = getattr(talent, 'contract', None)
+        if not contract:
+            return AvailabilityResult(is_available=True)
+            
+        # 1. Check Dynamics
+        if scene.dom_sub_dynamic_level > contract.max_dynamic:
+             return AvailabilityResult(False, f"Contract violation: Scene dynamic level ({scene.dom_sub_dynamic_level}) exceeds contract max ({contract.max_dynamic}).")
+             
+        # 2. Check Concepts and Orientations
+        # The contract defines ALLOWED lists. If a tag maps to a concept/orientation NOT in the list, it's a violation.
+        allowed_concepts = set(contract.allowed_concepts)
+        allowed_orientations = set(contract.allowed_orientations)
+        
+        for tag_name in roles_by_tag.keys():
+            tag_def = self.data_manager.tag_definitions.get(tag_name)
+            if not tag_def: continue
+            
+            tag_concept = tag_def.get('concept')
+            tag_orientation = tag_def.get('orientation')
+            
+            # Check Concept
+            if tag_concept and tag_concept not in allowed_concepts:
+                return AvailabilityResult(False, f"Contract violation: '{tag_concept}' concept is not in the contract.")
+            
+            # Check Orientation
+            # Note: Some tags have no orientation (None). We usually allow these unless strictly defined otherwise.
+            # If the tag DOES have an orientation, it must be in the allowed list.
+            if tag_orientation and tag_orientation not in allowed_orientations:
+                 return AvailabilityResult(False, f"Contract violation: '{tag_orientation}' content is not in the contract.")
+        
+        # Note: Max scenes per week is handled by BulkBookingValidator, not here.
+        # This checker validates the *content* of a single scene.
+        
+        return AvailabilityResult(is_available=True)  
     
     def check(self, talent: Union[Talent, TalentDB], scene: Scene, vp_id: int, bloc_db: Optional[ShootingBlocDB], 
           bookings_before: List[Scene], bookings_current: List[Scene], bookings_after: List[Scene], 
@@ -171,6 +211,10 @@ class TalentAvailabilityChecker:
         if not result.is_available: return result
          
         result = self._check_concurrency_limits(talent, scene, vp_id, roles_by_tag)
+        if not result.is_available: return result
+
+        # Contract checks must pass strictly
+        result = self._check_contract_constraints(talent, scene, roles_by_tag)
         if not result.is_available: return result
 
         result = self._check_preferences(talent, roles_by_tag)

@@ -1,9 +1,10 @@
 from collections import defaultdict
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QStackedWidget, QLabel, QListWidget,
-    QPushButton, QMenu, QMessageBox, QListWidgetItem, QHBoxLayout
+    QPushButton, QMenu, QMessageBox, QListWidgetItem, QHBoxLayout, QFormLayout,
+    QSlider, QSpinBox, QComboBox, QCheckBox, QScrollArea, QFrame
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 
 class HiringWidget(QWidget):
     """A widget for assigning a talent to available roles."""
@@ -11,20 +12,30 @@ class HiringWidget(QWidget):
     hire_confirmed = pyqtSignal(dict)  # {'roles': [...], 'upfront_cost': X}
     sponsor_tour_requested = pyqtSignal(list) # roles_for_tour
     open_scene_dialog_requested = pyqtSignal(int)  # scene_id
+    # Contract Signals
+    contract_preview_requested = pyqtSignal(dict) # Emits terms dict
+    contract_sign_requested = pyqtSignal(dict) # Emits terms dict
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._setup_ui()
-        self._connect_signals()
         self._bulk_discount_tiers = {}
         self._current_talent_base_location = ""
         self._current_studio_location = ""
-        # Stores the latest authoritative calculation result from the presenter
         self._current_cost_breakdown = None
+        self._is_contracted = False
+        self._setup_ui()
+        self._connect_signals()
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # --- Main Stack: Standard Hiring vs. Negotiation ---
+        self.main_stack = QStackedWidget()
+        
+        # --- Page 1: Standard Hiring View ---
+        self.hiring_page = QWidget()
+        hiring_layout = QVBoxLayout(self.hiring_page)
 
         contract_container = QGroupBox("Assign to Role")
         contract_layout = QVBoxLayout(contract_container)
@@ -46,6 +57,10 @@ class HiringWidget(QWidget):
         self.roles_stack.addWidget(roles_no_scenes_widget)
         contract_layout.addWidget(self.roles_stack)
 
+        # Negotiation Entry Button
+        self.negotiate_button = QPushButton("Offer Exclusive Contract")
+        contract_layout.addWidget(self.negotiate_button)
+
         button_layout = QHBoxLayout()
         self.hire_button = QPushButton("Assign Talent to Selected Role(s)")
         self.sponsor_tour_button = QPushButton("Sponsor Tour...")
@@ -61,7 +76,80 @@ class HiringWidget(QWidget):
         self.total_cost_label.setObjectName("SubtleText") # For styling
         contract_layout.addWidget(self.total_cost_label)
         
-        main_layout.addWidget(contract_container)
+        hiring_layout.addWidget(contract_container)
+        self.main_stack.addWidget(self.hiring_page)
+
+        # --- Page 2: Contract Negotiation View ---
+        self.negotiation_page = QWidget()
+        neg_layout = QVBoxLayout(self.negotiation_page)
+        
+        neg_group = QGroupBox("Exclusive Contract Terms")
+        form_layout = QFormLayout(neg_group)
+        
+        # Duration
+        self.duration_slider = QSlider(Qt.Orientation.Horizontal)
+        self.duration_slider.setRange(12, 156)
+        self.duration_slider.setValue(52)
+        self.duration_label = QLabel("52 weeks")
+        self.duration_slider.valueChanged.connect(lambda v: self.duration_label.setText(f"{v} weeks"))
+        form_layout.addRow("Duration:", self._wrap_slider(self.duration_slider, self.duration_label))
+        
+        # Max Scenes
+        self.max_scenes_spin = QSpinBox()
+        self.max_scenes_spin.setRange(1, 7)
+        self.max_scenes_spin.setValue(1)
+        form_layout.addRow("Max Scenes/Week:", self.max_scenes_spin)
+        
+        # Dynamic Limit
+        self.max_dynamic_combo = QComboBox()
+        self.max_dynamic_combo.addItems(["0 (Vanilla)", "1 (Standard)", "2 (Hardcore)", "3 (Extreme)"])
+        self.max_dynamic_combo.setCurrentIndex(3)
+        form_layout.addRow("Max Intensity:", self.max_dynamic_combo)
+        
+        # Disposition (optional)
+        self.disposition_combo = QComboBox()
+        self.disposition_combo.addItems(["Any", "Dom", "Sub", "Switch"])
+        form_layout.addRow("Required Disposition:", self.disposition_combo)
+
+        # Checkboxes for Scope (Scrollable)
+        scope_area = QScrollArea()
+        scope_widget = QWidget()
+        self.scope_layout = QVBoxLayout(scope_widget)
+        
+        self.concept_checks = {}
+        self.orientation_checks = {}
+        
+        scope_widget.setLayout(self.scope_layout)
+        scope_area.setWidget(scope_widget)
+        scope_area.setWidgetResizable(True)
+        scope_area.setFixedHeight(200)
+        neg_layout.addWidget(scope_area)
+        
+        neg_layout.addWidget(neg_group)
+        
+        # Result / Actions
+        self.salary_preview_label = QLabel("Weekly Salary: Calculating...")
+        self.salary_preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        neg_layout.addWidget(self.salary_preview_label)
+        
+        btn_row = QHBoxLayout()
+        self.cancel_neg_button = QPushButton("Cancel")
+        self.sign_contract_button = QPushButton("Sign Contract")
+        btn_row.addWidget(self.cancel_neg_button)
+        btn_row.addWidget(self.sign_contract_button)
+        neg_layout.addLayout(btn_row)
+        
+        self.main_stack.addWidget(self.negotiation_page)
+        
+        main_layout.addWidget(self.main_stack)
+
+    def _wrap_slider(self, slider, label):
+        w = QWidget()
+        l = QHBoxLayout(w)
+        l.setContentsMargins(0,0,0,0)
+        l.addWidget(slider)
+        l.addWidget(label)
+        return w
 
     def _connect_signals(self):
         self.available_roles_list.itemSelectionChanged.connect(self._request_cost_preview)
@@ -71,10 +159,58 @@ class HiringWidget(QWidget):
         self.hire_button.clicked.connect(self._confirm_hire)
         self.sponsor_tour_button.clicked.connect(self._on_sponsor_tour_clicked)
 
-    def update_available_roles(self, available_roles: list, talent_base_location: str, studio_location: str):
+        # Contract flow
+        self.negotiate_button.clicked.connect(lambda: self.main_stack.setCurrentIndex(1))
+        self.cancel_neg_button.clicked.connect(lambda: self.main_stack.setCurrentIndex(0))
+        self.sign_contract_button.clicked.connect(self._on_sign_contract_clicked)
+        
+        # Auto-update preview on any change
+        self.duration_slider.valueChanged.connect(self._request_contract_preview)
+        self.max_scenes_spin.valueChanged.connect(self._request_contract_preview)
+        self.max_dynamic_combo.currentIndexChanged.connect(self._request_contract_preview)
+        self.disposition_combo.currentIndexChanged.connect(self._request_contract_preview)
+
+    def populate_contract_options(self, concepts: list, orientations: list):
+        """Populates the checkboxes dynamically."""
+        # Clear old
+        while self.scope_layout.count():
+            item = self.scope_layout.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
+            
+        self.concept_checks = {}
+        self.orientation_checks = {}
+        
+        lbl1 = QLabel("<b>Allowed Concepts:</b>")
+        self.scope_layout.addWidget(lbl1)
+        for c in concepts:
+            chk = QCheckBox(c)
+            chk.setChecked(True)
+            chk.stateChanged.connect(self._request_contract_preview)
+            self.scope_layout.addWidget(chk)
+            self.concept_checks[c] = chk
+            
+        lbl2 = QLabel("<b>Allowed Orientations:</b>")
+        self.scope_layout.addWidget(lbl2)
+        for o in orientations:
+            chk = QCheckBox(o)
+            chk.setChecked(True)
+            chk.stateChanged.connect(self._request_contract_preview)
+            self.scope_layout.addWidget(chk)
+            self.orientation_checks[o] = chk
+            
+        self.scope_layout.addStretch()
+
+    def update_available_roles(self, available_roles: list, talent_base_location: str, studio_location: str, is_contracted: bool):
         self.available_roles_list.clear()
         self._current_talent_base_location = talent_base_location
         self._current_studio_location = studio_location
+        self._is_contracted = is_contracted
+
+        # Hide negotiation button if already contracted
+        self.negotiate_button.setVisible(not is_contracted)
+        
+        if is_contracted:
+            self.main_stack.setCurrentIndex(0) # Force back to list view
 
         if not available_roles:
             self.roles_stack.setCurrentIndex(1)
@@ -92,15 +228,18 @@ class HiringWidget(QWidget):
             if role_data['is_available']:
                 # Display cost breakdown for available roles.
                 total_cost = role_data.get('cost', 0)
-                base_cost = role_data.get('base_cost', total_cost)
-                travel_fee = role_data.get('travel_fee', 0)
-                rush_fee = role_data.get('rush_fee', 0)
- 
-                cost_parts = [f"Base: ${base_cost:,}"]
-                if travel_fee > 0: cost_parts.append(f"Travel: ${travel_fee:,}")
-                if rush_fee > 0: cost_parts.append(f"Rush: ${rush_fee:,}")
-                cost_breakdown_text = ", ".join(cost_parts)
-                cost_text = f"Cost: ${total_cost:,} ({cost_breakdown_text})"
+                if self._is_contracted and total_cost == 0:
+                    cost_text = "<b>Cost: $0 (Contract)</b>"
+                else:
+                    base_cost = role_data.get('base_cost', total_cost)
+                    travel_fee = role_data.get('travel_fee', 0)
+                    rush_fee = role_data.get('rush_fee', 0)
+    
+                    cost_parts = [f"Base: ${base_cost:,}"]
+                    if travel_fee > 0: cost_parts.append(f"Travel: ${travel_fee:,}")
+                    if rush_fee > 0: cost_parts.append(f"Rush: ${rush_fee:,}")
+                    cost_breakdown_text = ", ".join(cost_parts)
+                    cost_text = f"Cost: ${total_cost:,} ({cost_breakdown_text})"
  
                 display_text = f"{role_data['scene_title']} - Role: {role_data['vp_name']} ({cost_text})"
                 item.setText(display_text)
@@ -263,3 +402,32 @@ class HiringWidget(QWidget):
             'roles': roles_list
         }
         self.hire_confirmed.emit(hiring_payload)
+
+    def _get_contract_terms(self) -> dict:
+        allowed_concepts = [c for c, chk in self.concept_checks.items() if chk.isChecked()]
+        allowed_orientations = [o for o, chk in self.orientation_checks.items() if chk.isChecked()]
+        
+        return {
+            'duration_weeks': self.duration_slider.value(),
+            'max_scenes_per_week': self.max_scenes_spin.value(),
+            'max_dynamic': self.max_dynamic_combo.currentIndex(),
+            'disposition': self.disposition_combo.currentText() if self.disposition_combo.currentIndex() > 0 else None,
+            'allowed_concepts': allowed_concepts,
+            'allowed_orientations': allowed_orientations
+        }
+
+    def _request_contract_preview(self):
+        if self.main_stack.currentIndex() != 1: return
+        terms = self._get_contract_terms()
+        self.contract_preview_requested.emit(terms)
+
+    def update_contract_preview(self, salary: int):
+        self.salary_preview_label.setText(f"Weekly Salary: <b>${salary:,}</b>")
+
+    def _on_sign_contract_clicked(self):
+        terms = self._get_contract_terms()
+        if not terms['allowed_concepts'] and not terms['allowed_orientations']:
+             QMessageBox.warning(self, "Invalid Contract", "You must select at least one concept or orientation.")
+             return
+             
+        self.contract_sign_requested.emit(terms)

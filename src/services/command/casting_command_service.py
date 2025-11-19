@@ -3,8 +3,9 @@ from typing import Dict, List, Optional
 from sqlalchemy.orm import Session, selectinload
 
 from core.game_signals import GameSignals
-from database.db_models import SceneDB, SceneCastDB, GameInfoDB, ActionSegmentDB
-from data.game_state import Scene
+from database.db_models import SceneDB, SceneCastDB, GameInfoDB, ActionSegmentDB, TalentDB
+from data.game_state import Scene, Talent
+from services.command.contract_command_service import ContractCommandService
 from services.query.game_query_service import GameQueryService
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
@@ -19,27 +20,36 @@ class CastingCommandService:
     """
     def __init__(self, session_factory, signals: GameSignals, query_service: GameQueryService,
                  location_service: TalentLocationService, demand_calculator: TalentDemandCalculator,
-                 shoot_results_calculator: ShootResultsCalculator):
+                 shoot_results_calculator: ShootResultsCalculator, contract_service: ContractCommandService):
         self.session_factory = session_factory
         self.signals = signals
         self.query_service = query_service
         self.demand_calculator = demand_calculator
         self.location_service = location_service
         self.shoot_results_calculator = shoot_results_calculator
+        self.contract_command_service = contract_service
 
-    def _cast_talent_for_role_internal(self, session: Session, talent_alias: str, scene_db: SceneDB, talent_id: int, virtual_performer_id: int, cost: int) -> Optional[Dict]:
+    def _cast_talent_for_role_internal(self, session: Session, talent_db: TalentDB, scene_db: SceneDB, virtual_performer_id: int, cost: int) -> Optional[Dict]:
         """
         Internal helper for casting logic. Does NOT commit.
         Refactored to accept scene_db object to prevent N+1 queries in loops.
         """
+        # Contract Override Logic
+        if talent_db.contract:
+            cost = 0
+            # Calculate compliance impact
+            talent_dc = talent_db.to_dataclass(Talent)
+            pref_score = self.demand_calculator.get_role_preference_score(talent_dc, scene_db.to_dataclass(Scene), virtual_performer_id)
+            self.contract_service.update_compliance(session, talent_db.id, pref_score)
+
         new_cast_entry = SceneCastDB(
-            scene_id=scene_db.id, talent_id=talent_id,
+            scene_id=scene_db.id, talent_id=talent_db.id,
             virtual_performer_id=virtual_performer_id, salary=cost
         )
         scene_db.cast.append(new_cast_entry)
 
         messages = {
-            "main_message": f"Cast {talent_alias} in '{scene_db.title}' for ${cost:,}.",
+            "main_message": f"Cast {talent_db.alias} in '{scene_db.title}' for ${cost:,}.",
             "locked_message": None, "complete_message": None
         }
 
@@ -73,8 +83,9 @@ class CastingCommandService:
 
         # --- 2. Guardrail: Validate Bulk Booking Constraints ---
         # We must ensure the client/UI didn't bypass fatigue or weekly limits.
-        talent = self.query_service.get_talent_by_id(talent_id)
-        if not talent: raise ValueError("Talent not found")
+        talent_db = session.query(TalentDB).options(selectinload(TalentDB.contract)).get(talent_id)
+        if not talent_db: raise ValueError("Talent not found")
+        talent_dc = talent_db.to_dataclass(Talent)
 
         game_week = int(session.query(GameInfoDB).filter_by(key='week').one().value)
         game_year = int(session.query(GameInfoDB).filter_by(key='year').one().value)
@@ -88,7 +99,7 @@ class CastingCommandService:
         validator = BulkBookingValidator(
             current_week=game_week,
             current_year=game_year,
-            talent=talent, 
+            talent=talent_dc,  
             existing_bookings=existing_bookings,
            hiring_config=self.demand_calculator.config,
             shoot_calculator=self.shoot_results_calculator
@@ -114,7 +125,7 @@ class CastingCommandService:
                 raise ValueError(f"Booking rejected by guardrail: {result.reason}")
 
             self._cast_talent_for_role_internal(
-                session, talent.alias, scene_db, talent_id, 
+                session, talent_db, scene_db, 
                 role_data['virtual_performer_id'], role_data['final_salary']
             )
         return new_money, upfront_cost
@@ -124,11 +135,11 @@ class CastingCommandService:
         session = self.session_factory()
         try:
             scene_db = session.query(SceneDB).get(scene_id)
-            talent_dc = self.query_service.get_talent_by_id(talent_id)
+            talent_db = session.query(TalentDB).options(selectinload(TalentDB.contract)).get(talent_id)
             
-            if not scene_db or not talent_dc: return False
+            if not scene_db or not talent_db: return False
 
-            result = self._cast_talent_for_role_internal(session, talent_dc.alias, scene_db, talent_id, virtual_performer_id, cost)
+            result = self._cast_talent_for_role_internal(session, talent_db, scene_db, virtual_performer_id, cost)
             if result:
                 session.commit()
                 self.signals.notification_posted.emit(result['main_message'])

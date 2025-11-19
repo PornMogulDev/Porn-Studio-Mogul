@@ -43,6 +43,9 @@ class TalentProfilePresenter(QObject):
         cleaned_discount_tiers = {int(k): v for k, v in raw_discount_tiers.items()}
         self.view.hiring_widget.set_discount_tiers(cleaned_discount_tiers)
 
+        concepts, orientations = self.controller.get_unique_contract_options()
+        self.view.hiring_widget.populate_contract_options(concepts, orientations)
+
     def _connect_signals(self):
         """Connect signals from the view to slots in the presenter."""
         # Connect to the view's high-level signal for tour confirmation
@@ -54,7 +57,8 @@ class TalentProfilePresenter(QObject):
         self.view.chemistry_widget.talent_profile_requested.connect(self.uimanager.show_talent_profile)
         self.view.hiring_widget.open_scene_dialog_requested.connect(self.uimanager.show_scene_planner)
         self.view.history_widget.open_scene_dialog_requested.connect(self._on_shot_scene_details_requested)
-        
+        self.view.hiring_widget.contract_preview_requested.connect(self._on_contract_preview_requested)
+        self.view.hiring_widget.contract_sign_requested.connect(self._on_contract_sign_requested)
         # Connect to global signals to stay up-to-date
         self.controller.signals.scenes_changed.connect(self._refresh_current_talent_data_on_change)
         self.controller.signals.roster_changed.connect(self._refresh_current_talent_data_on_change)
@@ -248,8 +252,9 @@ class TalentProfilePresenter(QObject):
             
         talent = self.open_talents[self.current_talent_id]
         studio_location = self.controller.game_state.studio_location
+        is_contracted = getattr(talent, 'contract', None) is not None
         try:
-            self.view.hiring_widget.update_available_roles(available_roles, talent.base_location, studio_location)
+            self.view.hiring_widget.update_available_roles(available_roles, talent.base_location, studio_location, is_contracted)
         except RuntimeError:
             pass
 
@@ -346,3 +351,14 @@ class TalentProfilePresenter(QObject):
             required_policies=required_policies,
             refused_policies=refused_policies
         )
+
+    @pyqtSlot(dict)
+    def _on_contract_preview_requested(self, terms: dict):
+        if not self.current_talent_id: return
+        salary = self.controller.calculate_contract_salary(self.current_talent_id, terms)
+        self.view.hiring_widget.update_contract_preview(salary)
+
+    @pyqtSlot(dict)
+    def _on_contract_sign_requested(self, terms: dict):
+        if not self.current_talent_id: return
+        self.controller.sign_contract(self.current_talent_id, terms)

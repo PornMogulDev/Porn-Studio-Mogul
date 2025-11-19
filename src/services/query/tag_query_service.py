@@ -41,6 +41,22 @@ class TagQueryService:
         self._cached_data[tag_type] = result
         return result
     
+    def get_unique_contract_options(self) -> Tuple[List[str], List[str]]:
+        """
+        Retrieves all unique 'concept' and 'orientation' values from the tag definitions
+        to populate the contract negotiation UI.
+        """
+        concepts = set()
+        orientations = set()
+        
+        for tag_def in self.tag_definitions.values():
+            if concept := tag_def.get('concept'):
+                concepts.add(concept)
+            if orientation := tag_def.get('orientation'):
+                orientations.add(orientation)
+                
+        return sorted(list(concepts)), sorted(list(orientations))
+    
     def get_tag_definition(self, tag_name: str) -> Optional[Dict]:
         """Fetches a single tag definition dictionary by its name."""
         return self.tag_definitions.get(tag_name)
