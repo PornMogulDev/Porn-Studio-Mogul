@@ -373,7 +373,7 @@ class GameController(QObject):
             current_year=self.game_state.year,
             talent=talent,
             existing_bookings=existing_bookings,
-            hiring_config=self.talent_demand_calculator.config,
+            hiring_config=self.talent_demand_calculator.hiring_config,
             shoot_calculator=self.shoot_results_calculator
         )
 

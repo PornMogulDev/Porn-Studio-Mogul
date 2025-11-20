@@ -324,5 +324,16 @@ class ThemeManager:
                 font-style: italic;
                 color: {theme.color_neutral};
              }}
+
+             /* --- Hiring Widget Cost Label --- */
+            QLabel#totalCostLabel {{
+                font-weight: bold;
+            }}
+            QLabel#totalCostLabel[status="error"] {{
+                color: {theme.danger};
+            }}
+            QLabel#totalCostLabel[status="neutral"] {{
+                color: {theme.text};
+            }}
                 """
         return qss

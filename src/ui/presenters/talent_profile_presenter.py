@@ -35,6 +35,7 @@ class TalentProfilePresenter(QObject):
         current_theme_name = self.controller.settings_manager.get_setting("theme", "light")
         current_theme = self.controller.theme_manager.get_theme(current_theme_name)
         self.view.preferences_widget.set_theme_colors(danger_color=current_theme.danger)
+        self.view.hiring_widget.set_theme_colors(danger_color=current_theme.danger)
 
         self._connect_signals()
 
@@ -338,6 +339,7 @@ class TalentProfilePresenter(QObject):
         elif key == "theme":
             current_theme = self.controller.theme_manager.get_theme(self.controller.settings_manager.get_setting("theme", "light"))
             self.view.preferences_widget.set_theme_colors(danger_color=current_theme.danger)
+            self.view.hiring_widget.set_theme_colors(danger_color=current_theme.danger)
             self._load_data_for_current_talent()
             
     def _load_and_display_preferences(self, talent: Talent):

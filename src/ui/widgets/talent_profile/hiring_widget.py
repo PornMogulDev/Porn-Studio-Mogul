@@ -1,10 +1,10 @@
-from collections import defaultdict
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QStackedWidget, QLabel, QListWidget,
     QPushButton, QMenu, QMessageBox, QListWidgetItem, QHBoxLayout, QFormLayout,
-    QSlider, QSpinBox, QComboBox, QCheckBox, QScrollArea, QFrame
+    QSlider, QSpinBox, QComboBox, QCheckBox, QScrollArea
 )
-from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QColor
 
 class HiringWidget(QWidget):
     """A widget for assigning a talent to available roles."""
@@ -21,6 +21,7 @@ class HiringWidget(QWidget):
         self._bulk_discount_tiers = {}
         self._current_talent_base_location = ""
         self._current_studio_location = ""
+        self._danger_color = QColor("red") # Default fallback
         self._current_cost_breakdown = None
         self._is_contracted = False
         self._setup_ui()
@@ -73,7 +74,7 @@ class HiringWidget(QWidget):
 
         self.total_cost_label = QLabel("Select role(s) to see total cost.")
         self.total_cost_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.total_cost_label.setObjectName("SubtleText") # For styling
+        self.total_cost_label.setObjectName("totalCostLabel") # Changed for specific theming
         contract_layout.addWidget(self.total_cost_label)
         
         hiring_layout.addWidget(contract_container)
@@ -169,6 +170,10 @@ class HiringWidget(QWidget):
         self.max_scenes_spin.valueChanged.connect(self._request_contract_preview)
         self.max_dynamic_combo.currentIndexChanged.connect(self._request_contract_preview)
         self.disposition_combo.currentIndexChanged.connect(self._request_contract_preview)
+
+    def set_theme_colors(self, danger_color: str):
+        """Receives theme colors to style list items dynamically."""
+        self._danger_color = QColor(danger_color)
 
     def _on_negotiate_clicked(self):
         """Switch to negotiation view and trigger an immediate calculation."""
@@ -318,7 +323,7 @@ class HiringWidget(QWidget):
 
         if not selected_items:
             self.hire_button.setEnabled(False)
-            self.total_cost_label.setText("Select role(s) to see total cost.")
+            self._update_cost_label("Select role(s) to see total cost.", status="neutral")
             self._current_cost_breakdown = None
             return
             
@@ -329,7 +334,7 @@ class HiringWidget(QWidget):
     def update_cost_preview(self, cost_breakdown: dict):
         """Public slot for the Presenter to update the UI with calculated costs."""
         if not cost_breakdown:
-            self.total_cost_label.setText("<span style='color:red;'>Error calculating cost.</span>")
+            self._update_cost_label("Error calculating cost.", status="error")
             self._current_cost_breakdown = None
             self.hire_button.setEnabled(False)
             return
@@ -348,7 +353,7 @@ class HiringWidget(QWidget):
             self.hire_button.setEnabled(False)
             reasons = set(r['error_reason'] for r in invalid_roles)
             reason_text = "; ".join(reasons)
-            self.total_cost_label.setText(f"<span style='color:red;'>Cannot Hire: {reason_text}</span>")
+            self._update_cost_label(f"Cannot Hire: {reason_text}", status="error")
             
             # Mark specific items in red
             invalid_keys = set((r['scene_id'], r['virtual_performer_id']) for r in invalid_roles)
@@ -356,7 +361,7 @@ class HiringWidget(QWidget):
                 item = self.available_roles_list.item(index)
                 data = item.data(Qt.ItemDataRole.UserRole)
                 if (data['scene_id'], data['virtual_performer_id']) in invalid_keys:
-                    item.setForeground(Qt.GlobalColor.red)
+                    item.setForeground(self._danger_color)
             return
 
         total_upfront_cost = cost_breakdown.get('total_upfront_cost', 0)
@@ -366,7 +371,17 @@ class HiringWidget(QWidget):
         grand_total = total_upfront_cost + total_deferred_cost
         
         self.hire_button.setEnabled(True)
-        self.total_cost_label.setText(f"<b>Total:</b> ${int(grand_total):,} (Upfront: ${int(total_upfront_cost):,}, On Shoot: ${int(total_deferred_cost):,})")
+        self._update_cost_label(
+            f"Total: ${int(grand_total):,} (Upfront: ${int(total_upfront_cost):,}, On Shoot: ${int(total_deferred_cost):,})",
+            status="neutral"
+        )
+
+    def _update_cost_label(self, text: str, status: str):
+        """Updates text and forces a style refresh based on status property."""
+        self.total_cost_label.setText(text)
+        self.total_cost_label.setProperty("status", status)
+        self.total_cost_label.style().unpolish(self.total_cost_label)
+        self.total_cost_label.style().polish(self.total_cost_label)
 
     def _on_role_double_clicked(self, item: QListWidgetItem):
         if role_data := item.data(Qt.ItemDataRole.UserRole):
