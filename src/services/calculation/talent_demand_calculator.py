@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 
 from data.data_manager import DataManager
 from data.game_state import Talent, Scene
-from services.models.configs import HiringConfig
+from services.models.configs import HiringConfig, ContractConfig
 from services.calculation.role_performance_calculator import RolePerformanceCalculator
 from services.calculation.talent_availability_checker import TalentAvailabilityChecker
 
@@ -16,20 +16,21 @@ class TalentDemandCalculator:
     It has no side effects and does not access the database. It relies
     on the caller to provide all necessary, pre-fetched data.
     """
-    def __init__(self, data_manager: DataManager, config: HiringConfig,
-                 availability_checker: TalentAvailabilityChecker,
+    def __init__(self, data_manager: DataManager, hiring_config: HiringConfig,
+                 contract_config: ContractConfig, availability_checker: TalentAvailabilityChecker,
                  role_perf_calculator: RolePerformanceCalculator):
         self.data_manager = data_manager
-        self.config = config
+        self.hiring_config = hiring_config
+        self.contract_config = contract_config
         self.availability_checker = availability_checker
         self.role_performance_calculator = role_perf_calculator
     
     def _calculate_base_multipliers(self, talent: Talent) -> float:
         """Calculates demand multipliers from talent's core stats (performance, ambition, popularity)."""
-        performance_multiplier = 1 + (talent.performance / self.config.demand_perf_divisor)
-        ambition_multiplier = 1.0 + ((talent.ambition - self.config.median_ambition) / self.config.ambition_demand_divisor)
+        performance_multiplier = 1 + (talent.performance / self.hiring_config.demand_perf_divisor)
+        ambition_multiplier = 1.0 + ((talent.ambition - self.hiring_config.median_ambition) / self.hiring_config.ambition_demand_divisor)
         overall_popularity = sum(talent.popularity.values())
-        popularity_multiplier = 1.0 + (overall_popularity * self.config.popularity_demand_scalar)
+        popularity_multiplier = 1.0 + (overall_popularity * self.hiring_config.popularity_demand_scalar)
         return performance_multiplier * ambition_multiplier * popularity_multiplier
 
     def _calculate_role_modifier(self, scene: Scene, vp_id: int) -> float:
@@ -70,7 +71,7 @@ class TalentDemandCalculator:
 
         if origin_region and destination_region:
             if origin_region == destination_region:
-                return self.config.location_to_location_cost
+                return self.hiring_config.location_to_location_cost
             if cost_data := self.data_manager.travel_matrix.get(origin_region, {}).get(destination_region):
                 return cost_data.get('cost', 0)
         return 0
@@ -82,7 +83,7 @@ class TalentDemandCalculator:
         role_modifier = self._calculate_role_modifier(scene, vp_id)
         preference_multiplier = self._calculate_preference_multiplier(talent, scene, vp_id)
         
-        base_demand = self.config.base_talent_demand * base_multipliers * role_modifier
+        base_demand = self.hiring_config.base_talent_demand * base_multipliers * role_modifier
         
         # A preference > 1 reduces cost; a preference < 1 increases it.
         if preference_multiplier > 0:
@@ -92,7 +93,7 @@ class TalentDemandCalculator:
         if getattr(talent, 'contract', None):
              return 0
         
-        return max(self.config.minimum_talent_demand, int(base_demand))
+        return max(self.hiring_config.minimum_talent_demand, int(base_demand))
 
     def calculate_total_demand(self, talent: Talent, scene: Scene, vp_id: int,
                                talent_effective_location: str,
@@ -121,7 +122,7 @@ class TalentDemandCalculator:
         rush_fee = 0
         if scene.scheduled_week == current_week and scene.scheduled_year == current_year:
             # Rush fee applies to the cost of getting the talent there, not just their salary.
-            rush_fee = (base_cost + travel_fee) * (self.config.rush_fee_multiplier - 1.0)
+            rush_fee = (base_cost + travel_fee) * (self.hiring_config.rush_fee_multiplier - 1.0)
 
         total_cost = base_cost + travel_fee + rush_fee
 
@@ -162,11 +163,11 @@ class TalentDemandCalculator:
 
         if not relevant_tags:
             # If they uncheck everything, return a fallback or minimum
-            return self.config.minimum_talent_demand * 5 # Fallback
+            return int(self.hiring_config.minimum_talent_demand * self.contract_config.fallback_salary_multiplier)
 
         # 2. Calculate average preference multiplier for these tags
         
-        base_demand = self.config.base_talent_demand * self._calculate_base_multipliers(talent)
+        base_demand = self.hiring_config.base_talent_demand * self._calculate_base_multipliers(talent)
         
         # Calculate average preference modifier for the specific subset of tags allowed
         pref_sum = 0.0
@@ -182,17 +183,17 @@ class TalentDemandCalculator:
         
         # Demand Formula: Cost increases if the talent dislikes the allowed content (avg < 1.0).
         # Cost decreases if the talent loves the allowed content (avg > 1.0).
-        adjusted_base = base_demand / max(0.1, avg_preference)
+        adjusted_base = base_demand / max(self.contract_config.preference_salary_floor, avg_preference)
         
         # Apply Lock-in Premium (e.g. 1.5x standard rate because they can't work elsewhere)
         # And scale by max scenes per week
         max_scenes = conditions.get('max_scenes_per_week', 1)
-        contract_premium = 1.5 
+        contract_premium = self.contract_config.lock_in_premium
         
         # Weekly salary covers the potential of 'max_scenes' shoots
         weekly_salary = adjusted_base * max_scenes * contract_premium
         
-        return int(max(self.config.minimum_talent_demand, weekly_salary))
+        return int(max(self.hiring_config.minimum_talent_demand, weekly_salary))
 
     def calculate_bulk_hiring_costs(self, talent: Talent,
                                     roles_with_context: List[Dict[str, Any]],
@@ -238,7 +239,7 @@ class TalentDemandCalculator:
 
         for _, bloc_roles in bloc_groups.items():
             num_roles = len(bloc_roles)
-            discount_multiplier = self.config.bulk_discount_tiers.get(num_roles, 1.0)
+            discount_multiplier = self.hiring_config.bulk_discount_tiers.get(num_roles, 1.0)
 
             total_bloc_base_cost = sum(r['base_cost'] for r in bloc_roles)
             discounted_total_bloc_base_cost = total_bloc_base_cost * discount_multiplier

@@ -483,9 +483,9 @@ class GameController(QObject):
     def get_action_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]:
         return self.tag_query_service.get_tags_for_planner('Action')
     
-    def get_unique_contract_options(self) -> Tuple[List[str], List[str]]:
+    def get_unique_contract_options(self, gender: str) -> Tuple[List[str], List[str]]:
         if not self.tag_query_service: return ([], [])
-        return self.tag_query_service.get_unique_contract_options()
+        return self.tag_query_service.get_unique_contract_options(gender)
     
     def is_performer_eligible_for_tag(self, performer, tag_name: str) -> bool:
         if not self.tag_validation_checker or not self.tag_query_service:

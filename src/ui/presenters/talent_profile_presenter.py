@@ -130,18 +130,8 @@ class TalentProfilePresenter(QObject):
         self.view.history_widget.display_scene_history(history, talent.id)
 
         # Update contract options with gender-specific filtering
-        all_concepts, all_orientations = self.controller.get_unique_contract_options()
-        valid_orientations = []
-        
-        # FIX: Use 'not in' list check to filter multiple items in one pass
-        if talent.gender == "Male":
-            # Males typically don't do Lesbian or Female-specific content
-            valid_orientations = [o for o in all_orientations if o not in ["Lesbian", "Female"]]
-        elif talent.gender == "Female":
-            # Females typically don't do Gay (M/M) or Male-specific content
-            valid_orientations = [o for o in all_orientations if o not in ["Gay", "Male"]]
-        else:
-            valid_orientations = all_orientations
+        print(f'{talent.gender}')
+        all_concepts, valid_orientations = self.controller.get_unique_contract_options(talent.gender)
             
         self.view.hiring_widget.populate_contract_options(all_concepts, valid_orientations)
         

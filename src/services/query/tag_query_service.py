@@ -41,19 +41,33 @@ class TagQueryService:
         self._cached_data[tag_type] = result
         return result
     
-    def get_unique_contract_options(self) -> Tuple[List[str], List[str]]:
+    def get_unique_contract_options(self, gender: str) -> Tuple[List[str], List[str]]:
         """
         Retrieves all unique 'concept' and 'orientation' values from the tag definitions
         to populate the contract negotiation UI.
         """
         concepts = set()
         orientations = set()
+
+        for tag_def in self.tag_definitions.values():
+            orientation = tag_def.get('orientation')
+            if not orientation:
+                continue
+                
+            # Check if this tag supports the gender
+            slots = tag_def.get('slots') or []
+            # A tag is valid for this gender if ANY slot allows "Any" or the specific gender
+            is_compatible = any(
+                slot.get('gender') in ["Any", gender] 
+                for slot in slots
+            )
+            
+            if is_compatible:
+                orientations.add(orientation)
         
         for tag_def in self.tag_definitions.values():
             if concept := tag_def.get('concept'):
                 concepts.add(concept)
-            if orientation := tag_def.get('orientation'):
-                orientations.add(orientation)
                 
         return sorted(list(concepts)), sorted(list(orientations))
     

@@ -40,7 +40,7 @@ class CastingCommandService:
             # Calculate compliance impact
             talent_dc = talent_db.to_dataclass(Talent)
             pref_score = self.demand_calculator.get_role_preference_score(talent_dc, scene_db.to_dataclass(Scene), virtual_performer_id)
-            self.contract_service.update_compliance(session, talent_db.id, pref_score)
+            self.contract_command_service.update_compliance(session, talent_db.id, pref_score)
 
         new_cast_entry = SceneCastDB(
             scene_id=scene_db.id, talent_id=talent_db.id,

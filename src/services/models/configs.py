@@ -73,3 +73,16 @@ class SceneCalculationConfig:
     revenue_weight_default_action_appeal: float
     revenue_weight_auto_tag: float
     revenue_penalties: Dict = field(default_factory=dict)
+
+@dataclass(frozen=True)
+class ContractConfig:
+    """Configuration values for exclusive contracts."""
+    fallback_salary_multiplier: float
+    preference_salary_floor: float
+    lock_in_premium: float
+    initial_compliance: int
+    compliance_max: int
+    compliance_high_pref_threshold: float
+    compliance_low_pref_threshold: float
+    compliance_bonus: int
+    compliance_penalty: int

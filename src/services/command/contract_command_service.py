@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from database.db_models import TalentDB, ContractDB, GameInfoDB
 from core.game_signals import GameSignals
 from services.query.game_query_service import GameQueryService
+from services.models.configs import ContractConfig
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +14,11 @@ class ContractCommandService:
     Manages the lifecycle of exclusive talent contracts, including creation,
     weekly processing (payments/compliance), and termination.
     """
-    def __init__(self, session_factory, signals: GameSignals, query_service: GameQueryService):
+    def __init__(self, session_factory, signals: GameSignals, query_service: GameQueryService, config: ContractConfig):
         self.session_factory = session_factory
         self.signals = signals
         self.query_service = query_service
+        self.config = config
 
     def sign_contract(self, talent_id: int, terms: Dict[str, Any], calculated_salary: int) -> bool:
         """Creates a new exclusive contract for a talent."""
@@ -40,7 +42,7 @@ class ContractCommandService:
                     start_year=year,
                     duration_weeks=terms['duration_weeks'],
                     weekly_salary=calculated_salary,
-                    compliance=100,
+                    compliance=self.config.initial_compliance,
                     allowed_orientations=terms.get('allowed_orientations', []),
                     allowed_concepts=terms.get('allowed_concepts', []),
                     max_dynamic=terms.get('max_dynamic', 3),
@@ -52,6 +54,7 @@ class ContractCommandService:
                 
                 # Deduct first week's salary immediately? Or wait for weekly processing?
                 # Usually signing bonus or first week is paid. Let's pay first week.
+                # Create a signing bonus field later that affects initial compliance.
                 money_info = session.query(GameInfoDB).filter_by(key='money').one()
                 current_money = int(float(money_info.value))
                 new_money = current_money - calculated_salary
@@ -118,13 +121,13 @@ class ContractCommandService:
         if not contract: return
         
         change = 0
-        if role_preference_score >= 1.2:
-            change = 2 # Bonus for great roles
-        elif role_preference_score <= 0.8:
-            change = -5 # Heavy penalty for hated roles
+        if role_preference_score >= self.config.compliance_high_pref_threshold:
+            change = self.config.compliance_bonus # Bonus for great roles
+        elif role_preference_score <= self.config.compliance_low_pref_threshold:
+            change = self.config.compliance_penalty # Heavy penalty for hated roles
         
         if change != 0:
-            contract.compliance = max(0, min(100, contract.compliance + change))
+            contract.compliance = max(0, min(self.config.compliance_max, contract.compliance + change))
 
     def terminate_contract(self, talent_id: int):
         """Manually terminates a contract (Player Action)."""

@@ -27,7 +27,7 @@ from services.command.scene_event_command_service import SceneEventCommandServic
 from services.command.scene_processing_service import SceneProcessingService
 from services.command.tour_command_service import TourCommandService
 from services.events.scene_event_trigger_service import SceneEventTriggerService
-from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig
+from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig, ContractConfig
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
 from services.query.tag_query_service import TagQueryService
@@ -58,6 +58,7 @@ class ServiceContainer:
         self.hiring_config: Optional[HiringConfig] = None
         self.scene_calc_config: Optional[SceneCalculationConfig] = None
         self.market_config: Optional[MarketConfig] = None
+        self.contract_config: Optional[ContractConfig] = None
 
         # Service instances
         self.query_service: Optional[GameQueryService] = None
@@ -125,10 +126,10 @@ class ServiceContainer:
         self.tag_validation_checker = TagValidationChecker(self.data_manager)
         
         # Level 2: Depends on Level 1 services
-        self.contract_command_service = ContractCommandService(session_factory, self.signals, self.query_service)
+        self.contract_command_service = ContractCommandService(session_factory, self.signals, self.query_service, self.contract_config)
         self.talent_demand_calculator = TalentDemandCalculator(
-            self.data_manager, self.hiring_config, self.availability_checker,
-            self.role_performance_calculator
+            self.data_manager, self.hiring_config, self.contract_config,
+            self.availability_checker, self.role_performance_calculator
         )
         self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.query_service, self.talent_location_service,
             self.talent_demand_calculator, self.hiring_config, self.availability_checker, self.shoot_results_calculator
@@ -296,6 +297,18 @@ class ServiceContainer:
             burnout_penalty_scenes=game_config.get("burnout_penalty_scenes", 1),
             rush_fee_multiplier=game_config.get("hiring_rush_fee_multiplier", 1.25),
             bulk_discount_tiers={int(k): v for k, v in game_config.get("hiring_bulk_discount_tiers", {}).items()}
+        )
+
+        self.contract_config = ContractConfig(
+            fallback_salary_multiplier=game_config.get("contract_fallback_salary_multiplier", 5.0),
+            preference_salary_floor=game_config.get("contract_preference_salary_floor", 0.1),
+            lock_in_premium=game_config.get("contract_lock_in_premium", 1.3),
+            initial_compliance=game_config.get("contract_initial_compliance", 100),
+            compliance_max=game_config.get("contract_compliance_max", 100),
+            compliance_high_pref_threshold=game_config.get("contract_compliance_high_pref_threshold", 1.2),
+            compliance_low_pref_threshold=game_config.get("contract_compliance_low_pref_threshold", 0.8),
+            compliance_bonus=game_config.get("contract_compliance_bonus", 2),
+            compliance_penalty=game_config.get("contract_compliance_penalty", -5)
         )
         
         ds_weights_str_keys = game_config.get("scene_quality_ds_weights", {})
