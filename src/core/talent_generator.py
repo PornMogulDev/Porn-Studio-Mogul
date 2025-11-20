@@ -193,7 +193,6 @@ class TalentGenerator:
                 # 3. Check for Full Name preference (most specific, overwrites all others)
                 if full_name in archetype_action_prefs and role in archetype_action_prefs[full_name]:
                     base_pref = archetype_action_prefs[full_name][role]
-                # --- END NEW LOGIC ---
 
                 # Apply D/S disposition shifter based on the dynamic_role
                 adjusted_pref = base_pref

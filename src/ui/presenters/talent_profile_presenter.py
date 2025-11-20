@@ -43,9 +43,6 @@ class TalentProfilePresenter(QObject):
         cleaned_discount_tiers = {int(k): v for k, v in raw_discount_tiers.items()}
         self.view.hiring_widget.set_discount_tiers(cleaned_discount_tiers)
 
-        concepts, orientations = self.controller.get_unique_contract_options()
-        self.view.hiring_widget.populate_contract_options(concepts, orientations)
-
     def _connect_signals(self):
         """Connect signals from the view to slots in the presenter."""
         # Connect to the view's high-level signal for tour confirmation
@@ -67,6 +64,9 @@ class TalentProfilePresenter(QObject):
     def _refresh_current_talent_data_on_change(self):
         """A single slot to reload all relevant data for the current talent when game state changes."""
         if self.current_talent_id:
+            updated_talent = self.controller.get_talent_by_id(self.current_talent_id)
+            if updated_talent:
+                self.open_talents[self.current_talent_id] = updated_talent
             self._load_and_display_schedule()
             self.refresh_available_roles()
 
@@ -128,6 +128,22 @@ class TalentProfilePresenter(QObject):
         
         history = self.controller.get_scene_history_for_talent(talent.id)
         self.view.history_widget.display_scene_history(history, talent.id)
+
+        # Update contract options with gender-specific filtering
+        all_concepts, all_orientations = self.controller.get_unique_contract_options()
+        valid_orientations = []
+        
+        # FIX: Use 'not in' list check to filter multiple items in one pass
+        if talent.gender == "Male":
+            # Males typically don't do Lesbian or Female-specific content
+            valid_orientations = [o for o in all_orientations if o not in ["Lesbian", "Female"]]
+        elif talent.gender == "Female":
+            # Females typically don't do Gay (M/M) or Male-specific content
+            valid_orientations = [o for o in all_orientations if o not in ["Gay", "Male"]]
+        else:
+            valid_orientations = all_orientations
+            
+        self.view.hiring_widget.populate_contract_options(all_concepts, valid_orientations)
         
         raw_chemistry_dict = self.controller.get_talent_chemistry(talent.id)
 

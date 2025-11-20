@@ -160,7 +160,7 @@ class HiringWidget(QWidget):
         self.sponsor_tour_button.clicked.connect(self._on_sponsor_tour_clicked)
 
         # Contract flow
-        self.negotiate_button.clicked.connect(lambda: self.main_stack.setCurrentIndex(1))
+        self.negotiate_button.clicked.connect(self._on_negotiate_clicked)
         self.cancel_neg_button.clicked.connect(lambda: self.main_stack.setCurrentIndex(0))
         self.sign_contract_button.clicked.connect(self._on_sign_contract_clicked)
         
@@ -169,6 +169,11 @@ class HiringWidget(QWidget):
         self.max_scenes_spin.valueChanged.connect(self._request_contract_preview)
         self.max_dynamic_combo.currentIndexChanged.connect(self._request_contract_preview)
         self.disposition_combo.currentIndexChanged.connect(self._request_contract_preview)
+
+    def _on_negotiate_clicked(self):
+        """Switch to negotiation view and trigger an immediate calculation."""
+        self.main_stack.setCurrentIndex(1)
+        self._request_contract_preview()
 
     def populate_contract_options(self, concepts: list, orientations: list):
         """Populates the checkboxes dynamically."""
@@ -180,25 +185,37 @@ class HiringWidget(QWidget):
         self.concept_checks = {}
         self.orientation_checks = {}
         
-        lbl1 = QLabel("<b>Allowed Concepts:</b>")
-        self.scope_layout.addWidget(lbl1)
+        container = QWidget()
+        container_layout = QHBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # Concepts Column
+        concepts_col = QVBoxLayout()
+        concepts_col.setAlignment(Qt.AlignmentFlag.AlignTop)
+        concepts_col.addWidget(QLabel("<b>Allowed Concepts:</b>"))
         for c in concepts:
             chk = QCheckBox(c)
             chk.setChecked(True)
             chk.stateChanged.connect(self._request_contract_preview)
-            self.scope_layout.addWidget(chk)
+            concepts_col.addWidget(chk)
             self.concept_checks[c] = chk
+
+        container_layout.addLayout(concepts_col)
             
-        lbl2 = QLabel("<b>Allowed Orientations:</b>")
-        self.scope_layout.addWidget(lbl2)
+        # Orientations Column
+        orient_col = QVBoxLayout()
+        orient_col.setAlignment(Qt.AlignmentFlag.AlignTop)
+        orient_col.addWidget(QLabel("<b>Allowed Orientations:</b>"))
         for o in orientations:
             chk = QCheckBox(o)
             chk.setChecked(True)
             chk.stateChanged.connect(self._request_contract_preview)
-            self.scope_layout.addWidget(chk)
+            orient_col.addWidget(chk)
             self.orientation_checks[o] = chk
+        container_layout.addLayout(orient_col)
             
-        self.scope_layout.addStretch()
+        self.scope_layout.addWidget(container)
 
     def update_available_roles(self, available_roles: list, talent_base_location: str, studio_location: str, is_contracted: bool):
         self.available_roles_list.clear()
@@ -206,11 +223,14 @@ class HiringWidget(QWidget):
         self._current_studio_location = studio_location
         self._is_contracted = is_contracted
 
-        # Hide negotiation button if already contracted
-        self.negotiate_button.setVisible(not is_contracted)
-        
+        # Handle Contract State
         if is_contracted:
+            self.negotiate_button.setEnabled(False)
+            self.negotiate_button.setText("Exclusive Contract Active")
             self.main_stack.setCurrentIndex(0) # Force back to list view
+        else:
+            self.negotiate_button.setEnabled(True)
+            self.negotiate_button.setText("Offer Exclusive Contract")
 
         if not available_roles:
             self.roles_stack.setCurrentIndex(1)

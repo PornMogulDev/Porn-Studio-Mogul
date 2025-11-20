@@ -143,30 +143,32 @@ class TalentDemandCalculator:
         relevant_tags = []
         
         # 1. Identify all tags covered by this contract
-        for tag in self.data_manager.tag_definitions.values():
-            # Filter by Concept
-            if tag.get('concept') not in allowed_concepts:
+        # We iterate items() to get the full unique key (e.g. "Blowjob (Straight)")
+        # which matches the keys stored in the talent's tag_preferences.
+        for tag_key, tag_def in self.data_manager.tag_definitions.items():
+            tag_concept = tag_def.get('concept')
+            tag_orientation = tag_def.get('orientation')
+            
+            # Rule 1: If a concept is unchecked, remove all tags contained in that concept
+            if tag_concept not in allowed_concepts:
                 continue
             
-            # Filter by Orientation (include if None, e.g., thematic/costume tags)
-            tag_orientation = tag.get('orientation')
+            # Rule 2: If an orientation is unchecked, remove all tags with that orientation
+            # (Tags with NO orientation, like costumes, are kept unless the Concept was removed)
             if tag_orientation and tag_orientation not in allowed_orientations:
                 continue
                 
-            relevant_tags.append(tag['name'])
+            relevant_tags.append(tag_key)
 
         if not relevant_tags:
+            # If they uncheck everything, return a fallback or minimum
             return self.config.minimum_talent_demand * 5 # Fallback
 
         # 2. Calculate average preference multiplier for these tags
-        # We use the inverse of preference (High Preference = Low Cost multiplier) logic
-        # But for a contract, High Preference means they are happier to sign, so price might be lower?
-        # Actually, usually salary is based on Demand (Market Value).
-        # Let's base it on Base Demand + Premium.
         
         base_demand = self.config.base_talent_demand * self._calculate_base_multipliers(talent)
         
-        # Calculate average preference modifier for the relevant tags
+        # Calculate average preference modifier for the specific subset of tags allowed
         pref_sum = 0.0
         for tag_name in relevant_tags:
             # Get the highest preference among all roles for this tag (optimistic)
@@ -178,8 +180,8 @@ class TalentDemandCalculator:
         
         avg_preference = pref_sum / len(relevant_tags) if relevant_tags else 1.0
         
-        # A lower preference (< 1.0) should increase the salary.
-        # A higher preference (> 1.0) should decrease it.
+        # Demand Formula: Cost increases if the talent dislikes the allowed content (avg < 1.0).
+        # Cost decreases if the talent loves the allowed content (avg > 1.0).
         adjusted_base = base_demand / max(0.1, avg_preference)
         
         # Apply Lock-in Premium (e.g. 1.5x standard rate because they can't work elsewhere)
