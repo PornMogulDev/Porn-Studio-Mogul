@@ -101,7 +101,7 @@ class CastingCommandService:
             current_year=game_year,
             talent=talent_dc,  
             existing_bookings=existing_bookings,
-           hiring_config=self.demand_calculator.config,
+           hiring_config=self.demand_calculator.hiring_config,
             shoot_calculator=self.shoot_results_calculator
         )
 
