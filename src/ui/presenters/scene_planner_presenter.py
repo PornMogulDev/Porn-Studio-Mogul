@@ -363,11 +363,22 @@ class ScenePlannerPresenter(QObject):
                     slot_id = f"{tag_def.get('name', segment.tag_name)}_{slot_def['role']}_{i+1}"
                     vps_assigned_elsewhere = {vp_id for sid, vp_id in current_assignments.items() if sid != slot_id and vp_id is not None}
                     eligible_vps = []
+
+                    # Create a map for the validator
+                    vp_map = {vp.id: vp for vp in self.working_scene.virtual_performers}
+
                     for vp in self.working_scene.virtual_performers:
                         talent = self.get_talent_by_id(self.working_scene.final_cast.get(str(vp.id)))
                         gender_req = slot_def.get('gender')
                         gender_ok = not gender_req or gender_req == "Any" or vp.gender == gender_req
-                        if gender_ok and vp.id not in vps_assigned_elsewhere:
+                        # Check orientation validity dynamically
+                        orientation_ok = True
+                        if gender_ok:
+                             orientation_ok = self.controller.tag_validation_checker.is_assignment_valid_for_segment(
+                                 segment, tag_def, vp_map, slot_id, vp.id
+                             )
+
+                        if gender_ok and orientation_ok and vp.id not in vps_assigned_elsewhere:
                             eligible_vps.append((talent.alias if talent else vp.name, vp.id))
                     vp_options_by_slot[slot_id] = eligible_vps
         self.view.update_segment_details(segment, self.controller.tag_definitions, vp_options_by_slot, self.is_design_editable())

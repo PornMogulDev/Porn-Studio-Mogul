@@ -4,6 +4,7 @@ import logging
 from typing import Dict, Any, List
 from collections import defaultdict, OrderedDict
 
+from data.builders.action_tag_builder import ActionTagBuilder
 from utils.paths import GAME_DATA, HELP_FILE
 
 # Set up a logger for this module
@@ -84,12 +85,35 @@ class DataManager:
         cursor = self.conn.cursor()
         cursor.execute("SELECT * FROM scene_tags")
         tags = {}
+        
         for row in cursor.fetchall():
             tag_data = self._rehydrate_json_fields(dict(row))
-            base_name = tag_data.get('name')
-            orientation = tag_data.get('orientation')
-            full_name = f"{base_name} ({orientation})" if orientation else base_name
-            tags[full_name] = tag_data
+            
+            # Check if this is an orientation template
+            if tag_data.get('orientation') == 'Template':
+                # Expand the template into concrete tags
+                concrete_tags = ActionTagBuilder.expand_template(tag_data)
+                
+                for concrete_tag in concrete_tags:
+                    base_name = concrete_tag.get('name')
+                    orientation = concrete_tag.get('orientation')
+                    
+                    # Construct the full unique key (e.g., "Blowjob (Straight)")
+                    # Note: For solo tags like "Masturbation (Male)", this format holds.
+                    full_name = f"{base_name} ({orientation})" if orientation else base_name
+                    
+                    # Store full_name inside the dict for UI convenience if not already there
+                    concrete_tag['full_name'] = full_name
+                    tags[full_name] = concrete_tag
+            else:
+                # Legacy behavior for non-template tags
+                base_name = tag_data.get('name')
+                orientation = tag_data.get('orientation')
+                full_name = f"{base_name} ({orientation})" if orientation else base_name
+                
+                tag_data['full_name'] = full_name
+                tags[full_name] = tag_data
+                
         return tags
 
     def _load_market_data(self) -> Dict[str, Any]:

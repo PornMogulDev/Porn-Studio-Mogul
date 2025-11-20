@@ -1,9 +1,9 @@
     
 import logging
 from itertools import permutations
-from typing import List, Dict, Set, Optional
+from typing import List, Dict, Set, Optional, Tuple
 
-from data.game_state import Talent
+from data.game_state import Talent, ActionSegment, VirtualPerformer
 from data.data_manager import DataManager
 
 logger = logging.getLogger(__name__)
@@ -15,6 +15,107 @@ class TagValidationChecker:
     """
     def __init__(self, data_manager: DataManager):
         self.data_manager = data_manager
+
+    def validate_action_segment_orientation(self, segment: ActionSegment, tag_def: Dict, performers: Dict[int, VirtualPerformer]) -> Tuple[bool, Optional[str]]:
+        """
+        Validates that the performers assigned to an action segment respect the 
+        tag's orientation constraints. This is crucial for 'Fluid' tags (e.g., 
+        Straight tags where slots are 'Any') to prevent invalid pairings.
+
+        Args:
+            segment: The ActionSegment to validate.
+            tag_def: The dictionary definition of the tag (from DataManager).
+            performers: A map of {vp_id: VirtualPerformer} for looking up genders.
+
+        Returns:
+            (is_valid, error_message)
+        """
+        if not tag_def:
+            return True, None
+
+        orientation = tag_def.get('orientation')
+        if not orientation:
+            return True, None
+
+        # Gather genders of currently assigned performers
+        assigned_genders = []
+        for assignment in segment.slot_assignments:
+            if assignment.virtual_performer_id and assignment.virtual_performer_id in performers:
+                vp = performers[assignment.virtual_performer_id]
+                assigned_genders.append(vp.gender)
+        
+        # If nobody is assigned yet, we can't invalidate it based on pairing
+        if not assigned_genders:
+            return True, None
+
+        # 1. Straight Validation
+        # A Straight action implies opposite-sex interaction. 
+        # If slots are 'Any'/'Any', we must ensure we don't have M/M or F/F.
+        if orientation == "Straight":
+            # If we have at least 2 people, we enforce the mix.
+            if len(assigned_genders) > 1:
+                has_male = "Male" in assigned_genders
+                has_female = "Female" in assigned_genders
+                if not (has_male and has_female):
+                    return False, "Straight actions require both Male and Female participants."
+
+        # 2. Gay / Male Validation (No Females)
+        elif orientation in ["Gay", "Male"]:
+            if "Female" in assigned_genders:
+                return False, f"{orientation} actions cannot include Female participants."
+
+        # 3. Lesbian / Female Validation (No Males)
+        elif orientation in ["Lesbian", "Female"]:
+            if "Male" in assigned_genders:
+                return False, f"{orientation} actions cannot include Male participants."
+
+        # Bi / Pan / Template orientations generally allow any combination 
+        # (constraints are handled by specific slot requirements, e.g. 'Vaginal' requires Female receiver)
+
+        return True, None
+    
+    def is_assignment_valid_for_segment(self, segment: ActionSegment, tag_def: Dict, 
+                                      performers: Dict[int, VirtualPerformer], 
+                                      slot_id: str, candidate_vp_id: int) -> bool:
+        """
+        Checks if assigning a specific candidate to a specific slot would violate
+        orientation rules, considering who is ALREADY assigned to other slots.
+        """
+        if not tag_def: return True
+        
+        candidate = performers.get(candidate_vp_id)
+        if not candidate: return False
+
+        orientation = tag_def.get('orientation')
+        if not orientation: return True
+
+        # 1. Immediate Gender Lock (e.g. Gay tag = No Females allowed ever)
+        if orientation in ["Gay", "Male"] and candidate.gender == "Female":
+            return False
+        if orientation in ["Lesbian", "Female"] and candidate.gender == "Male":
+            return False
+
+        # 2. Contextual Lock (Straight tag = Must not match existing genders of same type)
+        # e.g. If slot A has a Male, slot B cannot accept a Male.
+        if orientation == "Straight":
+            # Check genders of peers ALREADY assigned to OTHER slots
+            existing_genders = set()
+            for assignment in segment.slot_assignments:
+                if assignment.slot_id != slot_id and assignment.virtual_performer_id:
+                    if peer := performers.get(assignment.virtual_performer_id):
+                        existing_genders.add(peer.gender)
+            
+            # If we are adding a Male, and there is already a Male, it's invalid.
+            # (Assuming Straight requires M/F pairing. M/M is invalid).
+            # Note: This logic assumes strict M/F. 
+            # It prevents M/M/F (Threesome) if strict pairing is enforced, 
+            # but for "Fluid Straight" (Any/Any), preventing M+M is the goal.
+            if candidate.gender == "Male" and "Male" in existing_genders:
+                return False
+            if candidate.gender == "Female" and "Female" in existing_genders:
+                return False
+                
+        return True
 
     def is_performer_eligible_for_tag(self, performer, tag_def: Dict) -> bool:
         """

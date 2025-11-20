@@ -3,8 +3,9 @@ import copy
 import logging
 from typing import Optional, List, Dict, Tuple
 
-from data.game_state import Scene, VirtualPerformer, ActionSegment, Talent, ShootingBloc, SlotAssignment
+from data.game_state import Scene, VirtualPerformer, ActionSegment, SlotAssignment
 from data.data_manager import DataManager
+from services.calculation.tag_validation_checker import TagValidationChecker
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,7 @@ class SceneStateEditor:
         self.working_scene = copy.deepcopy(scene_to_edit)
         self.original_scene = scene_to_edit
         self.data_manager = data_manager
+        self.tag_validator = TagValidationChecker(data_manager)
         
     def reset_with_scene(self, new_scene: Scene):
         """
@@ -175,6 +177,14 @@ class SceneStateEditor:
         unassigned_physical_tags = self._get_unassigned_physical_tags()
         if unassigned_physical_tags:
             return "Cannot proceed to Casting. The following physical tags have insufficient performers:\n\n- " + "\n- ".join(unassigned_physical_tags)
+
+        # Validate orientation constraints (e.g. preventing M/M in a Straight tag)
+        vp_map = {vp.id: vp for vp in self.working_scene.virtual_performers}
+        for segment in self.working_scene.action_segments:
+            tag_def = self.data_manager.tag_definitions.get(segment.tag_name)
+            is_valid, error = self.tag_validator.validate_action_segment_orientation(segment, tag_def, vp_map)
+            if not is_valid:
+                return f"Cannot proceed to Casting.\n\nIssue in '{segment.tag_name}':\n{error}"
 
         return None
 

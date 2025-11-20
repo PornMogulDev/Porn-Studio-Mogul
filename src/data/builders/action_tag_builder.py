@@ -16,7 +16,7 @@ class ActionTagBuilder:
         supported_orientations = template_tag.get('expands_to', [])
         
         if not supported_orientations:
-            # If no expansions defined, return as is (or maybe it's not a template?)
+            # Fallback: If marked as template but has no expansions, return as is.
             return [template_tag]
 
         for orientation in supported_orientations:
@@ -25,14 +25,19 @@ class ActionTagBuilder:
             # 1. Set the concrete orientation
             new_tag['orientation'] = orientation
             
-            # 2. Remove template-specific fields
+            # 2. Remove template-specific metadata to keep the final tag clean
             new_tag.pop('is_orientation_template', None)
             new_tag.pop('expands_to', None)
-            # We KEEP 'is_template' because that flag is used by the UI to determine 
-            # if the tag has editable parameters (like participant counts).
             
-            # 3. Resolve "Dependent" genders in slots
+            # Note: We KEEP 'is_template' because that flag is used by the UI 
+            # to determine if the tag has editable parameters (spinners).
+            
+            # 3. Resolve "Dependent" and "Any" genders in slots
             new_tag['slots'] = ActionTagBuilder._resolve_slots(new_tag.get('slots', []), orientation)
+            
+            # 4. Update name for internal uniqueness if needed, though usually
+            # the combination of Name + Orientation is the unique key in the app.
+            # (The DataManager keys it by "Name (Orientation)")
             
             expanded_tags.append(new_tag)
             
@@ -41,105 +46,72 @@ class ActionTagBuilder:
     @staticmethod
     def _resolve_slots(slots: List[Dict[str, Any]], orientation: str) -> List[Dict[str, Any]]:
         """
-        Resolves 'Dependent' gender slots based on the orientation and the 'Fixed' slot.
+        Resolves 'Dependent' and 'Any' gender slots based on the orientation.
         """
         resolved_slots = copy.deepcopy(slots)
         
-        # First, find the fixed gender if any (usually the one that isn't Dependent)
-        # In most templates, one role is fixed (e.g. Receiver is Female in Straight/Lesbian)
-        # But actually, for "Straight", one is Male and one is Female.
-        # For "Gay", both Male. For "Lesbian", both Female.
-        # For "Bi", usually one is Any or specific.
-        
-        # Let's look at the logic required.
-        # If orientation is "Straight": One Male, One Female.
-        # If orientation is "Gay": Both Male.
-        # If orientation is "Lesbian": Both Female.
-        # If orientation is "Bi": Usually one Fixed, one Any.
-        
-        # We need to know WHICH role takes which gender.
-        # The template should probably define the logic or we infer it.
-        # In the plan, we said we'd mark one as "Dependent".
-        
-        # Let's assume the template has one slot with a concrete gender (or Any) 
-        # and one slot with "Dependent".
-        
-        # Actually, looking at the previous `action_tags.json`:
-        # Blowjob (Straight): Receiver (Male), Giver (Female)
-        # Blowjob (Gay): Receiver (Male), Giver (Male)
-        # Blowjob (Lesbian): Receiver (Female), Giver (Female) -- Wait, Blowjob Lesbian? 
-        # Ah, "Blowjob (Strapon)" exists for Lesbian.
-        # "Deepthroat" (Straight): Receiver (Male), Giver (Female)
-        
-        # It seems "Dependent" usually means "Matches the other person" (Gay/Lesbian) 
-        # or "Opposite of the other person" (Straight).
-        
-        # Let's refine the logic.
-        # If we have a "Dependent" slot, we need to know what it depends ON.
-        # Or we can just hardcode the logic based on standard orientation rules if the template is simple.
-        
-        # However, a more robust way is to define the mapping in the builder.
-        
         for slot in resolved_slots:
-            if slot.get('gender') == 'Dependent':
+            gender = slot.get('gender')
+            
+            if gender == 'Dependent':
                 slot['gender'] = ActionTagBuilder._calculate_dependent_gender(orientation, resolved_slots, slot)
+            elif gender == 'Any':
+                slot['gender'] = ActionTagBuilder._refine_any_gender(orientation)
                 
         return resolved_slots
 
     @staticmethod
     def _calculate_dependent_gender(orientation: str, all_slots: List[Dict], current_slot: Dict) -> str:
-        # This is a bit tricky without more metadata.
-        # Let's look at "Blowjob". 
-        # Template: Receiver (Male), Giver (Dependent).
-        # Straight -> Giver = Female.
-        # Gay -> Giver = Male.
-        # Bi -> Giver = Any.
-        
-        # Template: "Vaginal".
-        # Straight: Receiver (Female), Giver (Male).
-        # Lesbian: Receiver (Female), Giver (Female).
-        # Bi: Receiver (Female), Giver (Any).
-        
-        # It seems "Dependent" maps to:
-        # Straight -> Opposite of the *other* slot? Or just fixed mapping?
-        # Actually, it's easier to map Orientation -> Gender Set.
-        
-        # Straight: [Male, Female]
-        # Gay: [Male, Male]
-        # Lesbian: [Female, Female]
-        # Bi: [Any, Any] (or [Fixed, Any])
-        
-        # If the template has a Fixed slot (e.g. Receiver=Male for Blowjob), 
-        # then the Dependent slot takes the remaining gender from the pair?
-        
-        # Let's try a simpler approach:
-        # The template defines the "Primary" gender (e.g. Receiver).
-        # The "Dependent" slot changes based on orientation.
-        
-        if orientation == "Straight":
-            # If there's a Male slot, the Dependent is Female.
-            # If there's a Female slot, the Dependent is Male.
-            # If there's a Fixed slot, we take the opposite.
-            other_gender = ActionTagBuilder._get_other_fixed_gender(all_slots, current_slot)
-            if other_gender == "Male": return "Female"
-            if other_gender == "Female": return "Male"
-            return "Any" # Fallback
-            
-        elif orientation == "Gay":
+        """
+        Determines what 'Dependent' means based on the orientation and context of other slots.
+        """
+        # Case 1: Homosexual / Mono-gender orientations
+        if orientation in ["Gay", "Male"]:
             return "Male"
-            
-        elif orientation == "Lesbian":
+        if orientation in ["Lesbian", "Female"]:
             return "Female"
             
-        elif orientation == "Bi":
+        # Case 2: Bi / Pan
+        if orientation == "Bi":
+            return "Any"
+
+        # Case 3: Straight
+        if orientation == "Straight":
+            # Logic: Find the 'Fixed' gender in the OTHER slots. 
+            # If the other slot is Male, this one is Female, and vice versa.
+            other_gender = ActionTagBuilder._find_other_fixed_gender(all_slots, current_slot)
+            
+            if other_gender == "Male": 
+                return "Female"
+            if other_gender == "Female": 
+                return "Male"
+            
+            # Fallback: If Straight but the other slot is Any (Fluid Straight), return Any.
             return "Any"
             
         return "Any"
 
     @staticmethod
-    def _get_other_fixed_gender(slots: List[Dict], current_slot: Dict) -> str:
+    def _refine_any_gender(orientation: str) -> str:
+        """
+        Refines 'Any' gender for specific orientations.
+        e.g., In a Gay tag, 'Any' implicitly means 'Male'.
+        In a Straight tag, 'Any' stays 'Any' (Fluid roles).
+        """
+        if orientation in ["Gay", "Male"]:
+            return "Male"
+        if orientation in ["Lesbian", "Female"]:
+            return "Female"
+        
+        # For Straight and Bi, 'Any' remains 'Any' to allow flexible/fluid positioning.
+        return "Any"
+
+    @staticmethod
+    def _find_other_fixed_gender(slots: List[Dict], current_slot: Dict) -> str:
+        """Helper to find a defined gender (Male/Female) in a different slot."""
         for slot in slots:
-            if slot is current_slot: continue
+            if slot is current_slot: 
+                continue
             g = slot.get('gender')
             if g in ["Male", "Female"]:
                 return g
