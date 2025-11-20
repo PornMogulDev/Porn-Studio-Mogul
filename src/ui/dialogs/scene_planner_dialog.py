@@ -440,7 +440,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         if self.selected_actions_list.currentRow() == -1 and self.selected_actions_list.count() > 0:
             self.selected_actions_list.setCurrentRow(0)
 
-    def update_segment_details(self, segment: Optional[ActionSegment], tag_defs: Dict, vp_options_by_slot: Dict[str, List[tuple]], is_editable: bool):
+    def update_segment_details(self, segment: Optional[ActionSegment], tag_defs: Dict, vp_options_by_slot: Dict[str, List[tuple]], effective_genders: Dict[str, str], is_editable: bool):
         if not segment: self.segment_stack.setCurrentIndex(0); return
         self.segment_stack.setCurrentIndex(1)
         self.segment_title_label.setText(f"<h3>Editing: {segment.tag_name}</h3>")
@@ -455,7 +455,9 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
             for i in range(count):
                 base_name = tag_def.get('name', segment.tag_name)
                 slot_id = f"{base_name}_{slot_def['role']}_{i+1}"
-                slot_widget = SlotAssignmentWidget(segment.id, slot_id, slot_def)
+                # Pass the effective gender (calculated by presenter) or None to let widget use default
+                effective_gender_req = effective_genders.get(slot_id)
+                slot_widget = SlotAssignmentWidget(segment.id, slot_id, slot_def, effective_gender_req=effective_gender_req)
                 slot_widget.assignment_changed.connect(
                     lambda sid, slid, vpid: self.slot_assignment_changed.emit(sid, slid, vpid if vpid is not None else 0)
                 )
