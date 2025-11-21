@@ -131,7 +131,6 @@ class TalentProfilePresenter(QObject):
         self.view.history_widget.display_scene_history(history, talent.id)
 
         # Update contract options with gender-specific filtering
-        print(f'{talent.gender}')
         all_concepts, valid_orientations = self.controller.get_unique_contract_options(talent.gender)
             
         self.view.hiring_widget.populate_contract_options(all_concepts, valid_orientations)

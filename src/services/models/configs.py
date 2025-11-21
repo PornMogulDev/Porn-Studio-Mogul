@@ -90,8 +90,12 @@ class ContractConfig:
 
 @dataclass
 class TourConfig:
-    batch_size: int
+    batch_size: int # e.g., 4 (process 25% of talent per week)
     autonomous_fatigue_limit: int
     cooldown_weeks: int
     location_variety_penalty: int
-    base_tour_desire: int
+    base_tour_desire: float 
+    tour_desire_threshold: float 
+    workload_desire_modifier: float # e.g., 10.0 per booking variance
+    min_tour_duration: int
+    max_tour_duration: int

@@ -38,6 +38,7 @@ from services.calculation.role_performance_calculator import RolePerformanceCalc
 from services.calculation.talent_availability_checker import TalentAvailabilityChecker
 from services.calculation.talent_affinity_calculator import TalentAffinityCalculator
 from services.calculation.bloc_cost_calculator import BlocCostCalculator
+from services.calculation.tour_interest_calculator import TourInterestCalculator
 
 if TYPE_CHECKING:
     from core.game_controller import GameController
@@ -67,6 +68,7 @@ class ServiceContainer:
         self.tag_query_service: Optional[TagQueryService] = None
         self.talent_command_service: Optional[TalentCommandService] = None
         self.trait_modifier_resolver: Optional[TraitModifierResolver] = None
+        self.tour_interest_calculator: Optional[TourInterestCalculator] = None
         self.scene_command_service: Optional[SceneCommandService] = None
         self.casting_command_service: Optional[CastingCommandService] = None
         self.contract_command_service: Optional[ContractCommandService] = None
@@ -116,6 +118,7 @@ class ServiceContainer:
         self.trait_modifier_resolver = TraitModifierResolver(self.data_manager)
 
         # Level 1: Depends on Level 0 services
+        self.tour_interest_calculator = TourInterestCalculator(self.trait_modifier_resolver, self.tour_config, self.data_manager)
         self.market_service = MarketService(market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.talent_affinity_calculator = TalentAffinityCalculator(self.scene_calc_config)
         self.availability_checker = TalentAvailabilityChecker(self.data_manager, self.hiring_config)
@@ -160,7 +163,7 @@ class ServiceContainer:
         self.tour_command_service = TourCommandService(
             session_factory, self.signals, self.casting_command_service, self.query_service,
             self.talent_query_service, self.talent_location_service, self.talent_demand_calculator,
-            self.trait_modifier_resolver, self.tour_config
+            self.trait_modifier_resolver, self.tour_interest_calculator, self.tour_config
         )
         self.scene_command_service = SceneCommandService(
             session_factory, self.signals, self.data_manager, self.query_service, self.talent_command_service,
@@ -255,6 +258,7 @@ class ServiceContainer:
         self.tour_command_service = None
         self.tour_feasibility_service = None
         self.tour_sponsorship_service = None
+        self.tour_interest_calculator = None
         self.upfront_tour_calculator = None
         self.talent_location_service = None
         self.role_performance_calculator = None
@@ -320,10 +324,14 @@ class ServiceContainer:
 
         self.tour_config = TourConfig(
             batch_size=game_config.get("tour_batch_size", 4),
-            autonomous_fatigue_limit=game_config.get("tour_autonomous_fatigue_limit", 40),
+            autonomous_fatigue_limit=game_config.get("tour_autonomous_fatigue_limit", 40.0),
             cooldown_weeks=game_config.get("tour_cooldown_weeks", 4),
             location_variety_penalty=game_config.get("tour_location_repeat_penalty", -30),
-            base_tour_desire=game_config.get("tour_base_desire", 50)
+            base_tour_desire=game_config.get("tour_base_desire", 50.0),
+            tour_desire_threshold=game_config.get("tour_desire_threshold", 75.0), 
+            workload_desire_modifier=game_config.get("tour_workload_desire_modifier", 10.0),
+            min_tour_duration=game_config.get("tour_min_duration", 1),
+            max_tour_duration=game_config.get("tour_max_duration", 5)
         )
         
         ds_weights_str_keys = game_config.get("scene_quality_ds_weights", {})

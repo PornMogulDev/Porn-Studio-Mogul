@@ -2,6 +2,7 @@ import logging
 from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 from sqlalchemy.orm import selectinload, Session
+from sqlalchemy import func
 
 from data.game_state import Scene, Talent, Tour
 from data.data_manager import DataManager
@@ -97,6 +98,50 @@ class TalentQueryService:
             
             # Filter out tours that end before this year starts (not needed with current query)
             return [t.to_dataclass(Tour) for t in tours_db]
+        
+    def get_recent_workload_counts(self, talent_ids: List[int], current_week: int, current_year: int, lookback_weeks: int = 4) -> Dict[int, int]:
+        """
+        Returns a dictionary {talent_id: count} of scheduled/completed scenes 
+        in the last N weeks. Used to determine if a talent is bored or overworked.
+        """
+        if not talent_ids:
+            return {}
+
+        # Calculate the integer "absolute week" for easier comparison
+        current_abs = current_year * 52 + current_week
+        cutoff_abs = current_abs - lookback_weeks
+
+        with self.session_factory() as session:
+            # We construct a specialized query to count rows per talent
+            # where (year * 52 + week) > cutoff
+            
+            # SQLAlchemy expression for absolute week calculation
+            abs_week_expr = (SceneDB.scheduled_year * 52 + SceneDB.scheduled_week)
+
+            results = (
+                session.query(
+                    SceneCastDB.talent_id,
+                    func.count(SceneCastDB.id)
+                )
+                .join(SceneDB)
+                .filter(
+                    SceneCastDB.talent_id.in_(talent_ids),
+                    SceneDB.status.in_(['scheduled', 'shot', 'completed', 'released']),
+                    abs_week_expr >= cutoff_abs,
+                    abs_week_expr < current_abs # Strictly past/current, not future
+                )
+                .group_by(SceneCastDB.talent_id)
+                .all()
+            )
+
+            counts = {r[0]: r[1] for r in results}
+            
+            # Fill in 0s for talents with no work
+            for t_id in talent_ids:
+                if t_id not in counts:
+                    counts[t_id] = 0
+                    
+            return counts
 
     def get_eligible_talent_for_role(self, scene_id: int, vp_id: int, filters: Dict = None) -> List[TalentDB]:
         """

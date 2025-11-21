@@ -2,6 +2,7 @@ import logging
 from sqlalchemy.orm import Session, selectinload
 
 from core.game_signals import GameSignals
+from data.game_state import Talent
 from database.db_models import TalentDB, TourDB, GameInfoDB
 from services.models.configs import TourConfig
 from services.command.casting_command_service import CastingCommandService
@@ -10,6 +11,7 @@ from services.query.talent_query_service import TalentQueryService
 from services.query.talent_location_service import TalentLocationService
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.calculation.trait_modifier_resolver import TraitModifierResolver
+from services.calculation.tour_interest_calculator import TourInterestCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,7 @@ class TourCommandService:
                  casting_command_service: CastingCommandService, game_query_service: GameQueryService,
                  talent_query_service: TalentQueryService, talent_location_service: TalentLocationService,
                  demand_calculator: TalentDemandCalculator, trait_resolver: TraitModifierResolver,
-                 config: TourConfig):
+                 interest_calculator: TourInterestCalculator, config: TourConfig):
         self.session_factory = session_factory
         self.signals = signals
         self.casting_command_service = casting_command_service
@@ -30,6 +32,7 @@ class TourCommandService:
         self.talent_location_service = talent_location_service
         self.demand_calculator = demand_calculator
         self.trait_resolver = trait_resolver
+        self.interest_calculator = interest_calculator
         self.config = config
 
     def sponsor_tour(self, talent_id: int, roles_to_cast: list, tour_details: dict, total_upfront_cost: int) -> bool:
@@ -109,25 +112,90 @@ class TourCommandService:
 
     def process_autonomous_tour_decisions(self, session: Session):
         """
-        Called by TimeService to let talent plan their own tours for the future.
-        This is a placeholder for the complex AI logic that will be driven by professional archetypes.
-        The full implementation would involve:
-        1. Querying all talents not currently on tour.
-        2. For each talent, calculating a "desire to tour" score based on:
-           - Low number of recent bookings in their home region.
-           - High popularity in other regions.
-           - Professional Archetype modifiers (e.g., 'Globetrotter' vs 'Homebody').
-        3. If desire is high enough, find a target destination (region with high popularity).
-        4. Find a free schedule slot 2-4 weeks in the future.
-        5. Call the feasibility calculator to check for conflicts and costs.
-        6. Create a `TourDB` record with `sponsor_type='self'` and `status='planned'`.
-        7. Emit a notification/email to inform the player of the talent's plans.
+        Evaluates a batch of talents to see if they want to book their own tours.
         """
-        pass
+        game_info = session.query(GameInfoDB).all()
+        info_dict = {g.key: int(g.value) for g in game_info if g.key in ['week', 'year']}
+        current_week = info_dict.get('week', 1)
+        current_year = info_dict.get('year', 1)
+
+        batch_size = self.config.batch_size
+        if batch_size <= 0: batch_size = 1
+
+        # 1. Query Batch
+        # Formula: id % batch_size == current_week % batch_size
+        # Filter: Not on tour
+        target_remainder = current_week % batch_size
+        
+        candidates_db = (
+            session.query(TalentDB)
+            .filter(
+                TalentDB.id % batch_size == target_remainder,
+                TalentDB.is_on_tour == False
+            )
+            .all()
+        )
+
+        if not candidates_db:
+            return
+
+        candidate_ids = [t.id for t in candidates_db]
+        
+        # 2. Bulk Fetch Workload Data
+        workloads = self.talent_query_service.get_recent_workload_counts(
+            candidate_ids, current_week, current_year
+        )
+
+        # 3. Process Decisions
+        tours_created = 0
+        for talent_db in candidates_db:
+            talent_dc = talent_db.to_dataclass(Talent) # Needed for trait logic
+            workload = workloads.get(talent_db.id, 0)
+
+            dest, duration = self.interest_calculator.calculate_tour_decision(
+                talent_dc, workload, current_week, current_year
+            )
+
+            if dest:
+                # Create the tour!
+                # Start week is usually "next week" or 2 weeks out. Let's say 2 weeks out.
+                start_week = current_week + 2
+                start_year = current_year
+                if start_week > 52:
+                    start_week -= 52
+                    start_year += 1
+
+                new_tour = TourDB(
+                    talent_id=talent_db.id,
+                    status='planned',
+                    sponsor_type='self', # Important
+                    destination_location=dest,
+                    start_week=start_week,
+                    start_year=start_year,
+                    duration_weeks=duration,
+                    accommodation_tier_id='basic', # Self-funded defaults
+                    upfront_fee_paid=0
+                )
+                session.add(new_tour)
+                
+                # Update Talent State to prevent double booking
+                talent_db.is_on_tour = True # Mark as booked immediately or wait? 
+                # Usually we mark is_on_tour only when it becomes 'active'.
+                # But we should set the tour_end_week to reserve the time.
+                end_abs = (start_year * 52 + start_week) + duration
+                e_year, e_week_rem = divmod(end_abs - 1, 52)
+                talent_db.tour_end_year = e_year
+                talent_db.tour_end_week = e_week_rem + 1
+
+                tours_created += 1
+                self.signals.notification_posted.emit(f"Autonomous Tour: {talent_db.alias} decided to go to {dest} for {duration} weeks.")
+
+        if tours_created > 0:
+            self.signals.notification_posted.emit(f"{tours_created} talents have booked their own tours.")
 
     def process_weekly_tour_updates(self, session: Session, current_week: int, current_year: int):
         """
-        Called by TimeService at the start of the week to update the status of all tours.
+        Updates tour statuses.
         """
         # --- Start planned tours ---
         tours_to_start = session.query(TourDB).filter_by(
@@ -136,8 +204,9 @@ class TourCommandService:
 
         for tour in tours_to_start:
             tour.status = 'active'
+            tour.talent.is_on_tour = True
             tour.talent.current_location = tour.destination_location
-            logger.info(f"Tour for {tour.talent.alias} to {tour.destination_location} is now active.")
+            self.signals.notification_posted.emit(f"Tour for {tour.talent.alias} to {tour.destination_location} is now active.")
 
         # --- End active tours ---
         active_tours = session.query(TourDB).filter_by(status='active').options(selectinload(TourDB.talent)).all()
@@ -150,5 +219,11 @@ class TourCommandService:
             
             if current_year > end_year or (current_year == end_year and current_week >= end_week):
                 tour.status = 'completed'
+                tour.talent.is_on_tour = False
                 tour.talent.current_location = tour.talent.base_location
-                logger.info(f"Tour for {tour.talent.alias} has ended. Returning to {tour.talent.base_location}.")
+                
+                # KEY CHANGE: We do NOT reset tour_end_week/year to 0.
+                # We leave them as the date the tour ended.
+                # This allows the history check in the calculator to work.
+                
+                self.signals.notification_posted.emit(f"Tour for {tour.talent.alias} has ended.")
