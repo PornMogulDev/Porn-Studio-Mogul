@@ -2,12 +2,14 @@ import logging
 from sqlalchemy.orm import Session, selectinload
 
 from core.game_signals import GameSignals
-from database.db_models import TalentDB, TourDB, GameInfoDB, SceneDB
+from database.db_models import TalentDB, TourDB, GameInfoDB
+from services.models.configs import TourConfig
 from services.command.casting_command_service import CastingCommandService
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
 from services.query.talent_location_service import TalentLocationService
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
+from services.calculation.trait_modifier_resolver import TraitModifierResolver
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +20,8 @@ class TourCommandService:
     def __init__(self, session_factory, signals: GameSignals,
                  casting_command_service: CastingCommandService, game_query_service: GameQueryService,
                  talent_query_service: TalentQueryService, talent_location_service: TalentLocationService,
-                 demand_calculator: TalentDemandCalculator):
+                 demand_calculator: TalentDemandCalculator, trait_resolver: TraitModifierResolver,
+                 config: TourConfig):
         self.session_factory = session_factory
         self.signals = signals
         self.casting_command_service = casting_command_service
@@ -26,6 +29,8 @@ class TourCommandService:
         self.talent_query_service = talent_query_service
         self.talent_location_service = talent_location_service
         self.demand_calculator = demand_calculator
+        self.trait_resolver = trait_resolver
+        self.config = config
 
     def sponsor_tour(self, talent_id: int, roles_to_cast: list, tour_details: dict, total_upfront_cost: int) -> bool:
         """

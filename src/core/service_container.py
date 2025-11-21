@@ -17,6 +17,7 @@ from services.calculation.scene_quality_calculator import SceneQualityCalculator
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.calculation.upfront_tour_cost_calculator import UpfrontTourCostCalculator
+from services.calculation.trait_modifier_resolver import TraitModifierResolver
 from services.tour_feasibility_service import TourFeasibilityService
 from services.tour_sponsorship_preview_service import TourSponsorshipPreviewService
 from services.command.scene_command_service import SceneCommandService
@@ -27,7 +28,7 @@ from services.command.scene_event_command_service import SceneEventCommandServic
 from services.command.scene_processing_service import SceneProcessingService
 from services.command.tour_command_service import TourCommandService
 from services.events.scene_event_trigger_service import SceneEventTriggerService
-from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig, ContractConfig
+from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig, ContractConfig, TourConfig
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
 from services.query.tag_query_service import TagQueryService
@@ -59,11 +60,13 @@ class ServiceContainer:
         self.scene_calc_config: Optional[SceneCalculationConfig] = None
         self.market_config: Optional[MarketConfig] = None
         self.contract_config: Optional[ContractConfig] = None
+        self.tour_config: Optional[TourConfig] = None
 
         # Service instances
         self.query_service: Optional[GameQueryService] = None
         self.tag_query_service: Optional[TagQueryService] = None
         self.talent_command_service: Optional[TalentCommandService] = None
+        self.trait_modifier_resolver: Optional[TraitModifierResolver] = None
         self.scene_command_service: Optional[SceneCommandService] = None
         self.casting_command_service: Optional[CastingCommandService] = None
         self.contract_command_service: Optional[ContractCommandService] = None
@@ -110,6 +113,7 @@ class ServiceContainer:
         self.role_performance_calculator = RolePerformanceCalculator()
         self.talent_location_service = TalentLocationService(session_factory)
         self.upfront_tour_calculator = UpfrontTourCostCalculator(self.data_manager)
+        self.trait_modifier_resolver = TraitModifierResolver(self.data_manager)
 
         # Level 1: Depends on Level 0 services
         self.market_service = MarketService(market_resolver, self.data_manager.tag_definitions, config=self.market_config)
@@ -129,7 +133,7 @@ class ServiceContainer:
         self.contract_command_service = ContractCommandService(session_factory, self.signals, self.query_service, self.contract_config)
         self.talent_demand_calculator = TalentDemandCalculator(
             self.data_manager, self.hiring_config, self.contract_config,
-            self.availability_checker, self.role_performance_calculator
+            self.availability_checker, self.role_performance_calculator, self.trait_modifier_resolver
         )
         self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.query_service, self.talent_location_service,
             self.talent_demand_calculator, self.hiring_config, self.availability_checker, self.shoot_results_calculator
@@ -155,7 +159,8 @@ class ServiceContainer:
         )
         self.tour_command_service = TourCommandService(
             session_factory, self.signals, self.casting_command_service, self.query_service,
-            self.talent_query_service, self.talent_location_service, self.talent_demand_calculator
+            self.talent_query_service, self.talent_location_service, self.talent_demand_calculator,
+            self.trait_modifier_resolver, self.tour_config
         )
         self.scene_command_service = SceneCommandService(
             session_factory, self.signals, self.data_manager, self.query_service, self.talent_command_service,
@@ -238,6 +243,7 @@ class ServiceContainer:
         """Sets all service references on this container to None."""
         self.query_service = None
         self.tag_query_service = None
+        self.trait_modifier_resolver = None
         self.talent_command_service = None
         self.scene_command_service = None
         self.casting_command_service = None
@@ -296,7 +302,8 @@ class ServiceContainer:
             fatigue_refusal_threshold=game_config.get("fatigue_refusal_threshold", 80),
             burnout_penalty_scenes=game_config.get("burnout_penalty_scenes", 1),
             rush_fee_multiplier=game_config.get("hiring_rush_fee_multiplier", 1.25),
-            bulk_discount_tiers={int(k): v for k, v in game_config.get("hiring_bulk_discount_tiers", {}).items()}
+            bulk_discount_tiers={int(k): v for k, v in game_config.get("hiring_bulk_discount_tiers", {}).items()},
+            hazard_pay_modifiers={int(k): v for k, v in game_config.get("hiring_hazard_pay_modifiers", {}).items()}
         )
 
         self.contract_config = ContractConfig(
@@ -309,6 +316,14 @@ class ServiceContainer:
             compliance_low_pref_threshold=game_config.get("contract_compliance_low_pref_threshold", 0.8),
             compliance_bonus=game_config.get("contract_compliance_bonus", 2),
             compliance_penalty=game_config.get("contract_compliance_penalty", -5)
+        )
+
+        self.tour_config = TourConfig(
+            batch_size=game_config.get("tour_batch_size", 4),
+            autonomous_fatigue_limit=game_config.get("tour_autonomous_fatigue_limit", 40),
+            cooldown_weeks=game_config.get("tour_cooldown_weeks", 4),
+            location_variety_penalty=game_config.get("tour_location_repeat_penalty", -30),
+            base_tour_desire=game_config.get("tour_base_desire", 50)
         )
         
         ds_weights_str_keys = game_config.get("scene_quality_ds_weights", {})

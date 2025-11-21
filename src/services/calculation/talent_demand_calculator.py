@@ -7,6 +7,7 @@ from data.game_state import Talent, Scene
 from services.models.configs import HiringConfig, ContractConfig
 from services.calculation.role_performance_calculator import RolePerformanceCalculator
 from services.calculation.talent_availability_checker import TalentAvailabilityChecker
+from services.calculation.trait_modifier_resolver import TraitModifierResolver
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +19,13 @@ class TalentDemandCalculator:
     """
     def __init__(self, data_manager: DataManager, hiring_config: HiringConfig,
                  contract_config: ContractConfig, availability_checker: TalentAvailabilityChecker,
-                 role_perf_calculator: RolePerformanceCalculator):
+                 role_perf_calculator: RolePerformanceCalculator, trait_resolver: TraitModifierResolver):
         self.data_manager = data_manager
         self.hiring_config = hiring_config
         self.contract_config = contract_config
         self.availability_checker = availability_checker
         self.role_performance_calculator = role_perf_calculator
+        self.trait_resolver = trait_resolver
     
     def _calculate_base_multipliers(self, talent: Talent) -> float:
         """Calculates demand multipliers from talent's core stats (performance, ambition, popularity)."""
@@ -60,24 +62,29 @@ class TalentDemandCalculator:
     def _calculate_preference_multiplier(self, talent: Talent, scene: Scene, vp_id: int) -> float:
         return self.get_role_preference_score(talent, scene, vp_id)
 
-    def _calculate_travel_fee(self, origin_location: str, destination_location: str) -> int:
-        """Calculates the travel fee based on origin and destination locations."""
+    def _calculate_travel_fee(self, talent: Talent, origin_location: str, destination_location: str) -> int:
+        """Calculates the travel fee based on locations and trait modifiers."""
         if origin_location == destination_location:
             return 0
 
+        base_fee = 0
         location_map = self.data_manager.get_location_to_region_map()
         origin_region = location_map.get(origin_location)
         destination_region = location_map.get(destination_location)
 
         if origin_region and destination_region:
             if origin_region == destination_region:
-                return self.hiring_config.location_to_location_cost
-            if cost_data := self.data_manager.travel_matrix.get(origin_region, {}).get(destination_region):
-                return cost_data.get('cost', 0)
-        return 0
+                base_fee = self.hiring_config.location_to_location_cost
+            elif cost_data := self.data_manager.travel_matrix.get(origin_region, {}).get(destination_region):
+                base_fee = cost_data.get('cost', 0)
+        
+        # Apply Trait Modifiers (e.g., "Globetrotter" = 0.5x, "Homebody" = 2.0x)
+        trait_multiplier = self.trait_resolver.get_composite_modifier(talent, "travel_cost_multiplier")
+        
+        return int(base_fee * trait_multiplier)
 
     def _calculate_base_demand(self, talent: Talent, scene: Scene, vp_id: int) -> int:
-        """Calculates the base hiring cost (without travel) for a specific talent in a specific role."""
+        """Calculates the base hiring cost (without travel/hazard) for a specific talent in a specific role."""
         if not talent or not scene: return 0
         base_multipliers = self._calculate_base_multipliers(talent)
         role_modifier = self._calculate_role_modifier(scene, vp_id)
@@ -100,34 +107,42 @@ class TalentDemandCalculator:
                                current_week: int, current_year: int) -> Dict[str, int]:
         """
         Calculates the total hiring cost for a single talent for a specific role.
-        This method is pure and relies on the caller to provide all data.
-
-        Args:
-            talent: The Talent dataclass.
-            scene: The Scene dataclass.
-            vp_id: The ID of the virtual performer for the role.
-            talent_effective_location: The talent's location on the scene's date,
-                                       as determined by the TalentLocationService.
-            current_week: The game's current week.
-            current_year: The game's current year.
-
-        Returns:
-            A dictionary with a cost breakdown.
+        Includes Base, Travel, Rush Fee, and Hazard Pay (D/S Intensity).
         """
+        # 1. Calculate Base Demand (Performance, Popularity, Role fit)
         base_cost = self._calculate_base_demand(talent, scene, vp_id)
         
-        travel_fee = self._calculate_travel_fee(talent_effective_location, scene.location)
+        # 2. Calculate Hazard Pay (D/S Intensity vs Preference)
+        # Formula: Adjusted = Base * (Hazard_Level_Mod / Talent_Pref_Level_Mod)
+        ds_level = scene.dom_sub_dynamic_level
+        hazard_mod = self.hiring_config.hazard_pay_modifiers.get(ds_level, 1.0)
         
-        # Calculate Rush Fee if the scene is for the current week
+        # Use trait resolver? No, DS prefs are on the talent object directly.
+        # Fallback to 1.0 if key missing
+        talent_pref = talent.ds_dynamic_preferences.get(ds_level, 1.0)
+        
+        # Prevent division by zero
+        if talent_pref <= 0: talent_pref = 0.1
+            
+        # Combined multiplier for intensity
+        intensity_multiplier = hazard_mod / talent_pref
+        
+        ds_adjusted_base = base_cost * intensity_multiplier
+        hazard_pay = ds_adjusted_base - base_cost
+
+        # 3. Calculate Travel
+        travel_fee = self._calculate_travel_fee(talent, talent_effective_location, scene.location)
+        
+        # 4. Calculate Rush Fee (applies to base + hazard + travel)
         rush_fee = 0
         if scene.scheduled_week == current_week and scene.scheduled_year == current_year:
-            # Rush fee applies to the cost of getting the talent there, not just their salary.
-            rush_fee = (base_cost + travel_fee) * (self.hiring_config.rush_fee_multiplier - 1.0)
+            rush_fee = (ds_adjusted_base + travel_fee) * (self.hiring_config.rush_fee_multiplier - 1.0)
 
-        total_cost = base_cost + travel_fee + rush_fee
+        total_cost = ds_adjusted_base + travel_fee + rush_fee
 
         return {
             "base_cost": int(base_cost),
+            "hazard_pay": int(hazard_pay), # Logic adjustment for display
             "travel_fee": int(travel_fee),
             "rush_fee": int(rush_fee),
             "total_cost": int(total_cost)
@@ -135,8 +150,11 @@ class TalentDemandCalculator:
     
     def calculate_contract_salary(self, talent: Talent, conditions: Dict[str, Any]) -> int:
         """
-        Calculates the weekly salary for an exclusive contract based on the breadth
-        of the terms and the talent's affinity for those terms.
+        Calculates the weekly salary for an exclusive contract.
+        Factors in:
+        - Content scope (allowed tags)
+        - D/S Intensity limit (max_dynamic)
+        - Traits (contract_salary_multiplier)
         """
         allowed_concepts = set(conditions.get('allowed_concepts', []))
         allowed_orientations = set(conditions.get('allowed_orientations', []))
@@ -144,35 +162,23 @@ class TalentDemandCalculator:
         relevant_tags = []
         
         # 1. Identify all tags covered by this contract
-        # We iterate items() to get the full unique key (e.g. "Blowjob (Straight)")
-        # which matches the keys stored in the talent's tag_preferences.
         for tag_key, tag_def in self.data_manager.tag_definitions.items():
             tag_concept = tag_def.get('concept')
             tag_orientation = tag_def.get('orientation')
             
-            # Rule 1: If a concept is unchecked, remove all tags contained in that concept
-            if tag_concept not in allowed_concepts:
-                continue
-            
-            # Rule 2: If an orientation is unchecked, remove all tags with that orientation
-            # (Tags with NO orientation, like costumes, are kept unless the Concept was removed)
-            if tag_orientation and tag_orientation not in allowed_orientations:
-                continue
+            if tag_concept not in allowed_concepts: continue
+            if tag_orientation and tag_orientation not in allowed_orientations: continue
                 
             relevant_tags.append(tag_key)
 
         if not relevant_tags:
-            # If they uncheck everything, return a fallback or minimum
             return int(self.hiring_config.minimum_talent_demand * self.contract_config.fallback_salary_multiplier)
 
         # 2. Calculate average preference multiplier for these tags
-        
         base_demand = self.hiring_config.base_talent_demand * self._calculate_base_multipliers(talent)
         
-        # Calculate average preference modifier for the specific subset of tags allowed
         pref_sum = 0.0
         for tag_name in relevant_tags:
-            # Get the highest preference among all roles for this tag (optimistic)
             role_prefs = talent.tag_preferences.get(tag_name, {}).values()
             if role_prefs:
                 pref_sum += max(role_prefs)
@@ -181,16 +187,40 @@ class TalentDemandCalculator:
         
         avg_preference = pref_sum / len(relevant_tags) if relevant_tags else 1.0
         
-        # Demand Formula: Cost increases if the talent dislikes the allowed content (avg < 1.0).
-        # Cost decreases if the talent loves the allowed content (avg > 1.0).
-        adjusted_base = base_demand / max(self.contract_config.preference_salary_floor, avg_preference)
+        # 3. D/S Intensity Adjustment
+        # If contract allows up to Level 3, we verify their comfort with Level 3.
+        max_dynamic = conditions.get('max_dynamic', 3)
         
-        # Apply Lock-in Premium (e.g. 1.5x standard rate because they can't work elsewhere)
-        # And scale by max scenes per week
+        # We look at the worst-case scenario for the talent within that range.
+        # If they love Level 0 (1.5) but hate Level 3 (0.5), and max is 3, 
+        # they will demand pay based on Level 3.
+        min_ds_pref = 99.0
+        max_hazard_mod = 1.0
+        
+        for level in range(max_dynamic + 1):
+            pref = talent.ds_dynamic_preferences.get(level, 1.0)
+            if pref < min_ds_pref: min_ds_pref = pref
+            
+            hazard = self.hiring_config.hazard_pay_modifiers.get(level, 1.0)
+            if hazard > max_hazard_mod: max_hazard_mod = hazard
+
+        if min_ds_pref <= 0: min_ds_pref = 0.1
+        
+        # Multiplier based on the most "dangerous" allowed intensity vs their lowest preference for it
+        ds_intensity_multiplier = max_hazard_mod / min_ds_pref
+
+        # 4. Apply Logic
+        adjusted_base = base_demand / max(self.contract_config.preference_salary_floor, avg_preference)
+        adjusted_base *= ds_intensity_multiplier # Apply D/S scaling
+        
+        # 5. Apply Trait Modifiers (e.g. "Greedy", "Commitment Phobe")
+        trait_multiplier = self.trait_resolver.get_composite_modifier(talent, "contract_salary_multiplier")
+        adjusted_base *= trait_multiplier
+
+        # 6. Lock-in and Scale
         max_scenes = conditions.get('max_scenes_per_week', 1)
         contract_premium = self.contract_config.lock_in_premium
         
-        # Weekly salary covers the potential of 'max_scenes' shoots
         weekly_salary = adjusted_base * max_scenes * contract_premium
         
         return int(max(self.hiring_config.minimum_talent_demand, weekly_salary))
@@ -199,21 +229,7 @@ class TalentDemandCalculator:
                                     roles_with_context: List[Dict[str, Any]],
                                     current_week: int, current_year: int) -> Dict:
         """
-        Calculates authoritative costs for a bulk hiring transaction, applying tiered discounts.
-        This method is pure and relies on the caller to provide all data.
-
-        Args:
-            talent: The Talent dataclass.
-            roles_with_context: A list of dictionaries, where each dict contains:
-                                'scene': The Scene dataclass.
-                                'virtual_performer_id': The VP ID for the role.
-                                'bloc_id': The bloc ID for the scene.
-                                'talent_effective_location': Talent's location for this scene's date.
-            current_week: The game's current week.
-            current_year: The game's current year.
-
-        Returns:
-            A dictionary breakdown of upfront costs and final deferred salaries.
+        Calculates authoritative costs for a bulk hiring transaction.
         """
         from collections import defaultdict
 
@@ -229,7 +245,6 @@ class TalentDemandCalculator:
         # 2. Group roles by bloc
         bloc_groups = defaultdict(list)
         for role in roles_with_costs:
-            # Group scenes without a bloc individually to prevent incorrect discounts
             bloc_id = role['bloc_id'] if role['bloc_id'] is not None else f"nobloc_{role['scene'].id}"
             bloc_groups[bloc_id].append(role)
 
@@ -241,16 +256,18 @@ class TalentDemandCalculator:
             num_roles = len(bloc_roles)
             discount_multiplier = self.hiring_config.bulk_discount_tiers.get(num_roles, 1.0)
 
-            total_bloc_base_cost = sum(r['base_cost'] for r in bloc_roles)
-            discounted_total_bloc_base_cost = total_bloc_base_cost * discount_multiplier
+            # Base for discount includes the base demand + hazard pay, but not travel/rush
+            total_bloc_salary_basis = sum(r['base_cost'] + r['hazard_pay'] for r in bloc_roles)
+            discounted_basis = total_bloc_salary_basis * discount_multiplier
 
             for role in bloc_roles:
-                # Distribute discount proportionally based on the role's contribution to the bloc's base cost
-                proportion = role['base_cost'] / total_bloc_base_cost if total_bloc_base_cost > 0 else 0
-                final_base_salary = discounted_total_bloc_base_cost * proportion
+                role_basis = role['base_cost'] + role['hazard_pay']
+                proportion = role_basis / total_bloc_salary_basis if total_bloc_salary_basis > 0 else 0
+                
+                final_salary_portion = discounted_basis * proportion
 
-                # Final salary is the discounted base + any non-discounted fees (rush fee)
-                final_salary = final_base_salary + role['rush_fee']
+                # Final salary is the discounted salary basis + any non-discounted fees (rush fee)
+                final_salary = final_salary_portion + role['rush_fee']
 
                 final_role_salaries.append({
                     'scene_id': role['scene'].id,

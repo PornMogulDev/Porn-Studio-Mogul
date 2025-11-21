@@ -26,6 +26,12 @@
   "ambition_demand_divisor": 10.0,
   "popularity_demand_scalar": 0.01,
   "minimum_talent_demand": 100,
+  "hiring_hazard_pay_modifiers": {
+    "0": 1.0,
+    "1": 1.15,
+    "2": 1.4,
+    "3": 1.8
+  },
   "hiring_rush_fee_multiplier": 1.25,
   "hiring_bulk_discount_tiers": { "2": 0.95, "3": 0.90, "4": 0.85 },
   "contract_fallback_salary_multiplier": 5.0,
@@ -37,6 +43,7 @@
   "contract_compliance_low_pref_threshold": 0.8,
   "contract_compliance_bonus": 2,
   "contract_compliance_penalty": -5,
+  "tour_base_desire": 0,
   "tour_batch_size": 4,
   "tour_autonomous_fatigue_limit": 40,
   "tour_cooldown_weeks": 4,

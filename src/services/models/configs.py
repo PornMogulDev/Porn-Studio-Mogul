@@ -24,6 +24,7 @@ class HiringConfig:
     burnout_penalty_scenes: int
     rush_fee_multiplier: float
     bulk_discount_tiers: Dict[int, float]
+    hazard_pay_modifiers: Dict[int, float]
 
 @dataclass(frozen=True)
 class MarketConfig:
@@ -86,3 +87,11 @@ class ContractConfig:
     compliance_low_pref_threshold: float
     compliance_bonus: int
     compliance_penalty: int
+
+@dataclass
+class TourConfig:
+    batch_size: int
+    autonomous_fatigue_limit: int
+    cooldown_weeks: int
+    location_variety_penalty: int
+    base_tour_desire: int
