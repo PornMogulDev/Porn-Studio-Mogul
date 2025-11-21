@@ -335,5 +335,18 @@ class ThemeManager:
             QLabel#totalCostLabel[status="neutral"] {{
                 color: {theme.text};
             }}
+
+            /* --- D/S Intensity Badges --- */
+            QLabel#dsLabel {{
+                border: 1px solid {theme.border};
+                border-radius: 4px;
+                padding: 5px;
+                font-weight: bold;
+                background-color: {theme.background_light};
+            }}
+            QLabel#dsLabel[status="great"] {{ border-color: {theme.color_great}; color: {theme.color_great}; }}
+            QLabel#dsLabel[status="good"] {{ border-color: {theme.color_good}; color: {theme.color_good}; }}
+            QLabel#dsLabel[status="warning"] {{ border-color: {theme.color_warning}; color: {theme.color_warning}; }}
+            QLabel#dsLabel[status="bad"] {{ border-color: {theme.color_bad}; color: {theme.color_bad}; }}
                 """
         return qss

@@ -81,4 +81,17 @@ def build_preferences_view_model(talent: Talent, tag_definitions: Dict[str, Any]
     # --- Process Hard Limits ---
     limits = sorted(talent.hard_limits)
 
-    return preferences_data, limits, required_policies, refused_policies
+    # --- Process D/S Dynamics ---
+    ds_data = []
+    labels = ["Vanilla (0)", "Soft (1)", "Hard (2)", "Extreme (3)"]
+    for level in range(4):
+        score = talent.ds_dynamic_preferences.get(level, 1.0)
+        status = "neutral"
+        if score >= LOVES_THRESHOLD: status = "great"
+        elif score >= LIKES_THRESHOLD: status = "good"
+        elif score <= HATES_THRESHOLD: status = "bad"
+        elif score < 1.0: status = "warning"
+        
+        ds_data.append({'label': labels[level], 'score': score, 'status': status})
+
+    return preferences_data, limits, required_policies, refused_policies, ds_data

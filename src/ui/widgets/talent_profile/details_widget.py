@@ -1,4 +1,7 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QFormLayout, QGroupBox, QLabel
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QFormLayout, QGroupBox, QLabel,
+    QListWidget, QListWidgetItem
+)
 
 from data.game_state import Talent
 from utils.formatters import format_orientation, format_physical_attribute
@@ -53,6 +56,12 @@ class DetailsWidget(QWidget):
         skills_layout.addRow("<b>Experience:</b>", self.experience_label)
         main_layout.addWidget(skills_group)
 
+        # Traits Section
+        details_layout.addRow(QLabel("<b>Traits:</b>"))
+        self.traits_list = QListWidget()
+        self.traits_list.setMaximumHeight(100) # Keep it compact
+        details_layout.addRow(self.traits_list)
+
         main_layout.addStretch()
 
     def display_basic_info(self, data: dict):
@@ -67,6 +76,15 @@ class DetailsWidget(QWidget):
             self.location_label.setText(f'{data['current_location']} (on tour from {data['base_location']})')
         self.popularity_label.setText(str(data['popularity']))
         self.fatigue_label.setText(data['fatigue'])
+
+        self.traits_list.clear()
+        if traits := data.get('traits_data', []):
+            for trait in traits:
+                item = QListWidgetItem(trait['name'])
+                item.setToolTip(trait['description'])
+                self.traits_list.addItem(item)
+        else:
+            self.traits_list.addItem("No notable traits.")
 
     def display_skills(self, data: dict):
         # The presenter now provides pre-formatted strings

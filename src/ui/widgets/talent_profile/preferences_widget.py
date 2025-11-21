@@ -36,16 +36,20 @@ class PreferencesWidget(QWidget):
         self.preferences_tree = QTreeWidget()
         self.preferences_tree.setHeaderLabels(["Preference", "Summary / Score"])
         header = self.preferences_tree.header()
-        header.setSectionResizeMode(QHeaderView.Stretch)
-        self.preferences_tree.setColumnWidth(0, 500) 
-        self.preferences_tree.setColumnWidth(1, 100)  
+        header.setSectionResizeMode(QHeaderView.Stretch) 
         prefs_grid_layout.addWidget(self.preferences_tree, 1, 0, 1, 2)
-        prefs_grid_layout.addWidget(QLabel("<b>Hard Limits</b> (Will Refuse Roles):"), 2, 0, 1, 2)
+        # D/S Dynamics Section
+        prefs_grid_layout.addWidget(QLabel("<b>D/s Dynamic Comfort:</b>"), 2, 0, 1, 2)
+        self.ds_layout = QHBoxLayout()
+        self.ds_labels = [] # Store references to update styles
+        prefs_grid_layout.addLayout(self.ds_layout, 3, 0, 1, 2)
+
+        prefs_grid_layout.addWidget(QLabel("<b>Hard Limits</b> (Will Refuse Roles):"), 4, 0, 1, 2)
         self.limits_list = QListWidget()
         self.limits_list.setObjectName("HardLimitsList")
-        prefs_grid_layout.addWidget(self.limits_list, 3, 0, 1, 2)
+        prefs_grid_layout.addWidget(self.limits_list, 5, 0, 1, 2)
         prefs_grid_layout.setRowStretch(1, 3) 
-        prefs_grid_layout.setRowStretch(3, 1)  
+        prefs_grid_layout.setRowStretch(5, 1) 
         main_layout.addWidget(prefs_limits_group, 3)
         
         policy_group = QGroupBox("Contract Requirements")
@@ -64,7 +68,7 @@ class PreferencesWidget(QWidget):
         # Re-create the icon with the new color
         self.refusal_icon = self._create_refusal_icon()
 
-    def display_preferences(self, preferences_data: list, limits: list, required_policies: list, refused_policies: list):
+    def display_preferences(self, preferences_data: list, limits: list, required_policies: list, refused_policies: list, ds_data: list):
         self.preferences_tree.clear()
         if preferences_data:
             for orientation_data in preferences_data:
@@ -87,6 +91,24 @@ class PreferencesWidget(QWidget):
         else:
              QTreeWidgetItem(self.preferences_tree, ["No notable preferences.", ""])
 
+        # Display D/S Data
+        # Clear old labels
+        while self.ds_layout.count():
+            item = self.ds_layout.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
+            
+        for item in ds_data:
+            lbl = QLabel(f"{item['label']}\n{item['score']:.2f}x")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl.setObjectName("dsLabel") # For QSS
+            lbl.setProperty("status", item['status'])
+            
+            # Apply style
+            lbl.style().unpolish(lbl)
+            lbl.style().polish(lbl)
+            
+            self.ds_layout.addWidget(lbl)
+        
         self.limits_list.clear()
         if limits:
             for limit in limits:

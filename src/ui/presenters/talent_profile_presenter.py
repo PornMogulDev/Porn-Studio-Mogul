@@ -153,6 +153,13 @@ class TalentProfilePresenter(QObject):
         ethnicity_str = talent.ethnicity
         if talent.primary_ethnicity and talent.ethnicity != talent.primary_ethnicity:
             ethnicity_str = f"{talent.ethnicity}"
+
+        # Resolve traits to dicts for display
+        traits_display = []
+        for t_id in talent.traits:
+            if t_def := self.controller.data_manager.get_trait_definition(t_id):
+                traits_display.append(t_def)
+
         self.view.details_widget.display_basic_info({
             'age': talent.age,
             'gender': talent.gender,
@@ -162,7 +169,8 @@ class TalentProfilePresenter(QObject):
             'base_location': talent.base_location,
             'current_location': talent.current_location,
             'popularity': round(sum(talent.popularity.values())),
-            'fatigue': format_fatigue(talent.fatigue)
+            'fatigue': format_fatigue(talent.fatigue),
+            'traits_data': traits_display
         })
         self.view.details_widget.display_skills({
             'performance': format_skill_range(get_fuzzed_skill_range(talent.performance, talent.experience, talent.id)),
@@ -346,7 +354,7 @@ class TalentProfilePresenter(QObject):
         tag_definitions = self.controller.data_manager.tag_definitions
         policy_definitions = self.controller.data_manager.on_set_policies_data
 
-        preferences_data, limits, required_policies, refused_policies = build_preferences_view_model(
+        preferences_data, limits, required_policies, refused_policies, ds_data = build_preferences_view_model(
             talent=talent,
             tag_definitions=tag_definitions,
             policy_definitions=policy_definitions
@@ -356,7 +364,8 @@ class TalentProfilePresenter(QObject):
             preferences_data=preferences_data,
             limits=limits,
             required_policies=required_policies,
-            refused_policies=refused_policies
+            refused_policies=refused_policies,
+            ds_data=ds_data
         )
 
     @pyqtSlot(dict)

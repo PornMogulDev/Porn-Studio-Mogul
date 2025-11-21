@@ -123,15 +123,13 @@ class TalentGenerator:
 
     def _select_traits(self, archetype_data: dict) -> List[str]:
         """
-        Selects traits for the talent based on archetype weights, global config,
-        and conflict resolution.
+        Selects traits for the talent based on archetype weights.
         """
         selected_traits: Set[str] = set()
         
         # 1. Load Configuration
-        trait_gen_config = archetype_data.get("trait_generation", {})
-        guaranteed = trait_gen_config.get("guaranteed", [])
-        weights = trait_gen_config.get("weights", {}) # Dict[TraitID, Weight]
+        trait_weights = archetype_data.get("trait_weights", {}) 
+        
         max_traits = self.gen_config.get("max_traits", 3)
         base_chance = self.gen_config.get("base_trait_chance", 0.3)
 
@@ -142,23 +140,24 @@ class TalentGenerator:
             conflicts = trait_def.get("conflicts_with", [])
             return any(c in current_set for c in conflicts)
 
-        # 3. Add Guaranteed Traits
-        for t_id in guaranteed:
-            if t_id in self.traits_data and not has_conflict(t_id, selected_traits):
-                selected_traits.add(t_id)
-
-        # 4. Random Selection from Archetype Weights
-        if len(selected_traits) < max_traits and weights:
-            potential_traits = [t for t in weights.keys() if t in self.traits_data]
-            potential_weights = [weights[t] for t in potential_traits]
+        # 3. Select traits based on weights defined in Archetype
+        if trait_weights:
+            potential_traits = [t for t in trait_weights.keys() if t in self.traits_data]
+            # Extract weights in the same order
+            weights = [trait_weights[t] for t in potential_traits]
             
-            # We try to add traits one by one
+            # Attempt to add traits until max is reached or random chance fails
             attempts = 0
             while len(selected_traits) < max_traits and attempts < 10:
                 attempts += 1
-                if random.random() > base_chance: continue # Chance to stop generating
+                # Standard random check to see if we add another trait
+                if len(selected_traits) > 0 and random.random() > base_chance: 
+                    break 
 
-                choice = random.choices(potential_traits, weights=potential_weights, k=1)[0]
+                if not potential_traits: break
+
+                # Weighted random choice
+                choice = random.choices(potential_traits, weights=weights, k=1)[0]
                 
                 if choice not in selected_traits and not has_conflict(choice, selected_traits):
                     selected_traits.add(choice)
@@ -411,10 +410,15 @@ class TalentGenerator:
 
         # Archetype, Personality, Traits
         archetype_data = self._assign_archetype()
+        archetype_id = archetype_data['id']
         orientation_score = self._generate_orientation_score()
         disposition_score = self._generate_disposition_score()
         
         traits = self._select_traits(archetype_data)
+
+        if archetype_id:
+            traits.insert(0, archetype_id)
+            
         ds_dynamic_preferences = self._generate_ds_dynamic_preferences(archetype_data)
 
         # Generate preferences (incorporating traits)
