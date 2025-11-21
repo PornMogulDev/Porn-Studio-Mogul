@@ -204,18 +204,34 @@ def create_tables(cursor):
     """)
     
     # talent_archetypes
+    # UPDATED: max_scene_partners changed to JSON to support {min, max} dicts
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS talent_archetypes (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
         weight INTEGER NOT NULL,
-        action_preferences_json TEXT,
-        thematic_preferences_json TEXT,
-        hard_limits_json TEXT,
         stat_modifiers_json TEXT,
-        max_scene_partners INTEGER NOT NULL DEFAULT 10,
-        concurrency_limits_json TEXT
+        max_scene_partners_json TEXT, 
+        concurrency_limits_json TEXT,
+        dynamic_preference_weights_json TEXT,
+        trait_weights_json TEXT
+    )
+    """)
+
+    # traits
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS traits (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        type TEXT NOT NULL,
+        modifiers_json TEXT,
+        conflicts_with_json TEXT,
+        policy_requirements_json TEXT,
+        action_preference_modifiers_json TEXT,
+        thematic_preference_modifiers_json TEXT,
+        concurrency_modifiers_json TEXT
     )
     """)
 
@@ -257,7 +273,7 @@ def migrate_talent_generation(cursor, data):
     eth_count = 0
     for primary_group in data.get("ethnicities", []):
         primary_name = primary_group['name']
-        if not primary_group.get('sub_groups'): # Handle ethnicities with no sub-groups
+        if not primary_group.get('sub_groups'): 
              cursor.execute("INSERT OR REPLACE INTO ethnicity_definitions (name, primary_ethnicity) VALUES (?, ?)",
                                (primary_name, primary_name))
              eth_count += 1
@@ -301,7 +317,6 @@ def migrate_regions(cursor, data):
             loc_count += 1
     print(f"{reg_count} regions and {loc_count} region locations migrated.")
 
-# NEW: Migration function for travel costs
 def migrate_travel_costs(cursor, data):
     """Migrates the travel cost matrix from regions.json."""
     print("Migrating travel matrix...")
@@ -312,7 +327,6 @@ def migrate_travel_costs(cursor, data):
         cost = entry.get('cost')
         fatigue = entry.get('fatigue')
         if all([origin, destination, cost is not None, fatigue is not None]):
-            # Insert both directions for easier lookup
             cursor.execute("""
                 INSERT OR REPLACE INTO region_travel_costs (origin_region, destination_region, cost, fatigue)
                 VALUES (?, ?, ?, ?)
@@ -324,7 +338,6 @@ def migrate_travel_costs(cursor, data):
             count += 1
     print(f"{count*2} travel cost entries migrated (symmetric).")
 
-
 def migrate_names(cursor, data):
     print("Migrating names_by_culture.json...")
     count = 0
@@ -332,7 +345,6 @@ def migrate_names(cursor, data):
 
     for culture_key, parts_data in names_data.items():
         for part_key, names in parts_data.items():
-            # Handle shared names like 'last' and 'single' by adding them for both genders
             if part_key in ("last", "single"):
                 genders = ["Male", "Female"]
                 part = part_key
@@ -341,11 +353,10 @@ def migrate_names(cursor, data):
                         cursor.execute("INSERT OR REPLACE INTO cultural_names (culture_key, gender, part, name) VALUES (?, ?, ?, ?)",
                                        (culture_key, gender, part, name))
                         count += 1
-            # Handle specific names like 'male_first'
             elif "_" in part_key:
                 try:
                     gender_str, part = part_key.split("_", 1)
-                    gender = gender_str.capitalize()  # 'male' -> 'Male'
+                    gender = gender_str.capitalize()
                     for name in names:
                         cursor.execute("INSERT OR REPLACE INTO cultural_names (culture_key, gender, part, name) VALUES (?, ?, ?, ?)",
                                        (culture_key, gender, part, name))
@@ -355,35 +366,30 @@ def migrate_names(cursor, data):
     print(f"{count} cultural name entries migrated.")
 
 def migrate_talent_affinities(cursor, data):
-    """Migrates all talent affinities into the unified talent_affinities table."""
     print("Migrating talent_affinity_data.json...")
     count = 0
-
     for category, items in data.items():
-        if category in ["Male", "Female"]:  # Age affinities
+        if category in ["Male", "Female"]:
             for affinity_name, details in items.items():
                 cursor.execute("""
                     INSERT OR REPLACE INTO talent_affinities (category, name, data_json)
                     VALUES (?, ?, ?)
                 """, (category, affinity_name, json.dumps(details)))
                 count += 1
-        elif category == "BoobSize":  # Boob size affinities
+        elif category == "BoobSize":
             for cup_size, affinities in items.items():
                 cursor.execute("""
                     INSERT OR REPLACE INTO talent_affinities (category, name, data_json)
                     VALUES (?, ?, ?)
                 """, (category, cup_size, json.dumps(affinities)))
                 count += 1
-        elif category == "DickSize":  # Dick size affinity
-            # The entire DickSize object is stored under a single 'default' name
+        elif category == "DickSize":
             cursor.execute("""
                 INSERT OR REPLACE INTO talent_affinities (category, name, data_json)
                 VALUES (?, ?, ?)
             """, (category, 'default', json.dumps(items)))
             count += 1
-            
-    print(f"{count} talent affinity entries migrated into the unified table.")
-
+    print(f"{count} talent affinity entries migrated.")
 
 def migrate_market(cursor, data):
     print("Migrating market.json...")
@@ -404,9 +410,7 @@ def migrate_market(cursor, data):
         count += 1
     print(f"{count} viewer groups migrated.")
 
-
 def migrate_scene_tags(cursor, all_tags_data):
-    """Migrates thematic, physical, and action tags into the unified scene_tags table."""
     print("Migrating all scene tags...")
     count = 0
     for tag in all_tags_data:
@@ -436,7 +440,6 @@ def migrate_scene_tags(cursor, all_tags_data):
     print(f"{count} total scene tags migrated.")
 
 def migrate_production_settings(cursor, data):
-    """Migrates production settings from JSON to the database."""
     print("Migrating production_settings.json...")
     count = 0
     for category, tiers in data.items():
@@ -460,7 +463,6 @@ def migrate_production_settings(cursor, data):
     print(f"{count} production setting entries migrated.")
 
 def migrate_post_production_settings(cursor, data):
-    """Migrates post-production settings from JSON to the database."""
     print("Migrating post_production_settings.json...")
     count = 0
     for tier in data.get("editing_tiers", []):
@@ -481,7 +483,6 @@ def migrate_post_production_settings(cursor, data):
     print(f"{count} post-production setting entries migrated.")
 
 def migrate_on_set_policies(cursor, data):
-    """Migrates on-set policies from JSON to the database."""
     print("Migrating on_set_policies.json...")
     count = 0
     for policy in data:
@@ -498,9 +499,7 @@ def migrate_on_set_policies(cursor, data):
         count += 1
     print(f"{count} on-set policy entries migrated.")
 
-
 def migrate_scene_events(cursor, data):
-    """Migrates scene events from JSON to the database."""
     print("Migrating scene_events.json...")
     count = 0
     for event in data:
@@ -530,27 +529,52 @@ def migrate_talent_archetypes(cursor, data):
     for archetype in data:
         cursor.execute("""
         INSERT OR REPLACE INTO talent_archetypes (
-        id, name, description, weight, action_preferences_json,
-        thematic_preferences_json, hard_limits_json, stat_modifiers_json,
-        max_scene_partners, concurrency_limits_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, name, description, weight, stat_modifiers_json,
+        max_scene_partners_json, concurrency_limits_json,
+        dynamic_preference_weights_json, trait_weights_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
         archetype.get('id'),
         archetype.get('name'),
         archetype.get('description'),
         archetype.get('weight'),
-        json.dumps(archetype.get('action_preferences', {})),
-        json.dumps(archetype.get('thematic_preferences', {})),
-        json.dumps(archetype.get('hard_limits', [])),
         json.dumps(archetype.get('stat_modifiers', {})),
-        archetype.get('max_scene_partners', 10),
-        json.dumps(archetype.get('concurrency_limits', {}))
+        # UPDATED: Dump dictionary to JSON string for TEXT column
+        json.dumps(archetype.get('max_scene_partners', 10)),
+        json.dumps(archetype.get('concurrency_limits', {})),
+        json.dumps(archetype.get('dynamic_preference_weights', {})),
+        json.dumps(archetype.get('trait_weights', {}))
         ))
         count += 1
     print(f"{count} talent archetype entries migrated.")
 
+def migrate_traits(cursor, data):
+    """Migrates traits from JSON to the database."""
+    print("Migrating traits.json...")
+    count = 0
+    for trait in data:
+        cursor.execute("""
+        INSERT OR REPLACE INTO traits (
+            id, name, description, type, modifiers_json, conflicts_with_json,
+            policy_requirements_json, action_preference_modifiers_json,
+            thematic_preference_modifiers_json, concurrency_modifiers_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            trait.get('id'),
+            trait.get('name'),
+            trait.get('description'),
+            trait.get('type'),
+            json.dumps(trait.get('modifiers', {})),
+            json.dumps(trait.get('conflicts_with', [])),
+            json.dumps(trait.get('policy_requirements', {})),
+            json.dumps(trait.get('action_preference_modifiers', {})),
+            json.dumps(trait.get('thematic_preference_modifiers', {})),
+            json.dumps(trait.get('concurrency_modifiers', {}))
+        ))
+        count += 1
+    print(f"{count} trait entries migrated.")
+
 def migrate_accommodation_tiers(cursor, data):
-    """Migrates accommodation tiers from JSON to the database."""
     print("Migrating accommodation_tiers.json...")
     count = 0
     for tier in data:
@@ -615,6 +639,7 @@ def main():
         migrate_on_set_policies(cursor, load_json("scene_settings/on_set_policies.json"))
         migrate_scene_events(cursor, load_json("events/scene_events.json"))
         migrate_talent_archetypes(cursor, load_json("talent_generation/talent_archetypes.json"))
+        migrate_traits(cursor, load_json("talent_generation/traits.json"))
         migrate_accommodation_tiers(cursor, load_json("accommodation_tiers.json"))
 
     except FileNotFoundError as e:

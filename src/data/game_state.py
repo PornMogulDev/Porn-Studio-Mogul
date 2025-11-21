@@ -43,12 +43,21 @@ class Contract:
 
 @dataclass_json
 @dataclass
-class Talent: #type: ignore
-    id: int; alias: str; age: int; gender: str
-    nationality: str; primary_ethnicity: str
-    performance: float; acting: float; stamina: float
-    dom_skill: float; sub_skill: float
+class Talent:  # type: ignore
+    id: int
+    alias: str
+    age: int
+    gender: str
+    nationality: str
+    primary_ethnicity: str
+    performance: float
+    acting: float
+    stamina: float
+    dom_skill: float
+    sub_skill: float
     ambition: int
+    traits: List[str]
+    ds_dynamic_preferences: Dict[int, float]
     professionalism: int = 5
     orientation_score: int = 0
     disposition_score: int = 0
@@ -64,7 +73,7 @@ class Talent: #type: ignore
     fatigue: int = 0
     tag_preferences: Dict[str, Dict[str, float]] = field(default_factory=dict)
     hard_limits: List[str] = field(default_factory=list)
-    max_scene_partners: int = 10
+    max_scene_partners: int = 5
     concurrency_limits: Dict[str, int] = field(default_factory=dict)
     policy_requirements: Dict[str, List[str]] = field(default_factory=dict)
     is_on_tour: bool = False

@@ -38,6 +38,7 @@ class DataManager:
         self.on_set_policies_data = self._load_on_set_policies()
         self.scene_events = self._load_scene_events()
         self.talent_archetypes = self._load_talent_archetypes()
+        self.traits_data = self._load_traits()
         self.help_topics = self._load_help_topics(help_file_path)
         self.accommodation_tiers = self._load_accommodation_tiers()
         self.travel_matrix = self._load_travel_matrix()
@@ -289,8 +290,22 @@ class DataManager:
             archetype_data = self._rehydrate_json_fields(dict(row))
             archetype_id = archetype_data.get('id')
             if archetype_id:
+                # Inject 'type' so archetypes can be treated like traits in UI/Logic
+                archetype_data['type'] = 'archetype'
                 archetypes[archetype_id] = archetype_data
         return archetypes
+
+    def _load_traits(self) -> Dict[str, Dict]:
+        """Loads all trait definitions from the database."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM traits")
+        traits = {}
+        for row in cursor.fetchall():
+            trait_data = self._rehydrate_json_fields(dict(row))
+            trait_id = trait_data.get('id')
+            if trait_id:
+                traits[trait_id] = trait_data
+        return traits
     
     def _load_accommodation_tiers(self) -> Dict[str, Dict]:
         """Loads all accommodation tier definitions from the database."""
@@ -384,6 +399,18 @@ class DataManager:
             if region in regions_map:
                 ordered_regions[region] = sorted(regions_map[region])
         return ordered_regions
+
+    def get_trait_definition(self, trait_id: str) -> Dict[str, Any]:
+        """
+        Retrieves a trait definition by ID. 
+        Also checks archetypes if the ID is not found in standard traits,
+        allowing for polymorphic display.
+        """
+        if trait_id in self.traits_data:
+            return self.traits_data[trait_id]
+        if trait_id in self.talent_archetypes:
+            return self.talent_archetypes[trait_id]
+        return {}
 
     def close(self):
         """Explicitly close the database connection."""

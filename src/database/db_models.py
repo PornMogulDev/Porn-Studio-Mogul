@@ -128,6 +128,8 @@ class TalentDB(Base, DataclassMapper):
     fatigue = Column(Integer, default=0)
     chemistry_a = relationship("TalentChemistryDB", foreign_keys=[TalentChemistryDB.talent_a_id], back_populates="talent_a", cascade="all, delete-orphan")
     chemistry_b = relationship("TalentChemistryDB", foreign_keys=[TalentChemistryDB.talent_b_id], back_populates="talent_b", cascade="all, delete-orphan")
+    traits = Column(JSON, default=list)
+    ds_dynamic_preferences = Column(JSON, default=dict)
     tag_preferences = Column(JSON, default=dict)
     hard_limits = Column(JSON, default=list)
     max_scene_partners = Column(Integer, default=10, nullable=False)

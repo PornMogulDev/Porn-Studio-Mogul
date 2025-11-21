@@ -61,9 +61,10 @@ class GameController(QObject):
         self.tag_definitions = self.data_manager.tag_definitions
         self.generator_data = self.data_manager.generator_data
         self.talent_archetypes = self.data_manager.talent_archetypes
+        self.traits_data = self.data_manager.traits_data
         self.help_topics = self.data_manager.help_topics
         
-        self.talent_generator = TalentGenerator(self.game_constant, self.generator_data, self.affinity_data, self.tag_definitions, self.talent_archetypes)
+        self.talent_generator = TalentGenerator(self.game_constant, self.generator_data, self.affinity_data, self.tag_definitions, self.talent_archetypes, self.traits_data)
         
         self.game_session_service = GameSessionService(self.save_manager, self.data_manager, self.signals, self.talent_generator)
 

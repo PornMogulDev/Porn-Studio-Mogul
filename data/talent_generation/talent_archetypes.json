@@ -4,19 +4,16 @@
     "name": "The Professional",
     "description": "Treats their work like any other job. Dependable, consistent, and willing to do what's required, provided the conditions are professional and the pay is fair.",
     "weight": 25,
-    "action_preferences": {
-      "Facial": { "Giver": 1.0, "Receiver": 0.9 },
-      "Analingus": { "Giver": 0.9, "Receiver": 0.9 }
-    },
-    "thematic_preferences": {
-      "Raceplay": 0.3,
-      "Ageplay": 0.8
-    },
-    "hard_limits": [],
-    "max_scene_partners": 10,
+    "dynamic_preference_weights": {
+    "0": { "min": 1.0, "max": 1.3 },
+    "1": { "min": 1.0, "max": 1.3 },
+    "2": { "min": 0.8, "max": 1.2 },
+    "3": { "min": 0.7, "max": 0.9 }
+  },
+    "max_scene_partners": { "min": 7, "max": 13 },
     "concurrency_limits": {
-      "Vaginal": 2,
-      "Anal": 2
+      "Vaginal": { "min": 1, "max": 2},
+      "Anal": { "min": 1, "max": 2 }
     },
     "stat_modifiers": {
       "professionalism": { "min": 7, "max": 10 },
@@ -28,26 +25,23 @@
     "name": "The People Pleaser",
     "description": "Genuinely enjoys their work and is eager to please their scene partners and the director. Very agreeable and versatile.",
     "weight": 25,
-    "action_preferences": {
-      "Vaginal": { "Giver": 1.2, "Receiver": 1.2 },
-      "Blowjob": { "Giver": 1.2, "Receiver": 1.2 },
-      "Fingering": { "Giver": 1.2, "Receiver": 1.2 },
-      "Cunnilingus": { "Giver": 1.2, "Receiver": 1.2 },
-      "Analingus": { "Giver": 1.1, "Receiver": 1.1 },
-      "Masturbation": { "Giver": 1.1, "Receiver": 1.1 }
-    },
-    "thematic_preferences": {
-      "Ageplay": 1.2
-    },
-    "hard_limits": [],
-    "max_scene_partners": 30,
+    "dynamic_preference_weights": {
+    "0": { "min": 1.0, "max": 1.5 },
+    "1": { "min": 1.0, "max": 1.5 },
+    "2": { "min": 1.0, "max": 1.3 },
+    "3": { "min": 1.0, "max": 1.2 }
+  },
+    "max_scene_partners": { "min": 15, "max": 25 },
     "concurrency_limits": {
-      "Vaginal": 2,
-      "Anal": 2
+      "Vaginal": { "min": 1, "max": 3},
+      "Anal": { "min": 1, "max": 3 }
     },
     "stat_modifiers": {
       "professionalism": { "min": 5, "max": 9 },
       "ambition": { "min": 2, "max": 6 }
+    },
+    "trait_weights": {
+      "globetrotter": 15
     }
   },
   {
@@ -55,49 +49,40 @@
     "name": "The Kink Explorer",
     "description": "Adventurous, open-minded, and always looking to push boundaries. Thrives in intense, unusual, or group-oriented scenes.",
     "weight": 15,
-    "action_preferences": {
-      "Anal": { "Giver": 1.4, "Receiver": 1.4 },
-      "Blowjob": { "Giver": 1.5, "Receiver": 1.5 },
-      "Cunnilingus": { "Giver": 1.2, "Receiver": 1.2 },
-      "Masturbation": { "Performer": 0.7 },
-      "Vaginal": { "Giver": 0.9, "Receiver": 0.9 }
-    },
-    "thematic_preferences": {
-      "Ageplay": 1.4,
-      "Raceplay": 1.5
-    },
-    "hard_limits": [],
-    "max_scene_partners": 50,
-    "concurrency_limits":{
-      "Vaginal": 4,
-      "Anal": 4
+    "dynamic_preference_weights": {
+    "0": { "min": 0.7, "max": 0.9 },
+    "1": { "min": 0.9, "max": 1.1 },
+    "2": { "min": 1.1, "max": 1.4 },
+    "3": { "min": 1.3, "max": 1.5 }
+  },
+    "max_scene_partners": { "min": 35, "max": 50 },
+    "concurrency_limits": {
+      "Vaginal": { "min": 2, "max": 4},
+      "Anal": { "min": 2, "max": 4 }
     },
     "stat_modifiers": {
       "ambition": { "min": 6, "max": 10 }
+    },
+    "trait_weights": {
+      "watersports_good": 15,
+      "watersports_bad": 1
     }
   },
   {
     "id": "diva",
     "name": "The Diva",
-    "description": "Extremely talented but equally high-maintenance. They know their worth and won't do anything they consider messy, uncomfortable, or beneath them.",
+    "description": "Extremely high-maintenance. They know what they think they are worth and won't do anything they consider messy, uncomfortable, or beneath them.",
     "weight": 8,
-    "action_preferences": {
-      "Facial": { "Giver": 1, "Receiver": 0.5 },
-      "Analingus": { "Giver": 0.4, "Receiver": 0.7 },
-      "Anal": { "Giver": 0.8, "Receiver": 0.8 }
-    },
-    "thematic_preferences": {
-      "Ageplay": 0.7,
-      "Raceplay": 0.5
-    },
-    "hard_limits": [
-      "Facefuck",
-      "Pee"
-    ],
-    "max_scene_partners": 2,
-    "concurrency_limits":{
-      "Vaginal": 1,
-      "Anal": 1
+    "dynamic_preference_weights": {
+    "0": { "min": 1.0, "max": 1.2 },
+    "1": { "min": 1.0, "max": 1.1 },
+    "2": { "min": 0.8, "max": 1.0 },
+    "3": { "min": 0.5, "max": 0.8 }
+  },
+    "max_scene_partners": { "min": 2, "max": 5 },
+    "concurrency_limits": {
+      "Vaginal": { "min": 1, "max": 2},
+      "Anal": { "min": 1, "max": 2 }
     },
     "stat_modifiers": {
       "ambition": { "min": 8, "max": 10 },
@@ -108,100 +93,51 @@
     "id": "reluctant_participant",
     "name": "The Reluctant Participant",
     "description": "They're in this business strictly for the money and are often uncomfortable with the work. They have many boundaries and will complain about anything too intense.",
-    "weight": 12,
-    "action_preferences": {
-      "Anal": { "Giver": 0.6, "Receiver": 0.6 },
-      "Facial": { "Giver": 0.8, "Receiver": 0.5 },
-      "Analingus": { "Giver": 0.4, "Receiver": 0.6 }
-    },
-    "thematic_preferences": {
-      "Ageplay": 0.5,
-      "Raceplay": 0.3
-    },
-    "hard_limits": [
-      "Facefuck",
-      "Pee"
-    ],
-    "max_scene_partners": 5,
-    "concurrency_limits":{
-      "Vaginal": 1,
-      "Anal": 1
+    "weight": 15,
+    "dynamic_preference_weights": {
+    "0": { "min": 1.2, "max": 1.5 },
+    "1": { "min": 0.7, "max": 1.0 },
+    "2": { "min": 0.7, "max": 0.8 },
+    "3": { "min": 0.5, "max": 0.6 }
+  },
+    "max_scene_partners": { "min": 5, "max": 15 },
+    "concurrency_limits": {
+      "Vaginal": { "min": 1, "max": 2},
+      "Anal": { "min": 1, "max": 2 }
     },
     "stat_modifiers": {
       "ambition": { "min": 1, "max": 4 },
       "professionalism": { "min": 2, "max": 6 }
+    },
+    "trait_weights": {
+      "homebody": 15,
+      "globetrotter": 5,
+      "creampie_good": 5,
+      "creampie_bad": 15
     }
-  },
-  {
-    "id": "anal_specialist",
-    "name": "The Anal Specialist",
-    "description": "This performer has found their niche and they excel at it. They strongly prefer anal scenes over all others.",
-    "weight": 5,
-    "action_preferences": {
-      "Anal": { "Giver": 2.0, "Receiver": 2.0 },
-      "Analingus": { "Giver": 1.5, "Receiver": 1.5 },
-      "Fingering": { "Giver": 1.2, "Receiver": 1.2 },
-      "Vaginal": { "Giver": 0.5, "Receiver": 0.5 },
-      "Blowjob": { "Giver": 0.8, "Receiver": 0.8 },
-      "Cunnilingus": { "Giver": 0.8, "Receiver": 0.8 }
-    },
-    "hard_limits": [
-    ],
-    "max_scene_partners": 15,
-    "concurrency_limits": {
-      "Vaginal": 1,
-      "Anal": 3
-    },
-    "stat_modifiers": {}
-  },
-  {
-    "id": "oral_specialist",
-    "name": "The Oral Specialist",
-    "description": "An expert in oral performance, this talent prefers scenes that showcase their specific skills.",
-    "weight": 5,
-    "action_preferences": {
-      "Blowjob": { "Giver": 2.0, "Receiver": 1.0 },
-      "Facial": { "Giver": 1.5, "Receiver": 1.5 },
-      "Cunnilingus": { "Giver": 2.0, "Receiver": 1.0 },
-      "Anal": { "Giver": 1.0, "Receiver": 0.7 },
-      "Vaginal": { "Giver": 1.0, "Receiver": 0.8 }
-    },
-    "hard_limits": [],
-    "max_scene_partners": 20,
-    "concurrency_limits": {
-      "Vaginal": 1,
-      "Anal": 1
-    },
-    "stat_modifiers": {}
   },
   {
     "id": "vanilla",
     "name": "The Vanilla Performer",
     "description": "Prefers simple, straightforward scenes without extreme acts. Reliable for conventional content but hesitant to explore.",
-    "weight": 5,
-    "action_preferences": {
-      "Vaginal": { "Giver": 1.3, "Receiver": 1.3 },
-      "Blowjob": { "Giver": 1.2, "Receiver": 1.2 },
-      "Cunnilingus": { "Giver": 1.2, "Receiver": 1.2 },
-      "Masturbation": { "Performer": 1.1 },
-      "Anal": { "Giver": 0.6, "Receiver": 0.6 },
-      "Facial": { "Giver": 0.7, "Receiver": 0.7 }
-    },
-    "thematic_preferences": {
-      "Ageplay": 0.6,
-      "Raceplay": 0.2
-    },
-    "hard_limits": [
-      "Facefuck",
-      "Pee"
-    ],
-    "max_scene_partners": 3,
+    "weight": 12,
+    "dynamic_preference_weights": {
+    "0": { "min": 1.2, "max": 1.5 },
+    "1": { "min": 0.9, "max": 1.3 },
+    "2": { "min": 0.7, "max": 0.8 },
+    "3": { "min": 0.4, "max": 0.6 }
+  },
+    "max_scene_partners": { "min": 1, "max": 5 },
     "concurrency_limits": {
-      "Vaginal": 1,
-      "Anal": 1
+      "Vaginal": { "min": 1, "max": 1},
+      "Anal": { "min": 1, "max": 1 }
     },
     "stat_modifiers": {
       "ambition": { "min": 1, "max": 5 }
+    },
+    "trait_weights": {
+      "watersports_bad": 15,
+      "watersports_good": 5
     }
   }
 ]
