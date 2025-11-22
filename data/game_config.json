@@ -37,6 +37,8 @@
   "contract_fallback_salary_multiplier": 5.0,
   "contract_preference_salary_floor": 0.1,
   "contract_lock_in_premium": 1.5,
+  "contract_disposition_salary_weight": 0.7,
+  "contract_skill_salary_weight":0.3,
   "contract_initial_compliance": 100,
   "contract_compliance_max": 100,
   "contract_compliance_high_pref_threshold": 1.2,

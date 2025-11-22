@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from data.data_manager import DataManager
 from data.game_state import Talent, Scene
@@ -131,13 +131,75 @@ class TalentDemandCalculator:
             "total_cost": int(total_cost)
         }
     
+    def _calculate_disposition_salary_modifier(self, talent: Talent, req_disposition: Optional[str]) -> float:
+        """
+        Calculates a salary multiplier based on how well the talent fits the 
+        required disposition (Dom/Sub/Switch) of the contract.
+        """
+        if not req_disposition or req_disposition == "Any":
+            return 1.0
+
+        # Weights
+        w_disp = self.contract_config.disposition_salary_weight
+        w_skill = self.contract_config.skill_salary_weight
+
+        # Normalize Data to 0.0 - 1.0 range (or -1.0 to 1.0 for disposition)
+        norm_disp = talent.disposition_score / 100.0  # Range: -1.0 (Sub) to 1.0 (Dom)
+        norm_dom_skill = talent.dom_skill / 100.0     # Range: 0.0 to 1.0
+        norm_sub_skill = talent.sub_skill / 100.0     # Range: 0.0 to 1.0
+        
+        mismatch_score = 0.0 # 0.0 = Perfect Fit, 1.0 = Complete Mismatch
+
+        if req_disposition == "Dom":
+            # Ideal: Disposition 1.0, Dom Skill 1.0
+            # Calculate mismatch based on distance from Ideal
+            
+            # Disp Mismatch: (1.0 - score) / 2. 
+            # e.g., if score is 1.0, mismatch is 0. If score is -1.0, mismatch is 1.0.
+            disp_mismatch = (1.0 - norm_disp) / 2.0
+            skill_mismatch = 1.0 - norm_dom_skill
+            
+            mismatch_score = (w_disp * disp_mismatch) + (w_skill * skill_mismatch)
+
+        elif req_disposition == "Sub":
+            # Ideal: Disposition -1.0, Sub Skill 1.0
+            
+            # Disp Mismatch: (score - (-1.0)) / 2 -> (score + 1.0) / 2.
+            # e.g., if score is -1.0, mismatch is 0. If score is 1.0, mismatch is 1.0.
+            disp_mismatch = (norm_disp + 1.0) / 2.0
+            skill_mismatch = 1.0 - norm_sub_skill
+            
+            mismatch_score = (w_disp * disp_mismatch) + (w_skill * skill_mismatch)
+
+        elif req_disposition == "Switch":
+            # Ideal: Disposition 0.0, Avg(Dom+Sub) Skill 1.0
+            
+            # Disp Mismatch: Absolute distance from 0
+            disp_mismatch = abs(norm_disp)
+            
+            # Skill Mismatch: Inverse of average skills
+            avg_skill = (norm_dom_skill + norm_sub_skill) / 2.0
+            skill_mismatch = 1.0 - avg_skill
+            
+            mismatch_score = (w_disp * disp_mismatch) + (w_skill * skill_mismatch)
+
+        # Convert Mismatch Score to Salary Multiplier.
+        # Perfect fit (0.0) -> 0.9x (Discount for doing what they love)
+        # Worst fit (1.0) -> 2.5x (High premium for forcing character break)
+        
+        base_mult = 0.9
+        penalty_slope = 1.6 # 0.9 + 1.6 = 2.5
+        
+        return base_mult + (mismatch_score * penalty_slope)
+
     def calculate_contract_salary(self, talent: Talent, conditions: Dict[str, Any]) -> int:
         """
         Calculates the weekly salary for an exclusive contract.
-        We need to give this a Dom/sub/switch calculation too.
+        Includes calculations for preference match, intensity limits, and disposition match.
         """
         allowed_concepts = set(conditions.get('allowed_concepts', []))
         allowed_orientations = set(conditions.get('allowed_orientations', []))
+        req_disposition = conditions.get('disposition') # "Dom", "Sub", "Switch", or None
         
         relevant_tags = []
         
@@ -180,8 +242,13 @@ class TalentDemandCalculator:
         
         ds_intensity_multiplier = max_hazard_mod / min_ds_pref
 
+        # Disposition Mismatch Calculation
+        disposition_multiplier = self._calculate_disposition_salary_modifier(talent, req_disposition)
+
+        # Formula Application
         adjusted_base = base_demand / max(self.contract_config.preference_salary_floor, avg_preference)
         adjusted_base *= ds_intensity_multiplier
+        adjusted_base *= disposition_multiplier # Apply new modifier
         
         trait_multiplier = self.trait_resolver.get_composite_modifier(talent, "contract_salary_multiplier")
         adjusted_base *= trait_multiplier
@@ -192,6 +259,7 @@ class TalentDemandCalculator:
         weekly_salary = adjusted_base * max_scenes * contract_premium
         
         return int(max(self.hiring_config.minimum_talent_demand, weekly_salary))
+
 
     def calculate_bulk_hiring_costs(self, talent: Talent,
                                     roles_with_context: List[Dict[str, Any]],

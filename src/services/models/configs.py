@@ -87,6 +87,8 @@ class ContractConfig:
     compliance_low_pref_threshold: float
     compliance_bonus: int
     compliance_penalty: int
+    disposition_salary_weight: float
+    skill_salary_weight: float
 
 @dataclass
 class TourConfig:

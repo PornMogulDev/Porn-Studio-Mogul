@@ -126,7 +126,7 @@ class TalentDB(Base, DataclassMapper):
     fatigue = Column(Integer, default=0)
     chemistry_a = relationship("TalentChemistryDB", foreign_keys=[TalentChemistryDB.talent_a_id], back_populates="talent_a", cascade="all, delete-orphan")
     chemistry_b = relationship("TalentChemistryDB", foreign_keys=[TalentChemistryDB.talent_b_id], back_populates="talent_b", cascade="all, delete-orphan")
-    traits = Column(JSON, default=list)
+    traits = Column(JSON, default=list) # We need to make this a many-to-many once we want to start filtering by it
     ds_dynamic_preferences = Column(JSON, default=dict)
     tag_preferences = Column(JSON, default=dict)
     hard_limits = Column(JSON, default=list)

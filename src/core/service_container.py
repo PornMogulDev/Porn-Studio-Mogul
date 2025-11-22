@@ -324,7 +324,9 @@ class ServiceContainer:
             compliance_high_pref_threshold=game_config.get("contract_compliance_high_pref_threshold", 1.2),
             compliance_low_pref_threshold=game_config.get("contract_compliance_low_pref_threshold", 0.8),
             compliance_bonus=game_config.get("contract_compliance_bonus", 2),
-            compliance_penalty=game_config.get("contract_compliance_penalty", -5)
+            compliance_penalty=game_config.get("contract_compliance_penalty", -5),
+            disposition_salary_weight=game_config.get("contract_disposition_salary_weight", 0.7),
+            skill_salary_weight=game_config.get("contract_skill_salary_weight", 0.3)
         )
 
         self.tour_config = TourConfig(
