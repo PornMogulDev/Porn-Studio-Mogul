@@ -1,6 +1,5 @@
 import logging
-from typing import List, Optional, Tuple
-from dataclasses import dataclass
+from typing import List, Optional
 
 from data.game_state import Talent, Tour, Scene
 from services.models.results import WeeklyStatusResult
@@ -21,14 +20,14 @@ class TalentStatusCalculator:
     def calculate_week_status(self, talent: Talent, week_num: int, current_year: int,
                               bookings: List[Scene], tour: Optional[Tour]) -> WeeklyStatusResult:
         
-        tooltip_parts = []
+        booked_scene_titles = []
         status_enum = ScheduleStatus.AVAILABLE
         is_on_cooldown = False
+        is_fatigued = False
 
         # 1. Check Tour Status
         if tour:
             status_enum = ScheduleStatus.ON_TOUR
-            tooltip_parts.append(f"<b>On Tour:</b> {tour.destination_location}")
         
         # 2. Check Cooldown Status (Only if not currently on tour)
         if not tour and talent.tour_end_year > 0:
@@ -38,18 +37,15 @@ class TalentStatusCalculator:
             # Check if within cooldown window
             if abs_end < abs_current <= (abs_end + self.tour_config.cooldown_weeks):
                 is_on_cooldown = True
-                tooltip_parts.append("<b>Tour Cooldown:</b> Recovering from travel.")
 
         # 3. Check Fatigue (Resting)
-        # Note: This checks current fatigue against the threshold. 
-        # In a perfect simulation, we'd project fatigue, but for UI display, current state is standard.
         if talent.fatigue >= self.hiring_config.fatigue_refusal_threshold and not bookings and not tour:
             status_enum = ScheduleStatus.UNAVAILABLE
-            tooltip_parts.append("<b>Resting:</b> High Fatigue")
+            is_fatigued = True
 
         # 4. Check Booking Capacity
         if bookings:
-            scene_titles = [s.title for s in bookings]
+            booked_scene_titles = [s.title for s in bookings]
             
             # Calculate Max Scenes based on Ambition (Logic moved from Presenter)
             # Logic: Base limit + modifier per ambition level above median
@@ -63,22 +59,16 @@ class TalentStatusCalculator:
             
             if len(bookings) >= max_scenes:
                 status_enum = ScheduleStatus.UNAVAILABLE
-                bulleted_titles = [f"- {title}" for title in scene_titles]
-                details = "<br>".join(bulleted_titles)
-                tooltip_parts.append(f"<b>Fully Booked:</b><br>{details}")
             else:
                 # If not fully booked and not unavailable due to other reasons
                 if status_enum == ScheduleStatus.AVAILABLE:
                     status_enum = ScheduleStatus.PARTIALLY_BOOKED
-                
-                bulleted_titles = [f"- {title}" for title in scene_titles]
-                details = "<br>".join(bulleted_titles)
-                tooltip_parts.append(f"<b>Booked for:</b><br>{details}")
 
         return WeeklyStatusResult(
             week_number=week_num,
             status_enum=status_enum,
-            tooltip_items=tooltip_parts,
+            booked_scene_titles=booked_scene_titles,
             tour=tour,
-            is_on_cooldown=is_on_cooldown
+            is_on_cooldown=is_on_cooldown,
+            is_fatigued=is_fatigued
         )

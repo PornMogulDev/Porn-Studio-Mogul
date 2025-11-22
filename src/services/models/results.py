@@ -113,6 +113,7 @@ class WeeklyStatusResult:
     """DTO containing the calculated status for a specific week."""
     week_number: int
     status_enum: ScheduleStatus
-    tooltip_items: List[str]
+    is_fatigued: bool = False
+    booked_scene_titles: List[str] = field(default_factory=list)
     tour: Optional[Tour] = None
     is_on_cooldown: bool = False

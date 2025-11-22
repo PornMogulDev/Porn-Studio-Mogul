@@ -200,8 +200,23 @@ class TalentProfilePresenter(QObject):
             if result.tour:
                 tour_vm = TourViewModel.from_dataclass(result.tour)
             
-            # Format tooltip
-            tooltip_text = "<br>".join(result.tooltip_items) if result.tooltip_items else "Available for booking."
+            # Format tooltip (Presentation Logic)
+            tooltip_parts = []
+            if result.tour:
+                tooltip_parts.append(f"<b>On Tour:</b> {result.tour.destination_location}")
+            
+            if result.is_on_cooldown:
+                tooltip_parts.append("<b>Tour Cooldown:</b> Recovering from travel.")
+            
+            if result.is_fatigued:
+                tooltip_parts.append("<b>Resting:</b> High Fatigue")
+
+            if result.booked_scene_titles:
+                header = "<b>Fully Booked:</b>" if result.status_enum == ScheduleStatus.UNAVAILABLE else "<b>Booked for:</b>"
+                details = "<br>".join([f"- {t}" for t in result.booked_scene_titles])
+                tooltip_parts.append(f"{header}<br>{details}")
+
+            tooltip_text = "<br>".join(tooltip_parts) if tooltip_parts else "Available for booking."
             
             # Map Enum to string
             status_str = result.status_enum.name.lower()

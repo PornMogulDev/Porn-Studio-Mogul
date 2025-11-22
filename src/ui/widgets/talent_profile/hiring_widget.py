@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QSlider, QSpinBox, QComboBox, QCheckBox, QScrollArea
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QBrush
 
 class HiringWidget(QWidget):
     """A widget for assigning a talent to available roles."""
@@ -349,7 +349,7 @@ class HiringWidget(QWidget):
         # Reset visual state of all items first
         for index in range(self.available_roles_list.count()):
             item = self.available_roles_list.item(index)
-            item.setForeground(Qt.GlobalColor.black) # Or default theme color
+            item.setForeground(QBrush(Qt.GlobalColor.black)) # Or default theme color
             
         if invalid_roles:
             self.hire_button.setEnabled(False)
@@ -363,7 +363,7 @@ class HiringWidget(QWidget):
                 item = self.available_roles_list.item(index)
                 data = item.data(Qt.ItemDataRole.UserRole)
                 if (data['scene_id'], data['virtual_performer_id']) in invalid_keys:
-                    item.setForeground(self._danger_color)
+                    item.setForeground(QBrush(self._danger_color))
             return
 
         total_upfront_cost = cost_breakdown.get('total_upfront_cost', 0)
