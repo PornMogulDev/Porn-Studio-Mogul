@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import ( QHBoxLayout, QLabel, QPushButton, QSizePolicy,
 )
 
 from ui.widgets.help_button import HelpButton
+from utils import time_utils
 
 class TopBarWidget(QWidget):
     help_requested = pyqtSignal(str)
@@ -59,10 +60,9 @@ class TopBarWidget(QWidget):
         self.money_label.setText(f"Money: ${money:,}")
 
     def update_time_display(self, week: int, year: int):
-        self.time_label.setText(f"Week {week}, {year}")
+        self.time_label.setText(f"Week {week}, Year {year}")
 
     def update_initial_state(self):
         self.update_money_display(self.controller.game_state.money)
-        self.update_time_display(
-            self.controller.game_state.week, self.controller.game_state.year
-        )
+        year, week = time_utils.from_absolute(self.controller.game_state.absolute_week)
+        self.update_time_display(week, year)

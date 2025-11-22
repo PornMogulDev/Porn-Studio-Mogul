@@ -146,6 +146,10 @@ class GameController(QObject):
             )
             demands[talent.id] = cost_breakdown['total_cost']
         return demands
+    
+    def get_effective_locations_for_multiple_talents(self, talent_ids: List[int], absolute_week: int) -> Dict[int, str]:
+        if not self.talent_location_service: return {}
+        return self.talent_location_service.get_effective_locations_for_multiple_talents(talent_ids, absolute_week)
 
     # --- Game Logic ---
     def advance_week(self):
@@ -243,7 +247,7 @@ class GameController(QObject):
     def get_castable_scenes(self) -> List[Dict]: return self.query_service.get_castable_scenes_for_ui() if self.query_service else []
     def get_uncast_roles_for_scene(self, scene_id: int) -> List[Dict]: return self.query_service.get_uncast_roles_for_scene_ui(scene_id) if self.query_service else []
     def get_talent_chemistry(self, talent_id: int) -> Dict[int, Dict]: return self.query_service.get_talent_chemistry(talent_id) if self.query_service else {}
-    def get_talent_bookings_for_year(self, talent_id: int, year: int) -> Dict[int, List[SceneDB]]: return self.talent_query_service.get_talent_bookings_for_year(talent_id, year) if self.talent_query_service else {}
+
     def get_talent_tours_for_year(self, talent_id: int, year: int) -> List[Tour]: return self.talent_query_service.get_talent_tours_for_year(talent_id, year) if self.talent_query_service else []
     def get_go_to_list_talents(self) -> List[Talent]: return self.query_service.get_all_talents_in_go_to_lists() if self.query_service else []
     def get_go_to_list_categories(self) -> List[Dict]: return self.query_service.get_all_categories() if self.query_service else []
@@ -386,14 +390,19 @@ class GameController(QObject):
         # A better fix would be to get bookings for a range of years.
         # For now, let's assume the UI won't allow booking too far in the future
         # and just get bookings for the current and next year.
-        current_year, _ = time_utils.from_absolute(self.game_state.absolute_week)
-        unique_years = {current_year, current_year + 1}
+        current_absolute_week = self.game_state.absolute_week
+        current_year, _ = time_utils.from_absolute(current_absolute_week)
+        
+        start_abs_week_current_year = time_utils.to_absolute(current_year, 1)
+        end_abs_week_next_year = time_utils.to_absolute(current_year + 1, 52)
+        
+        all_bookings_map = self.talent_query_service.get_talent_bookings_by_absolute_week(
+            talent.id, start_abs_week_current_year, end_abs_week_next_year
+        )
         
         existing_bookings = []
-        for year in unique_years:
-            bookings_map = self.talent_query_service.get_talent_bookings_for_year(talent_id, year)
-            for week_scenes in bookings_map.values():
-                existing_bookings.extend(week_scenes)
+        for week_bookings in all_bookings_map.values():
+            existing_bookings.extend(week_bookings)
         
         validator = BulkBookingValidator(
             current_absolute_week=self.game_state.absolute_week,

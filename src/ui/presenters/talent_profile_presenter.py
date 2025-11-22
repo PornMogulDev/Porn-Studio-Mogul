@@ -11,6 +11,7 @@ from ui.view_models import ScheduleStatus, TalentScheduleWeekViewModel, TourView
 from utils.formatters import get_fuzzed_skill_range, format_skill_range, format_fatigue
 from ui.builders.role_details_builder import prepare_role_details_data, format_role_details_html
 from ui.builders.preferences_view_model_builder import build_preferences_view_model
+from utils import time_utils
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
@@ -185,7 +186,8 @@ class TalentProfilePresenter(QObject):
     def _load_and_display_schedule(self):
         """Fetches, processes, and displays the talent's yearly schedule."""
         if not self.current_talent_id: return
-        current_year = self.controller.game_state.year
+        current_absolute_week = self.controller.game_state.absolute_week
+        current_year, _ = time_utils.from_absolute(current_absolute_week)
         
         # Call the controller to get the pre-calculated status
         weekly_statuses = self.controller.get_talent_schedule_status(self.current_talent_id, current_year)

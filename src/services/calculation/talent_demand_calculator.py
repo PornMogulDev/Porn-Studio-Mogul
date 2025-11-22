@@ -134,6 +134,7 @@ class TalentDemandCalculator:
     def calculate_contract_salary(self, talent: Talent, conditions: Dict[str, Any]) -> int:
         """
         Calculates the weekly salary for an exclusive contract.
+        We need to give this a Dom/sub/switch calculation too.
         """
         allowed_concepts = set(conditions.get('allowed_concepts', []))
         allowed_orientations = set(conditions.get('allowed_orientations', []))

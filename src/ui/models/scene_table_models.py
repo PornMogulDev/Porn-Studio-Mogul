@@ -40,8 +40,9 @@ class SceneSortFilterProxyModel(QSortFilterProxyModel):
 
         # --- Check for Date column ---
         if col == self._date_col_idx:
-            left_date_val = left_scene.scheduled_year * 52 + left_scene.scheduled_week
-            right_date_val = right_scene.scheduled_year * 52 + right_scene.scheduled_week
+            # Handle cases where a scene might not have a date (-1)
+            left_date_val = left_scene.scheduled_absolute_week if left_scene.scheduled_absolute_week > 0 else float('inf')
+            right_date_val = right_scene.scheduled_absolute_week if right_scene.scheduled_absolute_week > 0 else float('inf')
             return left_date_val < right_date_val
         
         # --- Check for Revenue column ---

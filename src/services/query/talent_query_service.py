@@ -171,13 +171,18 @@ class TalentQueryService:
             scene_db = session.query(SceneDB).options(
                 selectinload(SceneDB.virtual_performers),
                 selectinload(SceneDB.cast),
-                selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments)
+                selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments),
+                selectinload(SceneDB.bloc)
             ).get(scene_id)
+
             if not scene_db: return []
             scene = self.query_service.get_scene_by_id(scene_id) # Scene dataclass
             
+            vp = next((v for v in scene_db.virtual_performers if v.id == vp_id), None)
+            if not vp: return []
+
             # Execute Query
-            potential_candidates_db = session.query.all()
+            potential_candidates_db = session.query(TalentDB).all()
 
             # --- 4. Orchestration: Pre-fetch weekly bookings for all candidates ---
             candidate_ids = [t.id for t in potential_candidates_db]
@@ -185,6 +190,8 @@ class TalentQueryService:
             
             scene_abs_week = scene.scheduled_absolute_week
             bookings_for_this_week = all_bookings.get(scene_abs_week, {})
+            
+            bloc_db = scene_db.bloc
 
             eligible_talents_db = []
             for talent_db in potential_candidates_db:
@@ -192,7 +199,7 @@ class TalentQueryService:
                 bookings_current = bookings_for_this_week.get(talent_db.id, [])
                 bookings_after = all_bookings.get(scene_abs_week + 1, {}).get(talent_db.id, [])
                 
-                estimated_fatigue = self.shoot_results_calculator.estimate_fatigue_gain(talent_db, scene, vp.id)
+                estimated_fatigue = self.shoot_results_calculator.estimate_fatigue_gain(talent_db, scene, vp_id)
                 
                 result = self.availability_checker.check(
                     talent_db, scene, vp_id, bloc_db, 
@@ -259,11 +266,10 @@ class TalentQueryService:
                         current_absolute_week
                     )
 
-                    year, week = time_utils.from_absolute(scene.scheduled_absolute_week)
                     role_info = {
                         'scene_id': scene_db.id, 'scene_title': scene_db.title,
                         'bloc_id': scene_db.bloc_id,
-                        'scheduled_week': week, 'scheduled_year': year,
+                        'scheduled_absolute_week': scene.scheduled_absolute_week,
                         'virtual_performer_id': vp_db.id, 'vp_name': vp_db.name,
                         'cost': cost_breakdown['total_cost'], 
                         'is_available': result.is_available, 'refusal_reason': result.reason,
@@ -323,11 +329,10 @@ class TalentQueryService:
                         current_absolute_week
                     )
 
-                    year, week = time_utils.from_absolute(scene.scheduled_absolute_week)
                     role_info = {
                         'scene_id': scene_db.id, 'scene_title': scene_db.title,
                         'bloc_id': scene_db.bloc_id,
-                        'scheduled_week': week, 'scheduled_year': year,
+                        'scheduled_absolute_week': scene.scheduled_absolute_week,
                         'virtual_performer_id': vp_db.id, 'vp_name': vp_db.name,
                         'cost': cost_breakdown['total_cost'], 
                         'base_cost': cost_breakdown['base_cost'], 

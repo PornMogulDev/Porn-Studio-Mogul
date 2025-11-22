@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from core.interfaces import IGameController
+from utils import time_utils
 
 if TYPE_CHECKING:
     # This avoids a circular import at runtime but allows for type hinting
@@ -44,8 +45,7 @@ class ShootingBlocPresenter:
         Makes past weeks unselectable for the curren year while allowing to be selected in future years.
         If we ever change how the schedule tab handles past weeks, we need to update this.
         """
-        current_year = self.controller.game_state.year
-        current_week = self.controller.game_state.week
+        current_year, current_week = time_utils.from_absolute(self.controller.game_state.absolute_week)
         selected_year = self.view.get_selected_year()
         if selected_year == current_year:
             min_week = current_week
@@ -102,8 +102,7 @@ class ShootingBlocPresenter:
             return
 
         success = self.controller.create_shooting_bloc(
-            week=week,
-            year=year,
+            absolute_week=time_utils.to_absolute(year, week),
             num_scenes=num_scenes,
             settings=prod_settings,
             name=name,

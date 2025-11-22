@@ -332,7 +332,7 @@ class GameQueryService:
             ).options(
                 selectinload(SceneDB.cast),
                 selectinload(SceneDB.virtual_performers)
-            ).order_by(SceneDB.scheduled_year, SceneDB.scheduled_week, SceneDB.title).all()
+            ).order_by(SceneDB.scheduled_absolute_week, SceneDB.title).all()
 
             results = []
 

@@ -132,7 +132,7 @@ class ServiceContainer:
         self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_calculator)
         self.player_settings_service = PlayerSettingsService(session_factory, self.signals)
         self.go_to_list_service = GoToListService(session_factory, self.signals)
-        self.email_service = EmailService(session_factory, self.signals, game_state)
+        self.email_service = EmailService(session_factory, self.signals)
         self.tag_validation_checker = TagValidationChecker(self.data_manager)
         
         # Level 2: Depends on Level 1 services

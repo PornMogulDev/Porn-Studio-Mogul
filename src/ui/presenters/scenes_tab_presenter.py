@@ -5,6 +5,7 @@ from PyQt6 import sip
 from core.interfaces import IGameController
 from data.game_state import Scene
 from ui.view_models import SceneViewModel
+from utils import time_utils # Moved from _create_view_models
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
@@ -56,10 +57,11 @@ class ScenesTabPresenter(QObject):
         view_models = []
         for scene in scenes:
             # --- Date String ---
-            if scene.scheduled_year == -1 or scene.scheduled_week == -1:
+            if scene.scheduled_absolute_week == -1:
                 date_str = "Unscheduled"
             else:
-                date_str = f"W{scene.scheduled_week}, {scene.scheduled_year}"
+                year, week = time_utils.from_absolute(scene.scheduled_absolute_week)
+                date_str = f"W{week}, {year}"
 
             # --- Revenue String ---
             revenue_str = f"${scene.revenue:,}" if scene.status == 'released' else "N/A"
@@ -84,6 +86,7 @@ class ScenesTabPresenter(QObject):
                 cast_str=cast_str
             )
             view_models.append(vm)
+
         return view_models
 
     @pyqtSlot(object)

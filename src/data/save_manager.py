@@ -114,8 +114,7 @@ class SaveManager:
 
         # Create a minimal GameState object. Large dicts are intentionally empty.
         state = GameState(
-            week=int(game_info.get('week', 1)),
-            year=int(game_info.get('year', 0)),
+            absolute_week=int(game_info.get('absolute_week', 1)),
             money=int(game_info.get('money', 0)),
             studio_location=str(game_info.get('studio_location'))
         )

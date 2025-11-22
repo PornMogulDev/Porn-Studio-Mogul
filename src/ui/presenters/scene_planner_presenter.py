@@ -17,6 +17,7 @@ from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from ui.builders.scene_summary_builder import prepare_summary_data
 from services.builders.scene_state_editor import SceneStateEditor
 from utils.preset_handler import PresetHandler
+from utils import time_utils
 
 logger = logging.getLogger(__name__)
 
@@ -464,8 +465,7 @@ class ScenePlannerPresenter(QObject):
         # Preserve essential current scene data that should not be overwritten by a preset
         original_status = self.working_scene.status
         original_bloc_id = self.working_scene.bloc_id
-        original_scheduled_week = self.working_scene.scheduled_week
-        original_scheduled_year = self.working_scene.scheduled_year
+        original_scheduled_absolute_week = self.working_scene.scheduled_absolute_week
         original_final_cast = self.working_scene.final_cast
         original_is_locked = self.working_scene.is_locked
 
@@ -476,8 +476,7 @@ class ScenePlannerPresenter(QObject):
         self.state_editor.working_scene.id = original_id
         self.state_editor.working_scene.status = original_status
         self.state_editor.working_scene.bloc_id = original_bloc_id
-        self.state_editor.working_scene.scheduled_week = original_scheduled_week
-        self.state_editor.working_scene.scheduled_year = original_scheduled_year
+        self.state_editor.working_scene.scheduled_absolute_week = original_scheduled_absolute_week
         self.state_editor.working_scene.final_cast = original_final_cast
         self.state_editor.working_scene.is_locked = original_is_locked
         
@@ -503,8 +502,7 @@ class ScenePlannerPresenter(QObject):
         required_fields = {
             'id': 0, 
             'status': 'design', 
-            'scheduled_week': 0, 
-            'scheduled_year': 0, 
+            'scheduled_absolute_week': 0, 
             'location': 'Studio'
         }
         for k, v in required_fields.items():
@@ -629,8 +627,12 @@ class ScenePlannerPresenter(QObject):
 
     def _get_bloc_info_text(self) -> str:
         if not self.working_scene: return ""
-        if self.parent_bloc: return f"Part of '{self.parent_bloc.name}' shooting on Week {self.parent_bloc.scheduled_week}, {self.parent_bloc.scheduled_year}"
-        return f"Scheduled for Week {self.working_scene.scheduled_week}, {self.working_scene.scheduled_year} (Legacy)"
+        if self.parent_bloc:
+            bloc_year, bloc_week = time_utils.from_absolute(self.parent_bloc.scheduled_absolute_week)
+            return f"Part of '{self.parent_bloc.name}' shooting on Week {bloc_week}, {bloc_year}"
+        
+        scene_year, scene_week = time_utils.from_absolute(self.working_scene.scheduled_absolute_week)
+        return f"Scheduled for Week {scene_week}, {scene_year}"
 
     def get_talent_by_id(self, talent_id: int) -> Optional[Talent]:
         if talent_id is None:

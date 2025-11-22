@@ -98,11 +98,10 @@ class CastingCommandService:
         existing_bookings = [s.to_dataclass(Scene) for s in existing_bookings_db]
         
         validator = BulkBookingValidator(
-            current_week=game_week,
-            current_year=game_year,
+            current_absolute_week=game_absolute_week,
             talent=talent_dc,  
             existing_bookings=existing_bookings,
-           hiring_config=self.demand_calculator.hiring_config,
+            hiring_config=self.demand_calculator.hiring_config,
             shoot_calculator=self.shoot_results_calculator
         )
 

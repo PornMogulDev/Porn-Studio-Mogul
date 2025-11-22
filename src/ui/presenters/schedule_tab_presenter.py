@@ -6,6 +6,7 @@ from core.interfaces import IGameController
 from ui.view_models import (
     ScheduleWeekViewModel, ScheduleBlocViewModel, ScheduleSceneViewModel
 )
+from utils import time_utils
 
 if TYPE_CHECKING:
     from ui.ui_manager import UIManager
@@ -40,9 +41,8 @@ class ScheduleTabPresenter(QObject):
         Entry point called by the MainWindow. Sets up the initial time state
         and performs the first data load.
         """
-        initial_week = self.controller.game_state.week
-        initial_year = self.controller.game_state.year
-        self._on_time_changed(initial_week, initial_year)
+        year, week = time_utils.from_absolute(self.controller.game_state.absolute_week)
+        self._on_time_changed(week, year)
 
     @pyqtSlot(int, int)
     def _on_time_changed(self, new_week: int, new_year: int):
@@ -71,7 +71,8 @@ class ScheduleTabPresenter(QObject):
         all_blocs = self.controller.get_blocs_for_schedule_view(viewing_year)
         blocs_by_week = {}
         for bloc in all_blocs:
-            week = bloc.scheduled_week
+            # Convert absolute week to year and week for display and grouping
+            _, week = time_utils.from_absolute(bloc.scheduled_absolute_week)
             if week not in blocs_by_week: blocs_by_week[week] = []
             blocs_by_week[week].append(bloc)
         

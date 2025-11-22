@@ -308,7 +308,7 @@ class HiringWidget(QWidget):
 
         # Rule 3: The roles must span a period of 1 to 4 weeks.
         # We can use a simple week-of-all-time calculation for comparison.
-        role_dates = [(r['scheduled_year'] * 52 + r['scheduled_week']) for r in roles_data]
+        role_dates = [r['scheduled_absolute_week'] for r in roles_data]
         min_date, max_date = min(role_dates), max(role_dates)
         duration_weeks = (max_date - min_date) + 1
         

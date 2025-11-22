@@ -57,6 +57,8 @@ class TourInterestCalculator:
     def _pick_destination(self, talent: Talent) -> str:
         """
         Picks a random location that is NOT the talent's current base.
+        Once we add AI studios and location picking for blocks/scenes, we should
+        give each location a booking history of sorts to make this not completely random.
         """
         all_locations = list(self.data_manager.get_location_to_region_map().keys())
         valid_locations = [loc for loc in all_locations if loc != talent.base_location]

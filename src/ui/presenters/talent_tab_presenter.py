@@ -37,7 +37,7 @@ class DemandCalculationWorker(QRunnable):
         for talent in self.talents:
             effective_location = self.talent_locations.get(talent.id, talent.base_location)
             cost_breakdown = self.controller.talent_demand_calculator.calculate_total_demand(
-                talent, self.scene, self.vp_id, effective_location, game_state.week, game_state.year
+                talent, self.scene, self.vp_id, effective_location, game_state.absolute_week
             )
             demands[talent.id] = cost_breakdown['total_cost']
         self.signals.finished.emit(demands)
@@ -196,7 +196,7 @@ class TalentTabPresenter(QObject):
             all_relevant_ids = [t_db.id for t_db in talents_passing_skills_db]
             
             talent_locations = self.controller.get_effective_locations_for_multiple_talents(
-                all_relevant_ids, scene_dc.scheduled_week, scene_dc.scheduled_year
+                all_relevant_ids, scene_dc.scheduled_absolute_week
             )
             # --- Step 1.6: Apply effective location filter after fetching locations ---
             if effective_location_filters := all_filters.get('effective_locations'):

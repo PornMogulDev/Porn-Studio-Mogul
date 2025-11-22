@@ -9,6 +9,7 @@ from PyQt6.QtCore import QSize
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.shooting_bloc_presenter import ShootingBlocPresenter
 from ui.widgets.help_button import HelpButton
+from utils import time_utils
 
 class ShootingBlocDialog(GeometryManagerMixin, QDialog):
     """
@@ -217,14 +218,13 @@ class ShootingBlocDialog(GeometryManagerMixin, QDialog):
     def set_default_schedule(self):
         """Sets the initial date in the spinboxes to the current game date."""
         # This method is simple enough to remain in the view.
-        current_year = self.presenter.controller.game_state.year
-        current_week = self.presenter.controller.game_state.week
+        year, week = time_utils.from_absolute(self.presenter.controller.game_state.absolute_week)
         
         # Let the presenter decide the valid week range based on the selected year.
-        self.year_spinbox.setRange(current_year, current_year + 10)
+        self.year_spinbox.setRange(year, year + 10)
         
-        self.year_spinbox.setValue(current_year)
-        self.week_spinbox.setValue(current_week)
+        self.year_spinbox.setValue(year)
+        self.week_spinbox.setValue(week)
 
     def set_schedule(self, week: int, year: int):
         """Allows external callers (like the UIManager) to preset the schedule."""
