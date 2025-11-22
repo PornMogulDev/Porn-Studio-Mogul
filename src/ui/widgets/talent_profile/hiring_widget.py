@@ -259,10 +259,12 @@ class HiringWidget(QWidget):
                     base_cost = role_data.get('base_cost', total_cost)
                     travel_fee = role_data.get('travel_fee', 0)
                     rush_fee = role_data.get('rush_fee', 0)
+                    hazard_pay = role_data.get('hazard_pay', 0)
     
                     cost_parts = [f"Base: ${base_cost:,}"]
                     if travel_fee > 0: cost_parts.append(f"Travel: ${travel_fee:,}")
                     if rush_fee > 0: cost_parts.append(f"Rush: ${rush_fee:,}")
+                    if hazard_pay > 0: cost_parts.append(f"Hazard: ${hazard_pay:,}")
                     cost_breakdown_text = ", ".join(cost_parts)
                     cost_text = f"Cost: ${total_cost:,} ({cost_breakdown_text})"
  

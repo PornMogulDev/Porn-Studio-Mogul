@@ -185,67 +185,33 @@ class TalentProfilePresenter(QObject):
     def _load_and_display_schedule(self):
         """Fetches, processes, and displays the talent's yearly schedule."""
         if not self.current_talent_id: return
-        talent = self.open_talents[self.current_talent_id]
         current_year = self.controller.game_state.year
         
-        bookings_by_week = self.controller.get_talent_bookings_for_year(talent.id, current_year)
-        tours_this_year = self.controller.get_talent_tours_for_year(talent.id, current_year)
+        # Call the controller to get the pre-calculated status
+        weekly_statuses = self.controller.get_talent_schedule_status(self.current_talent_id, current_year)
 
         schedule_view_models = []
-        tour_map = {}
-        for tour in tours_this_year:
-            for i in range(tour.duration_weeks):
-                week_num = tour.start_week + i
-                year_offset = (week_num - 1) // 52
-                if tour.start_year + year_offset == current_year:
-                    actual_week = (week_num - 1) % 52 + 1
-                    tour_map[actual_week] = tour
-
-        ambition_threshold = 7
-        base_max_scenes = 2
-        max_scenes_per_week = base_max_scenes + 1 if talent.ambition >= ambition_threshold else base_max_scenes
-        fatigue_resting_threshold = 75
-
-        for week_num in range(1, 53):
-            bookings_this_week = bookings_by_week.get(week_num, [])
-            tour_this_week = tour_map.get(week_num)
+        
+        for result in weekly_statuses:
+            # Map DTO to ViewModel
             
-            tooltip_parts = []
+            # Handle Tour ViewModel mapping
             tour_vm = None
-            scene_titles = [scene.title for scene in bookings_this_week]
-
-            # 1. Determine the primary background color status
-            status_enum = ScheduleStatus.AVAILABLE
-            if talent.fatigue >= fatigue_resting_threshold and not bookings_this_week and not tour_this_week:
-                status_enum = ScheduleStatus.UNAVAILABLE
-                tooltip_parts.append("<b>Resting:</b> High Fatigue")
-            elif len(bookings_this_week) >= max_scenes_per_week:
-                status_enum = ScheduleStatus.UNAVAILABLE
-
-                # Use <br> for HTML tooltips, not \n
-                bulleted_titles = [f"- {title}" for title in scene_titles]
-                details = "<br>".join(bulleted_titles)
-                tooltip_parts.append(f"<b>Fully Booked:</b><br>{details}")
-            elif bookings_this_week:
-                status_enum = ScheduleStatus.PARTIALLY_BOOKED
-                # Use <br> for HTML tooltips, not \n
-                bulleted_titles = [f"- {title}" for title in scene_titles]
-                details = "<br>".join(bulleted_titles)
-                tooltip_parts.append(f"<b>Booked for:</b><br>{details}")
-
-            # 2. Add tour information to the tooltip and set the tour view model
-            # This is done separately so booking and tour info can coexist.
-            if tour_this_week:
-                tour_vm = TourViewModel.from_dataclass(tour_this_week)
-                # Prepend tour info so it appears first in the tooltip
-                tooltip_parts.insert(0, f"<b>On Tour:</b> {tour_this_week.destination_location}")
-
-            # 3. Assemble the final tooltip string
-            tooltip_text = "<br>".join(tooltip_parts) if tooltip_parts else "Available for booking."
-            status_str = status_enum.name.lower()
+            if result.tour:
+                tour_vm = TourViewModel.from_dataclass(result.tour)
+            
+            # Format tooltip
+            tooltip_text = "<br>".join(result.tooltip_items) if result.tooltip_items else "Available for booking."
+            
+            # Map Enum to string
+            status_str = result.status_enum.name.lower()
+            
             vm = TalentScheduleWeekViewModel(
-                week_number=week_num, status_str=status_str,
-                tooltip=tooltip_text, tour=tour_vm
+                week_number=result.week_number,
+                status_str=status_str,
+                tooltip=tooltip_text,
+                tour=tour_vm,
+                is_on_cooldown=result.is_on_cooldown
             )
             schedule_view_models.append(vm)
 

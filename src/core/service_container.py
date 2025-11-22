@@ -18,6 +18,7 @@ from services.calculation.shoot_results_calculator import ShootResultsCalculator
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.calculation.upfront_tour_cost_calculator import UpfrontTourCostCalculator
 from services.calculation.trait_modifier_resolver import TraitModifierResolver
+from services.calculation.talent_status_calculator import TalentStatusCalculator
 from services.tour_feasibility_service import TourFeasibilityService
 from services.tour_sponsorship_preview_service import TourSponsorshipPreviewService
 from services.command.scene_command_service import SceneCommandService
@@ -78,6 +79,7 @@ class ServiceContainer:
         self.talent_location_service: Optional[TalentLocationService] = None
         self.bloc_cost_calculator: Optional[BlocCostCalculator] = None
         self.talent_demand_calculator: Optional[TalentDemandCalculator] = None
+        self.talent_status_calculator: Optional[TalentStatusCalculator] = None
         self.role_performance_calculator: Optional[RolePerformanceCalculator] = None
         self.tag_validation_checker: Optional[TagValidationChecker] = None
         self.talent_affinity_calculator: Optional[TalentAffinityCalculator] = None
@@ -116,6 +118,7 @@ class ServiceContainer:
         self.talent_location_service = TalentLocationService(session_factory)
         self.upfront_tour_calculator = UpfrontTourCostCalculator(self.data_manager)
         self.trait_modifier_resolver = TraitModifierResolver(self.data_manager)
+        self.talent_status_calculator = TalentStatusCalculator(self.hiring_config, self.tour_config)
 
         # Level 1: Depends on Level 0 services
         self.tour_interest_calculator = TourInterestCalculator(self.trait_modifier_resolver, self.tour_config, self.data_manager)
@@ -139,7 +142,8 @@ class ServiceContainer:
             self.availability_checker, self.role_performance_calculator, self.trait_modifier_resolver
         )
         self.talent_query_service = TalentQueryService(session_factory, self.data_manager, self.query_service, self.talent_location_service,
-            self.talent_demand_calculator, self.hiring_config, self.availability_checker, self.shoot_results_calculator
+            self.talent_demand_calculator, self.hiring_config, self.availability_checker, self.shoot_results_calculator,
+            self.talent_status_calculator
         )
         self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
@@ -260,6 +264,7 @@ class ServiceContainer:
         self.tour_sponsorship_service = None
         self.tour_interest_calculator = None
         self.upfront_tour_calculator = None
+        self.talent_status_calculator = None
         self.talent_location_service = None
         self.role_performance_calculator = None
         self.tag_validation_checker = None

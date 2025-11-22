@@ -320,6 +320,11 @@ class GameController(QObject):
         if not self.talent_query_service: return []
         return self.talent_query_service.get_eligible_talent_for_role(scene_id, vp_id, filters)
     
+    def get_talent_schedule_status(self, talent_id: int, year: int):
+        """Retrieves the calculated weekly status for a talent's yearly schedule."""
+        if not self.talent_query_service: return []
+        return self.talent_query_service.get_talent_schedule_status_for_year(talent_id, year)
+
     def calculate_bulk_hiring_costs(self, talent_id: int, roles: List[Dict]) -> Optional[Dict]:
         """
         Orchestrates the calculation of bulk hiring costs by fetching all necessary

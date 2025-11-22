@@ -55,6 +55,10 @@ class ScheduleWidget(QWidget):
             if is_on_tour:
                 label.setProperty("on_tour", True)
 
+            # Add property for cooldown
+            if vm.is_on_cooldown:
+                label.setProperty("cooldown", True)
+
             # Force the widget to re-evaluate its style based on the new property
             label.style().unpolish(label)
             label.style().polish(label)

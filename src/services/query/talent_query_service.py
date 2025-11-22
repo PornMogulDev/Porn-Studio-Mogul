@@ -14,6 +14,8 @@ from database.db_models import (
 from services.query.game_query_service import GameQueryService
 from services.query.talent_location_service import TalentLocationService
 from services.calculation.talent_demand_calculator import TalentDemandCalculator
+from services.calculation.talent_status_calculator import TalentStatusCalculator
+from services.models.results import WeeklyStatusResult
 from services.models.configs import HiringConfig
 from services.calculation.talent_availability_checker import TalentAvailabilityChecker
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
@@ -23,7 +25,7 @@ logger = logging.getLogger(__name__)
 class TalentQueryService:
     def __init__(self, session_factory, data_manager: DataManager, query_service: GameQueryService, location_service: TalentLocationService,
                  demand_calculator: TalentDemandCalculator, config: HiringConfig, availability_checker: TalentAvailabilityChecker, 
-                 shoot_results_calculator: ShootResultsCalculator):
+                 shoot_results_calculator: ShootResultsCalculator, status_calculator: TalentStatusCalculator):
         self.session_factory = session_factory
         self.data_manager = data_manager
         self.query_service = query_service
@@ -32,6 +34,7 @@ class TalentQueryService:
         self.config = config
         self.availability_checker = availability_checker
         self.shoot_results_calculator = shoot_results_calculator
+        self.status_calculator = status_calculator
 
     def _get_role_tags_for_display(self, scene: Scene, vp_id: int) -> List[str]:
         """Helper to get a formatted list of tags and roles for UI display."""
@@ -142,6 +145,43 @@ class TalentQueryService:
                     counts[t_id] = 0
                     
             return counts
+        
+    def get_talent_schedule_status_for_year(self, talent_id: int, year: int) -> List[WeeklyStatusResult]:
+        """
+        Retrieves and calculates the status of every week in the year for the given talent.
+        Returns a list of 52 WeeklyStatusResult objects.
+        """
+        # 1. Fetch Raw Data
+        bookings_by_week = self.get_talent_bookings_for_year(talent_id, year)
+        tours = self.get_talent_tours_for_year(talent_id, year)
+        
+        # 2. Map Tours to Weeks
+        tour_map = {}
+        for tour in tours:
+            for i in range(tour.duration_weeks):
+                week_num = tour.start_week + i
+                year_offset = (week_num - 1) // 52
+                if tour.start_year + year_offset == year:
+                    actual_week = (week_num - 1) % 52 + 1
+                    tour_map[actual_week] = tour
+
+        # 3. Get Talent Data (Need Fatigue/Ambition for calculation)
+        talent_dc = self.query_service.get_talent_by_id(talent_id)
+        if not talent_dc:
+            return []
+
+        # 4. Calculate Status for 52 Weeks
+        results = []
+        for week_num in range(1, 53):
+            bookings = bookings_by_week.get(week_num, [])
+            tour = tour_map.get(week_num)
+            
+            result = self.status_calculator.calculate_week_status(
+                talent_dc, week_num, year, bookings, tour
+            )
+            results.append(result)
+            
+        return results
 
     def get_eligible_talent_for_role(self, scene_id: int, vp_id: int, filters: Dict = None) -> List[TalentDB]:
         """

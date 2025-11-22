@@ -12,6 +12,9 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from enum import Enum, auto
 
+from data.game_state import Tour
+from ui.view_models import ScheduleStatus
+
 class EventAction(Enum):
     """Defines the next action to be taken after an event choice is resolved."""
     CONTINUE_SHOOT = auto()
@@ -104,3 +107,12 @@ class TourSponsorshipPreviewResult:
 class ValidationResult:
     success: bool
     reason: Optional[str] = None
+
+@dataclass
+class WeeklyStatusResult:
+    """DTO containing the calculated status for a specific week."""
+    week_number: int
+    status_enum: ScheduleStatus
+    tooltip_items: List[str]
+    tour: Optional[Tour] = None
+    is_on_cooldown: bool = False

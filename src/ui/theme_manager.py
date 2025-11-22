@@ -319,6 +319,12 @@ class ThemeManager:
                 border-color: {theme.accent};
             }}
 
+            /* Cooldown style: Dashed border or muted look */
+            QLabel#scheduleWeekLabel[cooldown="true"] {{
+                border: 1px dashed {theme.color_neutral};
+                color: {theme.disabled_text};
+            }}
+
             /* --- Sponsor Tour Dialog Styling --- */
             QLabel#characterComment {{
                 font-style: italic;

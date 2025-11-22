@@ -18,6 +18,7 @@ class TalentScheduleWeekViewModel:
     status_str: str  # e.g., 'available', 'partially_booked', 'unavailable'
     tooltip: str
     tour: Optional['TourViewModel'] = None
+    is_on_cooldown: bool = False # Visual indicator for tour cooldown
 
 @dataclass
 class TourViewModel:
