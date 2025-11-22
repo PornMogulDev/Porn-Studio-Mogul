@@ -1,6 +1,5 @@
-from PyQt6.QtWidgets import QTabWidget, QMainWindow, QApplication, QMenu
-from PyQt6.QtCore import Qt, QPoint, QEvent, QRect, QSize
-from PyQt6.QtGui import QAction
+from PyQt6.QtWidgets import QTabWidget, QMainWindow, QMenu
+from PyQt6.QtCore import Qt, QPoint, QRect, QSize
 
 from data.settings_manager import SettingsManager
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin

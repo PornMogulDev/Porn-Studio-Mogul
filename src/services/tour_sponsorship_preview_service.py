@@ -7,6 +7,7 @@ from services.query.talent_query_service import TalentQueryService
 from services.tour_feasibility_service import TourFeasibilityService
 from services.calculation.upfront_tour_cost_calculator import UpfrontTourCostCalculator
 from services.models.results import TourSponsorshipPreviewResult
+from utils import time_utils
 
 logger = logging.getLogger(__name__)
 
@@ -44,21 +45,19 @@ class TourSponsorshipPreviewService:
             return TourSponsorshipPreviewResult(is_feasible=False, refusal_reason="One or more selected scenes could not be found.")
 
         # --- 2. Orchestration: Determine tour parameters ---
-        dates = [(s.scheduled_year * 52 + s.scheduled_week) for s in scenes_dc]
-        min_date, max_date = min(dates), max(dates)
-        start_year, week_offset = divmod(min_date - 1, 52)
-        start_week = week_offset + 1
-        duration_weeks = (max_date - min_date) + 1
+        dates = [s.scheduled_absolute_week for s in scenes_dc]
+        min_absolute_week, max_absolute_week = min(dates), max(dates)
+        start_absolute_week = min_absolute_week
+        duration_weeks = (max_absolute_week - min_absolute_week) + 1
 
         # --- 3. Orchestration: Check for schedule conflicts ---
-        end_year = start_year + (start_week + duration_weeks - 2) // 52
-        all_bookings = self.talent_query_service.get_talent_bookings_for_year(talent_id, start_year)
-        if end_year > start_year:
-            next_year_bookings = self.talent_query_service.get_talent_bookings_for_year(talent_id, end_year)
-            all_bookings.update(next_year_bookings)
+        # Fetch existing bookings for the entire proposed tour duration
+        all_bookings = self.talent_query_service.get_talent_bookings_by_absolute_week(
+            talent_id, start_absolute_week, max_absolute_week
+        )
         
         conflict_reason = self.feasibility_service.check_schedule_conflict(
-            start_week, start_year, duration_weeks, all_bookings
+            start_absolute_week, duration_weeks, all_bookings
         )
         if conflict_reason:
             return TourSponsorshipPreviewResult(is_feasible=False, refusal_reason=conflict_reason)
@@ -72,11 +71,12 @@ class TourSponsorshipPreviewService:
         travel_cost = self.cost_calculator.calculate_travel_cost(talent_db_model.base_location, studio_location)
 
         # --- 6. Assemble and return the final DTO ---
+        _start_year, _start_week = time_utils.from_absolute(start_absolute_week)
         return TourSponsorshipPreviewResult(
             is_feasible=True,
             destination_location=studio_location,
-            start_week=start_week,
-            start_year=start_year,
+            start_week=_start_week,
+            start_year=_start_year,
             minimum_duration_weeks=duration_weeks,
             travel_cost=travel_cost,
             required_accommodation_tier_id=required_tier_id,

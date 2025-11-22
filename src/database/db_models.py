@@ -58,8 +58,7 @@ class ShootingBlocDB(Base, DataclassMapper):
     id = Column(Integer, primary_key=True)
     name = Column(String)
     location = Column(String, nullable=False)
-    scheduled_week = Column(Integer)
-    scheduled_year = Column(Integer)
+    scheduled_absolute_week = Column(Integer)
     production_settings = Column(JSON, default=dict)
     production_cost = Column(Integer, default=0)
     on_set_policies = Column(JSON, default=list)
@@ -88,8 +87,7 @@ class ContractDB(Base, DataclassMapper):
     __tablename__ = 'contracts'
     id = Column(Integer, primary_key=True)
     talent_id = Column(Integer, ForeignKey('talents.id'), unique=True, nullable=False)
-    start_week = Column(Integer, nullable=False)
-    start_year = Column(Integer, nullable=False)
+    start_absolute_week = Column(Integer, nullable=False)
     duration_weeks = Column(Integer, nullable=False)
     weekly_salary = Column(Integer, nullable=False)
     compliance = Column(Integer, default=100)
@@ -137,8 +135,7 @@ class TalentDB(Base, DataclassMapper):
     policy_requirements = Column(JSON, default=dict)
     go_to_list_assignments = relationship("GoToListAssignmentDB", back_populates="talent", cascade="all, delete-orphan")
     is_on_tour = Column(Boolean, default=False, nullable=False)
-    tour_end_week = Column(Integer, default=0, nullable=False)
-    tour_end_year = Column(Integer, default=0, nullable=False)
+    tour_end_absolute_week = Column(Integer, default=0, nullable=False)
     tours = relationship("TourDB", back_populates="talent", cascade="all, delete-orphan")
     contract = relationship("ContractDB", uselist=False, back_populates="talent", cascade="all, delete-orphan")
 
@@ -162,8 +159,7 @@ class TourDB(Base, DataclassMapper):
     talent_id = Column(Integer, ForeignKey('talents.id'), nullable=False)
     status = Column(String, nullable=False) # 'planned', 'active', 'completed'
     destination_location = Column(String, nullable=False)
-    start_week = Column(Integer, nullable=False)
-    start_year = Column(Integer, nullable=False)
+    start_absolute_week = Column(Integer, nullable=False)
     duration_weeks = Column(Integer, nullable=False)
     sponsor_type = Column(String, nullable=False) # 'self', 'player', 'ai_studio'
     accommodation_tier_id = Column(String)
@@ -199,8 +195,7 @@ class SceneDB(Base, DataclassMapper):
     title = Column(String)
     status = Column(String)
     focus_target = Column(String)
-    scheduled_week = Column(Integer)
-    scheduled_year = Column(Integer)
+    scheduled_absolute_week = Column(Integer)
     dom_sub_dynamic_level = Column(Integer, default=0)
     protagonist_vp_ids = Column(JSON, default=list)
     scene_type = Column(String, nullable=True)
@@ -271,8 +266,7 @@ class EmailMessageDB(Base, DataclassMapper):
     id = Column(Integer, primary_key=True)
     subject = Column(String)
     body = Column(String)
-    week = Column(Integer)
-    year = Column(Integer)
+    absolute_week = Column(Integer)
     is_read = Column(Boolean, default=False)
 
 class MarketGroupStateDB(Base, DataclassMapper):

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from sqlalchemy.orm import Session, selectinload
 
 from core.game_signals import GameSignals
@@ -11,6 +11,7 @@ from services.calculation.talent_demand_calculator import TalentDemandCalculator
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
 from services.calculation.bulk_booking_validator import BulkBookingValidator
 from services.query.talent_location_service import TalentLocationService
+from utils import time_utils
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +88,8 @@ class CastingCommandService:
         if not talent_db: raise ValueError("Talent not found")
         talent_dc = talent_db.to_dataclass(Talent)
 
-        game_week = int(session.query(GameInfoDB).filter_by(key='week').one().value)
-        game_year = int(session.query(GameInfoDB).filter_by(key='year').one().value)
+        game_absolute_week = int(session.query(GameInfoDB).filter_by(key='absolute_week').one().value)
+        game_year, game_week = time_utils.from_absolute(game_absolute_week)
         
         # Fetch existing bookings for validation context
         # Since we are in a session, we do a direct query to avoid detachment issues
@@ -170,7 +171,7 @@ class CastingCommandService:
         except Exception as e:
             logger.error(f"Error in multi-cast for talent {talent_id}: {e}", exc_info=True)
             session.rollback()
-            self.signals.notification_posted.emit(f"An error occurred during multi-casting. Operation cancelled.")
+            self.signals.notification_posted.emit("An error occurred during multi-casting. Operation cancelled.")
             return False
         finally:
             session.close()

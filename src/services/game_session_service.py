@@ -36,16 +36,14 @@ class GameSessionService:
         try:
 
             game_state = GameState(
-                week=1, 
-                year=self.game_constant["starting_year"], 
+                absolute_week=1, 
                 money=self.game_constant["initial_money"],
                 studio_location=self.game_constant["default_player_studio_location"]
             )
 
             # Initialize GameInfo
             game_info_data = [
-                GameInfoDB(key='week', value=str(game_state.week)),
-                GameInfoDB(key='year', value=str(game_state.year)),
+                GameInfoDB(key='absolute_week', value=str(game_state.absolute_week)),
                 GameInfoDB(key='money', value=str(game_state.money)),
                 GameInfoDB(key='studio_location', value=str(game_state.studio_location))
             ]
@@ -72,8 +70,7 @@ class GameSessionService:
             welcome_email = EmailMessageDB(
                 subject="Welcome to the Studio!", 
                 body="Welcome to your new studio! Your goal is to become a successful producer.\n\nDesign scenes, cast talent, and make a profit!\n\nGood luck!",
-                week=game_state.week,
-                year=game_state.year,
+                absolute_week=game_state.absolute_week,
                 is_read=False
             )
             session.add(welcome_email)

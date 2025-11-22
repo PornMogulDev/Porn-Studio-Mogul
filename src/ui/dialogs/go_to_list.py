@@ -22,7 +22,7 @@ class GoToTalentListModel(QAbstractListModel):
         if role == Qt.ItemDataRole.DisplayRole:
             display_text = talent.alias
             if talent.fatigue > 0:
-                display_text += f" (Fatigued)"
+                display_text += " (Fatigued)"
             return display_text
         
         if role == Qt.ItemDataRole.UserRole:

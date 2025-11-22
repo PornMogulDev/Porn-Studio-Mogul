@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict
 from collections import defaultdict
 
 from data.game_state import Scene, VirtualPerformer

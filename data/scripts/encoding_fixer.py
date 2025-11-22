@@ -6,7 +6,7 @@ Handles common encoding issues from web scraping.
 
 import json
 import sys
-from typing import Any, Union
+from typing import Any
 
 
 def fix_double_encoding(text: str) -> str:
@@ -83,7 +83,7 @@ def process_json_file(input_file: str, output_file: str = None) -> None:
         if output_file:
             print(f"  Saved to {output_file}")
         else:
-            print(f"  File updated in place")
+            print("  File updated in place")
             
     except FileNotFoundError:
         print(f"✗ Error: File '{input_file}' not found")

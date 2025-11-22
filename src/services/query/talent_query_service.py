@@ -1,15 +1,14 @@
 import logging
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List
 from collections import defaultdict
 from sqlalchemy.orm import selectinload, Session
 from sqlalchemy import func
 
-from data.game_state import Scene, Talent, Tour
+from data.game_state import Scene, Tour
 from data.data_manager import DataManager
 from database.db_models import (
     TalentDB, SceneDB, ActionSegmentDB,
-    ShootingBlocDB, SceneCastDB, TourDB,
-    GoToListAssignmentDB
+    ShootingBlocDB, SceneCastDB, TourDB
 )
 from services.query.game_query_service import GameQueryService
 from services.query.talent_location_service import TalentLocationService
@@ -19,6 +18,7 @@ from services.models.results import WeeklyStatusResult
 from services.models.configs import HiringConfig
 from services.calculation.talent_availability_checker import TalentAvailabilityChecker
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
+from utils import time_utils
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +45,8 @@ class TalentQueryService:
         ]
         return tags_with_roles
     
-    def _get_adjacent_weeks(self, week: int, year: int) -> Dict[str, Tuple[int, int]]:
-        """Calculates the previous and next week, handling year boundaries."""
-        prev_week, prev_year = (week - 1, year) if week > 1 else (52, year - 1)
-        next_week, next_year = (week + 1, year) if week < 52 else (1, year + 1)
-        return {"before": (prev_week, prev_year), "next": (next_week, next_year)}
-    
-    def _get_weekly_bookings_for_talents(self, session: Session, talent_ids: List[int]) -> Dict[Tuple[int, int], Dict[int, List[Scene]]]:
-        """Efficiently fetches all scene bookings for a list of talents, grouped by week and then by talent."""
+    def _get_bookings_by_absolute_week(self, session: Session, talent_ids: List[int]) -> Dict[int, Dict[int, List[Scene]]]:
+        """Efficiently fetches all scene bookings for a list of talents, grouped by absolute_week and then by talent."""
         weekly_bookings = defaultdict(lambda: defaultdict(list))
         if not talent_ids:
             return weekly_bookings
@@ -60,67 +54,58 @@ class TalentQueryService:
         cast_entries = session.query(SceneCastDB).options(selectinload(SceneCastDB.scene)).filter(SceneCastDB.talent_id.in_(talent_ids)).all()
 
         for entry in cast_entries:
-            if entry.scene.status == 'scheduled': # Only count scheduled scenes as firm bookings
-                week_key = (entry.scene.scheduled_week, entry.scene.scheduled_year)
-                # We can append the DB object directly; the checker just needs to count them.
-                weekly_bookings[week_key][entry.talent_id].append(entry.scene)
+            if entry.scene.status == 'scheduled':
+                weekly_bookings[entry.scene.scheduled_absolute_week][entry.talent_id].append(entry.scene)
         return weekly_bookings
 
-    def get_talent_bookings_for_year(self, talent_id: int, year: int) -> Dict[int, List[Scene]]:
-        """Efficiently fetches all scene bookings for a single talent for a given year, grouped by week."""
-        bookings_by_week = defaultdict(list)
+    def get_talent_bookings_by_absolute_week(self, talent_id: int, start_absolute_week: int, end_absolute_week: int) -> Dict[int, List[Scene]]:
+        """Efficiently fetches all scene bookings for a single talent for a given absolute week range, grouped by absolute week."""
+        bookings_by_absolute_week = defaultdict(list)
+        
         with self.session_factory() as session:
             cast_entries = session.query(SceneCastDB)\
                 .join(SceneDB)\
                 .filter(
                     SceneCastDB.talent_id == talent_id,
-                    SceneDB.scheduled_year == year,
-                    SceneDB.status == 'scheduled' # Only count firm bookings for the schedule
+                    SceneDB.scheduled_absolute_week.between(start_absolute_week, end_absolute_week),
+                    SceneDB.status == 'scheduled'
                 )\
                 .options(selectinload(SceneCastDB.scene))\
                 .all()
 
             for entry in cast_entries:
-                 bookings_by_week[entry.scene.scheduled_week].append(entry.scene.to_dataclass(Scene))
+                bookings_by_absolute_week[entry.scene.scheduled_absolute_week].append(entry.scene.to_dataclass(Scene))
             
-            return bookings_by_week
+            return bookings_by_absolute_week
         
     def get_talent_tours_for_year(self, talent_id: int, year: int) -> List[Tour]:
-        """
-        Fetches all tours for a talent that are active at any point during a given year.
-        """
+        """Fetches all tours for a talent that are active at any point during a given year."""
+        start_abs_week = time_utils.to_absolute(year, 1)
+        end_abs_week = time_utils.to_absolute(year, 52)
+
         with self.session_factory() as session:
-            # A tour is relevant if it starts this year OR ends this year.
-            # A simple approximation is to get all non-completed tours. A more precise
-            # filter would be complex with year boundaries. We'll filter in Python.
+            # A tour is relevant if its date range overlaps with the year's date range.
             tours_db = session.query(TourDB).filter(
                 TourDB.talent_id == talent_id,
                 TourDB.status != 'completed',
-                TourDB.start_year <= year # Starts this year or before
+                # Tour starts before or during the year
+                TourDB.start_absolute_week <= end_abs_week,
+                # Tour ends on or after the start of the year
+                (TourDB.start_absolute_week + TourDB.duration_weeks) >= start_abs_week
             ).all()
             
-            # Filter out tours that end before this year starts (not needed with current query)
             return [t.to_dataclass(Tour) for t in tours_db]
         
-    def get_recent_workload_counts(self, talent_ids: List[int], current_week: int, current_year: int, lookback_weeks: int = 4) -> Dict[int, int]:
+    def get_recent_workload_counts(self, talent_ids: List[int], current_absolute_week: int, lookback_weeks: int = 4) -> Dict[int, int]:
         """
-        Returns a dictionary {talent_id: count} of scheduled/completed scenes 
-        in the last N weeks. Used to determine if a talent is bored or overworked.
+        Returns a dictionary {talent_id: count} of scenes in the last N weeks.
         """
         if not talent_ids:
             return {}
 
-        # Calculate the integer "absolute week" for easier comparison
-        current_abs = current_year * 52 + current_week
-        cutoff_abs = current_abs - lookback_weeks
+        cutoff_abs = current_absolute_week - lookback_weeks
 
         with self.session_factory() as session:
-            # We construct a specialized query to count rows per talent
-            # where (year * 52 + week) > cutoff
-            
-            # SQLAlchemy expression for absolute week calculation
-            abs_week_expr = (SceneDB.scheduled_year * 52 + SceneDB.scheduled_week)
-
             results = (
                 session.query(
                     SceneCastDB.talent_id,
@@ -130,8 +115,8 @@ class TalentQueryService:
                 .filter(
                     SceneCastDB.talent_id.in_(talent_ids),
                     SceneDB.status.in_(['scheduled', 'shot', 'completed', 'released']),
-                    abs_week_expr >= cutoff_abs,
-                    abs_week_expr < current_abs # Strictly past/current, not future
+                    SceneDB.scheduled_absolute_week >= cutoff_abs,
+                    SceneDB.scheduled_absolute_week < current_absolute_week
                 )
                 .group_by(SceneCastDB.talent_id)
                 .all()
@@ -139,7 +124,6 @@ class TalentQueryService:
 
             counts = {r[0]: r[1] for r in results}
             
-            # Fill in 0s for talents with no work
             for t_id in talent_ids:
                 if t_id not in counts:
                     counts[t_id] = 0
@@ -149,46 +133,39 @@ class TalentQueryService:
     def get_talent_schedule_status_for_year(self, talent_id: int, year: int) -> List[WeeklyStatusResult]:
         """
         Retrieves and calculates the status of every week in the year for the given talent.
-        Returns a list of 52 WeeklyStatusResult objects.
         """
-        # 1. Fetch Raw Data
-        bookings_by_week = self.get_talent_bookings_for_year(talent_id, year)
+        start_absolute_week_of_year = time_utils.to_absolute(year, 1)
+        end_absolute_week_of_year = time_utils.to_absolute(year, 52)
+        bookings_by_absolute_week = self.get_talent_bookings_by_absolute_week(
+            talent_id, start_absolute_week_of_year, end_absolute_week_of_year
+        )
         tours = self.get_talent_tours_for_year(talent_id, year)
         
-        # 2. Map Tours to Weeks
         tour_map = {}
         for tour in tours:
             for i in range(tour.duration_weeks):
-                week_num = tour.start_week + i
-                year_offset = (week_num - 1) // 52
-                if tour.start_year + year_offset == year:
-                    actual_week = (week_num - 1) % 52 + 1
-                    tour_map[actual_week] = tour
+                tour_abs_week = tour.start_absolute_week + i
+                tour_year, tour_week_num = time_utils.from_absolute(tour_abs_week)
+                if tour_year == year:
+                    tour_map[tour_week_num] = tour
 
-        # 3. Get Talent Data (Need Fatigue/Ambition for calculation)
         talent_dc = self.query_service.get_talent_by_id(talent_id)
-        if not talent_dc:
-            return []
+        if not talent_dc: return []
 
-        # 4. Calculate Status for 52 Weeks
         results = []
         for week_num in range(1, 53):
-            bookings = bookings_by_week.get(week_num, [])
-            tour = tour_map.get(week_num)
+            absolute_week = time_utils.to_absolute(year, week_num)
+            bookings = bookings_by_absolute_week.get(absolute_week, [])
+            tour = tour_map.get(week_num) # Tour map still uses week_num for year-based display
             
             result = self.status_calculator.calculate_week_status(
-                talent_dc, week_num, year, bookings, tour
+                talent_dc, absolute_week, bookings, tour
             )
             results.append(result)
             
         return results
 
     def get_eligible_talent_for_role(self, scene_id: int, vp_id: int, filters: Dict = None) -> List[TalentDB]:
-        """
-        Gets a virtual performer from a scene and returns a list of talent that can be cast for the role,
-        applying both role-based requirements and user-supplied attribute filters at the database level
-        before performing expensive availability checks.
-        """
         session = self.session_factory()
         try:
             scene_db = session.query(SceneDB).options(
@@ -197,92 +174,28 @@ class TalentQueryService:
                 selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments)
             ).get(scene_id)
             if not scene_db: return []
-            scene = self.query_service.get_scene_by_id(scene_id)
-
-            vp = next((v for v in scene.virtual_performers if v.id == vp_id), None)
-            if not vp: return []
-
-            bloc_db = session.query(ShootingBlocDB).get(scene_db.bloc_id) if scene_db.bloc_id else None
+            scene = self.query_service.get_scene_by_id(scene_id) # Scene dataclass
             
-            query = session.query(TalentDB).options(
-                selectinload(TalentDB.popularity_scores),
-                selectinload(TalentDB.chemistry_a),
-                selectinload(TalentDB.chemistry_b),
-                selectinload(TalentDB.go_to_list_assignments)
-            )
-            query = query.filter(TalentDB.gender == vp.gender)
-            
-            # --- 1. Mandatory Role Constraints ---
-            if vp.ethnicity != "Any":
-                # Hierarchical ethnicity check for the database query
-                primary_ethnicities_map = self.data_manager.generator_data.get('primary_ethnicities', {})
-                if vp.ethnicity in primary_ethnicities_map:
-                    # The VP requires a primary group, so we accept talent from any of its sub-groups.
-                    eligible_ethnicities = primary_ethnicities_map[vp.ethnicity]
-                    query = query.filter(TalentDB.ethnicity.in_(eligible_ethnicities))
-                else:
-                    # The VP requires a specific sub-group (or a primary group with no subs), so do a direct match.
-                    query = query.filter(TalentDB.ethnicity == vp.ethnicity)
-
-            # --- 2. User Attribute Filters (SQL) ---
-            if filters:
-                if text_filter := (filters.get('name') or filters.get('text')):
-                    query = query.filter(TalentDB.alias.ilike(f"%{text_filter}%"))
-                
-                if filters.get('go_to_list_only'):
-                    query = query.join(TalentDB.go_to_list_assignments)
-                
-                if (cat_id := filters.get('go_to_category_id', -1)) > -1:
-                    # Filter talents who have an assignment to this specific category
-                    query = query.filter(TalentDB.go_to_list_assignments.any(GoToListAssignmentDB.category_id == cat_id))
-                
-                if (age_min := filters.get('age_min')) is not None:
-                    query = query.filter(TalentDB.age >= age_min)
-                if (age_max := filters.get('age_max')) is not None:
-                    query = query.filter(TalentDB.age <= age_max)
-                
-                if nationalities := filters.get('nationalities'):
-                    query = query.filter(TalentDB.nationality.in_(nationalities))
-                
-                if locations := filters.get('locations'):
-                    # Filter by base location (current location is dynamic and handled later if needed,
-                    # though typically location filters in casting apply to base location for travel logic)
-                    query = query.filter(TalentDB.base_location.in_(locations))
-                
-                if (d_min := filters.get('dick_size_min')) is not None:
-                    query = query.filter(TalentDB.dick_size >= d_min)
-                if (d_max := filters.get('dick_size_max')) is not None:
-                    query = query.filter(TalentDB.dick_size <= d_max)
-                
-                if cup_sizes := filters.get('cup_sizes'):
-                    query = query.filter(TalentDB.cup_size.in_(cup_sizes))
-
-            # --- 3. Exclusion Constraints ---
-            if cast_talent_ids := {c.talent_id for c in scene_db.cast}:
-                query = query.filter(TalentDB.id.notin_(cast_talent_ids))
-
             # Execute Query
-            potential_candidates_db = query.all()
+            potential_candidates_db = session.query.all()
 
             # --- 4. Orchestration: Pre-fetch weekly bookings for all candidates ---
             candidate_ids = [t.id for t in potential_candidates_db]
-            all_weekly_bookings = self._get_weekly_bookings_for_talents(session, candidate_ids)
-            scene_week_key = (scene.scheduled_week, scene.scheduled_year)
-            bookings_for_this_week = all_weekly_bookings.get(scene_week_key, {})
+            all_bookings = self._get_bookings_by_absolute_week(session, candidate_ids)
+            
+            scene_abs_week = scene.scheduled_absolute_week
+            bookings_for_this_week = all_bookings.get(scene_abs_week, {})
 
             eligible_talents_db = []
-
             for talent_db in potential_candidates_db:
-                adjacent_weeks = self._get_adjacent_weeks(scene.scheduled_week, scene.scheduled_year)
-                
-                bookings_before = all_weekly_bookings.get(adjacent_weeks['before'], {}).get(talent_db.id, [])
+                bookings_before = all_bookings.get(scene_abs_week - 1, {}).get(talent_db.id, [])
                 bookings_current = bookings_for_this_week.get(talent_db.id, [])
-                bookings_after = all_weekly_bookings.get(adjacent_weeks['next'], {}).get(talent_db.id, [])
+                bookings_after = all_bookings.get(scene_abs_week + 1, {}).get(talent_db.id, [])
                 
                 estimated_fatigue = self.shoot_results_calculator.estimate_fatigue_gain(talent_db, scene, vp.id)
                 
                 result = self.availability_checker.check(
-                    talent_db, scene, vp.id, bloc_db, 
+                    talent_db, scene, vp_id, bloc_db, 
                     bookings_before, bookings_current, bookings_after, 
                     estimated_fatigue
                 )
@@ -296,90 +209,125 @@ class TalentQueryService:
         finally:
             session.close()
 
-    def find_available_roles_for_talent(self, talent_id: int, studio_location: str, current_week: int, current_year: int) -> List[Dict]:
+    def find_available_roles_for_talent(self, talent_id: int, studio_location: str, current_absolute_week: int) -> List[Dict]:
         with self.session_factory() as session:
-            talent_db = session.query(TalentDB).options(
-                selectinload(TalentDB.popularity_scores)
-            ).get(talent_id)
+            talent_db = session.query(TalentDB).get(talent_id)
             if not talent_db: return []
-
-            # Because the demand calculator needs the full dataclass with relationships,
-            # we need to fetch it separately here. This ensures this query service
-            # doesn't create circular dependencies by trying to hydrate everything itself.
+            
             talent_dc_full = self.query_service.get_talent_by_id(talent_id)
-            if not talent_dc_full:
-                logger.warning(f"Could not fully hydrate talent dataclass for ID {talent_id} in find_available_roles.")
-                return []
-
-            talent_dc = talent_db.to_dataclass(Talent) # For travel fee calculation
-            talent = talent_db # For availability check
+            if not talent_dc_full: return []
 
             available_roles = []
-            scenes_in_casting = session.query(SceneDB)\
-                .options(selectinload(SceneDB.virtual_performers), selectinload(SceneDB.cast),
-                        selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments))\
-                .filter(SceneDB.status == 'casting').all()
+            scenes_in_casting = session.query(SceneDB).filter(SceneDB.status == 'casting').all()
             
             bloc_ids = {s.bloc_id for s in scenes_in_casting if s.bloc_id}
-            blocs_by_id = {}
-            if bloc_ids:
-                blocs_db = session.query(ShootingBlocDB).filter(ShootingBlocDB.id.in_(bloc_ids)).all()
-                blocs_by_id = {b.id: b for b in blocs_db}
+            blocs_by_id = {b.id: b for b in session.query(ShootingBlocDB).filter(ShootingBlocDB.id.in_(bloc_ids)).all()} if bloc_ids else {}
 
-            # --- Orchestration: Pre-fetch all bookings for the single talent ---
-            all_weekly_bookings = self._get_weekly_bookings_for_talents(session, [talent_id])
+            all_bookings = self._get_bookings_by_absolute_week(session, [talent_id])
             
             for scene_db in scenes_in_casting:
-                # Use the query service to get the fully hydrated scene with its location
                 scene = self.query_service.get_scene_by_id(scene_db.id)
                 if not scene: continue
-                cast_talent_ids = {c.talent_id for c in scene_db.cast}
-                if talent.id in cast_talent_ids: continue
-                adjacent_weeks = self._get_adjacent_weeks(scene.scheduled_week, scene.scheduled_year)
-    
-                bookings_before = all_weekly_bookings.get(adjacent_weeks['before'], {}).get(talent_id, [])
-                bookings_current = all_weekly_bookings.get((scene.scheduled_week, scene.scheduled_year), {}).get(talent_id, [])
-                bookings_after = all_weekly_bookings.get(adjacent_weeks['next'], {}).get(talent_id, [])
+                if talent_id in {c.talent_id for c in scene_db.cast}: continue
 
-                all_vp_ids = {vp.id for vp in scene_db.virtual_performers}
-                cast_vp_ids = {c.virtual_performer_id for c in scene_db.cast}
-                uncast_vp_ids = all_vp_ids - cast_vp_ids
+                scene_abs_week = scene.scheduled_absolute_week
+                bookings_before = all_bookings.get(scene_abs_week - 1, {}).get(talent_id, [])
+                bookings_current = all_bookings.get(scene_abs_week, {}).get(talent_id, [])
+                bookings_after = all_bookings.get(scene_abs_week + 1, {}).get(talent_id, [])
+
+                uncast_vp_ids = {vp.id for vp in scene_db.virtual_performers} - {c.virtual_performer_id for c in scene_db.cast}
                 
                 for vp_db in scene_db.virtual_performers:
                     if vp_db.id not in uncast_vp_ids: continue
-                    
-                    # Check for gender and ethnicity eligibility
-                    if vp_db.gender != talent.gender:
-                        continue
-                    
-                    required_ethnicity = vp_db.ethnicity
-                    if required_ethnicity != "Any" and not self.data_manager.is_ethnicity_match(talent.ethnicity, required_ethnicity):
-                        continue
+                    if vp_db.gender != talent_db.gender: continue
+                    if vp_db.ethnicity != "Any" and not self.data_manager.is_ethnicity_match(talent_db.ethnicity, vp_db.ethnicity): continue
                     
                     bloc_db = blocs_by_id.get(scene.bloc_id)
-                    estimated_fatigue = self.shoot_results_calculator.estimate_fatigue_gain(talent, scene, vp_db.id)
+                    estimated_fatigue = self.shoot_results_calculator.estimate_fatigue_gain(talent_db, scene, vp_db.id)
+                    
                     result = self.availability_checker.check(
-                        talent, scene, vp_db.id, bloc_db,
+                        talent_db, scene, vp_db.id, bloc_db,
                         bookings_before, bookings_current, bookings_after,
                         estimated_fatigue
                     )
 
-                    # --- New Orchestration Flow ---
-                    # 1. Ask the Location Oracle for the talent's effective location on the scene's date.
                     talent_effective_location = self.location_service.get_effective_location_at_date(
-                        talent_id, scene.scheduled_week, scene.scheduled_year
+                        talent_id, scene.scheduled_absolute_week
                     )
-                    # 2. Call the pure calculator with all the pre-fetched data.
                     cost_breakdown = self.demand_calculator.calculate_total_demand(
                         talent_dc_full, scene, vp_db.id, talent_effective_location,
-                        current_week, current_year
+                        current_absolute_week
                     )
 
+                    year, week = time_utils.from_absolute(scene.scheduled_absolute_week)
                     role_info = {
                         'scene_id': scene_db.id, 'scene_title': scene_db.title,
                         'bloc_id': scene_db.bloc_id,
-                        'scheduled_week': scene_db.scheduled_week,
-                        'scheduled_year': scene_db.scheduled_year,
+                        'scheduled_week': week, 'scheduled_year': year,
+                        'virtual_performer_id': vp_db.id, 'vp_name': vp_db.name,
+                        'cost': cost_breakdown['total_cost'], 
+                        'is_available': result.is_available, 'refusal_reason': result.reason,
+                        # Add other fields as needed for the UI
+                    }
+                    
+                    available_roles.append(role_info)
+            return available_roles
+    
+    def find_available_roles_for_talent(self, talent_id: int, studio_location: str, current_absolute_week: int) -> List[Dict]:
+        with self.session_factory() as session:
+            talent_db = session.query(TalentDB).options(selectinload(TalentDB.popularity_scores)).get(talent_id)
+            if not talent_db: return []
+            
+            talent_dc_full = self.query_service.get_talent_by_id(talent_id)
+            if not talent_dc_full: return []
+
+            available_roles = []
+            scenes_in_casting = session.query(SceneDB).options(selectinload(SceneDB.virtual_performers), selectinload(SceneDB.cast), selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments)).filter(SceneDB.status == 'casting').all()
+            
+            bloc_ids = {s.bloc_id for s in scenes_in_casting if s.bloc_id}
+            blocs_by_id = {b.id: b for b in session.query(ShootingBlocDB).filter(ShootingBlocDB.id.in_(bloc_ids)).all()} if bloc_ids else {}
+            
+            all_bookings = self._get_bookings_by_absolute_week(session, [talent_id])
+            
+            for scene_db in scenes_in_casting:
+                scene = self.query_service.get_scene_by_id(scene_db.id)
+                if not scene: continue
+                if talent_id in {c.talent_id for c in scene_db.cast}: continue
+
+                scene_abs_week = scene.scheduled_absolute_week
+                bookings_before = all_bookings.get(scene_abs_week - 1, {}).get(talent_id, [])
+                bookings_current = all_bookings.get(scene_abs_week, {}).get(talent_id, [])
+                bookings_after = all_bookings.get(scene_abs_week + 1, {}).get(talent_id, [])
+
+                uncast_vp_ids = {vp.id for vp in scene_db.virtual_performers} - {c.virtual_performer_id for c in scene_db.cast}
+                
+                for vp_db in scene_db.virtual_performers:
+                    if vp_db.id not in uncast_vp_ids: continue
+                    if vp_db.gender != talent_db.gender: continue
+                    if vp_db.ethnicity != "Any" and not self.data_manager.is_ethnicity_match(talent_db.ethnicity, vp_db.ethnicity): continue
+                    
+                    bloc_db = blocs_by_id.get(scene.bloc_id)
+                    estimated_fatigue = self.shoot_results_calculator.estimate_fatigue_gain(talent_db, scene, vp_db.id)
+                    
+                    result = self.availability_checker.check(
+                        talent_db, scene, vp_db.id, bloc_db,
+                        bookings_before, bookings_current, bookings_after,
+                        estimated_fatigue
+                    )
+
+                    talent_effective_location = self.location_service.get_effective_location_at_date(
+                        talent_id, scene.scheduled_absolute_week
+                    )
+                    cost_breakdown = self.demand_calculator.calculate_total_demand(
+                        talent_dc_full, scene, vp_db.id, talent_effective_location,
+                        current_absolute_week
+                    )
+
+                    year, week = time_utils.from_absolute(scene.scheduled_absolute_week)
+                    role_info = {
+                        'scene_id': scene_db.id, 'scene_title': scene_db.title,
+                        'bloc_id': scene_db.bloc_id,
+                        'scheduled_week': week, 'scheduled_year': year,
                         'virtual_performer_id': vp_db.id, 'vp_name': vp_db.name,
                         'cost': cost_breakdown['total_cost'], 
                         'base_cost': cost_breakdown['base_cost'], 
@@ -388,10 +336,9 @@ class TalentQueryService:
                         'tags': self._get_role_tags_for_display(scene, vp_db.id),
                         'is_available': result.is_available, 'refusal_reason': result.reason
                     }
-                    
                     available_roles.append(role_info)
             return available_roles
-    
+
     def get_role_details_for_ui(self, scene_id: int, vp_id: int) -> Dict:
         session = self.session_factory()
         try:

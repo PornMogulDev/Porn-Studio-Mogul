@@ -1,7 +1,7 @@
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtWidgets import (
 QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-QPushButton, QRadioButton, QButtonGroup, QLineEdit,
+QRadioButton, QButtonGroup, QLineEdit,
 QFormLayout, QComboBox, QCheckBox, QDialogButtonBox
 )
 from typing import List, Dict
@@ -76,7 +76,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         main_layout.addWidget(self.role_filter_group)
         
         # --- Go-To List ---
-        go_to_group = CollapsibleGroupBox("Go-To List Filter"); go_to_layout = QVBoxLayout(go_to_group); self.go_to_only_checkbox = QCheckBox("Show only talent in Go-To Lists"); go_to_layout.addWidget(self.go_to_only_checkbox); self.category_combo = QComboBox(); self.category_combo.setEnabled(False); self.category_combo.addItem("Any", -1);
+        go_to_group = CollapsibleGroupBox("Go-To List Filter"); go_to_layout = QVBoxLayout(go_to_group); self.go_to_only_checkbox = QCheckBox("Show only talent in Go-To Lists"); go_to_layout.addWidget(self.go_to_only_checkbox); self.category_combo = QComboBox(); self.category_combo.setEnabled(False); self.category_combo.addItem("Any", -1)
         for category in sorted(self.go_to_categories, key=lambda c: c['name']): self.category_combo.addItem(category['name'], category['id'])
         go_to_layout.addWidget(self.category_combo); main_layout.addWidget(go_to_group)
         
@@ -88,7 +88,7 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
         skills_group = CollapsibleGroupBox("Core Skills"); self.skills_layout = QFormLayout(skills_group); self.perf_range = RangeFilterWidget(); self.perf_range.set_range(0, 100); self.act_range = RangeFilterWidget(); self.act_range.set_range(0, 100); self.stam_range = RangeFilterWidget(); self.stam_range.set_range(0, 100); self.dom_range = RangeFilterWidget(); self.dom_range.set_range(0, 100); self.sub_range = RangeFilterWidget(); self.sub_range.set_range(0, 100); self.skills_layout.addRow("Performance:", self.perf_range); self.skills_layout.addRow("Acting:", self.act_range); self.skills_layout.addRow("Stamina:", self.stam_range); self.skills_layout.addRow("Dominance:", self.dom_range); self.skills_layout.addRow("Submission:", self.sub_range); main_layout.addWidget(skills_group)
         
         # --- Physical ---
-        self.phys_group = CollapsibleGroupBox("Physical Attributes"); self.phys_layout = QFormLayout(self.phys_group); self.dick_range = RangeFilterWidget(); self.phys_layout.addRow("Dick Size", self.dick_range);
+        self.phys_group = CollapsibleGroupBox("Physical Attributes"); self.phys_layout = QFormLayout(self.phys_group); self.dick_range = RangeFilterWidget(); self.phys_layout.addRow("Dick Size", self.dick_range)
         self.update_dick_size_filter_ui() # Initial setup based on current setting
         self.cup_range = CategoricalRangeFilterWidget(self.all_cup_sizes); self.phys_layout.addRow("Cup Size:", self.cup_range); main_layout.addWidget(self.phys_group)
         
@@ -212,9 +212,9 @@ class TalentFilterDialog(GeometryManagerMixin, QDialog):
     def load_filters(self, filters: dict):
         """Loads a given filter dictionary into the UI controls."""
         # Standard controls
-        self.go_to_only_checkbox.setChecked(filters.get('go_to_list_only', False)); index = self.category_combo.findData(filters.get('go_to_category_id', -1));
+        self.go_to_only_checkbox.setChecked(filters.get('go_to_list_only', False)); index = self.category_combo.findData(filters.get('go_to_category_id', -1))
         if index != -1: self.category_combo.setCurrentIndex(index)
-        gender = filters.get('gender', 'Any');
+        gender = filters.get('gender', 'Any')
         if gender == "Female": self.gender_female_radio.setChecked(True)
         elif gender == "Male": self.gender_male_radio.setChecked(True)
         else: self.gender_any_radio.setChecked(True)

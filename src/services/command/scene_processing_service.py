@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict
 from sqlalchemy.orm import selectinload, Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -68,13 +68,9 @@ class SceneProcessingService:
         ).filter(TalentDB.id.in_(talent_ids)).all()
         cast_talents_dc = [t.to_dataclass(Talent) for t in talents_db]
 
-        week_info = session.query(GameInfoDB).filter_by(key='week').one()
-        year_info = session.query(GameInfoDB).filter_by(key='year').one()
-        current_week, current_year = int(week_info.value), int(year_info.value)
-
         # --- 2. DELEGATE TO PURE CALCULATORS ---
         talent_outcomes = self.shoot_results_calculator.calculate_talent_outcomes(
-            scene, cast_talents_dc, current_week, current_year
+            scene, cast_talents_dc
         )
         scene.performer_stamina_costs = {str(o.talent_id): o.stamina_cost for o in talent_outcomes}
 

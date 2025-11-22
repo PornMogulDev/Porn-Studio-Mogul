@@ -1,7 +1,5 @@
 from typing import Tuple, Optional, Union
-from PyQt6.QtGui import QColor
 
-from ui.theme_manager import Theme
 from data.game_state import Talent
 
 INCHES_TO_CM = 2.54

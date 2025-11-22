@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from data.data_manager import DataManager
 from services.models.results import PostProductionResult

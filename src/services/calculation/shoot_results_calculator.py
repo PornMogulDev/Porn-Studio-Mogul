@@ -23,23 +23,13 @@ class ShootResultsCalculator:
         self.role_performance_calculator = role_perf_calculator
 
     def calculate_talent_outcomes(
-        self, scene: Scene, talents: List[Talent], current_week: int, current_year: int
+        self, scene: Scene, talents: List[Talent]
     ) -> List[TalentShootOutcome]:
         """
         Calculates all per-talent effects from shooting a scene.
-
-        Args:
-            scene: The Scene dataclass.
-            talents: A list of participating Talent dataclasses.
-            current_week: The current game week.
-            current_year: The current game year.
-
-        Returns:
-            A list of TalentShootOutcome objects, one for each talent.
         """
         talent_stamina_cost = self._calculate_stamina_costs(scene)
         
-        # Map talent IDs to their virtual performer to get disposition
         vp_id_to_talent_id = {int(k): v for k, v in scene.final_cast.items()}
         talent_id_to_vp = {v: k for k, v in vp_id_to_talent_id.items()}
         vp_map = {vp.id: vp for vp in scene.virtual_performers}
@@ -47,7 +37,7 @@ class ShootResultsCalculator:
         outcomes = []
         for talent in talents:
             stamina_cost = talent_stamina_cost.get(talent.id, 0.0)
-            fatigue_result = self._calculate_fatigue(talent, stamina_cost, current_week, current_year)
+            fatigue_result = self._calculate_fatigue(talent, stamina_cost)
             
             p_gain, a_gain, s_gain = self._calculate_skill_gain(talent, scene.total_runtime_minutes)
             
@@ -78,7 +68,6 @@ class ShootResultsCalculator:
         considering their current fatigue or relying on scene.final_cast.
         This is a "what-if" calculation for a potential role.
         """
-        # For an estimation, we pass the vp_id directly.
         stamina_cost = self._calculate_stamina_cost_for_role(vp_id, scene)
         max_stamina = talent.stamina * self.config.stamina_to_pool_multiplier
         
@@ -91,7 +80,6 @@ class ShootResultsCalculator:
 
     def _calculate_stamina_cost_for_talent(self, talent_id: int, scene: Scene) -> float:
         """Calculates the total stamina cost for a single talent in the scene."""
-        # For a real shoot, determine the talent's vp_id from the final_cast
         vp_id_to_talent_id = {int(k): v for k, v in scene.final_cast.items()}
         talent_id_to_vp_id = {v: k for k, v in vp_id_to_talent_id.items()}
         vp_id = talent_id_to_vp_id.get(talent_id)
@@ -106,7 +94,6 @@ class ShootResultsCalculator:
         stamina_cost = 0.0
         action_segments_for_calc = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
         for segment in action_segments_for_calc:
-            # Skip segments the VP is not in
             if not any(a.virtual_performer_id == vp_id for a in segment.slot_assignments):
                 continue
 
@@ -117,13 +104,12 @@ class ShootResultsCalculator:
     def _calculate_stamina_costs(self, scene: Scene) -> defaultdict[int, float]:
         """Calculates the total stamina cost for each talent in the scene."""
         talent_stamina_cost = defaultdict(float)
-        # final_cast maps vp_id (str) to talent_id (int)
         all_talent_ids = set(scene.final_cast.values())
         for talent_id in all_talent_ids:
             talent_stamina_cost[talent_id] = self._calculate_stamina_cost_for_talent(talent_id, scene)
         return talent_stamina_cost
 
-    def _calculate_fatigue(self, talent: Talent, stamina_cost: float, current_week: int, current_year: int) -> FatigueResult | None:
+    def _calculate_fatigue(self, talent: Talent, stamina_cost: float) -> FatigueResult | None:
         """Calculates fatigue gain if stamina pool is overdrawn."""
         max_stamina = talent.stamina * self.config.stamina_to_pool_multiplier
         if stamina_cost <= max_stamina:

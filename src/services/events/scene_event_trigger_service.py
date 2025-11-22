@@ -3,7 +3,7 @@ import random
 from typing import Dict, List, Optional
 from sqlalchemy.orm import selectinload, Session
 
-from data.game_state import Scene, Talent
+from data.game_state import Scene
 from data.data_manager import DataManager
 from database.db_models import TalentDB, ShootingBlocDB
 from services.events.event_conditions import (

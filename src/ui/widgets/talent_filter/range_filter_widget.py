@@ -1,5 +1,5 @@
 from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QSpinBox, QDoubleSpinBox
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QSpinBox
 from superqt import QRangeSlider
 
 class RangeFilterWidget(QWidget):

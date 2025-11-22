@@ -1,5 +1,5 @@
 from pathlib import Path
-from PyQt6.QtCore import QSize, Qt, QUrl
+from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QSizePolicy
 from PyQt6.QtSvgWidgets import QSvgWidget

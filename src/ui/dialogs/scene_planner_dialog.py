@@ -133,7 +133,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
 
     def _create_overview_group(self):
         container = QWidget(); top_layout = QHBoxLayout(container)
-        details_layout = QHBoxLayout(); self.title_edit = QLineEdit(); 
+        details_layout = QHBoxLayout(); self.title_edit = QLineEdit() 
         self.focus_target_combo = QComboBox()
         details_layout.addWidget(QLabel("Title:")); details_layout.addWidget(self.title_edit, 2)
         details_layout.addWidget(QLabel("Focus Target:")); details_layout.addWidget(self.focus_target_combo, 1)

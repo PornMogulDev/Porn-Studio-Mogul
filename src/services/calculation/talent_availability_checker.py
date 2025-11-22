@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from collections import defaultdict
 from typing import Set, Dict, Optional, Union, List
 
-from data.game_state import Talent, Scene, Contract
+from data.game_state import Talent, Scene
 from database.db_models import TalentDB, ShootingBlocDB
 from data.data_manager import DataManager
 from services.models.configs import HiringConfig
@@ -150,7 +150,7 @@ class TalentAvailabilityChecker:
         for category, tier_name in (bloc_db.production_settings or {}).items():
             tier_data = next((t for t in self.data_manager.production_settings_data.get(category, []) if t['tier_name'] == tier_name), None)
             # Deterministic seed
-            rng = random.Random(f"{talent.id}_{bloc_db.scheduled_week}_{bloc_db.scheduled_year}")
+            rng = random.Random(f"{talent.id}_{bloc_db.scheduled_absolute_week}")
             if tier_data.get('is_low_tier', False) and rng.random() * 100 < pickiness_score:
                 return AvailabilityResult(False, f"Considers the '{tier_name}' {category} setting beneath them.")
         return AvailabilityResult(is_available=True)

@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QDialogButtonBox, 
     QFormLayout, QWidget, QTabWidget, QRadioButton, QButtonGroup, 
-    QPushButton, QStackedWidget
+    QPushButton
 )
 from PyQt6.QtCore import Qt, QSize, QTimer
 from ui.widgets.scene_summary_widget import SceneSummaryWidget

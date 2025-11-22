@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt, QPropertyAnimation, QTimer, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QPropertyAnimation, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QLabel
 
 from core.interfaces import IGameController

@@ -12,7 +12,7 @@ class MarketGroupState:
 @dataclass_json
 @dataclass
 class EmailMessage:
-    id: int; subject: str; body: str; week: int; year: int; is_read: bool = False
+    id: int; subject: str; body: str; absolute_week: int; is_read: bool = False
     
 @dataclass_json
 @dataclass
@@ -21,8 +21,7 @@ class Tour:
     talent_id: int
     status: str
     destination_location: str
-    start_week: int
-    start_year: int
+    start_absolute_week: int
     duration_weeks: int
     sponsor_type: str
     accommodation_tier_id: Optional[str] = None
@@ -30,8 +29,7 @@ class Tour:
 @dataclass_json
 @dataclass
 class Contract:
-    start_week: int
-    start_year: int
+    start_absolute_week: int
     duration_weeks: int
     weekly_salary: int
     compliance: int = 100
@@ -77,8 +75,7 @@ class Talent:  # type: ignore
     concurrency_limits: Dict[str, int] = field(default_factory=dict)
     policy_requirements: Dict[str, List[str]] = field(default_factory=dict)
     is_on_tour: bool = False
-    tour_end_week: int = 0
-    tour_end_year: int = 0
+    tour_end_absolute_week: int = 0
     tours: List[Tour] = field(default_factory=list)
     contract: Optional[Contract] = None
 
@@ -120,7 +117,7 @@ class ScenePerformerContribution:
 @dataclass
 class Scene:
     id: int; title: str; status: str; focus_target: str
-    scheduled_week: int; scheduled_year: int; location: str
+    scheduled_absolute_week: int; location: str
     bloc_id: Optional[int] = None
     dom_sub_dynamic_level: int = 0
     protagonist_vp_ids: List[int] = field(default_factory=list)
@@ -213,8 +210,7 @@ class ShootingBloc:
     id: int
     location: str
     name: str
-    scheduled_week: int
-    scheduled_year: int
+    scheduled_absolute_week: int
     production_settings: Dict[str, str] = field(default_factory=dict) # Key: category, Value: tier_name
     production_cost: int = 0
     scenes: List[Scene] = field(default_factory=list)
@@ -223,7 +219,6 @@ class ShootingBloc:
 @dataclass_json
 @dataclass
 class GameState:
-    week: int = 1
-    year: int = 0
+    absolute_week: int = 1
     money: int = 0
     studio_location: str = ""

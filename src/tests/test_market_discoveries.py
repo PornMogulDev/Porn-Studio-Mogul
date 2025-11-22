@@ -1,12 +1,11 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.orm.attributes import flag_modified  # We'll need this later for the fix
 from collections import defaultdict
 
 # --- Import all necessary components from your project ---
 from database.db_models import Base, MarketGroupStateDB, SceneDB, GameInfoDB
-from data.game_state import Scene, MarketGroupState
+from data.game_state import MarketGroupState
 from services.market_service import MarketService
 from services.command.scene_command_service import SceneCommandService
 

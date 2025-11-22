@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from database.db_models import MarketGroupStateDB
-from data.game_state import MarketGroupState, Scene
+from data.game_state import Scene
 
 logger = logging.getLogger(__name__)
 

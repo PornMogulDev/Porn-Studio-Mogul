@@ -4,13 +4,12 @@ from typing import Optional
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QDialog, QWidget
 
-from data.game_state import Talent, Scene
+from data.game_state import Talent
 from ui.dialogs.email_dialog import EmailDialog
 from ui.presenters.email_presenter import EmailPresenter
 from ui.dialogs.scene_planner_dialog import ScenePlannerDialog
 from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
 from ui.windows.talent_profile_window import TalentProfileWindow
-from ui.tabs.talent_tab import TalentTab
 from ui.presenters.talent_profile_presenter import TalentProfilePresenter
 from ui.dialogs.go_to_list import GoToTalentDialog
 from ui.presenters.go_to_list_presenter import GoToListPresenter
@@ -23,7 +22,6 @@ from ui.dialogs.shot_scene_details_dialog import ShotSceneDetailsDialog
 from ui.presenters.shot_scene_details_presenter import ShotSceneDetailsPresenter
 from ui.dialogs.game_menu_dialog import GameMenuDialog, ExitDialog
 from ui.dialogs.shooting_bloc_dialog import ShootingBlocDialog
-from ui.widgets.main_window.detachable_tab_widget import DetachableTabWidget
 
 logger = logging.getLogger(__name__)
 

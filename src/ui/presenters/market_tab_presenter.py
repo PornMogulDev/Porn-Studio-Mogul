@@ -1,6 +1,6 @@
-from typing import Dict, List, Set
+from typing import Dict, List
 
-from PyQt6.QtCore import QObject, pyqtSlot, QTimer
+from PyQt6.QtCore import QObject, pyqtSlot
 
 from core.interfaces import IGameController
 from ui.view_models import MarketGroupViewModel, SentimentViewModel

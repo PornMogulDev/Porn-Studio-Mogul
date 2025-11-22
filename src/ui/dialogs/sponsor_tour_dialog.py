@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Optional
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLabel, QComboBox,
-    QDialogButtonBox, QWidget, QSpinBox, QGridLayout
+    QDialogButtonBox, QWidget, QSpinBox
 )
 
 logger = logging.getLogger(__name__)

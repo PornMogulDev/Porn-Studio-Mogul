@@ -1,7 +1,7 @@
 import logging
 import dataclasses
 import copy
-from typing import Optional, List, Dict, Set, TYPE_CHECKING
+from typing import Optional, List, Dict, Set
 from PyQt6.QtCore import Qt, pyqtSlot, QObject
 from PyQt6.QtWidgets import QDialog, QMessageBox
 from PyQt6 import sip

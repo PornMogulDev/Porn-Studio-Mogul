@@ -4,6 +4,7 @@ from typing import Optional, Dict, List
 from data.data_manager import DataManager
 from services.models.configs import HiringConfig
 from database.db_models import TalentDB, SceneDB
+from utils import time_utils
 
 logger = logging.getLogger(__name__)
 
@@ -16,19 +17,14 @@ class TourFeasibilityService:
         self.data_manager = data_manager
         self.config = config
 
-    def check_schedule_conflict(self, start_week: int, start_year: int, duration_weeks: int,
-                                bookings_by_week: Dict[int, List[SceneDB]]) -> Optional[str]:
+    def check_schedule_conflict(self, start_absolute_week: int, duration_weeks: int,
+                                bookings_by_absolute_week: Dict[int, List[SceneDB]]) -> Optional[str]:
         """Checks if any week within the proposed tour duration has an existing booking."""
-        current_week, current_year = start_week, start_year
-        for _ in range(duration_weeks):
-            if bookings_by_week.get(current_week):
+        for i in range(duration_weeks):
+            current_absolute_week = start_absolute_week + i
+            if bookings_by_absolute_week.get(current_absolute_week):
+                current_year, current_week = time_utils.from_absolute(current_absolute_week)
                 return f"Has an existing booking in Week {current_week}, {current_year}."
-            
-            # Advance to the next week, handling year wrap-around
-            current_week += 1
-            if current_week > 52:
-                current_week = 1
-                current_year += 1
         return None
 
     def determine_accommodation_tier(self, talent: TalentDB) -> Optional[str]:

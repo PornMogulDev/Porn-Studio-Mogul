@@ -49,8 +49,7 @@ class SceneCommandService:
         
         new_scene_db = SceneDB(
             title="Untitled Scene", status="design", focus_target=focus_target,
-            scheduled_week=bloc_db.scheduled_week, 
-            scheduled_year=bloc_db.scheduled_year, bloc_id=bloc_db.id
+            scheduled_absolute_week=bloc_db.scheduled_absolute_week, bloc_id=bloc_db.id
         )
         
         default_vp_db = VirtualPerformerDB(name="Performer 1", gender="Female", ethnicity="Any")
@@ -66,21 +65,20 @@ class SceneCommandService:
         """Calculates the authoritative cost for creating a shooting bloc."""
         return self.bloc_cost_calculator.calculate_shooting_bloc_cost(num_scenes, settings, policies)
     
-    def create_shooting_bloc(self, week: int, year: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str], studio_location: str) -> bool:
+    def create_shooting_bloc(self, absolute_week: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str], studio_location: str) -> bool:
         """Creates a new ShootingBloc and its associated blank scenes in the database."""
         session = self.session_factory()
         try:
             money_info = session.query(GameInfoDB).filter_by(key='money').one()
             current_money = int(float(money_info.value))
 
-            # --- Authoritative cost calculation AND validation ---
             cost = self.bloc_cost_calculator.calculate_shooting_bloc_cost(num_scenes, settings, policies)
 
             new_money = current_money - cost
             money_info.value = str(new_money)
 
             bloc_db = ShootingBlocDB(
-                name=name, scheduled_week=week, scheduled_year=year, location=studio_location,
+                name=name, scheduled_absolute_week=absolute_week, location=studio_location,
                 production_settings=settings, production_cost=cost, on_set_policies=policies
             )
             session.add(bloc_db)
@@ -102,13 +100,13 @@ class SceneCommandService:
         finally:
             session.close()
 
-    def create_blank_scene(self, week: int, year: int) -> int:
+    def create_blank_scene(self, absolute_week: int) -> int:
         session = self.session_factory()
         try:
             focus_target = self.data_manager.market_data.get('viewer_groups', [{}])[0].get('name', 'N/A')
             
             new_scene_db = SceneDB(title="Untitled Scene", status="design", focus_target=focus_target,
-                                   scheduled_week=week, scheduled_year=year)
+                                   scheduled_absolute_week=absolute_week)
             
             default_vp_db = VirtualPerformerDB(name="Performer 1", gender="Female", ethnicity="Any")
             new_scene_db.virtual_performers.append(default_vp_db)
@@ -161,7 +159,6 @@ class SceneCommandService:
     def update_scene_full(self, scene_data: Scene) -> Dict:
         """
         Updates an entire scene record from a Scene dataclass.
-        This is a more robust way for the UI to commit all its changes at once.
         """
         session = self.session_factory()
         try:
@@ -200,7 +197,7 @@ class SceneCommandService:
                 if vp_db_object.id:
                     vp_id_map[temp_id] = vp_db_object.id
 
-            for key in ['title', 'status', 'focus_target', 'total_runtime_minutes', 'scheduled_week', 'scheduled_year', 'global_tags', 'is_locked', 'dom_sub_dynamic_level']:
+            for key in ['title', 'status', 'focus_target', 'total_runtime_minutes', 'scheduled_absolute_week', 'global_tags', 'is_locked', 'dom_sub_dynamic_level']:
                  if hasattr(scene_data, key):
                      setattr(scene_db, key, getattr(scene_data, key))
 
@@ -317,14 +314,11 @@ class SceneCommandService:
             revenue = revenue_result.total_revenue
             self.talent_command_service.update_popularity_from_scene(session, scene_id)  
     
-            # --- Delegate Market Updates to MarketService ---
-            # 1. Process discoveries
             discoveries = self.market_service.process_discoveries_from_release(
                 session, scene, revenue_result.viewer_group_interest
             )
             market_did_change = bool(discoveries)
             
-            # 2. Update saturation
             self.market_service.update_saturation_from_release(
                 session, revenue_result.market_saturation_updates
             )
@@ -338,9 +332,10 @@ class SceneCommandService:
             new_money = int(float(money_info.value)) + revenue
             money_info.value = str(new_money)
 
-            # Create discovery email within this transaction
             if discoveries:
-                self.email_service.create_market_discovery_email(session, scene.title, discoveries)
+                abs_week_info = session.query(GameInfoDB).filter_by(key='absolute_week').one()
+                current_absolute_week = int(abs_week_info.value)
+                self.email_service.create_market_discovery_email(session, scene.title, discoveries, current_absolute_week)
 
             session.commit()
             if discoveries:
@@ -361,12 +356,7 @@ class SceneCommandService:
     def shoot_scene(self, session: Session, scene_db: SceneDB) -> bool:
         """
         Begins shooting a scene. This is the entry point from TimeService.
-        It checks for an interactive event. If one occurs, it signals the UI and
-        returns True to pause the time advancement. Otherwise, it completes
-        the shoot and returns False.
-        This method operates within the transaction managed by TimeService.
         """
-        # Ensure the dataclass is fully hydrated for the event check
         hydrated_scene_db = session.query(SceneDB).options(
             selectinload(SceneDB.virtual_performers),
             selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments),
@@ -377,17 +367,15 @@ class SceneCommandService:
         event_payload = self.scene_event_trigger_service.check_for_shoot_event(session, scene_dc)
 
         if event_payload:
-            # An event occurred. Emit signal and stop. Controller will resume.
             self.signals.interactive_event_triggered.emit(
                 event_payload['event_data'],
                 scene_dc.id,
                 event_payload['talent_id']
             )
-            return True # Indicates that an event has paused the process
+            return True 
         else:
-            # No event. Proceed with the full shooting process.
             self._continue_shoot_scene(session, scene_dc.id, {})
-            return False # Indicates the process completed normally
+            return False
         
     def continue_shoot_scene_after_event(self, scene_id: int, shoot_modifiers: Dict) -> bool:
         """Public method to continue shooting after event resolution."""
@@ -405,9 +393,7 @@ class SceneCommandService:
 
     def _continue_shoot_scene(self, session, scene_id: int, shoot_modifiers: Dict):
         """
-        The second part of the shooting process, either called directly if
-        no event occurs, or by the controller after an event is resolved.
-        This method operates within a transaction managed by its caller.
+        The second part of the shooting process.
         """
         scene_db = session.query(SceneDB).options(
             selectinload(SceneDB.cast)
@@ -417,20 +403,13 @@ class SceneCommandService:
             logger.error(f"[ERROR] _continue_shoot_scene: Scene ID {scene_id} not found.")
             return
 
-        # Step 1: Prepare for the shoot (deduct costs, discover chemistry)
         self.scene_processing_service.prepare_for_shoot_calculation(session, scene_db)
-
-        # Step 2: Run all pure calculations and get a clean result object
         shoot_result = self.scene_processing_service.run_shoot_calculations(session, scene_db, shoot_modifiers)
-
-        # Step 3: Apply the calculation results to the database
         self.scene_processing_service.apply_shoot_calculation_results(session, scene_db, shoot_result)
 
     def process_weekly_post_production(self, session: Session) -> List[SceneDB]:
         """
         Updates weeks_remaining for scenes in editing and finalizes them if ready.
-        Returns a list of scenes that finished editing this week.
-        This method operates within the transaction managed by TimeService.
         """
         edited_scenes = []
         editing_scenes_db = session.query(SceneDB).filter_by(status='in_editing').all()

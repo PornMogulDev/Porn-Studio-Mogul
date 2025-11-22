@@ -7,6 +7,7 @@ from data.game_state import Talent, Scene, ShootingBloc, MarketGroupState, Email
 from database.db_models import (TalentDB, TalentChemistryDB, SceneDB, ShootingBlocDB, 
                                 SceneCastDB, ActionSegmentDB, GoToListAssignmentDB, GameInfoDB,
                                 GoToListCategoryDB, MarketGroupStateDB, EmailMessageDB )
+from utils import time_utils
 
 class GameQueryService:
     """
@@ -202,14 +203,19 @@ class GameQueryService:
     
     # --- Scene & Bloc Query Methods ---
 
-    def get_blocs_for_schedule_view(self, year: int) -> List[ShootingBloc]:
+    def get_blocs_for_schedule_view(self, target_year: int) -> List[ShootingBloc]:
         """Fetches shooting blocs and their scenes for the schedule tab for a given year."""
         with self.session_factory() as session:
+            # Calculate the absolute week range for the target year
+            start_absolute_week = time_utils.to_absolute(target_year, 1)
+            end_absolute_week = time_utils.to_absolute(target_year, 52)
+
             blocs_db = session.query(ShootingBlocDB).filter(
-                ShootingBlocDB.scheduled_year == year
+                ShootingBlocDB.scheduled_absolute_week >= start_absolute_week,
+                ShootingBlocDB.scheduled_absolute_week <= end_absolute_week
             ).options(
                 selectinload(ShootingBlocDB.scenes)
-            ).order_by(ShootingBlocDB.scheduled_week).all()
+            ).order_by(ShootingBlocDB.scheduled_absolute_week).all()
             
             return [b.to_dataclass(ShootingBloc) for b in blocs_db]
 
@@ -289,7 +295,7 @@ class GameQueryService:
                 .join(SceneCastDB)\
                 .filter(SceneCastDB.talent_id == talent_id)\
                 .filter(SceneDB.status.in_(['shot', 'in_editing', 'ready_to_release', 'released']))\
-                .order_by(SceneDB.scheduled_year.desc(), SceneDB.scheduled_week.desc())\
+                .order_by(SceneDB.scheduled_absolute_week.desc())\
                 .all()
         
             scenes_dc = []
@@ -299,15 +305,14 @@ class GameQueryService:
                     scenes_dc.append(scene)
             return scenes_dc
     
-    def get_incomplete_scenes_for_week(self, week: int, year: int) -> List[Scene]:
+    def get_incomplete_scenes_for_week(self, target_absolute_week: int) -> List[Scene]:
         """Finds scenes scheduled for a given week that are not fully cast or are still in design."""
         with self.session_factory() as session:
             studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar() or ""
             scenes_db = session.query(SceneDB).filter(
                 SceneDB.status.in_(['casting', 'design']),
-                SceneDB.scheduled_week == week,
-                SceneDB.scheduled_year == year
-            ).options(selectinload(SceneDB.cast), joinedload(SceneDB.bloc)).all()
+                SceneDB.scheduled_absolute_week == target_absolute_week
+            ).options(selectinload(SceneDB.cast), joinedload(SceneDB.bloc)).order_by(SceneDB.scheduled_absolute_week, SceneDB.title).all()
 
             scenes_dc = []
             for s in scenes_db:
@@ -384,8 +389,7 @@ class GameQueryService:
         """Fetches all emails, sorted by most recent."""
         with self.session_factory() as session:
             emails_db = session.query(EmailMessageDB).order_by(
-                EmailMessageDB.year.desc(), 
-                EmailMessageDB.week.desc(), 
+                EmailMessageDB.absolute_week.desc(), 
                 EmailMessageDB.id.desc()
             ).all()
             return [e.to_dataclass(EmailMessage) for e in emails_db]

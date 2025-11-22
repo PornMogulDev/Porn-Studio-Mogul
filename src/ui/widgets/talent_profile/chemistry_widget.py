@@ -2,7 +2,6 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QTableWidget,
     QTableWidgetItem, QAbstractItemView
 )
-from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, pyqtSignal
 
 from utils.formatters import get_chemistry_status

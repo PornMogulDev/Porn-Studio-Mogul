@@ -33,13 +33,12 @@ class ContractCommandService:
                     logger.warning(f"Talent {talent_id} already has a contract.")
                     return False
                 
-                week = int(session.query(GameInfoDB).filter_by(key='week').one().value)
-                year = int(session.query(GameInfoDB).filter_by(key='year').one().value)
+                abs_week_info = session.query(GameInfoDB).filter_by(key='absolute_week').one()
+                current_absolute_week = int(abs_week_info.value)
 
                 contract = ContractDB(
                     talent_id=talent_id,
-                    start_week=week,
-                    start_year=year,
+                    start_absolute_week=current_absolute_week,
                     duration_weeks=terms['duration_weeks'],
                     weekly_salary=calculated_salary,
                     compliance=self.config.initial_compliance,
@@ -52,9 +51,6 @@ class ContractCommandService:
                 
                 session.add(contract)
                 
-                # Deduct first week's salary immediately? Or wait for weekly processing?
-                # Usually signing bonus or first week is paid. Let's pay first week.
-                # Create a signing bonus field later that affects initial compliance.
                 money_info = session.query(GameInfoDB).filter_by(key='money').one()
                 current_money = int(float(money_info.value))
                 new_money = current_money - calculated_salary
@@ -64,18 +60,17 @@ class ContractCommandService:
                 
                 self.signals.notification_posted.emit(f"Signed exclusive contract with {talent_db.alias}!")
                 self.signals.money_changed.emit(new_money)
-                self.signals.roster_changed.emit() # UI needs to update hiring widget
+                self.signals.roster_changed.emit()
                 return True
             except Exception as e:
                 logger.error(f"Error signing contract for talent {talent_id}: {e}", exc_info=True)
                 session.rollback()
                 return False
 
-    def process_weekly_contracts(self, session: Session) -> int:
+    def process_weekly_contracts(self, session: Session, current_absolute_week: int):
         """
         Deducts salaries, updates duration, and handles expirations/cancellations.
         Called by TimeService within the main weekly transaction.
-        Returns total salary cost paid.
         """
         active_contracts = session.query(ContractDB).all()
         total_cost = 0
@@ -86,7 +81,7 @@ class ContractCommandService:
             # 1. Pay Salary
             total_cost += contract.weekly_salary
             
-            # 2. Decrement Duration
+            # 2. Decrement Duration (simplistic, could be based on end_date)
             contract.duration_weeks -= 1
             
             # 3. Check Expiration
@@ -97,7 +92,14 @@ class ContractCommandService:
             # 4. Check Compliance (Breakup threshold)
             if contract.compliance <= 0:
                 breakups.append(contract)
-                
+        
+        if total_cost > 0:
+            money_info = session.query(GameInfoDB).filter_by(key='money').one()
+            current_money = int(float(money_info.value))
+            new_money = current_money - total_cost
+            money_info.value = str(new_money)
+            self.signals.money_changed.emit(new_money)
+            
         # Handle Expirations
         for contract in expirations:
             talent_name = contract.talent.alias
@@ -109,8 +111,6 @@ class ContractCommandService:
             talent_name = contract.talent.alias
             session.delete(contract)
             self.signals.notification_posted.emit(f"{talent_name} terminated their contract due to poor compliance!")
-            
-        return total_cost
 
     def update_compliance(self, session: Session, talent_id: int, role_preference_score: float):
         """

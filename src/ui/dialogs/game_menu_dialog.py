@@ -4,8 +4,6 @@ from PyQt6.QtWidgets import (
 )
 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
-from ui.dialogs.save_load_ui import SaveLoadDialog
-from ui.dialogs.settings_dialog import SettingsDialog
 
 class GameMenuDialog(GeometryManagerMixin, QDialog):
     """A dialog that serves as the in-game menu."""

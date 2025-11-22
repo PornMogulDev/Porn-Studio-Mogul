@@ -1,4 +1,5 @@
-import os, logging
+import os
+import logging
 from PyQt6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QMessageBox
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtCore import pyqtSlot, QSize

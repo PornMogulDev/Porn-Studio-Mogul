@@ -2,7 +2,6 @@ import logging
 from typing import List, Dict
 
 from core.game_signals import GameSignals
-from data.game_state import GameState, EmailMessage
 from database.db_models import EmailMessageDB
 
 logger = logging.getLogger(__name__)
@@ -10,18 +9,16 @@ logger = logging.getLogger(__name__)
 class EmailService:
     """Manages all database operations related to emails."""
 
-    def __init__(self, session_factory, signals: GameSignals, game_state: GameState):
+    def __init__(self, session_factory, signals: GameSignals):
         self.session_factory = session_factory
         self.signals = signals
-        self.game_state = game_state
 
-    def _create_email(self, session, subject: str, body: str):
+    def _create_email(self, session, subject: str, body: str, absolute_week: int):
         """Internal helper that adds an email to the session without committing."""
         new_email = EmailMessageDB(
             subject=subject,
             body=body,
-            week=self.game_state.week,
-            year=self.game_state.year,
+            absolute_week=absolute_week,
             is_read=False
         )
         session.add(new_email)
@@ -58,7 +55,7 @@ class EmailService:
         finally:
             session.close()
 
-    def create_market_discovery_email(self, session, scene_title: str, discoveries: Dict[str, List[str]]):
+    def create_market_discovery_email(self, session, scene_title: str, discoveries: Dict[str, List[str]], current_absolute_week: int):
         """
         Creates a formatted email for market discoveries within an existing transaction.
         This is an Orchestrated Method. The caller is responsible for the commit.
@@ -74,4 +71,4 @@ class EmailService:
             body += f"<ul>{tag_list}</ul>"
         body += "<p>This information has been added to our market intelligence reports.</p>"
 
-        self._create_email(session, subject, body)
+        self._create_email(session, subject, body, current_absolute_week)

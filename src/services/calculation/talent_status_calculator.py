@@ -5,6 +5,7 @@ from data.game_state import Talent, Tour, Scene
 from services.models.results import WeeklyStatusResult
 from services.models.configs import HiringConfig, TourConfig
 from ui.view_models import ScheduleStatus
+from utils import time_utils
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ class TalentStatusCalculator:
         self.hiring_config = hiring_config
         self.tour_config = tour_config
 
-    def calculate_week_status(self, talent: Talent, week_num: int, current_year: int,
+    def calculate_week_status(self, talent: Talent, absolute_week: int,
                               bookings: List[Scene], tour: Optional[Tour]) -> WeeklyStatusResult:
         
         booked_scene_titles = []
@@ -30,12 +31,11 @@ class TalentStatusCalculator:
             status_enum = ScheduleStatus.ON_TOUR
         
         # 2. Check Cooldown Status (Only if not currently on tour)
-        if not tour and talent.tour_end_year > 0:
-            abs_current = current_year * 52 + week_num
-            abs_end = talent.tour_end_year * 52 + talent.tour_end_week
+        if not tour and talent.tour_end_absolute_week > 0:
+            end_abs = talent.tour_end_absolute_week
             
             # Check if within cooldown window
-            if abs_end < abs_current <= (abs_end + self.tour_config.cooldown_weeks):
+            if end_abs < absolute_week <= (end_abs + self.tour_config.cooldown_weeks):
                 is_on_cooldown = True
 
         # 3. Check Fatigue (Resting)
@@ -47,23 +47,20 @@ class TalentStatusCalculator:
         if bookings:
             booked_scene_titles = [s.title for s in bookings]
             
-            # Calculate Max Scenes based on Ambition (Logic moved from Presenter)
-            # Logic: Base limit + modifier per ambition level above median
             ambition_bonus = 0
             if talent.ambition > self.hiring_config.median_ambition:
-                 # e.g. (Ambition 8 - Median 5) * 0.1 modifier -> +0.3 -> round -> 0 or 1 extra scene
                  bonus_float = (talent.ambition - self.hiring_config.median_ambition) * self.hiring_config.max_scenes_per_week_ambition_modifier
-                 ambition_bonus = int(bonus_float) # Simple truncation or logic as desired
+                 ambition_bonus = int(bonus_float)
 
             max_scenes = self.hiring_config.max_scenes_per_week_base + ambition_bonus
             
             if len(bookings) >= max_scenes:
                 status_enum = ScheduleStatus.UNAVAILABLE
             else:
-                # If not fully booked and not unavailable due to other reasons
                 if status_enum == ScheduleStatus.AVAILABLE:
                     status_enum = ScheduleStatus.PARTIALLY_BOOKED
 
+        _year, week_num = time_utils.from_absolute(absolute_week)
         return WeeklyStatusResult(
             week_number=week_num,
             status_enum=status_enum,

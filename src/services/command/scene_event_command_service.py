@@ -1,7 +1,7 @@
 import logging
 import random
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 from sqlalchemy.orm import joinedload, selectinload, Session
 
 from data.data_manager import DataManager

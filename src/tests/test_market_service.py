@@ -1,7 +1,6 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from types import SimpleNamespace
-import json
 
 from services.calculation.market_group_resolver import MarketGroupResolver
 from services.market_service import MarketService
