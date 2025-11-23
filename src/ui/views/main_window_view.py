@@ -8,6 +8,8 @@ from ui.widgets.main_window.detachable_tab_widget import DetachableTabWidget
 from ui.widgets.main_window.top_bar_widget import TopBarWidget
 from ui.widgets.main_window.bottom_bar_widget import BottomBarWidget
 from core.notifications_manager import NotificationManager
+from ui.theme_manager import ThemeManager
+from data.settings_manager import SettingsManager
 
 class MainWindowView(QWidget):
     """
@@ -15,18 +17,16 @@ class MainWindowView(QWidget):
     It holds the Top Bar, the Tab Widget, and the Bottom Bar.
     It knows NOTHING about the GameController.
     """
-    def __init__(self, settings_manager, parent=None):
+    def __init__(self, settings_manager: SettingsManager, theme_manager: ThemeManager, parent=None):
         super().__init__(parent)
-        # We need settings_manager for the DetachableTabWidget's internal logic 
-        # (restoring detached windows), but that's a UI-specific dependency.
         self.settings_manager = settings_manager
+        self.theme_manager = theme_manager
         
         self.setup_ui()
         self._create_actions()
         
-        # Initialize Notification Manager (View-side display logic)
-        # Passing None for controller as we will drive it manually via Presenter
-        self.notification_manager = NotificationManager(self, None)
+        # Initialize Notification Manager with UI-specific dependencies
+        self.notification_manager = NotificationManager(self, self.settings_manager, self.theme_manager)
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
@@ -66,8 +66,8 @@ class MainWindowView(QWidget):
     def add_tab(self, widget: QWidget, title: str):
         self.tabs.addTab(widget, title)
 
-    def show_notification(self, message: str, notification_type: str = "info"):
-        self.notification_manager.show_notification(message, notification_type)
+    def show_notification(self, message: str):
+        self.notification_manager.show_notification(message)
 
     def show_game_over_dialog(self, title: str, message: str):
         # We disable input on the main window during the dialog

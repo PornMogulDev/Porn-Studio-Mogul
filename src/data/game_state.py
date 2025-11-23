@@ -91,6 +91,7 @@ class VirtualPerformer:
 @dataclass_json
 @dataclass
 class SlotAssignment:
+    # TODO: Store the role explicitly for the places that need it (Scene Planner, RolePerformanceCalculator)
     slot_id: str
     virtual_performer_id: int
     id: Optional[int] = None

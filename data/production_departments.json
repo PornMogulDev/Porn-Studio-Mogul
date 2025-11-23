@@ -1,0 +1,83 @@
+[
+  {
+    "id": "director",
+    "name": "Director",
+    "type": "crew",
+    "base_weight": 0.20,
+    "curve": "logarithmic",
+    "min_budget": 500,
+    "description": "Sets the skill cap for the scene. A bad director wastes good resources."
+  },
+  {
+    "id": "camera",
+    "name": "Camera & Lighting",
+    "type": "crew",
+    "base_weight": 0.20,
+    "curve": "step",
+    "min_budget": 200,
+    "description": "Determines visual execution quality. High budgets unlock better rigs."
+  },
+  {
+    "id": "sound",
+    "name": "Sound Engineering",
+    "type": "crew",
+    "base_weight": 0.10,
+    "curve": "linear",
+    "min_budget": 100,
+    "description": "Audio clarity. Vital for dialogue-heavy scenes."
+  },
+  {
+    "id": "wardrobe",
+    "name": "Wardrobe",
+    "type": "resource",
+    "base_weight": 0.10,
+    "curve": "linear",
+    "min_budget": 50,
+    "description": "Costume quality."
+  },
+  {
+    "id": "makeup",
+    "name": "Makeup & Hair",
+    "type": "resource",
+    "base_weight": 0.10,
+    "curve": "linear",
+    "min_budget": 50,
+    "description": "Enhances talent appearance scores (This is not true for now)."
+  },
+  {
+    "id": "set_design",
+    "name": "Set Design",
+    "type": "resource",
+    "base_weight": 0.15,
+    "curve": "linear",
+    "min_budget": 100,
+    "description": "Background visuals. Contextual synergy with Location."
+  },
+  {
+    "id": "catering",
+    "name": "Catering",
+    "type": "resource",
+    "base_weight": 0.05,
+    "curve": "step",
+    "min_budget": 50,
+    "description": "Maintains morale and stamina."
+  },
+  {
+    "id": "security",
+    "name": "Security",
+    "type": "resource",
+    "base_weight": 0.05,
+    "curve": "step",
+    "min_budget": 0,
+    "description": "Prevents interruptions and leaks."
+  },
+  {
+    "id": "fluffers",
+    "name": "Fluffers / Support",
+    "type": "crew",
+    "base_weight": 0.05,
+    "curve": "linear",
+    "min_budget": 0,
+    "description": "Maintains arousal and momentum on set."
+  }
+]

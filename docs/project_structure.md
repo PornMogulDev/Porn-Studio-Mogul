@@ -22,11 +22,12 @@ src/
     builders/
     calculation/
       bloc_cost_calculator.py      # Calculates cost of shooting blocs
+      bulk_booking_validator.py    # Gatekeeper for hiring in bulk
       market_group_resolver.py     # Resolves market group inheritance
       post_production_calculator.py # Applies post-production quality effects
       revenue_calculator.py        # Calculates final scene revenue
       role_performance_calculator.py # Calculates role-based performance modifiers
-      scene_quality_calculator.py  # Calculates pre-production scene quality
+      scene_quality_calculator.py  # Final arbiter for scene quality
       shoot_results_calculator.py  # Calculates talent outcomes after shoot
       tag_validation_checker.py    # Validates and discovers physical tags
       talent_affinity_calculator.py # Recalculates talent age affinities

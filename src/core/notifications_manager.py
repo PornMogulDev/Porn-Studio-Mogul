@@ -1,25 +1,31 @@
 from PyQt6.QtCore import Qt, QPropertyAnimation, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QLabel
 
-from core.interfaces import IGameController
-from ui.theme_manager import Theme
+from ui.theme_manager import Theme, ThemeManager
+from data.settings_manager import SettingsManager
 
 class NotificationManager:
-    def __init__(self, parent, controller: IGameController):
+    def __init__(self, parent, settings_manager: SettingsManager, theme_manager: ThemeManager):
         self.parent = parent
-        self.controller = controller
+        self.settings_manager = settings_manager
+        self.theme_manager = theme_manager
         self.notifications = []
         self.bottom_margin = 20
         self.spacing = 10
         
-        
     def show_notification(self, text):
-        # Fetch current theme and font settings from the controller
-        theme = self.controller.get_current_theme()
-        font_family = self.controller.settings_manager.font_family
-        font_size = self.controller.settings_manager.font_size
+        # 1. Get Theme Name from Settings
+        # Default to 'light' to match SettingsManager defaults, or 'dark' if preferred
+        theme_name = self.settings_manager.get_setting("theme", "light")
         
-        # Create the notification with the theme data
+        # 2. Get Theme Object from ThemeManager
+        theme = self.theme_manager.get_theme(theme_name)
+        
+        # 3. Get Fonts from Settings
+        font_family = self.settings_manager.font_family
+        font_size = self.settings_manager.font_size
+        
+        # Create the notification with the visual data
         notification = FadingNotification(text, self.parent, theme, font_family, font_size)
         
         # Calculate position (bottom left with stacking)
@@ -54,6 +60,7 @@ class FadingNotification(QLabel):
         # Use theme colors if available, otherwise use sensible defaults.
         bg_color = theme.notification_background if theme else "rgba(51, 51, 51, 220)"
         text_color = theme.notification_text if theme else "white"
+        
         # Use a slightly smaller font for notifications for a cleaner look
         notification_font_size = max(8, font_size - 2)
 
@@ -62,12 +69,10 @@ class FadingNotification(QLabel):
             color: {text_color};
             padding: 8px;
             border-radius: 4px;
-            font-size: 12px;
             font-family: "{font_family}";
             font-size: {notification_font_size}pt;
          """)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # Remove the problematic window flags - just use the parent
         self.setParent(parent)
         self.adjustSize()
         
@@ -84,4 +89,4 @@ class FadingNotification(QLabel):
     
     def close_notification(self):
         self.closed.emit()
-        self.deleteLater()  # Use deleteLater instead of close() for proper cleanup
+        self.deleteLater()

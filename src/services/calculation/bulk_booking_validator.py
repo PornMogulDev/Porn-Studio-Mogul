@@ -18,6 +18,16 @@ class BulkBookingValidator:
     def __init__(self, current_absolute_week: int,
                  talent: Talent, existing_bookings: List[Scene],
                  hiring_config: HiringConfig, shoot_calculator: ShootResultsCalculator):
+        """
+        Initializes the validator with the talent's current state and bookings.
+
+        Args:
+            current_absolute_week: The game's current absolute week for fatigue calculations.
+            talent: The talent dataclass for whom the bookings are being validated.
+            existing_bookings: A list of Scene dataclasses the talent is already booked for.
+            hiring_config: Configuration for hiring rules (e.g., fatigue limits).
+            shoot_calculator: Service to estimate fatigue gain.
+        """
         self.talent = talent
         self.config = hiring_config
         self.shoot_calculator = shoot_calculator
@@ -30,6 +40,19 @@ class BulkBookingValidator:
             self.weekly_counts[scene.scheduled_absolute_week] += 1
             
     def try_book_role(self, scene: Scene, vp_id: int) -> ValidationResult:
+        """
+        Attempts to validate a single role booking.
+        
+        This method is stateful. If validation succeeds, it internally updates
+        its weekly booking count and projected fatigue for subsequent calls.
+
+        Args:
+            scene: The Scene dataclass the talent would be booked in.
+            vp_id: The virtual performer ID within the scene.
+
+        Returns:
+            A ValidationResult indicating success or failure with a reason.
+        """
         absolute_week_key = scene.scheduled_absolute_week
         
         contract = getattr(self.talent, 'contract', None)

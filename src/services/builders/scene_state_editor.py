@@ -10,6 +10,13 @@ from services.calculation.tag_validation_checker import TagValidationChecker
 logger = logging.getLogger(__name__)
 
 class SceneStateEditor:
+    """
+    Service class responsible for managing the state of a Scene during the editing process.
+    
+    It maintains a working copy of the scene to allow for transactional edits (save/cancel),
+    handles complex logic like updating performer counts (adding/removing virtual performers),
+    managing tags (thematic, physical), and validating scene status transitions (e.g., to Casting).
+    """
     def __init__(self, scene_to_edit: Scene, data_manager: DataManager):
         self.working_scene = copy.deepcopy(scene_to_edit)
         self.original_scene = scene_to_edit
@@ -26,18 +33,29 @@ class SceneStateEditor:
         self.original_scene = new_scene
 
     def set_title(self, title: str):
+        """Updates the title of the working scene."""
         self.working_scene.title = title
 
     def set_focus_target(self, target: str):
+        """Updates the focus target (viewer group) of the working scene."""
         self.working_scene.focus_target = target
 
     def set_total_runtime(self, minutes: int):
+        """Updates the total runtime of the scene in minutes."""
         self.working_scene.total_runtime_minutes = minutes
 
     def set_ds_level(self, level: int):
+        """Updates the Dom/Sub dynamic level of the scene."""
         self.working_scene.dom_sub_dynamic_level = level
 
     def update_performer_count(self, new_count: int):
+        """
+        Updates the number of virtual performers in the scene.
+        
+        If increasing, adds new VirtualPerformer objects with temporary negative IDs.
+        If decreasing, removes performers from the end of the list and cleans up 
+        any associated tag assignments or slot assignments for the removed IDs.
+        """
         current_count = len(self.working_scene.virtual_performers)
         if new_count == current_count:
             return
@@ -64,6 +82,10 @@ class SceneStateEditor:
                     segment.slot_assignments = [sa for sa in segment.slot_assignments if sa.virtual_performer_id not in removed_ids]
 
     def update_composition(self, performers_data: List[Dict]):
+        """
+        Updates the attributes (name, gender, ethnicity, disposition) of the virtual performers
+        based on data from the UI editors.
+        """
         for i, data in enumerate(performers_data):
             if i < len(self.working_scene.virtual_performers):
                 vp = self.working_scene.virtual_performers[i]
@@ -73,6 +95,12 @@ class SceneStateEditor:
                 vp.disposition = data['disposition']
 
     def add_style_tag(self, tag_name: str):
+        """
+        Adds a style tag (Thematic or Physical) to the scene.
+        
+        - Thematic tags are added to `global_tags`.
+        - Physical tags are added to `assigned_tags` with an empty list of assignments initially.
+        """
         tag_data = self.data_manager.tag_definitions.get(tag_name)
         if not tag_data: return
 
@@ -91,17 +119,24 @@ class SceneStateEditor:
             self.working_scene.assigned_tags.setdefault(tag_name, [])
 
     def remove_style_tag(self, tag_name: str):
+        """Removes a style tag from the scene."""
         tag_data = self.data_manager.tag_definitions.get(tag_name)
         if not tag_data: return
         if tag_data.get('type') == 'Thematic' and tag_name in self.working_scene.global_tags: self.working_scene.global_tags.remove(tag_name)
         elif tag_data.get('type') == 'Physical' and tag_name in self.working_scene.assigned_tags: del self.working_scene.assigned_tags[tag_name]
 
     def update_style_tag_assignment(self, tag_name: str, vp_id: int, is_assigned: bool):
+        """Updates the assignment of a specific performer to a physical tag."""
         current_list = self.working_scene.assigned_tags.setdefault(tag_name, [])
         if is_assigned and vp_id not in current_list: current_list.append(vp_id)
         elif not is_assigned and vp_id in current_list: current_list.remove(vp_id)
 
     def add_action_segment(self, tag_name: str) -> Optional[int]:
+        """
+        Adds a new action segment to the scene based on the given tag name.
+        Initializes parameters based on the tag definition.
+        Returns the ID of the new segment.
+        """
         tag_def = self.data_manager.tag_definitions.get(tag_name)
         if not tag_def: return None
         params = {}
@@ -122,17 +157,24 @@ class SceneStateEditor:
         for segment_id in segment_ids: self.remove_action_segment(segment_id)
 
     def remove_action_segment(self, segment_id: int):
+        """Removes an action segment by its ID."""
         self.working_scene.action_segments = [s for s in self.working_scene.action_segments if s.id != segment_id]
 
     def update_action_segment_runtime(self, segment_id: int, percentage: int):
+        """Updates the runtime percentage of a specific action segment."""
         for s in self.working_scene.action_segments:
             if s.id == segment_id: s.runtime_percentage = percentage; break
 
     def update_action_segment_parameter(self, segment_id: int, role: str, value: int):
+        """Updates a parameter (e.g., count of a role) for a specific action segment."""
         for s in self.working_scene.action_segments:
             if s.id == segment_id: s.parameters[role] = value; break
 
     def update_slot_assignment(self, segment_id: int, slot_id: str, vp_id: Optional[int]):
+        """
+        Updates the assignment of a performer to a specific slot in an action segment.
+        Removes any existing assignment for that slot before adding the new one.
+        """
         for s in self.working_scene.action_segments:
             if s.id == segment_id:
                 s.slot_assignments = [sa for sa in s.slot_assignments if sa.slot_id != slot_id]
@@ -150,6 +192,13 @@ class SceneStateEditor:
         self.working_scene.protagonist_vp_ids = sorted(list(current_protagonists))
 
     def validate_and_set_status(self, new_status: str) -> Tuple[bool, str]:
+        """
+        Attempts to transition the scene to a new status (e.g., 'Casting', 'Scheduled').
+        Performs validation checks appropriate for the target status.
+        
+        Returns:
+            (success, error_message)
+        """
         new_status_lower = new_status.lower()
         
         if new_status_lower == 'casting':

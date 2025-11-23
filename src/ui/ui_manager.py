@@ -89,7 +89,13 @@ class UIManager:
         Creates the Main Window View and Presenter, injects Tabs, and returns the View.
         """
         # 1. Create the View (Dumb Shell)
-        view = MainWindowView(self.settings_manager, parent=None) # Main window has no parent
+        # Inject theme_manager so the view can handle visual components (like Notifications)
+        # The controller holds the theme_manager instance created in ApplicationWindow
+        view = MainWindowView(
+            self.settings_manager, 
+            self.controller.theme_manager, 
+            parent=None
+        ) 
         
         # 2. Create the Presenter (Smart Logic)
         # Parent the presenter to the view so it dies when the window closes
