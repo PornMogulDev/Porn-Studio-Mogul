@@ -354,5 +354,19 @@ class ThemeManager:
             QLabel#dsLabel[status="good"] {{ border-color: {theme.color_good}; color: {theme.color_good}; }}
             QLabel#dsLabel[status="warning"] {{ border-color: {theme.color_warning}; color: {theme.color_warning}; }}
             QLabel#dsLabel[status="bad"] {{ border-color: {theme.color_bad}; color: {theme.color_bad}; }}
+
+             /* --- Inbox Button Styling --- */
+            /* Default state is handled by generic QPushButton style */
+            
+            /* State: Unread Messages */
+            QPushButton#inboxBtn[has_unread="true"] {{
+                background-color: {theme.color_warning};
+                color: {theme.accent_text};
+                border: 2px solid {theme.color_warning};
+                font-weight: bold;
+            }}
+            QPushButton#inboxBtn[has_unread="true"]:hover {{
+                border: 2px solid {theme.text};
+            }}
                 """
         return qss

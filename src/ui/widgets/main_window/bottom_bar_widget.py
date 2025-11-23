@@ -1,74 +1,44 @@
 from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QWidget
-from PyQt6.QtCore import pyqtSlot
+from PyQt6.QtCore import pyqtSignal
 
 class BottomBarWidget(QWidget):
-    def __init__(self, controller, parent=None):
-        super().__init__(parent)
-        self.controller = controller
-        self._go_to_list_callback = None
-        self._inbox_callback = None
-        self.setup_ui()
+    inbox_clicked = pyqtSignal()
+    go_to_list_clicked = pyqtSignal()
 
-        self.controller.signals.emails_changed.connect(self.update_inbox_button)
-        self.controller.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setup_ui()
 
     def setup_ui(self):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.inbox_btn = QPushButton("✉ Inbox")
-        self.inbox_btn.clicked.connect(self._on_inbox_clicked)
+        self.inbox_btn.setObjectName("inboxBtn") # Crucial for QSS targeting
+        self.inbox_btn.clicked.connect(self.inbox_clicked.emit)
         layout.addWidget(self.inbox_btn)
 
         go_to_list_btn = QPushButton("Go-To List")
-        go_to_list_btn.clicked.connect(self._on_go_to_list_clicked)
+        go_to_list_btn.clicked.connect(self.go_to_list_clicked.emit)
         layout.addWidget(go_to_list_btn)
 
-    def set_go_to_list_callback(self, callback):
-        self._go_to_list_callback = callback
-
-    def set_inbox_callback(self, callback):
-        self._inbox_callback = callback
-
-    def _on_go_to_list_clicked(self):
-        if self._go_to_list_callback:
-            self._go_to_list_callback()
-
-    def _on_inbox_clicked(self):
-        if self._inbox_callback:
-            self._inbox_callback()
-
-    def update_inbox_button(self):
-        unread_count = self.controller.get_unread_email_count()
-        current_theme = self.controller.get_current_theme()
+    def update_inbox_count(self, unread_count: int):
+        """
+        Updates the inbox button text and toggles the semantic property.
+        """
+        # 1. Update Text
         if unread_count > 0:
             self.inbox_btn.setText(f"Inbox ({unread_count})")
-            self.inbox_btn.setStyleSheet(
-                f"""
-                QPushButton {{
-                    background-color: {current_theme.color_warning};
-                    color: {current_theme.accent_text};
-                    border: 2px solid {current_theme.color_warning};
-                    font-weight: bold;
-                    border-radius: 4px;
-                }}
-                QPushButton:hover {{
-                    border: 2px solid {current_theme.accent_text};
-                }}
-                """
-            )
         else:
             self.inbox_btn.setText("Inbox")
-            self.inbox_btn.setStyleSheet("")
 
-    def update_initial_state(self):
-        self.update_inbox_button()
-
-    @pyqtSlot(str)
-    def _on_setting_changed(self, key: str):
-        if key in ("font_family", "font_size"):
-            self.update_font()
-
-    def update_font(self):
-        font = self.controller.settings_manager.get_app_font()
-        self.setFont(font)
+        # 2. Update State Property
+        has_unread = unread_count > 0
+        
+        # Only trigger a style refresh if the state actually changed to avoid flickering
+        if self.inbox_btn.property("has_unread") != has_unread:
+            self.inbox_btn.setProperty("has_unread", has_unread)
+            
+            # 3. Force Style Refresh (Qt doesn't auto-refresh style on property change)
+            self.inbox_btn.style().unpolish(self.inbox_btn)
+            self.inbox_btn.style().polish(self.inbox_btn)

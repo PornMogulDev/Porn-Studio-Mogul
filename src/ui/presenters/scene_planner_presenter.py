@@ -22,8 +22,8 @@ from utils import time_utils
 logger = logging.getLogger(__name__)
 
 class ScenePlannerPresenter(QObject):
-    def __init__(self, controller: IGameController, scene_id: int, view: ScenePlannerDialog):
-        super().__init__(view) # Parent the presenter to the view for lifecycle management
+    def __init__(self, controller: IGameController, scene_id: int, view: ScenePlannerDialog, parent=None):
+        super().__init__(parent) # Parent the presenter to the view for lifecycle management
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
         self.view = view

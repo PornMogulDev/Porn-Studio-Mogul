@@ -4,35 +4,35 @@ from PyQt6.QtWidgets import ( QHBoxLayout, QLabel, QPushButton, QSizePolicy,
 )
 
 from ui.widgets.help_button import HelpButton
-from utils import time_utils
 
 class TopBarWidget(QWidget):
+    # Signals to replace direct controller calls
+    menu_clicked = pyqtSignal()
+    next_week_clicked = pyqtSignal()
     help_requested = pyqtSignal(str)
-    def __init__(self, controller, parent=None):
-        super().__init__(parent)
-        self.controller = controller
-        self._menu_callback = None
-        self.setup_ui()
 
-        self.controller.signals.money_changed.connect(self.update_money_display)
-        self.controller.signals.time_changed.connect(self.update_time_display)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setup_ui()
 
     def setup_ui(self):
         layout = QHBoxLayout(self)
 
         menu_btn = QPushButton("☰ Menu")
         menu_btn.setToolTip("Open Game Menu (Esc)")
-        menu_btn.clicked.connect(self._on_menu_clicked)
+        menu_btn.clicked.connect(self.menu_clicked.emit)
         layout.addWidget(menu_btn)
 
         next_week_btn = QPushButton("Next Week ►")
         next_week_btn.setToolTip("Advance to the next week")
-        next_week_btn.clicked.connect(self.controller.advance_week)
+        next_week_btn.clicked.connect(self.next_week_clicked.emit)
         layout.addWidget(next_week_btn)
 
         layout.addStretch()
+        
+        # HelpButton internally emits help_requested, we pass it up
         help_btn = HelpButton("overview", self)
-        help_btn.help_requested.connect(self.help_requested)
+        help_btn.help_requested.connect(self.help_requested.emit)
         layout.addWidget(help_btn)
 
         layout.addSpacerItem(
@@ -49,20 +49,8 @@ class TopBarWidget(QWidget):
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.time_label)
 
-    def set_menu_callback(self, callback):
-        self._menu_callback = callback
-
-    def _on_menu_clicked(self):
-        if self._menu_callback:
-            self._menu_callback()
-
     def update_money_display(self, money: int):
         self.money_label.setText(f"Money: ${money:,}")
 
     def update_time_display(self, week: int, year: int):
         self.time_label.setText(f"Week {week}, Year {year}")
-
-    def update_initial_state(self):
-        self.update_money_display(self.controller.game_state.money)
-        year, week = time_utils.from_absolute(self.controller.game_state.absolute_week)
-        self.update_time_display(week, year)

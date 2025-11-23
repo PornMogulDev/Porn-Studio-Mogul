@@ -10,7 +10,7 @@ from data.settings_manager import SettingsManager
 from core.service_container import ServiceContainer
 from core.game_signals import GameSignals
 from core.game_controller import GameController
-from app.start_screen import MenuScreen
+from ui.views.start_screen_view import StartScreenView
 from app.main_window import MainGameWindow
 from ui.ui_manager import UIManager
 from ui.theme_manager import ThemeManager 
@@ -107,7 +107,9 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
                                          self.save_manager, self.signals, self.service_container)
         self.ui_manager = UIManager(self.controller, self)
         
-        self.start_screen = MenuScreen(self.controller, self.ui_manager)
+        # Use the factory method
+        self.start_screen = self.ui_manager.create_start_screen()
+
         self.main_window = MainGameWindow(self.controller, self.ui_manager)
 
         self.stacked_widget = QStackedWidget()
@@ -120,15 +122,12 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         self.controller.signals.show_start_screen_requested.connect(self.show_start_screen)
         self.controller.signals.show_main_window_requested.connect(self.show_main_window)
         self.controller.signals.quit_game_requested.connect(self.close)
-        self.controller.signals.saves_changed.connect(self.start_screen.refresh_button_states)
-
 
         self.show_start_screen()
         self._restore_geometry()
 
     def show_start_screen(self):
         self.ui_manager.close_all_dialogs()
-        self.start_screen.refresh_button_states()
         self.stacked_widget.setCurrentWidget(self.start_screen)
 
     def show_main_window(self):

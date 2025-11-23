@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QMessageBox
 
 from core.interfaces import IGameController
 from ui.view_models import EmailListItemViewModel, EmailContentViewModel
+from utils import time_utils
 
 if TYPE_CHECKING:
     from ui.dialogs.email_dialog import EmailDialog
@@ -75,10 +76,11 @@ class EmailPresenter(QObject):
         email_obj = next((e for e in self.controller.get_all_emails() if e.id == email_id), None)
 
         if email_obj:
+            year, week = time_utils.from_absolute(email_obj.absolute_week)
             # Build the view model for the content pane
             content_vm = EmailContentViewModel(
                 subject=f"Subject: {email_obj.subject}",
-                date_str=f"Date: Week {email_obj.week}, {email_obj.year}",
+                date_str=f"Date: Week {week}, {year}",
                 body=email_obj.body
             )
             self.view.display_email_content(content_vm)

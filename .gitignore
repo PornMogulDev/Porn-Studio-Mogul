@@ -112,6 +112,9 @@ venv.bak/
 # VSCode files
 .vscode/
 
+#Ruff
+.ruff_cache
+
 # Sensitive files
 data/game_data.sqlite
 data/performers.csv

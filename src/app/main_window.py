@@ -1,5 +1,5 @@
 import logging
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
     QMessageBox, QWidget, QVBoxLayout,
@@ -17,6 +17,7 @@ from ui.presenters.market_tab_presenter import MarketTabPresenter
 from ui.widgets.main_window.detachable_tab_widget import DetachableTabWidget
 from ui.widgets.main_window.top_bar_widget import TopBarWidget
 from ui.widgets.main_window.bottom_bar_widget import BottomBarWidget
+from utils import time_utils
 
 logger = logging.getLogger(__name__)
 
@@ -30,20 +31,31 @@ class MainGameWindow(QWidget):
         self.notification_manager = NotificationManager(self, controller)
         self._create_actions()
 
-        # --- Signal Connections ---
+        # --- Global Signal Connections ---
         self.controller.signals.notification_posted.connect(self.notification_manager.show_notification)
         self.controller.signals.game_over_triggered.connect(self.game_over_ui)
         self.controller.signals.incomplete_scene_check_requested.connect(self.ui_manager.handle_incomplete_scenes)
         self.controller.signals.interactive_event_triggered.connect(self.ui_manager.show_interactive_event)
         self.controller.signals.show_help_requested.connect(self.ui_manager.show_help)
+        
+        # --- Data binding signals for Bars ---
+        # Note: In Phase 3, these will move to MainWindowPresenter
+        self.controller.signals.money_changed.connect(self._on_money_changed)
+        self.controller.signals.time_changed.connect(self._on_time_changed)
+        self.controller.signals.emails_changed.connect(self._on_emails_changed)
+        self.controller.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
 
-        # --- Top bar ---
-        self.top_bar = TopBarWidget(self.controller)
-        self.top_bar.set_menu_callback(self.ui_manager.show_game_menu)
+        # --- Top bar (Dumb View) ---
+        self.top_bar = TopBarWidget(parent=self)
+        
+        # Connect TopBar signals
+        self.top_bar.menu_clicked.connect(self.ui_manager.show_game_menu)
+        self.top_bar.next_week_clicked.connect(self.controller.advance_week)
         self.top_bar.help_requested.connect(self.ui_manager.show_help)
+        
         layout.addWidget(self.top_bar)
 
         # --- Tabs ---
@@ -68,10 +80,13 @@ class MainGameWindow(QWidget):
         
         layout.addWidget(tabs)
 
-        # Bottom layout
-        self.bottom_bar = BottomBarWidget(self.controller)
-        self.bottom_bar.set_inbox_callback(self.ui_manager.show_inbox)
-        self.bottom_bar.set_go_to_list_callback(self.ui_manager.show_go_to_list)
+        # Bottom layout (Dumb View)
+        self.bottom_bar = BottomBarWidget(parent=self)
+        
+        # Connect BottomBar signals
+        self.bottom_bar.inbox_clicked.connect(self.ui_manager.show_inbox)
+        self.bottom_bar.go_to_list_clicked.connect(self.ui_manager.show_go_to_list)
+        
         layout.addWidget(self.bottom_bar)
 
     def _create_actions(self):
@@ -101,8 +116,13 @@ class MainGameWindow(QWidget):
 
     def load_ui(self):
         """Pulls all current data from the controller and updates the entire UI."""
-        self.top_bar.update_initial_state()
-        self.bottom_bar.update_initial_state()
+        # Manually trigger updates for bars
+        self._on_money_changed(self.controller.game_state.money)
+        
+        year, week = time_utils.from_absolute(self.controller.game_state.absolute_week)
+        self._on_time_changed(week, year)
+        
+        self._on_emails_changed() # Trigger inbox update
 
         if self.talent_tab_presenter:
             self.talent_tab_presenter.view.refresh_from_state()
@@ -116,6 +136,27 @@ class MainGameWindow(QWidget):
         if self.market_tab_presenter:
             self.market_tab_presenter.load_initial_data()
 
+    # --- Data Update Handlers (Temporary Presenter Logic) ---
+
+    def _on_money_changed(self, money: int):
+        self.top_bar.update_money_display(money)
+
+    def _on_time_changed(self, week: int, year: int):
+        self.top_bar.update_time_display(week, year)
+
+    def _on_emails_changed(self):
+        """Fetches unread count and pushes primitive int to BottomBar."""
+        unread_count = self.controller.get_unread_email_count()
+        self.bottom_bar.update_inbox_count(unread_count)
+
+    @pyqtSlot(str)
+    def _on_setting_changed(self, key: str):
+        if key in ("font_family", "font_size"):
+            # Update the bottom bar's font
+            font = self.controller.settings_manager.get_app_font()
+            self.bottom_bar.setFont(font)
+            # Re-apply emails update in case theme/font affected style
+            self._on_emails_changed()
 
     def game_over_ui(self, reason: str):
         self.setEnabled(False) 
