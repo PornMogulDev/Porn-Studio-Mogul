@@ -9,7 +9,22 @@ from data.game_state import Talent
 
 # Windows / Views
 from ui.views.start_screen_view import StartScreenView
+from ui.views.main_window_view import MainWindowView
 from ui.windows.talent_profile_window import TalentProfileWindow
+
+# Tabs (Views)
+from ui.tabs.talent_tab import TalentTab
+from ui.tabs.scenes_tab import ScenesTab
+from ui.tabs.schedule_tab import ScheduleTab
+from ui.tabs.market_tab import MarketTab
+
+# Tab Presenters
+from ui.presenters.talent_tab_presenter import TalentTabPresenter
+from ui.presenters.scenes_tab_presenter import ScenesTabPresenter
+from ui.presenters.schedule_tab_presenter import ScheduleTabPresenter
+from ui.presenters.market_tab_presenter import MarketTabPresenter
+
+# Dialogs
 from ui.dialogs.email_dialog import EmailDialog
 from ui.dialogs.scene_planner_dialog import ScenePlannerDialog
 from ui.dialogs.shot_scene_details_dialog import ShotSceneDetailsDialog
@@ -24,6 +39,7 @@ from ui.dialogs.shooting_bloc_dialog import ShootingBlocDialog
 
 # Presenters
 from ui.presenters.start_screen_presenter import StartScreenPresenter
+from ui.presenters.main_window_presenter import MainWindowPresenter
 from ui.presenters.email_presenter import EmailPresenter
 from ui.presenters.scene_planner_presenter import ScenePlannerPresenter
 from ui.presenters.talent_profile_presenter import TalentProfilePresenter
@@ -53,37 +69,87 @@ class UIManager:
         self._open_scene_dialogs: Dict[int, QWidget] = {}
         self._open_shot_scene_dialogs: Dict[int, QWidget] = {}
         self._talent_profile_window_singleton: Optional[TalentProfileWindow] = None
+        
+        # Keep references to main presenters to prevent GC if not parented correctly
+        self.main_presenter = None
+        self.tab_presenters = []
 
     # -------------------------------------------------------------------------
     # Core Window Creation (For Application.py)
     # -------------------------------------------------------------------------
 
     def create_start_screen(self) -> QWidget:
-        """
-        Creates the Start Screen View and Presenter, links them, and returns the View.
-        """
-        # 1. Create the View (Dumb)
         view = StartScreenView(parent=self.parent_widget)
-        
-        # 2. Create the Presenter (Smart), parented to the View
-        # The presenter automatically connects signals in its __init__
         presenter = StartScreenPresenter(self.controller, view, self, parent=view)
-        
-        # 3. Link (Optional, but good for debugging/references if needed later)
         view.presenter = presenter 
-        
         return view
 
-    def create_main_window(self) -> QMainWindow:
+    def create_main_window(self) -> MainWindowView:
         """
         Creates the Main Window View and Presenter, injects Tabs, and returns the View.
         """
-        # TODO: Implementation pending Refactor Phase 3
-        # view = MainWindowView()
-        # presenter = MainWindowPresenter(self.controller, view)
-        # ... inject tabs ...
-        # return view
-        pass
+        # 1. Create the View (Dumb Shell)
+        view = MainWindowView(self.settings_manager, parent=None) # Main window has no parent
+        
+        # 2. Create the Presenter (Smart Logic)
+        # Parent the presenter to the view so it dies when the window closes
+        self.main_presenter = MainWindowPresenter(self.controller, view, self, parent=view)
+        
+        # 3. Inject Tabs (View + Presenter construction)
+        self._assemble_tabs(view)
+
+        # Note: We do NOT load data here anymore. That happens when the window is shown.
+        return view
+
+    def _assemble_tabs(self, main_view: MainWindowView):
+        """Helper to build tabs and inject them into the main window."""
+        
+        # -- Schedule Tab --
+        schedule_view = ScheduleTab()
+        schedule_presenter = ScheduleTabPresenter(
+            self.controller, schedule_view, self, parent=schedule_view
+        )
+        self.tab_presenters.append(schedule_presenter)
+        main_view.add_tab(schedule_view, "Schedule")
+
+        # -- Talent Tab --
+        talent_view = TalentTab()
+        talent_presenter = TalentTabPresenter(
+            self.controller, talent_view, self, parent=talent_view
+        )
+        self.tab_presenters.append(talent_presenter)
+        main_view.add_tab(talent_view, "Talent")
+
+        # -- Scenes Tab --
+        scenes_view = ScenesTab()
+        scenes_presenter = ScenesTabPresenter(
+            self.controller, scenes_view, self, parent=scenes_view
+        )
+        self.tab_presenters.append(scenes_presenter)
+        main_view.add_tab(scenes_view, "Scenes")
+
+        # -- Market Tab --
+        market_view = MarketTab()
+        market_presenter = MarketTabPresenter(
+            self.controller, market_view, parent=market_view
+        )
+        self.tab_presenters.append(market_presenter)
+        main_view.add_tab(market_view, "Market")
+
+    def refresh_main_window_data(self):
+        """
+        Called by Application.py when the main window is shown (after game load).
+        Triggers all presenters to fetch fresh data.
+        """
+        if self.main_presenter:
+            self.main_presenter.load_initial_data()
+        
+        for presenter in self.tab_presenters:
+            if hasattr(presenter, 'load_initial_data'):
+                presenter.load_initial_data()
+            elif hasattr(presenter, 'view') and hasattr(presenter.view, 'refresh_from_state'):
+                # Handle TalentTab which uses a different pattern
+                presenter.view.refresh_from_state()
 
     # -------------------------------------------------------------------------
     # Dialog Management Helpers
@@ -106,7 +172,7 @@ class UIManager:
                 dialog = factory_func()
             else:
                 # Legacy Fallback: Assumes View takes (controller, parent)
-                # TODO: Refactor HelpDialog and GameMenuDialog to remove this path
+                # TODO: Refactor HelpDialog and to remove this path
                 dialog = dialog_class(self.controller, parent=self.parent_widget)
             
             # Standard cleanup hook

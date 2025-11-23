@@ -11,7 +11,7 @@ from core.service_container import ServiceContainer
 from core.game_signals import GameSignals
 from core.game_controller import GameController
 from ui.views.start_screen_view import StartScreenView
-from app.main_window import MainGameWindow
+# MainGameWindow is no longer imported here, UIManager creates it
 from ui.ui_manager import UIManager
 from ui.theme_manager import ThemeManager 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
@@ -25,14 +25,11 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     Catches unhandled exceptions, logs them using the logging system, 
     and shows a user-friendly dialog.
     """
-    # 1. Log the critical error with the full traceback
-    # The `exc_info` argument tells the logger to capture the exception information
     logger.critical(
         "Unhandled exception caught by excepthook", 
         exc_info=(exc_type, exc_value, exc_traceback)
     )
 
-    # 2. Display a message to the user
     if not QApplication.instance():
         _ = QApplication([])
 
@@ -50,8 +47,6 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     error_dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
     error_dialog.exec()
 
-    # The application will now exit after the dialog is closed.
-
 def apply_theme(settings_manager: SettingsManager, theme_manager: ThemeManager):
     """
     Applies the theme and font settings using the ThemeManager.
@@ -60,26 +55,22 @@ def apply_theme(settings_manager: SettingsManager, theme_manager: ThemeManager):
     if not app:
         return
 
-    # 1. Get settings
-    theme_name = settings_manager.get_setting("theme", "light") # Default to light
+    theme_name = settings_manager.get_setting("theme", "light")
     font_family = settings_manager.font_family
     font_size = settings_manager.font_size
 
     if theme_name == "system":
-        app.setStyleSheet("") # Clear any existing stylesheet to revert to default
+        app.setStyleSheet("")
         return
 
-    # 2. Get the theme data object
     current_theme = theme_manager.get_theme(theme_name)
     
-    # 3. Generate the final stylesheet
     final_stylesheet = theme_manager.generate_stylesheet(
         theme=current_theme,
         font_family=font_family,
         font_size=font_size
     )
 
-    # 4. Apply it
     app.setStyleSheet(final_stylesheet)
 
 
@@ -105,19 +96,19 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         # --- Create the Controller (Façade) ---
         self.controller = GameController(self.settings_manager, self.data_manager, self.theme_manager,
                                          self.save_manager, self.signals, self.service_container)
+        
+        # Pass self as parent_widget to UIManager
         self.ui_manager = UIManager(self.controller, self)
         
-        # Use the factory method
         self.start_screen = self.ui_manager.create_start_screen()
-
-        self.main_window = MainGameWindow(self.controller, self.ui_manager)
+        # Factory method creates the View+Presenter and injects Tabs
+        self.main_window = self.ui_manager.create_main_window()
 
         self.stacked_widget = QStackedWidget()
         self.stacked_widget.addWidget(self.start_screen)
         self.stacked_widget.addWidget(self.main_window)
         
         self.setCentralWidget(self.stacked_widget)
-
 
         self.controller.signals.show_start_screen_requested.connect(self.show_start_screen)
         self.controller.signals.show_main_window_requested.connect(self.show_main_window)
@@ -131,23 +122,16 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         self.stacked_widget.setCurrentWidget(self.start_screen)
 
     def show_main_window(self):
-        self.main_window.load_ui() 
+        # Trigger the UIManager to refresh data in all tabs now that the game is loaded
+        self.ui_manager.refresh_main_window_data()
         self.stacked_widget.setCurrentWidget(self.main_window)
 
     @pyqtSlot(str)
     def _on_setting_changed(self, key: str):
-        """
-        Listens for changes from the SettingsManager and applies them.
-        """
         if key in ("theme", "font_family", "font_size"):
             apply_theme(self.settings_manager, self.theme_manager)
 
     def closeEvent(self, event: QCloseEvent):
-        """
-        Handles the application's close event.
-        This is triggered by closing the window or by calling self.close().
-        It's the central point for cleanup before the application exits.
-        """
-        self._save_geometry() # From GeometryManagerMixin
+        self._save_geometry()
         self.controller.handle_application_shutdown()
         super().closeEvent(event)

@@ -43,8 +43,8 @@ class DemandCalculationWorker(QRunnable):
         self.signals.finished.emit(demands)
 
 class TalentTabPresenter(QObject):
-    def __init__(self, controller: IGameController, view: TalentTab, ui_manager: 'UIManager'):
-        super().__init__()
+    def __init__(self, controller: IGameController, view: TalentTab, ui_manager: 'UIManager', parent=None):
+        super().__init__(parent)
         self.controller = controller
         self.view = view
         self.ui_manager = ui_manager
