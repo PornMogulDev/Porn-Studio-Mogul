@@ -49,8 +49,8 @@
     "concept": "Weeb",
     "categories": "Wardrobe",
     "scene_wide_modifiers": [
-        { "type": "amplify_production_setting", "category": "Wardrobe", "multiplier": 1.5 },
-        { "type": "amplify_production_setting", "category": "Makeup", "multiplier": 1.5 },
+        { "type": "modify_department_weight", "department": "wardrobe", "weight_add": 0.35 },
+        { "type": "modify_department_weight", "department": "makeup", "weight_add": 0.15 },
         { "type": "shift_acting_weight", "acting_weight_shift": 0.1 }
     ],
     "tooltip": "Makes this scene's quality highly dependent on Wardrobe and Makeup. Also makes performer Acting skill more important."
@@ -61,7 +61,7 @@
     "concept": "Clothing",
     "categories": "Wardrobe",
     "scene_wide_modifiers": [
-        { "type": "amplify_production_setting", "category": "Wardrobe", "multiplier": 1.2 },
+        { "type": "modify_department_weight", "department": "wardrobe", "weight_add": 0.2 },
         { "type": "shift_acting_weight", "acting_weight_shift": 0.05 }
     ],
     "tooltip": "Makes this scene's quality highly dependent on Wardrobe and Makeup. Also makes performer Acting skill more important."

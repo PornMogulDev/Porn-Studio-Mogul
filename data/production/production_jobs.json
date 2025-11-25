@@ -1,0 +1,56 @@
+[
+  {
+    "id": "producer",
+    "name": "Producer",
+    "description": "Produces.",
+    "is_mandatory": true,
+    "base_stress_load": 20,
+    "base_fatigue_load": 10,
+    "primary_skill": "producing"
+  },
+  {
+    "id": "director",
+    "name": "Director",
+    "description": "Orchestrates the shoot. Determines the Skill Cap for the scene.",
+    "is_mandatory": true,
+    "base_stress_load": 10,
+    "base_fatigue_load": 5,
+    "primary_skill": "directing"
+  },
+  {
+    "id": "camera_a",
+    "name": "Lead Camera Operator",
+    "description": "Operates the main camera. Affects Visual execution.",
+    "is_mandatory": true,
+    "base_stress_load": 15,
+    "base_fatigue_load": 20,
+    "primary_skill": "camera_work"
+  },
+  {
+    "id": "camera_b",
+    "name": "Second Unit Camera",
+    "description": "Optional B-roll or multi-angle coverage.",
+    "is_mandatory": false,
+    "base_stress_load": 10,
+    "base_fatigue_load": 15,
+    "primary_skill": "camera_work"
+  },
+  {
+    "id": "photographer",
+    "name": "Set Photographer",
+    "description": "Takes promotional stills. Required for high-quality Picture Sets.",
+    "is_mandatory": false,
+    "base_stress_load": 10,
+    "base_fatigue_load": 10,
+    "primary_skill": "photography"
+  },
+  {
+    "id": "fluffer",
+    "name": "Set Support / Fluffer",
+    "description": "Maintains actor arousal and set momentum.",
+    "is_mandatory": false,
+    "base_stress_load": 5,
+    "base_fatigue_load": 25,
+    "primary_skill": "performance"
+  }
+]

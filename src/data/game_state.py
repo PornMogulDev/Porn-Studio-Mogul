@@ -69,6 +69,8 @@ class Talent:  # type: ignore
     dick_size: Optional[int] = None
     tag_affinities: Dict[str, int] = field(default_factory=dict)
     fatigue: int = 0
+    stress: float = 0.0
+    burnout: float = 0.0
     tag_preferences: Dict[str, Dict[str, float]] = field(default_factory=dict)
     hard_limits: List[str] = field(default_factory=list)
     max_scene_partners: int = 5
@@ -212,7 +214,11 @@ class ShootingBloc:
     location: str
     name: str
     scheduled_absolute_week: int
-    production_settings: Dict[str, str] = field(default_factory=dict) # Key: category, Value: tier_name
+    location_id: Optional[str] = None
+    visual_style_id: Optional[str] = None
+    department_budgets: Dict[str, int] = field(default_factory=dict)
+    crew_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    picture_set_settings: Dict[str, Any] = field(default_factory=dict)
     production_cost: int = 0
     scenes: List[Scene] = field(default_factory=list)
     on_set_policies: List[str] = field(default_factory=list) # Key: policy_id, e.g., ["policy_condoms_mandatory"]

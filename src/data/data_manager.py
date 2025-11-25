@@ -33,7 +33,11 @@ class DataManager:
         self.market_data = self._load_market_data()
         self.affinity_data = self._load_talent_affinities()
         self.generator_data = self._load_generator_data()
-        self.production_settings_data = self._load_production_settings()
+        self.production_departments = self._load_production_departments()
+        self.visual_styles = self._load_visual_styles()
+        self.production_jobs = self._load_production_jobs()
+        self.production_locations = self._load_production_locations()
+        self.picture_set_types = self._load_picture_set_types()
         self.post_production_data = self._load_post_production_data()
         self.on_set_policies_data = self._load_on_set_policies()
         self.scene_events = self._load_scene_events()
@@ -227,23 +231,55 @@ class DataManager:
         logger.info(f"Loaded {len(rows)} travel cost entries into matrix.")
         return dict(matrix)
 
-    def _load_production_settings(self) -> Dict[str, List[Dict]]:
+    def _load_production_departments(self) -> Dict[str, Dict]:
         cursor = self.conn.cursor()
-        cursor.execute("""
-            SELECT category, tier_name, cost_per_scene, cost_multiplier, quality_modifier, description,
-                   bad_event_chance_modifier, good_event_chance_modifier
-            FROM production_settings_definitions 
-            ORDER BY category, cost_per_scene, cost_multiplier
-        """)
-        
-        settings = {}
+        cursor.execute("SELECT * FROM production_departments")
+        departments = {}
         for row in cursor.fetchall():
-            category = row['category']
-            if category not in settings:
-                settings[category] = []
-            
-            settings[category].append(dict(row))
-        return settings
+            data = self._rehydrate_json_fields(dict(row))
+            if 'id' in data:
+                departments[data['id']] = data
+        return departments
+
+    def _load_visual_styles(self) -> Dict[str, Dict]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM visual_styles")
+        styles = {}
+        for row in cursor.fetchall():
+            data = self._rehydrate_json_fields(dict(row))
+            if 'id' in data:
+                styles[data['id']] = data
+        return styles
+
+    def _load_production_jobs(self) -> Dict[str, Dict]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM production_jobs")
+        jobs = {}
+        for row in cursor.fetchall():
+            data = dict(row)
+            if 'id' in data:
+                jobs[data['id']] = data
+        return jobs
+
+    def _load_production_locations(self) -> Dict[str, Dict]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM production_locations")
+        locations = {}
+        for row in cursor.fetchall():
+            data = self._rehydrate_json_fields(dict(row))
+            if 'id' in data:
+                locations[data['id']] = data
+        return locations
+
+    def _load_picture_set_types(self) -> Dict[str, Dict]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM picture_set_types")
+        pst = {}
+        for row in cursor.fetchall():
+            data = dict(row)
+            if 'id' in data:
+                pst[data['id']] = data
+        return pst
 
     def _load_post_production_data(self) -> Dict[str, List[Dict]]:
         """Loads all post-production editing tiers from the database."""

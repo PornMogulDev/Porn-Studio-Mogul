@@ -47,13 +47,32 @@ This phase executes when the user clicks the final "Hire" button.
 8.  If validation succeeds, it proceeds to create `SceneCastDB` entries, update player money, and commits the transaction.
 9.  Success signals (`money_changed`, `scenes_changed`) are emitted.
 
-## Request Flow (Role Demand & Stamina Needs)
+## Calculation Flow (Role Performance Modifiers)
 
-1. A higher-level service (like TalentDemandCalculator) needs a modifier for a performer (vp_id) in a specificActionSegment of a Scene.
-2. It calls either get_role_demand_modifier() or get_role_stamina_modifier() on the RolePerformanceCalculator instance, passing in the segment, vp_id, scene, and the master tag_definitions dictionary.
-3. The calculator first finds the performer's role (e.g., "Giver") by parsing the slot_id of their assignment in the segment.
-4. It then looks up the definition for that role within the specific action tag's definition (e.g., the "Giver" slot in the "Blowjob (Straight)" tag definition). Validating against malformed strings.
-5. Using this slot definition, it retrieves the base modifier (e.g., stamina_modifier) and any scaling factors (e.g., stamina_modifier_scaling_per_peer).
-6. It checks the segment's parameters to see how many "peers" (performers in the same role) and "others" (performers in the opposing role) are involved.
-7. It calculates a final modifier by adding the scaled bonuses to the base modifier.
-8. This final float value is returned to the calling service (TalentDemandCalculator or ShootResultsCalculator), which uses it in its own higher-level calculations.
+This is a low-level, backend-only flow for a pure utility calculator.
+
+1.  A higher-level service (e.g., `TalentDemandCalculator` or `ShootResultsCalculator`) needs to determine a modifier for a performer's role in a specific `ActionSegment`.
+2.  It calls either `get_role_demand_modifier()` or `get_role_stamina_modifier()` on the `RolePerformanceCalculator` instance.
+3.  The calculator finds the performer's assigned `slot_id` (e.g., `"Blowjob (Straight)_Giver_1"`).
+4.  It parses the `slot_id` to extract the `role` name (e.g., `"Giver"`) and validates this role against the list of possible roles in the tag's definition.
+5.  It looks up the slot definition for that role in the tag definition (from `action_tags.json`).
+6.  From the slot definition, it retrieves the base modifier (e.g., `stamina_modifier`) and any scaling factors (e.g., `stamina_modifier_scaling_per_peer`).
+7.  It checks the `segment.parameters` to find the number of "peers" (performers in the same role) and "others" (performers in the opposing role).
+8.  It calculates a final modifier by adding the scaled bonuses to the base modifier and returns this `float` value to the calling service.
+
+## Request Flow (Scene Quality Calculation)
+
+This is a backend-only flow that occurs when the game week is advanced. It calculates the final quality of a scene after it has been "shot".
+
+1.  The `TimeService.advance_week` method begins the weekly update transaction.
+2.  For each scene scheduled for the current week, it calls `SceneCommandService.shoot_scene`.
+3.  This eventually delegates to `SceneProcessingService.run_shoot_calculations`, which orchestrates the process.
+4.  The `SceneProcessingService` fetches all required data from the database: the full `Scene`, all cast `Talent` objects, and the parent `ShootingBloc`'s production settings.
+5.  It calls `SceneQualityCalculator.calculate_quality()`, passing in all the prepared data.
+6.  The `SceneQualityCalculator` executes its complex, multi-stage calculation:
+    *   First, it aggregates modifiers from **Thematic Tags** (e.g., to amplify chemistry or production settings).
+    *   Next, it calculates the quality of **Action Tags** by determining each performer's contribution based on their skills, fatigue, stamina, and chemistry.
+    *   Then, it calculates the quality of **Physical Tags** based on the `quality_source` rules in the tag definition.
+    *   Finally, it calculates a total **Production Modifier** from bloc settings (e.g., camera, location), which is then applied to all scores.
+7.  The calculator returns a `SceneQualityResult` dataclass containing all the calculated scores.
+8.  The `SceneProcessingService` receives this result and calls `apply_shoot_calculation_results` to write the final `tag_qualities` and `performer_contributions` into the `SceneDB` model, completing the process.

@@ -150,18 +150,71 @@ def create_tables(cursor):
     )
     """)
     
-    # production_settings
+    # --- PRODUCTION REFACTOR TABLES ---
+    
+    # production_departments (Replaces old production_settings)
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS production_settings_definitions (
-        category TEXT NOT NULL,
-        tier_name TEXT NOT NULL,
-        cost_per_scene INTEGER,
-        cost_multiplier REAL,
-        quality_modifier REAL NOT NULL,
+    CREATE TABLE IF NOT EXISTS production_departments (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
         description TEXT,
-        bad_event_chance_modifier REAL NOT NULL DEFAULT 1.0,
-        good_event_chance_modifier REAL NOT NULL DEFAULT 1.0,
-        PRIMARY KEY (category, tier_name)
+        base_weight REAL NOT NULL,
+        min_budget INTEGER NOT NULL,
+        soft_cap_budget INTEGER NOT NULL,
+        curve_type TEXT NOT NULL,
+        impacts_json TEXT
+    )
+    """)
+
+    # visual_styles
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS visual_styles (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        budget_efficiency_modifier REAL NOT NULL,
+        department_multipliers_json TEXT
+    )
+    """)
+
+    # production_jobs
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS production_jobs (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        is_mandatory INTEGER NOT NULL,
+        base_stress_load REAL NOT NULL,
+        base_fatigue_load REAL NOT NULL,
+        primary_skill TEXT
+    )
+    """)
+
+    # production_locations
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS production_locations (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        base_cost INTEGER NOT NULL,
+        tags_json TEXT,
+        simulation_modifiers_json TEXT,
+        synergy_bonuses_json TEXT,
+        synergy_penalties_json TEXT
+    )
+    """)
+
+    # picture_set_types
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS picture_set_types (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        budget_efficiency REAL NOT NULL,
+        min_budget INTEGER NOT NULL,
+        soft_cap_budget INTEGER NOT NULL,
+        momentum_impact REAL NOT NULL,
+        stress_impact REAL NOT NULL,
+        requires_photographer INTEGER NOT NULL
     )
     """)
 
@@ -204,7 +257,6 @@ def create_tables(cursor):
     """)
     
     # talent_archetypes
-    # UPDATED: max_scene_partners changed to JSON to support {min, max} dicts
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS talent_archetypes (
         id TEXT PRIMARY KEY,
@@ -252,7 +304,6 @@ def create_tables(cursor):
 def migrate_config(cursor, data):
     print("Migrating game_config.json...")
     for key, value in data.items():
-        # If the value is a dictionary or list, store it as a JSON string
         if isinstance(value, (dict, list)):
             value_to_store = json.dumps(value)
         else:
@@ -287,7 +338,6 @@ def migrate_talent_generation(cursor, data):
     print(f"{eth_count} ethnicity definitions migrated.")
 
 def migrate_nationality_data(cursor, data):
-    """Migrates nationality weights, locations, and ethnicities."""
     print("Migrating nationality_weights.json...")
     nat_count, loc_count, eth_count = 0, 0, 0
     for nationality in data['nationalities']:
@@ -318,7 +368,6 @@ def migrate_regions(cursor, data):
     print(f"{reg_count} regions and {loc_count} region locations migrated.")
 
 def migrate_travel_costs(cursor, data):
-    """Migrates the travel cost matrix from regions.json."""
     print("Migrating travel matrix...")
     count = 0
     for entry in data.get('travel_matrix', []):
@@ -439,28 +488,110 @@ def migrate_scene_tags(cursor, all_tags_data):
         count += 1
     print(f"{count} total scene tags migrated.")
 
-def migrate_production_settings(cursor, data):
-    print("Migrating production_settings.json...")
+def migrate_production_departments(cursor, data):
+    print("Migrating production_departments.json...")
     count = 0
-    for category, tiers in data.items():
-        for tier in tiers:
-            cursor.execute("""
-                INSERT OR REPLACE INTO production_settings_definitions (
-                    category, tier_name, cost_per_scene, cost_multiplier, quality_modifier, description,
-                    bad_event_chance_modifier, good_event_chance_modifier
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                category,
-                tier.get('tier_name'),
-                tier.get('cost_per_scene'),
-                tier.get('cost_multiplier'),
-                tier.get('quality_modifier'),
-                tier.get('description'),
-                tier.get('bad_event_chance_modifier', 1.0),
-                tier.get('good_event_chance_modifier', 1.0)
-            ))
-            count += 1
-    print(f"{count} production setting entries migrated.")
+    for dept in data:
+        cursor.execute("""
+            INSERT OR REPLACE INTO production_departments (
+                id, name, description, base_weight, min_budget, 
+                soft_cap_budget, curve_type, impacts_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            dept.get('id'),
+            dept.get('name'),
+            dept.get('description'),
+            dept.get('base_weight'),
+            dept.get('min_budget'),
+            dept.get('soft_cap_budget'),
+            dept.get('curve_type'),
+            json.dumps(dept.get('impacts', []))
+        ))
+        count += 1
+    print(f"{count} production departments migrated.")
+
+def migrate_visual_styles(cursor, data):
+    print("Migrating visual_styles.json...")
+    count = 0
+    for style in data:
+        cursor.execute("""
+            INSERT OR REPLACE INTO visual_styles (
+                id, name, description, budget_efficiency_modifier, department_multipliers_json
+            ) VALUES (?, ?, ?, ?, ?)
+        """, (
+            style.get('id'),
+            style.get('name'),
+            style.get('description'),
+            style.get('budget_efficiency_modifier'),
+            json.dumps(style.get('department_multipliers', {}))
+        ))
+        count += 1
+    print(f"{count} visual styles migrated.")
+
+def migrate_production_jobs(cursor, data):
+    print("Migrating production_jobs.json...")
+    count = 0
+    for job in data:
+        cursor.execute("""
+            INSERT OR REPLACE INTO production_jobs (
+                id, name, description, is_mandatory, base_stress_load, 
+                base_fatigue_load, primary_skill
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            job.get('id'),
+            job.get('name'),
+            job.get('description'),
+            1 if job.get('is_mandatory') else 0,
+            job.get('base_stress_load'),
+            job.get('base_fatigue_load'),
+            job.get('primary_skill')
+        ))
+        count += 1
+    print(f"{count} production jobs migrated.")
+
+def migrate_production_locations(cursor, data):
+    print("Migrating production_locations.json...")
+    count = 0
+    for loc in data:
+        cursor.execute("""
+            INSERT OR REPLACE INTO production_locations (
+                id, name, base_cost, tags_json, simulation_modifiers_json, 
+                synergy_bonuses_json, synergy_penalties_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            loc.get('id'),
+            loc.get('name'),
+            loc.get('base_cost'),
+            json.dumps(loc.get('tags', [])),
+            json.dumps(loc.get('simulation_modifiers', {})),
+            json.dumps(loc.get('synergy_bonuses', [])),
+            json.dumps(loc.get('synergy_penalties', []))
+        ))
+        count += 1
+    print(f"{count} production locations migrated.")
+
+def migrate_picture_set_types(cursor, data):
+    print("Migrating picture_set_types.json...")
+    count = 0
+    for ps_type in data:
+        cursor.execute("""
+            INSERT OR REPLACE INTO picture_set_types (
+                id, name, description, budget_efficiency, min_budget, 
+                soft_cap_budget, momentum_impact, stress_impact, requires_photographer
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            ps_type.get('id'),
+            ps_type.get('name'),
+            ps_type.get('description'),
+            ps_type.get('budget_efficiency'),
+            ps_type.get('min_budget'),
+            ps_type.get('soft_cap_budget'),
+            ps_type.get('momentum_impact'),
+            ps_type.get('stress_impact'),
+            1 if ps_type.get('requires_photographer') else 0
+        ))
+        count += 1
+    print(f"{count} picture set types migrated.")
 
 def migrate_post_production_settings(cursor, data):
     print("Migrating post_production_settings.json...")
@@ -523,7 +654,6 @@ def migrate_scene_events(cursor, data):
     print(f"{count} scene events migrated.")
 
 def migrate_talent_archetypes(cursor, data):
-    """Migrates talent archetypes from JSON to the database."""
     print("Migrating talent_archetypes.json...")
     count = 0
     for archetype in data:
@@ -539,7 +669,6 @@ def migrate_talent_archetypes(cursor, data):
         archetype.get('description'),
         archetype.get('weight'),
         json.dumps(archetype.get('stat_modifiers', {})),
-        # UPDATED: Dump dictionary to JSON string for TEXT column
         json.dumps(archetype.get('max_scene_partners', 10)),
         json.dumps(archetype.get('concurrency_limits', {})),
         json.dumps(archetype.get('dynamic_preference_weights', {})),
@@ -549,7 +678,6 @@ def migrate_talent_archetypes(cursor, data):
     print(f"{count} talent archetype entries migrated.")
 
 def migrate_traits(cursor, data):
-    """Migrates traits from JSON to the database."""
     print("Migrating traits.json...")
     count = 0
     for trait in data:
@@ -619,7 +747,6 @@ def main():
         migrate_talent_generation(cursor, load_json("talent_generation/talent_generation_data.json"))
         migrate_nationality_data(cursor, load_json("talent_generation/nationality_weights.json"))
         
-        # Load regions.json once and pass it to both migration functions
         regions_data = load_json("regions.json")
         migrate_regions(cursor, regions_data)
         migrate_travel_costs(cursor, regions_data)
@@ -634,9 +761,15 @@ def main():
             load_json("tags/thematic_tags.json")
         )
         migrate_scene_tags(cursor, all_tags)
-        migrate_production_settings(cursor, load_json("scene_settings/production_settings.json"))
-        migrate_post_production_settings(cursor, load_json("scene_settings/post_production_settings.json"))
-        migrate_on_set_policies(cursor, load_json("scene_settings/on_set_policies.json"))
+        
+        migrate_production_departments(cursor, load_json("production/production_departments.json"))
+        migrate_visual_styles(cursor, load_json("production/visual_styles.json"))
+        migrate_production_jobs(cursor, load_json("production/production_jobs.json"))
+        migrate_production_locations(cursor, load_json("production/production_locations.json"))
+        migrate_picture_set_types(cursor, load_json("production/picture_set_types.json"))
+        
+        migrate_post_production_settings(cursor, load_json("post_production_settings.json"))
+        migrate_on_set_policies(cursor, load_json("studio_policies.json"))
         migrate_scene_events(cursor, load_json("events/scene_events.json"))
         migrate_talent_archetypes(cursor, load_json("talent_generation/talent_archetypes.json"))
         migrate_traits(cursor, load_json("talent_generation/traits.json"))
