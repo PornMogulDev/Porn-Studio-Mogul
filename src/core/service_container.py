@@ -29,7 +29,10 @@ from services.command.scene_event_command_service import SceneEventCommandServic
 from services.command.scene_processing_service import SceneProcessingService
 from services.command.tour_command_service import TourCommandService
 from services.events.scene_event_trigger_service import SceneEventTriggerService
-from services.models.configs import HiringConfig, MarketConfig, SceneCalculationConfig, ContractConfig, TourConfig
+from services.models.configs import (
+    HiringConfig, MarketConfig, SceneCalculationConfig, ContractConfig,
+    TourConfig, ProductionConfig
+)
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
 from services.query.tag_query_service import TagQueryService
@@ -40,6 +43,10 @@ from services.calculation.talent_availability_checker import TalentAvailabilityC
 from services.calculation.talent_affinity_calculator import TalentAffinityCalculator
 from services.calculation.bloc_cost_calculator import BlocCostCalculator
 from services.calculation.tour_interest_calculator import TourInterestCalculator
+from services.calculation.budget_efficiency_calculator import BudgetEfficiencyCalculator
+from services.calculation.stress_calculator import StressCalculator
+from services.calculation.crew_skill_calculator import CrewSkillCalculator
+from services.calculation.bloc_simulation_calculator import BlocSimulationCalculator
 
 if TYPE_CHECKING:
     from core.game_controller import GameController
@@ -63,6 +70,7 @@ class ServiceContainer:
         self.market_config: Optional[MarketConfig] = None
         self.contract_config: Optional[ContractConfig] = None
         self.tour_config: Optional[TourConfig] = None
+        self.production_config: Optional[ProductionConfig] = None
 
         # Service instances
         self.query_service: Optional[GameQueryService] = None
@@ -98,6 +106,10 @@ class ServiceContainer:
         self.scene_event_command_service: Optional[SceneEventCommandService] = None
         self.player_settings_service: Optional[PlayerSettingsService] = None
         self.email_service: Optional[EmailService] = None
+        self.budget_efficienty_calculator: Optional[BudgetEfficiencyCalculator] = None
+        self.stress_calculator: Optional[StressCalculator] = None
+        self.crew_skill_calculator: Optional[CrewSkillCalculator] = None
+        self.bloc_simulation_calculator: Optional[BlocSimulationCalculator] = None
 
     def initialize_and_populate_services(self, controller: 'GameController', game_state: GameState):
         """
@@ -119,8 +131,12 @@ class ServiceContainer:
         self.upfront_tour_calculator = UpfrontTourCostCalculator(self.data_manager)
         self.trait_modifier_resolver = TraitModifierResolver(self.data_manager)
         self.talent_status_calculator = TalentStatusCalculator(self.hiring_config, self.tour_config)
+        self.budget_efficienty_calculator = BudgetEfficiencyCalculator(self.production_config)
+        self.stress_calculator = StressCalculator(self.data_manager, self.scene_calc_config)
+        self.bloc_simulation_calculator = BlocSimulationCalculator(self.data_manager, self.production_config)
 
         # Level 1: Depends on Level 0 services
+        self.crew_skill_calculator = CrewSkillCalculator(self.budget_efficienty_calculator, self.production_config)
         self.tour_interest_calculator = TourInterestCalculator(self.trait_modifier_resolver, self.tour_config, self.data_manager)
         self.market_service = MarketService(market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.talent_affinity_calculator = TalentAffinityCalculator(self.scene_calc_config)
@@ -129,7 +145,9 @@ class ServiceContainer:
         self.query_service = GameQueryService(session_factory)
         self.tag_query_service = TagQueryService(self.data_manager)
         self.bloc_cost_calculator = BlocCostCalculator(self.data_manager)
-        self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_calculator)
+        self.shoot_results_calculator = ShootResultsCalculator(self.data_manager, self.scene_calc_config, self.role_performance_calculator,
+            self.stress_calculator
+        )
         self.player_settings_service = PlayerSettingsService(session_factory, self.signals)
         self.go_to_list_service = GoToListService(session_factory, self.signals)
         self.email_service = EmailService(session_factory, self.signals)
@@ -146,13 +164,13 @@ class ServiceContainer:
             self.talent_status_calculator
         )
         self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
-        self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config)
+        self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config, self.budget_efficienty_calculator)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
         self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
         self.scene_processing_service = SceneProcessingService(
             self.data_manager, self.talent_command_service, self.scene_calc_config,
-            self.tag_validation_checker, self.shoot_results_calculator,
-            self.scene_quality_calculator, self.post_production_calculator
+            self.tag_validation_checker, self.shoot_results_calculator, self.bloc_simulation_calculator,
+            self.scene_quality_calculator, self.post_production_calculator, self.budget_efficienty_calculator
         )
         self.scene_event_trigger_service = SceneEventTriggerService(self.data_manager)
         self.tour_sponsorship_service = TourSponsorshipPreviewService(self.data_manager, self.query_service,
@@ -172,7 +190,7 @@ class ServiceContainer:
         self.scene_command_service = SceneCommandService(
             session_factory, self.signals, self.data_manager, self.query_service, self.talent_command_service,
             self.market_service, self.email_service, self.scene_processing_service, self.revenue_calculator,
-            self.scene_event_trigger_service, self.bloc_cost_calculator
+            self.scene_event_trigger_service, self.bloc_cost_calculator, self.crew_skill_calculator
         )
         self.scene_event_command_service = SceneEventCommandService(session_factory, self.data_manager, self.query_service)
         self.time_service = TimeService(
@@ -281,10 +299,33 @@ class ServiceContainer:
         self.scene_event_command_service = None
         self.player_settings_service = None
         self.email_service = None
+        self.budget_efficienty_calculator = None
+        self.stress_calculator = None
+        self.crew_skill_calculator = None
+        self.bloc_simulation_calculator = None
 
     def _create_configs(self):
         """Creates all configuration dataclasses from the data manager."""
         game_config = self.data_manager.game_config
+
+        self.production_config = ProductionConfig(
+            budget_min_penalty_multiplier=game_config.get("budget_min_penalty_multiplier", 0.5),
+            budget_overspend_penalty_factor=game_config.get("budget_overspend_penalty_factor", 0.5),
+            budget_efficiency_floor=game_config.get("budget_efficiency_floor", 0.1),
+            linear_curve_divisor=game_config.get("budget_linear_curve_divisor", 10.0),
+            exponential_curve_exponent=game_config.get("budget_exponential_curve_exponent", 2.0),
+            step_curve_thresholds={
+                0.25: 0.2, 0.5: 0.5, 1.0: 0.8
+            }, # Could load from JSON object if needed, using default for now
+            crew_skill_baseline_multiplier=game_config.get("crew_skill_baseline_multiplier", 50),
+            crew_skill_sigma=game_config.get("crew_skill_sigma", 5),
+            bloc_base_momentum=game_config.get("bloc_base_momentum", 50.0),
+            bloc_base_stress=game_config.get("bloc_base_stress", 5.0),
+            momentum_bonus_threshold=game_config.get("bloc_momentum_bonus_threshold", 75.0),
+            momentum_bonus_multiplier=game_config.get("bloc_momentum_bonus_multiplier", 0.8),
+            momentum_penalty_threshold=game_config.get("bloc_momentum_penalty_threshold", 25.0),
+            momentum_penalty_multiplier=game_config.get("bloc_momentum_penalty_multiplier", 1.2)
+        )
 
         self.market_config = MarketConfig(
             saturation_recovery_rate=game_config.get("market_saturation_recovery_rate", 0.05),
@@ -376,5 +417,11 @@ class ServiceContainer:
             ds_skill_gain_disposition_multiplier=game_config.get("ds_skill_gain_disposition_multiplier", 1.5),
             ds_skill_gain_dynamic_level_multipliers={int(k): v for k, v in game_config.get("ds_skill_gain_dynamic_level_multipliers", {}).items()},
             age_based_affinity_rules=game_config.get("age_based_affinity_rules", []),
-            popularity_gain_scalar=game_config.get("popularity_gain_scalar", 0.05)
+            popularity_gain_scalar=game_config.get("popularity_gain_scalar", 0.05),
+            base_acting_stress=game_config.get("stress_base_acting", 0.5),
+            multitasking_stress_multiplier=game_config.get("stress_multitasking_multiplier", 0.5),
+            introvert_crowd_penalty=game_config.get("stress_introvert_crow_penalty", 0.5),
+            craft_services_stress_relief_scalar=game_config.get(),
+            max_stress_threshold=game_config.get("stress_max_threshold", 100.0),
+            burnout_conversion_rate=game_config.get("stress_burnout_conversion_rate", 1.0)
         )

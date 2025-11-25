@@ -211,17 +211,20 @@ class Scene:
 @dataclass
 class ShootingBloc:
     id: int
-    location: str
+    region_id: str             # Geographical Region (e.g., "south_west_us")
     name: str
     scheduled_absolute_week: int
-    location_id: Optional[str] = None
+    set_location_id: Optional[str] = None  # Physical Set (e.g., "warehouse_cheap")
     visual_style_id: Optional[str] = None
     department_budgets: Dict[str, int] = field(default_factory=dict)
     crew_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    resolved_crew_skills: Dict[str, int] = field(default_factory=dict)
     picture_set_settings: Dict[str, Any] = field(default_factory=dict)
     production_cost: int = 0
+    current_momentum: float = 50.0
+    current_stress: float = 0.0
     scenes: List[Scene] = field(default_factory=list)
-    on_set_policies: List[str] = field(default_factory=list) # Key: policy_id, e.g., ["policy_condoms_mandatory"]
+    on_set_policies: List[str] = field(default_factory=list)
 
 @dataclass_json
 @dataclass

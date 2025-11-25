@@ -41,6 +41,8 @@ class TalentShootOutcome:
     talent_id: int
     stamina_cost: float
     fatigue_result: Optional[FatigueResult]
+    stress_gain: float
+    burnout_gain: float = 0.0
     skill_gains: Dict[str, float] = field(default_factory=dict)
     experience_gain: float = 0.0
 
@@ -64,6 +66,8 @@ class ShootCalculationResult:
     talent_outcomes: List[TalentShootOutcome]
     quality_result: SceneQualityResult
     discovered_tags: List[str]
+    momentum_delta: float = 0.0
+    stress_delta: float = 0.0
 
 @dataclass(frozen=True)
 class PostProductionResult:

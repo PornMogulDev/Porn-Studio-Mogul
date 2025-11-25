@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, List
+import random
+from typing import Dict, List, Any
 from sqlalchemy.orm import selectinload, Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -17,6 +18,7 @@ from services.events.scene_event_trigger_service import SceneEventTriggerService
 from services.market_service import MarketService
 from services.calculation.revenue_calculator import RevenueCalculator
 from services.calculation.bloc_cost_calculator import BlocCostCalculator
+from services.calculation.crew_skill_calculator import CrewSkillCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +28,11 @@ class SceneCommandService:
     """
     
     def __init__(self, session_factory, signals: GameSignals, data_manager: DataManager, query_service: GameQueryService, 
-             talent_command_service: TalentCommandService, market_service: MarketService, 
-             email_service: EmailService, scene_processing_service: SceneProcessingService, revenue_calculator: RevenueCalculator,
-             scene_event_trigger_service: SceneEventTriggerService, bloc_cost_calculator: BlocCostCalculator):
+             talent_command_service: TalentCommandService, market_service: MarketService, email_service: EmailService,
+             scene_processing_service: SceneProcessingService, revenue_calculator: RevenueCalculator,
+             scene_event_trigger_service: SceneEventTriggerService, bloc_cost_calculator: BlocCostCalculator,
+             crew_skill_calculator: CrewSkillCalculator):
+        self.session_factory = session_factory
         self.session_factory = session_factory
         self.signals = signals
         self.data_manager = data_manager
@@ -40,6 +44,7 @@ class SceneCommandService:
         self.revenue_calculator = revenue_calculator
         self.scene_event_trigger_service = scene_event_trigger_service
         self.bloc_cost_calculator = bloc_cost_calculator
+        self.crew_skill_calculator = crew_skill_calculator
 
     # --- CRUD and Logic Methods ---
 
@@ -61,25 +66,53 @@ class SceneCommandService:
         new_scene_db.title = f"Untitled Scene {new_scene_db.id}"
         return new_scene_db
     
-    def calculate_shooting_bloc_cost(self, num_scenes: int, settings: Dict[str, str], policies: List[str]) -> int:
-        """Calculates the authoritative cost for creating a shooting bloc."""
-        return self.bloc_cost_calculator.calculate_shooting_bloc_cost(num_scenes, settings, policies)
+    def calculate_shooting_bloc_cost(self, num_scenes: int, location_id: str, department_budgets: Dict, crew_assignments: Dict, picture_set_settings: Dict, policies: List[str]) -> int:
+        return self.bloc_cost_calculator.calculate_shooting_bloc_cost(
+            num_scenes, location_id, department_budgets, crew_assignments, picture_set_settings, policies
+        )
     
-    def create_shooting_bloc(self, absolute_week: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str], studio_location: str) -> bool:
+    def create_shooting_bloc(self, 
+                             absolute_week: int,
+                             region: str, 
+                             num_scenes: int, 
+                             name: str, 
+                             set_location: str,
+                             visual_style_id: str,
+                             department_budgets: Dict[str, int],
+                             crew_assignments: Dict[str, Dict],
+                             picture_set_settings: Dict[str, Any],
+                             policies: List[str]) -> bool:
         """Creates a new ShootingBloc and its associated blank scenes in the database."""
         session = self.session_factory()
         try:
             money_info = session.query(GameInfoDB).filter_by(key='money').one()
             current_money = int(float(money_info.value))
 
-            cost = self.bloc_cost_calculator.calculate_shooting_bloc_cost(num_scenes, settings, policies)
+            cost = self.bloc_cost_calculator.calculate_shooting_bloc_cost(
+                num_scenes, set_location, department_budgets, crew_assignments, picture_set_settings, policies
+            )
 
             new_money = current_money - cost
             money_info.value = str(new_money)
 
+            # Generate Randomized Fixed Crew Skills via the specialized calculator
+            visual_style_def = self.data_manager.visual_styles.get(visual_style_id, {})
+            
+            resolved_skills = self.crew_skill_calculator.generate_resolved_skills(
+                department_budgets=department_budgets,
+                production_departments=self.data_manager.production_departments,
+                visual_style_def=visual_style_def
+            )
+
             bloc_db = ShootingBlocDB(
-                name=name, scheduled_absolute_week=absolute_week, location=studio_location,
-                production_settings=settings, production_cost=cost, on_set_policies=policies
+                name=name, scheduled_absolute_week=absolute_week, region_id=region,
+                set_location_id=set_location, visual_style_id=visual_style_id,
+                department_budgets=department_budgets, crew_assignments=crew_assignments,
+                resolved_crew_skills=resolved_skills, # Persist the rolled stats
+                picture_set_settings=picture_set_settings,
+                production_cost=cost, on_set_policies=policies,
+                current_momentum=50.0, # Start neutral
+                current_stress=0.0     # Start fresh
             )
             session.add(bloc_db)
             session.flush()

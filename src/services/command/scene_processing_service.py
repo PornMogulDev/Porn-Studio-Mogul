@@ -13,6 +13,8 @@ from services.calculation.tag_validation_checker import TagValidationChecker
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
 from services.calculation.scene_quality_calculator import SceneQualityCalculator
 from services.calculation.post_production_calculator import PostProductionCalculator
+from services.calculation.budget_efficiency_calculator import BudgetEfficiencyCalculator
+from services.calculation.bloc_simulation_calculator import BlocSimulationCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -24,15 +26,18 @@ class SceneProcessingService:
     """
     def __init__(self, data_manager: DataManager, talent_command_service: TalentCommandService,
                  config: SceneCalculationConfig, tag_validation_checker: TagValidationChecker,
-                 shoot_results_calc: ShootResultsCalculator, scene_quality_calc: SceneQualityCalculator,
-                 post_prod_calc: PostProductionCalculator):
+                 shoot_results_calc: ShootResultsCalculator, bloc_sim_calc: BlocSimulationCalculator,
+                 scene_quality_calc: SceneQualityCalculator, post_prod_calc: PostProductionCalculator, 
+                 budget_efficiency_calc: BudgetEfficiencyCalculator):
         self.data_manager = data_manager
         self.talent_command_service = talent_command_service
         self.config = config
         self.tag_validation_checker = tag_validation_checker
         self.shoot_results_calculator = shoot_results_calc
+        self.bloc_simulation_calculator = bloc_sim_calc
         self.scene_quality_calculator = scene_quality_calc
         self.post_production_calculator = post_prod_calc
+        self.budget_efficiency_calculator = budget_efficiency_calc
 
     def prepare_for_shoot_calculation(self, session: Session, scene_db: SceneDB):
         """
@@ -68,32 +73,77 @@ class SceneProcessingService:
         ).filter(TalentDB.id.in_(talent_ids)).all()
         cast_talents_dc = [t.to_dataclass(Talent) for t in talents_db]
 
-        # --- 2. DELEGATE TO PURE CALCULATORS ---
+        bloc_db = session.query(ShootingBlocDB).get(scene.bloc_id) if scene.bloc_id else None
+        
+        # --- 2. PREPARE CONTEXT ---
+        bloc_context = {}
+        if bloc_db:
+            # Calculate Craft Services Efficiency for Stress Relief
+            cs_budget = bloc_db.department_budgets.get('craft_services', 0)
+            cs_def = self.data_manager.production_departments.get('craft_services')
+            style_def = self.data_manager.visual_styles.get(bloc_db.visual_style_id, {})
+            
+            cs_efficiency = 0.0
+            if cs_def:
+                cs_efficiency = self.budget_efficiency_calculator.calculate_efficiency(cs_def, cs_budget, style_def)
+            
+            bloc_context = {
+                'location_def': self.data_manager.production_locations.get(bloc_db.location_id, {}),
+                'craft_services_efficiency': cs_efficiency,
+                'crew_assignments': bloc_db.crew_assignments,
+                'department_budgets': bloc_db.department_budgets,
+                'visual_style_id': bloc_db.visual_style_id
+            }
+
+        # Add current momentum to context for calculations
+        if bloc_db:
+             bloc_context['current_momentum'] = bloc_db.current_momentum
+
+        # --- 3. DELEGATE TO PURE CALCULATORS ---
+        # 3a. Calculate Talent Outcomes
         talent_outcomes = self.shoot_results_calculator.calculate_talent_outcomes(
-            scene, cast_talents_dc
+            scene, cast_talents_dc, bloc_context
         )
+        
+        # 3b. Calculate Bloc Simulation (Momentum/Stress)
+        momentum_delta, stress_delta = self.bloc_simulation_calculator.calculate_simulation_deltas(
+            bloc_context
+        )
+        
         scene.performer_stamina_costs = {str(o.talent_id): o.stamina_cost for o in talent_outcomes}
 
         existing_tags = set(scene.global_tags) | set(scene.assigned_tags.keys())
         discovered_tags = self.tag_validation_checker.analyze_cast(cast_talents_dc, existing_tags)
         scene.auto_tags = discovered_tags
 
-        bloc_db = session.query(ShootingBlocDB).get(scene.bloc_id) if scene.bloc_id else None
         quality_result = self.scene_quality_calculator.calculate_quality(
-            scene, cast_talents_dc, shoot_modifiers, bloc_db.production_settings if bloc_db else None
+            scene, cast_talents_dc, shoot_modifiers, bloc_context
         )
 
-        # --- 3. PACKAGE AND RETURN DTO ---
+        # --- 4. PACKAGE AND RETURN DTO ---
         return ShootCalculationResult(
             talent_outcomes=talent_outcomes,
             quality_result=quality_result,
-            discovered_tags=discovered_tags
+            discovered_tags=discovered_tags,
+            momentum_delta=momentum_delta,
+            stress_delta=stress_delta
         )
 
     def apply_shoot_calculation_results(self, session: Session, scene_db: SceneDB, result: ShootCalculationResult):
         """
         Applies the data from a ShootCalculationResult DTO to the database models.
         """
+        # Update Bloc Simulation State
+        if scene_db.bloc_id:
+            bloc_db = session.query(ShootingBlocDB).get(scene_db.bloc_id)
+            if bloc_db:
+                # Clamp values
+                new_momentum = max(0.0, min(100.0, bloc_db.current_momentum + result.momentum_delta))
+                new_stress = max(0.0, bloc_db.current_stress + result.stress_delta)
+                
+                bloc_db.current_momentum = new_momentum
+                bloc_db.current_stress = new_stress
+
         talent_ids = [outcome.talent_id for outcome in result.talent_outcomes]
         talents_db = session.query(TalentDB).filter(TalentDB.id.in_(talent_ids)).all()
         talent_db_map = {t.id: t for t in talents_db}
@@ -104,6 +154,8 @@ class SceneProcessingService:
             
             if outcome.fatigue_result:
                 talent_db.fatigue = outcome.fatigue_result.new_fatigue_level
+
+                talent_db.stress += outcome.stress_gain
             
             for skill, gain in outcome.skill_gains.items():
                 current_val = getattr(talent_db, skill)

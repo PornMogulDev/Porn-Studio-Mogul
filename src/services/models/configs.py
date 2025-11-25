@@ -33,6 +33,29 @@ class MarketConfig:
     discoveries_per_scene: int
 
 @dataclass(frozen=True)
+class ProductionConfig:
+    """Configuration values for production logistics, budgeting, and simulation."""
+    # Budgeting
+    budget_min_penalty_multiplier: float
+    budget_overspend_penalty_factor: float
+    budget_efficiency_floor: float
+    linear_curve_divisor: float
+    exponential_curve_exponent: float
+    step_curve_thresholds: Dict[float, float] # e.g. {0.25: 0.2, 0.5: 0.5}
+
+    # Crew Generation
+    crew_skill_baseline_multiplier: int # Efficiency * 50 = Skill
+    crew_skill_sigma: int # Random variance
+    
+    # Bloc Simulation
+    bloc_base_momentum: float
+    bloc_base_stress: float
+    momentum_bonus_threshold: float
+    momentum_bonus_multiplier: float
+    momentum_penalty_threshold: float
+    momentum_penalty_multiplier: float
+
+@dataclass(frozen=True)
 class SceneCalculationConfig:
     """Configuration values for scene shooting, quality, and revenue calculations."""
     # Stamina & Fatigue
@@ -42,6 +65,14 @@ class SceneCalculationConfig:
     fatigue_passive_decay_rate: int
     fatigue_active_recovery_bonus: int
     fatigue_stamina_recovery_modifier: float
+    
+    # Stress & Burnout
+    base_acting_stress: float
+    multitasking_stress_multiplier: float  # e.g., 0.5 (adds 50% per extra role)
+    introvert_crowd_penalty: float
+    craft_services_stress_relief_scalar: float # e.g., 5.0 per efficiency point
+    max_stress_threshold: float # 100.0
+    burnout_conversion_rate: float # How much overflow stress becomes burnout (e.g., 0.1)
     
     # Skills & Experience
     maximum_skill_level: float

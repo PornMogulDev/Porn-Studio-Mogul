@@ -8,6 +8,11 @@
         "set_design": 0.5,
         "makeup": 0.5,
         "camera_equipment": 0.8
+      },
+      "allocation_targets": {
+        "set_design": { "max_percent": 0.05, "penalty_factor": 2.5 }, 
+        "makeup": { "max_percent": 0.05, "penalty_factor": 2.0 },
+        "camera_equipment": { "min_percent": 0.15, "penalty_factor": 1.0 }
       }
     },
     {
@@ -30,6 +35,11 @@
         "set_design": 1.5,
         "camera_equipment": 1.5,
         "audio_equipment": 1.5
+      },
+      "allocation_targets": {
+        "set_design": { "min_percent": 0.15, "penalty_factor": 1.5 },
+        "camera_equipment": { "min_percent": 0.20, "penalty_factor": 2.0 },
+        "audio_equipment": { "min_percent": 0.10, "penalty_factor": 1.5 }
       }
     }
 ]

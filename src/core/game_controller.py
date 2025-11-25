@@ -181,9 +181,9 @@ class GameController(QObject):
         if result.market_changed: self.signals.market_changed.emit()
         if result.talent_pool_changed: self.signals.talent_pool_changed.emit()
 
-    def create_shooting_bloc(self, absolute_week: int, num_scenes: int, settings: Dict[str, str], name: str, policies: List[str]) -> bool:
-        studio_location = self.game_state.studio_location
-        return self.scene_command_service.create_shooting_bloc(absolute_week, num_scenes, settings, name, policies, studio_location)
+    def create_shooting_bloc(self, absolute_week: int, region: str, num_scenes: int, name: str, set_location: str, visual_style_id: str, department_budgets: Dict[str, int], crew_assignments: Dict[str, Dict], picture_set_settings: Dict[str, Any], policies: List[str]) -> bool:
+        if not self.scene_command_service: return False
+        return self.scene_command_service.create_shooting_bloc(absolute_week, region, num_scenes, name, set_location, visual_style_id, department_budgets, crew_assignments, picture_set_settings, policies)
     
     def create_blank_scene(self, absolute_week: Optional[int] = None) -> int:
         use_week = absolute_week if absolute_week is not None else self.game_state.absolute_week

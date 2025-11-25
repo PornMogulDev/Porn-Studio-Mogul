@@ -1,12 +1,13 @@
 import logging
 from collections import defaultdict
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
 from database.db_models import TalentDB
 from services.models.configs import SceneCalculationConfig
 from services.calculation.role_performance_calculator import RolePerformanceCalculator
+from services.calculation.stress_calculator import StressCalculator
 from services.models.results import TalentShootOutcome, FatigueResult
 
 logger = logging.getLogger(__name__)
@@ -14,19 +15,22 @@ logger = logging.getLogger(__name__)
 class ShootResultsCalculator:
     """
     Calculates outcomes for talents involved in a shoot, including stamina,
-    fatigue, skill gains, and experience gains.
+    fatigue, skill gains, experience gains, stress, and burnout.
     """
     def __init__(self, data_manager: DataManager, config: SceneCalculationConfig,
-                 role_perf_calculator: RolePerformanceCalculator):
+                 role_perf_calculator: RolePerformanceCalculator, stress_calculator: StressCalculator):
         self.data_manager = data_manager
         self.config = config
         self.role_performance_calculator = role_perf_calculator
+        self.stress_calculator = stress_calculator
 
     def calculate_talent_outcomes(
-        self, scene: Scene, talents: List[Talent]
+        self, scene: Scene, talents: List[Talent], 
+        bloc_context: dict
     ) -> List[TalentShootOutcome]:
         """
         Calculates all per-talent effects from shooting a scene.
+        bloc_context must contain: location_def, craft_services_efficiency, crew_assignments
         """
         talent_stamina_cost = self._calculate_stamina_costs(scene)
         
@@ -34,6 +38,10 @@ class ShootResultsCalculator:
         talent_id_to_vp = {v: k for k, v in vp_id_to_talent_id.items()}
         vp_map = {vp.id: vp for vp in scene.virtual_performers}
         
+        crew_assignments = bloc_context.get('crew_assignments', {})
+        location_def = bloc_context.get('location_def', {})
+        cs_efficiency = bloc_context.get('craft_services_efficiency', 1.0)
+
         outcomes = []
         for talent in talents:
             stamina_cost = talent_stamina_cost.get(talent.id, 0.0)
@@ -48,6 +56,24 @@ class ShootResultsCalculator:
                 
             exp_gain = self._calculate_experience_gain(talent, scene.total_runtime_minutes)
             
+            # --- Calculate Stress & Burnout ---
+            jobs = self._get_jobs_for_talent(talent.id, crew_assignments)
+            
+            stress_gain = self.stress_calculator.calculate_stress_gain(
+                talent=talent,
+                jobs=jobs,
+                location_def=location_def,
+                craft_services_efficiency=cs_efficiency,
+                events_modifier=0.0 # Future: pass from Scene modifiers
+            )
+            
+            # Calculate Burnout (Overflow of stress)
+            burnout_gain = 0.0
+            projected_total_stress = talent.stress + stress_gain
+            if projected_total_stress > self.config.max_stress_threshold:
+                excess_stress = projected_total_stress - self.config.max_stress_threshold
+                burnout_gain = excess_stress * self.config.burnout_conversion_rate
+
             skill_gains = {
                 'performance': p_gain, 'acting': a_gain, 'stamina': s_gain,
                 'dom_skill': dom_gain, 'sub_skill': sub_gain
@@ -58,9 +84,22 @@ class ShootResultsCalculator:
                 stamina_cost=stamina_cost,
                 fatigue_result=fatigue_result,
                 skill_gains=skill_gains,
-                experience_gain=exp_gain
+                experience_gain=exp_gain,
+                stress_gain=stress_gain,
+                burnout_gain=burnout_gain
             ))
+
         return outcomes
+    
+    def _get_jobs_for_talent(self, talent_id: int, crew_assignments: Dict) -> List[str]:
+        """Identifies all roles (Actor + Crew) a talent is performing."""
+        jobs = ['actor'] # Implicitly an actor if they are in this list
+        
+        # Check assignments in the dict structure: {'director': {'type': 'character', 'id': 5}, ...}
+        for slot_id, assignment in crew_assignments.items():
+            if assignment.get('type') == 'character' and assignment.get('id') == talent_id:
+                jobs.append(slot_id)
+        return jobs
     
     def estimate_fatigue_gain(self, talent: Union[Talent, TalentDB], scene: Scene, vp_id: int) -> int:
         """

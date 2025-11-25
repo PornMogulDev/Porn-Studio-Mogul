@@ -57,14 +57,20 @@ class ShootingBlocDB(Base, DataclassMapper):
     __tablename__ = 'shooting_blocs'
     id = Column(Integer, primary_key=True)
     name = Column(String)
-    location = Column(String, nullable=False)
+    region_id = Column(String, nullable=False)
     scheduled_absolute_week = Column(Integer)
-    location_id = Column(String)
+    set_location_id = Column(String)         
     visual_style_id = Column(String)
     department_budgets = Column(JSON, default=dict)
-    crew_assignments = Column(JSON, default=dict)
+    crew_assignments = Column(JSON, default=dict) # Stores WHO (e.g. "Generic", "Talent ID")
+    resolved_crew_skills = Column(JSON, default=dict) # Stores THE SKILL (e.g. "Director": 65)
     picture_set_settings = Column(JSON, default=dict)
     production_cost = Column(Integer, default=0)
+    
+    # Bloc Simulation State
+    current_momentum = Column(Float, default=50.0)
+    current_stress = Column(Float, default=0.0)
+
     on_set_policies = Column(JSON, default=list)
     scenes = relationship("SceneDB", back_populates="bloc", cascade="all, delete-orphan")
 

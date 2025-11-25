@@ -9,6 +9,7 @@ from data.game_state import Scene, Talent
 from data.data_manager import DataManager
 from services.models.configs import SceneCalculationConfig
 from services.models.results import SceneQualityResult
+from services.calculation.budget_efficiency_calculator import BudgetEfficiencyCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +19,15 @@ class SceneQualityCalculator:
     scene's quality score. Calculates all aspects of scene quality,
     including tag qualities and performer contributions.
     """
-    def __init__(self, data_manager: DataManager, config: SceneCalculationConfig):
+    def __init__(self, data_manager: DataManager, config: SceneCalculationConfig,
+                 budget_efficiency_calculator: BudgetEfficiencyCalculator):
         self.data_manager = data_manager
         self.config = config
+        self.budget_efficiency_calculator = budget_efficiency_calculator
 
     def calculate_quality(
         self, scene: Scene, cast_talents: List[Talent], 
-        shoot_modifiers: Dict, bloc_production_settings: Dict | None
+        shoot_modifiers: Dict, bloc_data: Dict | None
     ) -> SceneQualityResult:
         """
         Calculates the final quality scores for a scene after it has been shot.
@@ -37,8 +40,11 @@ class SceneQualityCalculator:
         5. Applies the final production modifier to all tag and performer scores.
         
         Args:
-            scene: The Scene dataclass, containing tags, cast, and structure.
-            cast_talents: A list of the actual Talent dataclasses participating in the scene.
+            bloc_data: Dictionary containing {
+                'department_budgets': {},
+                'visual_style_id': str,
+                ...
+            }
             shoot_modifiers: A dictionary of modifiers from a potential interactive event
                              (e.g., {'performer_mods': {...}, 'quality_mods': {...}}).
             bloc_production_settings: A dictionary of production settings from the parent
@@ -76,7 +82,7 @@ class SceneQualityCalculator:
 
         # 5. Calculate and apply the final production quality modifier
         total_prod_quality_modifier = self._calculate_production_quality_modifier(
-            scene, bloc_production_settings, scene_mods
+            scene, bloc_data, scene_mods
         )
     
         if overall_mod := quality_mods.get('overall'):
@@ -138,9 +144,9 @@ class SceneQualityCalculator:
         scene_mods['acting_weight'] = np.clip(scene_mods['acting_weight'], self.config.scene_quality_min_acting_weight, self.config.scene_quality_max_acting_weight)
         return scene_mods
 
-    def _calculate_production_quality_modifier(self, scene: Scene, bloc_production_settings: Dict | None, scene_mods: Dict) -> float:
+    def _calculate_production_quality_modifier(self, scene: Scene, bloc_data: Dict | None, scene_mods: Dict) -> float:
         """
-        Calculates the final production quality modifier from bloc-level settings
+        Calculates the final production quality modifier from bloc-level budgets.
         (e.g., Camera, Location), amplified by scene-wide modifiers from Thematic tags.
 
         Args:
@@ -152,21 +158,27 @@ class SceneQualityCalculator:
             A float representing the total production quality multiplier.
         """
         total_prod_quality_modifier = 1.0
-        if bloc_production_settings:
-            for category, tier_name in bloc_production_settings.items():
-                tiers = self.data_manager.production_settings_data.get(category, [])
-                tier_info = next((t for t in tiers if t['tier_name'] == tier_name), None)
-                if tier_info:
-                    base_modifier = tier_info.get('quality_modifier', 1.0)
-                    # Thematic tags can amplify the effect of production settings
-                    amplifier = scene_mods['prod_setting_amplifiers'][category]
+        if bloc_data:
+            budgets = bloc_data.get('department_budgets', {})
+            style_id = bloc_data.get('visual_style_id', 'glossy')
+            style_def = self.data_manager.visual_styles.get(style_id, {})
+
+            for dept_id, budget in budgets.items():
+                dept_def = self.data_manager.production_departments.get(dept_id)
+                if not dept_def: continue
+
+                # Check if this department impacts visual quality
+                if "visual_quality" in dept_def.get("impacts", []):
+                    efficiency = self.budget_efficiency_calculator.calculate_efficiency(dept_def, budget, style_def)
                     
-                    # The effect is the part of the modifier above 1.0 (e.g., 1.25 -> 0.25)
-                    effect = base_modifier - 1.0
-                    amplified_effect = effect * amplifier
-                    effective_modifier = 1.0 + amplified_effect
+                    weight = dept_def.get('base_weight', 0.1)
+                    # If efficiency is 1.0, modifier is 1.0. If 0.5, it drags down total.
+                    # Weighted geometric mean or simple weighted modifier?
+                    # Using a weighted impact model:
+                    # Mod = 1.0 + (Efficiency - 1.0) * Weight
+                    modifier_impact = 1.0 + (efficiency - 1.0) * weight
                     
-                    total_prod_quality_modifier *= effective_modifier
+                    total_prod_quality_modifier *= modifier_impact
         return total_prod_quality_modifier
     
     def _calculate_action_tag_qualities(self, scene: Scene, final_cast_talents: Dict, scene_mods: Dict, performer_mods: Dict) -> Tuple[Dict, List[Dict]]:
