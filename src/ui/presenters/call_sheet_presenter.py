@@ -14,43 +14,61 @@ class CallSheetPresenter(QObject):
         self.controller = controller
         self.view = view
         
-        # Ask Controller for the initialized tool
         self.builder = self.controller.get_shooting_bloc_builder()
         
-        # Cache for UI responsiveness
+        # Cache both dictionaries
         self.departments_cache = self.controller.data_manager.production_departments
+        self.jobs_cache = self.controller.data_manager.production_jobs # Add this
         self.styles_cache = self.controller.data_manager.visual_styles
         self.locations_cache = self.controller.data_manager.production_locations
+        self.picture_sets_cache = self.controller.data_manager.picture_set_types
 
     def initialize(self):
         """Called by View after UI setup."""
         # 1. Setup default Logistics
         locations = list(self.locations_cache.values())
         styles = list(self.styles_cache.values())
+        pst_options = list(self.picture_sets_cache.values())
         self.view.populate_logistics_options(locations, styles)
+        self.view.populate_picture_set_options(pst_options)
+
+        # Force update of tags/descriptions for the default selections (Index 0)
+        if locations:
+             # Ensure builder has the ID of the first item
+            self.on_location_changed(0)
+        if styles:
+            self.on_style_changed(0)
         
-        # 2. Setup Defaults in Builder
-        # (Could load last used settings from SettingsManager here)
+        # 2. Setup Defaults in Builder and Date Constraints
         current_week = self.controller.game_state.absolute_week
         year, week = time_utils.from_absolute(current_week)
+        
+        self.view.set_date_limits(year, week)
         self.view.set_schedule_values(week, year)
-        self.view.spin_num_scenes.setValue(2) # Default
+        self.view.spin_num_scenes.setValue(2)
 
-        # 3. Create Sliders dynamically based on Departments JSON
-        # Sort by 'crew' then 'resource' for cleaner addition order?
-        # Actually view handles column splitting, so order in dict matters less.
+        # 3. Create Sliders dynamically
+        
+        # A. Add Crew Sliders (From Production Jobs)
+        for job_id, job_def in self.jobs_cache.items():
+            self.view.add_department_slider(
+                job_id,
+                job_def.get('name', job_id.title()),
+                'crew', # Hardcode type string for column logic
+                show_assignment=True
+            )
+
+        # B. Add Resource Sliders (From Production Departments)
         for dept_id, dept_def in self.departments_cache.items():
             self.view.add_department_slider(
                 dept_id, 
                 dept_def.get('name', dept_id.title()), 
-                dept_def.get('type', 'resource')
+                'resource' # Hardcode type string
             )
 
         # 4. Populate Policies
         all_policies = list(self.controller.data_manager.on_set_policies_data.values())
-        # Check active policies from Studio State (Game State)
         active_ids = self.controller.game_state.active_policies
-        # Pre-select them in builder
         for pid in active_ids:
             self.builder.toggle_policy(pid, True)
             
@@ -61,18 +79,15 @@ class CallSheetPresenter(QObject):
 
     def _sync_view_from_builder(self):
         """Updates all UI elements to match Builder state."""
-        # Update Slider Values & Estimates
-        alloc_data = self.builder.get_allocation_data()
-        estimates = self.builder.get_estimates()
-        self.view.update_sliders(alloc_data, estimates)
+        data = self.builder.get_ui_data()
         
-        # Update Cost Logic
-        num_scenes = self.view.get_num_scenes()
-        total_budget = self.builder.total_budget
-        est_cost = self.builder.get_total_cost(num_scenes)
-        self.view.set_budget_values(total_budget, est_cost)
+        # 1. Sliders
+        self.view.update_sliders(data['allocations'], data['estimates'])
         
-        # Update Descriptions
+        # 2. Cost & Budget Display
+        self.view.set_budget_values(data['budget_per_scene'], data['total_cost'])
+        
+        # 3. Logistics Text
         style = self.styles_cache.get(self.builder.visual_style_id, {})
         loc = self.locations_cache.get(self.builder.location_id, {})
         self.view.update_logistics_info(
@@ -83,19 +98,15 @@ class CallSheetPresenter(QObject):
     # --- Events ---
 
     def on_allocation_changed(self, dept_id: str, value: float):
-        success = self.builder.update_allocation(dept_id, value)
-        if success:
-            self._sync_view_from_builder()
-        else:
-            # If failed (e.g. locks preventing it), revert view by syncing
-            self._sync_view_from_builder()
-
-    def on_lock_toggled(self, dept_id: str, is_locked: bool):
-        self.builder.toggle_lock(dept_id, is_locked)
+        self.builder.update_allocation(dept_id, value)
         self._sync_view_from_builder()
 
-    def on_total_budget_changed(self, value: int):
-        self.builder.set_total_budget(value)
+    def on_lock_toggled(self, dept_id: str, is_locked: bool):
+        self.builder.toggle_user_lock(dept_id, is_locked)
+        self._sync_view_from_builder()
+
+    def on_budget_per_scene_changed(self, value: int):
+        self.builder.set_budget_per_scene(value)
         self._sync_view_from_builder()
 
     def on_location_changed(self, index: int):
@@ -110,12 +121,25 @@ class CallSheetPresenter(QObject):
             self.builder.visual_style_id = style_id
             self._sync_view_from_builder()
 
+    def on_picture_set_changed(self, index: int):
+        pst_id = self.view.combo_picture_set.currentData()
+        if pst_id:
+            self.builder.set_picture_set_type(pst_id)
+            self._sync_view_from_builder()
+
+    def on_camera_config_changed(self):
+        # Triggered by count spinbox or any mount combo
+        count, mounts = self.view.get_camera_config()
+        self.builder.set_camera_config(count, mounts)
+        self._sync_view_from_builder()
+
     def on_policy_toggled(self, policy_id: str, checked: bool):
         self.builder.toggle_policy(policy_id, checked)
         self._sync_view_from_builder()
         
     def on_num_scenes_changed(self, value: int):
         # Only affects cost calculation
+        self.builder.set_num_scenes(value)
         self._sync_view_from_builder()
 
     def on_confirm(self):

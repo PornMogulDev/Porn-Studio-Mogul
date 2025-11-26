@@ -18,6 +18,8 @@ class BudgetEfficiencyCalculator:
         }
 
     def calculate_efficiency(self, department_def: Dict, budget: int, total_bloc_budget: int, visual_style_def: Dict) -> float:
+        if budget <= 0: return 0.0 # Safety Check
+        
         min_budget = department_def.get('min_budget', 0)
         
         # 0. Immediate penalty for under-funding min requirement

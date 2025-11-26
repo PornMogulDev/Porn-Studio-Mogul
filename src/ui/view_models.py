@@ -86,14 +86,12 @@ class MarketGroupViewModel:
 class ScheduleSceneViewModel:
     """Holds display data for a single scene in the schedule tree."""
     display_text: str
-    tooltip: str
     user_data: dict # e.g., {'type': 'scene', 'id': 123}
 
 @dataclass
 class ScheduleBlocViewModel:
     """Holds display data for a shooting bloc, including its scenes."""
     display_text: str
-    tooltip: str
     user_data: dict # e.g., {'type': 'bloc', 'id': 45}
     scenes: List[ScheduleSceneViewModel] = field(default_factory=list)
 

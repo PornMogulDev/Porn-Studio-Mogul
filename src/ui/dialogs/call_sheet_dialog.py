@@ -1,6 +1,6 @@
 from typing import Dict, List
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, 
-                             QLabel, QComboBox, QSpinBox, QLineEdit, 
+                             QLabel, QComboBox, QSpinBox, QLineEdit,
                              QDialogButtonBox, QWidget, QScrollArea, QFrame, QCheckBox)
 from PyQt6.QtCore import Qt, QSize
 
@@ -16,10 +16,17 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         
         self.presenter = None
         
-        # State holders for dynamically created widgets
         self.slider_widgets: Dict[str, BudgetSliderWidget] = {}
         self.policy_checkboxes: Dict[str, QCheckBox] = {}
         
+        # Explicit references for layouts to ensure sliders are added correctly
+        self.crew_layout = None 
+        self.resource_layout = None
+        
+        # Date constraints
+        self.min_year = 2000
+        self.min_week = 1
+
         self.setup_ui()
         self._restore_geometry()
 
@@ -32,11 +39,18 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         """Connects signals for widgets created in setup_ui that depend on the presenter."""
         if not self.presenter: return
         
-        self.spin_total_budget.valueChanged.connect(self.presenter.on_total_budget_changed)
+        self.spin_budget_per_scene.valueChanged.connect(self.presenter.on_budget_per_scene_changed)
         self.button_box.accepted.connect(self.presenter.on_confirm)
         self.spin_num_scenes.valueChanged.connect(self.presenter.on_num_scenes_changed)
         self.combo_location.currentIndexChanged.connect(self.presenter.on_location_changed)
         self.combo_style.currentIndexChanged.connect(self.presenter.on_style_changed)
+        self.spin_year.valueChanged.connect(self._update_date_constraints)
+
+        self.combo_picture_set.currentIndexChanged.connect(self.presenter.on_picture_set_changed)
+        self.spin_camera_count.valueChanged.connect(self._on_camera_count_changed)
+        
+        for combo in self.camera_mount_combos:
+            combo.currentIndexChanged.connect(self.presenter.on_camera_config_changed)
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -44,56 +58,42 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         # --- Top Section: 3 Columns ---
         columns_layout = QHBoxLayout()
         
-        # Col 1: Logistics
+        # Col 1: Logistics & Budget
         col_logistics = self._create_logistics_panel()
         columns_layout.addWidget(col_logistics, stretch=1)
         
         # Col 2: Crew (Jobs)
-        col_crew = self._create_department_panel("Crew & Talent", "crew_container")
+        col_crew, self.crew_layout = self._create_department_panel("Crew")
         columns_layout.addWidget(col_crew, stretch=2)
         
-        # Col 3: Departments (Resources)
-        col_resources = self._create_department_panel("Departments & Resources", "resource_container")
+        # Col 3: Departments (Resources) & Cost Preview
+        col_resources, self.resource_layout = self._create_department_panel("Departments")
+        
+        # Add the Cost Preview to the bottom of the Resources column (outside scroll area)
+        self.lbl_total_cost_preview = QLabel("Estimated Upfront Cost: $0")
+        self.lbl_total_cost_preview.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
+        self.lbl_total_cost_preview.setAlignment(Qt.AlignmentFlag.AlignRight)
+        
+        # Access the layout of the GroupBox to add the footer
+        col_resources.layout().addWidget(self.lbl_total_cost_preview)
+        
         columns_layout.addWidget(col_resources, stretch=2)
         
         main_layout.addLayout(columns_layout)
 
         # --- Middle Section: Policies ---
         policies_group = QGroupBox("On-Set Policies (Studio Defaults)")
-        self.policies_layout = QHBoxLayout(policies_group) # Horizontal flow
+        self.policies_layout = QHBoxLayout(policies_group) 
         self.policies_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         main_layout.addWidget(policies_group)
 
-        # --- Bottom Section: Budget Footer ---
-        footer_frame = QFrame()
-        footer_frame.setFrameShape(QFrame.Shape.StyledPanel)
-        footer_layout = QHBoxLayout(footer_frame)
-        
-        lbl_budget = QLabel("Total Block Budget:")
-        self.spin_total_budget = QSpinBox()
-        self.spin_total_budget.setRange(500, 10_000_000)
-        self.spin_total_budget.setPrefix("$")
-        self.spin_total_budget.setSingleStep(500)
-        # Signal connected in _connect_static_signals
-        
-        self.lbl_total_cost_preview = QLabel("Estimated Upfront Cost: $0")
-        self.lbl_total_cost_preview.setStyleSheet("font-weight: bold; font-size: 14px;")
-
-        footer_layout.addWidget(lbl_budget)
-        footer_layout.addWidget(self.spin_total_budget)
-        footer_layout.addStretch()
-        footer_layout.addWidget(self.lbl_total_cost_preview)
-        
-        main_layout.addWidget(footer_frame)
-
-        # --- Dialog Buttons ---
+        # --- Bottom Buttons ---
         self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.button_box.rejected.connect(self.reject)
-        # Accepted signal connected in _connect_static_signals
         main_layout.addWidget(self.button_box)
 
     def _create_logistics_panel(self) -> QGroupBox:
-        group = QGroupBox("Logistics")
+        group = QGroupBox("Logistics & Budget")
         layout = QVBoxLayout(group)
         
         # Name
@@ -102,12 +102,19 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         self.edit_name.setPlaceholderText("e.g. Summer Shoot '98")
         layout.addWidget(self.edit_name)
         
+        # Budget
+        layout.addWidget(QLabel("Budget per Scene:"))
+        self.spin_budget_per_scene = QSpinBox()
+        self.spin_budget_per_scene.setRange(0, 10000000)
+        self.spin_budget_per_scene.setPrefix("$")
+        self.spin_budget_per_scene.setSingleStep(500)
+        layout.addWidget(self.spin_budget_per_scene)
+
         # Date
         date_layout = QHBoxLayout()
         self.spin_week = QSpinBox()
         self.spin_year = QSpinBox()
-        self.spin_year.setRange(1990, 2100)
-        self.spin_week.setRange(1, 52)
+        # Constraints set by set_date_limits
         date_layout.addWidget(QLabel("Week:"))
         date_layout.addWidget(self.spin_week)
         date_layout.addWidget(QLabel("Year:"))
@@ -117,58 +124,88 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         # Num Scenes
         layout.addWidget(QLabel("Scenes in Block:"))
         self.spin_num_scenes = QSpinBox()
-        self.spin_num_scenes.setRange(1, 10)
-        # Signal connected in _connect_static_signals
+        self.spin_num_scenes.setRange(1, 4)
         layout.addWidget(self.spin_num_scenes)
 
-        # Region (Placeholder/Fixed for now)
+        # Region (Placeholder/Fixed)
         layout.addWidget(QLabel("Region:"))
         self.combo_region = QComboBox()
         self.combo_region.addItem("South West (US)", "south_west_us")
-        self.combo_region.setEnabled(False) # Fixed per design doc
+        self.combo_region.setEnabled(False) 
         layout.addWidget(self.combo_region)
         
         # Location
         layout.addWidget(QLabel("Location:"))
         self.combo_location = QComboBox()
-        # Signal connected in _connect_static_signals
         layout.addWidget(self.combo_location)
         self.lbl_location_tags = QLabel("")
         self.lbl_location_tags.setWordWrap(True)
-        self.lbl_location_tags.setStyleSheet("color: gray; font-style: italic;")
+        self.lbl_location_tags.setStyleSheet("color: gray; font-style: italic; font-size: 10px;")
         layout.addWidget(self.lbl_location_tags)
         
         # Visual Style
         layout.addWidget(QLabel("Visual Style:"))
         self.combo_style = QComboBox()
-        # Signal connected in _connect_static_signals
         layout.addWidget(self.combo_style)
         self.lbl_style_desc = QLabel("")
         self.lbl_style_desc.setWordWrap(True)
-        self.lbl_style_desc.setStyleSheet("color: gray;")
+        self.lbl_style_desc.setStyleSheet("color: gray; font-size: 10px;")
         layout.addWidget(self.lbl_style_desc)
+
+        # Picture Set Type
+        layout.addWidget(QLabel("Picture Set:"))
+        self.combo_picture_set = QComboBox()
+        layout.addWidget(self.combo_picture_set)
+
+        # Camera Configuration
+        layout.addWidget(QLabel("Cameras:"))
+        self.spin_camera_count = QSpinBox()
+        self.spin_camera_count.setRange(1, 3)
+        layout.addWidget(self.spin_camera_count)
+
+        self.camera_mount_combos = []
+        self.camera_widgets_container = QWidget()
+        cam_layout = QVBoxLayout(self.camera_widgets_container)
+        cam_layout.setContentsMargins(0, 0, 0, 0)
+        
+        mount_options = ["Handheld / Operator", "Tripod / Static"]
+        
+        for i in range(3):
+            lbl = QLabel(f"Cam {i+1} Mount:")
+            combo = QComboBox()
+            combo.addItems(mount_options)
+            cam_layout.addWidget(lbl)
+            cam_layout.addWidget(combo)
+            self.camera_mount_combos.append(combo)
+            # Store label ref to hide it later if needed
+            combo.setProperty("label_widget", lbl) 
+            
+        layout.addWidget(self.camera_widgets_container)
+        # Initialize visibility based on default count (1)
+        self._on_camera_count_changed(self.spin_camera_count.value())
         
         layout.addStretch()
         return group
 
-    def _create_department_panel(self, title: str, object_name: str) -> QGroupBox:
+    def _create_department_panel(self, title: str):
+        """Returns (GroupBox, Layout_For_Sliders)"""
         group = QGroupBox(title)
-        # Create a specific layout container that we can access later to add widgets
+        
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         
         container = QWidget()
-        container.setObjectName(object_name) # Used to find it later
         vbox = QVBoxLayout(container)
         vbox.setContentsMargins(0,0,0,0)
         vbox.addStretch() # Push items to top
         
         scroll.setWidget(container)
         
-        layout = QVBoxLayout(group)
-        layout.addWidget(scroll)
-        return group
+        main_layout = QVBoxLayout(group)
+        main_layout.addWidget(scroll)
+        
+        return group, vbox
 
     # --- Methods called by Presenter ---
 
@@ -204,32 +241,85 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
             self.policy_checkboxes[pol['id']] = chk
             self.policies_layout.addWidget(chk)
 
-    def add_department_slider(self, dept_id: str, name: str, dept_type: str):
+    def add_department_slider(self, dept_id: str, name: str, dept_type: str, show_assignment: bool = False):
         """Creates a slider widget and places it in the correct column."""
-        widget = BudgetSliderWidget(dept_id, name)
+        widget = BudgetSliderWidget(dept_id, name, show_assignment=show_assignment)
         if self.presenter:
             widget.allocationChanged.connect(self.presenter.on_allocation_changed)
             widget.lockToggled.connect(self.presenter.on_lock_toggled)
         self.slider_widgets[dept_id] = widget
 
-        # Find container based on type
-        container_name = "crew_container" if dept_type == "crew" else "resource_container"
-        container = self.findChild(QWidget, container_name)
-        if container:
-            layout = container.layout()
+        # This handles "Crew", "crew", and "CREW" correctly.
+        target_layout = self.crew_layout if str(dept_type).lower() == "crew" else self.resource_layout
+        
+        if target_layout:
             # Insert before the stretch (which is the last item)
-            layout.insertWidget(layout.count()-1, widget)
+            target_layout.insertWidget(target_layout.count()-1, widget)
+            
+    def set_date_limits(self, current_year: int, current_week: int):
+        """Configures the spinners so users can't pick past dates."""
+        self.min_year = current_year
+        self.min_week = current_week
+        
+        # Block signals to prevent redundant logic triggers during setup
+        self.spin_year.blockSignals(True)
+        self.spin_week.blockSignals(True)
+        
+        self.spin_year.setRange(current_year, current_year + 10)
+        
+        # Initial check for current year constraints
+        self._update_date_constraints()
+        
+        self.spin_year.blockSignals(False)
+        self.spin_week.blockSignals(False)
+
+    def populate_picture_set_options(self, options: List[Dict]):
+        self.combo_picture_set.blockSignals(True)
+        self.combo_picture_set.clear()
+        for opt in options:
+            self.combo_picture_set.addItem(opt['name'], opt['id'])
+        self.combo_picture_set.blockSignals(False)
+
+    def _on_camera_count_changed(self, count):
+        """Updates visibility of mount combos based on count."""
+        for i, combo in enumerate(self.camera_mount_combos):
+            visible = i < count
+            combo.setVisible(visible)
+            if lbl := combo.property("label_widget"):
+                lbl.setVisible(visible)
+        
+        if self.presenter:
+            self.presenter.on_camera_config_changed()
+
+    def get_camera_config(self):
+        count = self.spin_camera_count.value()
+        # Return list of mount strings ("Handheld / Operator" or "Tripod / Static")
+        mounts = [c.currentText().split(" ")[0] for c in self.camera_mount_combos]
+        return count, mounts
+
+    def _update_date_constraints(self):
+        """Adjusts week min based on selected year."""
+        selected_year = self.spin_year.value()
+        
+        if selected_year == self.min_year:
+            # Can't schedule before today in the current year
+            self.spin_week.setRange(self.min_week, 52)
+        else:
+            # Future years allow any week
+            self.spin_week.setRange(1, 52)
 
     def update_sliders(self, data: Dict[str, Dict], estimates: Dict[str, str]):
         """Batch update of all slider widgets."""
         for dept_id, info in data.items():
             if widget := self.slider_widgets.get(dept_id):
                 estimate = estimates.get(dept_id, "")
+                
                 widget.update_state(
-                    info['percent'], 
-                    info['amount'], 
-                    info['is_locked'], 
-                    estimate
+                    percent=info['percent'], 
+                    amount=info['amount'], 
+                    is_user_locked=info['is_user_locked'], 
+                    is_system_disabled=info['is_system_disabled'],
+                    estimate_text=estimate
                 )
 
     def update_logistics_info(self, style_desc: str, location_tags: List[str]):
@@ -237,10 +327,10 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         tag_text = ", ".join(location_tags) if location_tags else "None"
         self.lbl_location_tags.setText(f"Tags: {tag_text}")
 
-    def set_budget_values(self, total_budget: int, estimated_cost: int):
-        self.spin_total_budget.blockSignals(True)
-        self.spin_total_budget.setValue(total_budget)
-        self.spin_total_budget.blockSignals(False)
+    def set_budget_values(self, budget_per_scene: int, estimated_cost: int):
+        self.spin_budget_per_scene.blockSignals(True)
+        self.spin_budget_per_scene.setValue(budget_per_scene)
+        self.spin_budget_per_scene.blockSignals(False)
         self.lbl_total_cost_preview.setText(f"Upfront Cost: ${estimated_cost:,}")
 
     def set_schedule_values(self, week: int, year: int):

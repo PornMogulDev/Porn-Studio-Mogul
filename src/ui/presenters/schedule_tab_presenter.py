@@ -90,15 +90,9 @@ class ScheduleTabPresenter(QObject):
                 for bloc in sorted(blocs_by_week[week_num], key=lambda b: b.id):
                     scene_count = len(bloc.scenes)
                     plural_s = 's' if scene_count > 1 else ''
-                    
-                    prod_settings_tooltip = "\n".join(
-                        f"  - {cat.replace('_', ' ').title()}: {tier}" 
-                        for cat, tier in bloc.production_settings.items()
-                    )
 
                     bloc_vm = ScheduleBlocViewModel(
                         display_text=f"Shooting Bloc ({scene_count} scene{plural_s})",
-                        tooltip=f"Production Settings:\n{prod_settings_tooltip}",
                         user_data={'type': 'bloc', 'id': bloc.id}
                     )
 
@@ -106,7 +100,6 @@ class ScheduleTabPresenter(QObject):
                         status_text = scene.display_status
                         scene_vm = ScheduleSceneViewModel(
                             display_text=f"  - {scene.title} [{status_text}]",
-                            tooltip=f"'{scene.title}' - Status: {status_text}",
                             user_data={'type': 'scene', 'id': scene.id}
                         )
                         bloc_vm.scenes.append(scene_vm)
