@@ -17,11 +17,11 @@ class SceneStateEditor:
     handles complex logic like updating performer counts (adding/removing virtual performers),
     managing tags (thematic, physical), and validating scene status transitions (e.g., to Casting).
     """
-    def __init__(self, scene_to_edit: Scene, data_manager: DataManager):
+    def __init__(self, scene_to_edit: Scene, data_manager: DataManager, tag_validator: TagValidationChecker):
         self.working_scene = copy.deepcopy(scene_to_edit)
         self.original_scene = scene_to_edit
         self.data_manager = data_manager
-        self.tag_validator = TagValidationChecker(data_manager)
+        self.tag_validator = tag_validator
         
     def reset_with_scene(self, new_scene: Scene):
         """

@@ -36,6 +36,7 @@ from services.player_settings_service import PlayerSettingsService
 from services.command.email_service import EmailService
 from services.models.results import EventAction, TourSponsorshipPreviewResult, ValidationResult
 from services.builders.shooting_bloc_builder import ShootingBlocBuilder
+from services.builders.scene_state_editor import SceneStateEditor
 from utils import time_utils
 
 logger = logging.getLogger(__name__)
@@ -200,14 +201,19 @@ class GameController(QObject):
         use_week = absolute_week if absolute_week is not None else self.game_state.absolute_week
         return self.scene_command_service.create_blank_scene(use_week)
     
+    # --- UI Builder Instantiation ---
+
     def get_shooting_bloc_builder(self) -> ShootingBlocBuilder:
-        """Factory method to create a configured builder instance."""
-        return ShootingBlocBuilder(
-            self.data_manager,
-            self.service_container.production_config,
-            self.service_container.crew_skill_calculator,
-            self.service_container.bloc_cost_calculator
-        )
+        """Delegates creation of the builder to the service container."""
+        return self.service_container.create_shooting_bloc_builder()
+
+    def get_scene_state_editor(self, scene_id: int) -> Optional[SceneStateEditor]:
+        """Fetches the scene and delegates creation of the editor to the service container."""
+        # We need to fetch the actual DB entity (detached or attached) first
+        scene = self.get_scene_by_id(scene_id)
+        if not scene:
+            return None
+        return self.service_container.create_scene_state_editor(scene)
 
     # --- Game Session Management ---
     def _on_session_loaded(self, result: Optional[Tuple[GameState, str]]):

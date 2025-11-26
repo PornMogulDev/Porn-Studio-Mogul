@@ -47,6 +47,8 @@ from services.calculation.budget_efficiency_calculator import BudgetEfficiencyCa
 from services.calculation.stress_calculator import StressCalculator
 from services.calculation.crew_skill_calculator import CrewSkillCalculator
 from services.calculation.bloc_simulation_calculator import BlocSimulationCalculator
+from services.builders.shooting_bloc_builder import ShootingBlocBuilder
+from services.builders.scene_state_editor import SceneStateEditor
 
 if TYPE_CHECKING:
     from core.game_controller import GameController
@@ -303,6 +305,25 @@ class ServiceContainer:
         self.stress_calculator = None
         self.crew_skill_calculator = None
         self.bloc_simulation_calculator = None
+
+    # --- Builder Factories ---
+    
+    def create_shooting_bloc_builder(self) -> ShootingBlocBuilder:
+        """Factory method to create a ShootingBlocBuilder with injected dependencies."""
+        return ShootingBlocBuilder(
+            self.data_manager,
+            self.production_config,
+            self.crew_skill_calculator,
+            self.bloc_cost_calculator
+        )
+
+    def create_scene_state_editor(self, scene) -> SceneStateEditor:
+        """Factory method to create a SceneStateEditor with injected dependencies."""
+        return SceneStateEditor(
+            scene,
+            self.data_manager,
+            self.tag_validation_checker
+        )
 
     def _create_configs(self):
         """Creates all configuration dataclasses from the data manager."""

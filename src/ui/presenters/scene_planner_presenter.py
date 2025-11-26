@@ -15,7 +15,6 @@ from ui.view_models import PerformerEditorViewModel, TotalRuntimeViewModel
 from ui.dialogs.scene_planner_dialog import ScenePlannerDialog
 from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from ui.builders.scene_summary_builder import prepare_summary_data
-from services.builders.scene_state_editor import SceneStateEditor
 from utils.preset_handler import PresetHandler
 from utils import time_utils
 
@@ -27,10 +26,11 @@ class ScenePlannerPresenter(QObject):
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
         self.view = view
-        original_scene = self.controller.get_scene_by_id(scene_id)
-        if not original_scene: raise ValueError(f"Scene with ID {scene_id} not found.")
-            
-        self.state_editor = SceneStateEditor(original_scene, self.controller.data_manager)
+        
+        # Use Controller Factory for DI
+        self.state_editor = self.controller.get_scene_state_editor(scene_id)
+        if not self.state_editor:
+             raise ValueError(f"Scene with ID {scene_id} not found.")
         
         self._talent_cache = {}
         self.parent_bloc: Optional[ShootingBloc] = None
