@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, 
                              QLabel, QComboBox, QSpinBox, QLineEdit, 
                              QDialogButtonBox, QWidget, QScrollArea, QFrame, QCheckBox)
@@ -26,6 +26,17 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
     def set_presenter(self, presenter):
         """Injected by UIManager"""
         self.presenter = presenter
+        self._connect_static_signals()
+
+    def _connect_static_signals(self):
+        """Connects signals for widgets created in setup_ui that depend on the presenter."""
+        if not self.presenter: return
+        
+        self.spin_total_budget.valueChanged.connect(self.presenter.on_total_budget_changed)
+        self.button_box.accepted.connect(self.presenter.on_confirm)
+        self.spin_num_scenes.valueChanged.connect(self.presenter.on_num_scenes_changed)
+        self.combo_location.currentIndexChanged.connect(self.presenter.on_location_changed)
+        self.combo_style.currentIndexChanged.connect(self.presenter.on_style_changed)
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -48,7 +59,6 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         main_layout.addLayout(columns_layout)
 
         # --- Middle Section: Policies ---
-        # (Temporary placement as requested)
         policies_group = QGroupBox("On-Set Policies (Studio Defaults)")
         self.policies_layout = QHBoxLayout(policies_group) # Horizontal flow
         self.policies_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -64,7 +74,7 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         self.spin_total_budget.setRange(500, 10_000_000)
         self.spin_total_budget.setPrefix("$")
         self.spin_total_budget.setSingleStep(500)
-        self.spin_total_budget.valueChanged.connect(self.presenter.on_total_budget_changed)
+        # Signal connected in _connect_static_signals
         
         self.lbl_total_cost_preview = QLabel("Estimated Upfront Cost: $0")
         self.lbl_total_cost_preview.setStyleSheet("font-weight: bold; font-size: 14px;")
@@ -78,8 +88,8 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
 
         # --- Dialog Buttons ---
         self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        self.button_box.accepted.connect(self.presenter.on_confirm)
         self.button_box.rejected.connect(self.reject)
+        # Accepted signal connected in _connect_static_signals
         main_layout.addWidget(self.button_box)
 
     def _create_logistics_panel(self) -> QGroupBox:
@@ -108,7 +118,7 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         layout.addWidget(QLabel("Scenes in Block:"))
         self.spin_num_scenes = QSpinBox()
         self.spin_num_scenes.setRange(1, 10)
-        self.spin_num_scenes.valueChanged.connect(self.presenter.on_num_scenes_changed)
+        # Signal connected in _connect_static_signals
         layout.addWidget(self.spin_num_scenes)
 
         # Region (Placeholder/Fixed for now)
@@ -121,7 +131,7 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         # Location
         layout.addWidget(QLabel("Location:"))
         self.combo_location = QComboBox()
-        self.combo_location.currentIndexChanged.connect(self.presenter.on_location_changed)
+        # Signal connected in _connect_static_signals
         layout.addWidget(self.combo_location)
         self.lbl_location_tags = QLabel("")
         self.lbl_location_tags.setWordWrap(True)
@@ -131,7 +141,7 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         # Visual Style
         layout.addWidget(QLabel("Visual Style:"))
         self.combo_style = QComboBox()
-        self.combo_style.currentIndexChanged.connect(self.presenter.on_style_changed)
+        # Signal connected in _connect_static_signals
         layout.addWidget(self.combo_style)
         self.lbl_style_desc = QLabel("")
         self.lbl_style_desc.setWordWrap(True)
@@ -180,22 +190,26 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
     def populate_policies(self, policies: List[Dict], active_ids: List[str]):
         # Clear existing
         for i in reversed(range(self.policies_layout.count())): 
-            self.policies_layout.itemAt(i).widget().setParent(None)
+            if item := self.policies_layout.itemAt(i):
+                if widget := item.widget():
+                    widget.setParent(None)
         self.policy_checkboxes.clear()
 
         for pol in policies:
             chk = QCheckBox(pol['name'])
             chk.setToolTip(pol['description'])
             chk.setChecked(pol['id'] in active_ids)
-            chk.toggled.connect(lambda c, pid=pol['id']: self.presenter.on_policy_toggled(pid, c))
+            if self.presenter:
+                chk.toggled.connect(lambda c, pid=pol['id']: self.presenter.on_policy_toggled(pid, c))
             self.policy_checkboxes[pol['id']] = chk
             self.policies_layout.addWidget(chk)
 
     def add_department_slider(self, dept_id: str, name: str, dept_type: str):
         """Creates a slider widget and places it in the correct column."""
         widget = BudgetSliderWidget(dept_id, name)
-        widget.allocationChanged.connect(self.presenter.on_allocation_changed)
-        widget.lockToggled.connect(self.presenter.on_lock_toggled)
+        if self.presenter:
+            widget.allocationChanged.connect(self.presenter.on_allocation_changed)
+            widget.lockToggled.connect(self.presenter.on_lock_toggled)
         self.slider_widgets[dept_id] = widget
 
         # Find container based on type
@@ -220,7 +234,8 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
 
     def update_logistics_info(self, style_desc: str, location_tags: List[str]):
         self.lbl_style_desc.setText(style_desc)
-        self.lbl_location_tags.setText("Tags: " + ", ".join(location_tags))
+        tag_text = ", ".join(location_tags) if location_tags else "None"
+        self.lbl_location_tags.setText(f"Tags: {tag_text}")
 
     def set_budget_values(self, total_budget: int, estimated_cost: int):
         self.spin_total_budget.blockSignals(True)

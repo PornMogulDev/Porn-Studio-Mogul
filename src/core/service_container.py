@@ -138,7 +138,7 @@ class ServiceContainer:
         self.bloc_simulation_calculator = BlocSimulationCalculator(self.data_manager, self.production_config)
 
         # Level 1: Depends on Level 0 services
-        self.crew_skill_calculator = CrewSkillCalculator(self.budget_efficienty_calculator, self.production_config)
+        self.crew_skill_calculator = CrewSkillCalculator(self.data_manager, self.budget_efficienty_calculator, self.production_config)
         self.tour_interest_calculator = TourInterestCalculator(self.trait_modifier_resolver, self.tour_config, self.data_manager)
         self.market_service = MarketService(market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.talent_affinity_calculator = TalentAffinityCalculator(self.scene_calc_config)
@@ -442,7 +442,7 @@ class ServiceContainer:
             base_acting_stress=game_config.get("stress_base_acting", 0.5),
             multitasking_stress_multiplier=game_config.get("stress_multitasking_multiplier", 0.5),
             introvert_crowd_penalty=game_config.get("stress_introvert_crow_penalty", 0.5),
-            craft_services_stress_relief_scalar=game_config.get(),
+            craft_services_stress_relief_scalar=game_config.get("stress_craft_services_relief_scalar", 0.05),
             max_stress_threshold=game_config.get("stress_max_threshold", 100.0),
             burnout_conversion_rate=game_config.get("stress_burnout_conversion_rate", 1.0)
         )

@@ -218,7 +218,7 @@ class ShootingBlocBuilder:
             if dept.type == 'crew':
                 # Use calculator to get range
                 base_skill = self.crew_calculator.calculate_base_efficiency(
-                    dept.id, budget, self.visual_style_id
+                    dept.id, budget, self.total_budget, self.visual_style_id
                 )
                 # Show a range due to random variance
                 variance = self.config.crew_skill_sigma * 2
@@ -229,7 +229,7 @@ class ShootingBlocBuilder:
                 # Resource: Convert directly to a quality adjective or score
                 # This could be moved to a specific calculator if complex
                 quality_score = self.crew_calculator.calculate_base_efficiency(
-                    dept.id, budget, self.visual_style_id
+                    dept.id, budget, self.total_budget, self.visual_style_id
                 )
                 estimates[dept.id] = f"Quality: {int(quality_score)}"
                 

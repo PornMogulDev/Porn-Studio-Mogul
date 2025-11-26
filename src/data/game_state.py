@@ -229,6 +229,7 @@ class ShootingBloc:
 @dataclass_json
 @dataclass
 class GameState:
+    active_policies: list[str] = field(default_factory=list)
     absolute_week: int = 1
     money: int = 0
     studio_location: str = ""

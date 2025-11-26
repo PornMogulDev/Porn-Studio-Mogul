@@ -388,6 +388,9 @@ class UIManager:
         dialog.set_presenter(presenter)
         presenter.initialize()
         dialog.set_schedule_values(week, year)
+        
+        # 4. Execute
+        return dialog.exec() == QDialog.DialogCode.Accepted
 
     # -------------------------------------------------------------------------
     # Complex Event Handling (Interactive/Incomplete)

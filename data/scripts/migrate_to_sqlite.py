@@ -150,8 +150,6 @@ def create_tables(cursor):
     )
     """)
     
-    # --- PRODUCTION REFACTOR TABLES ---
-    
     # production_departments (Replaces old production_settings)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS production_departments (

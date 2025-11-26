@@ -49,7 +49,7 @@ class CallSheetPresenter(QObject):
         # 4. Populate Policies
         all_policies = list(self.controller.data_manager.on_set_policies_data.values())
         # Check active policies from Studio State (Game State)
-        active_ids = self.controller.game_state.active_policies 
+        active_ids = self.controller.game_state.active_policies
         # Pre-select them in builder
         for pid in active_ids:
             self.builder.toggle_policy(pid, True)
