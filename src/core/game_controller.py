@@ -35,6 +35,7 @@ from services.game_session_service import GameSessionService
 from services.player_settings_service import PlayerSettingsService
 from services.command.email_service import EmailService
 from services.models.results import EventAction, TourSponsorshipPreviewResult, ValidationResult
+from services.builders.shooting_bloc_builder import ShootingBlocBuilder
 from utils import time_utils
 
 logger = logging.getLogger(__name__)
@@ -181,13 +182,32 @@ class GameController(QObject):
         if result.market_changed: self.signals.market_changed.emit()
         if result.talent_pool_changed: self.signals.talent_pool_changed.emit()
 
-    def create_shooting_bloc(self, absolute_week: int, region: str, num_scenes: int, name: str, set_location: str, visual_style_id: str, department_budgets: Dict[str, int], crew_assignments: Dict[str, Dict], picture_set_settings: Dict[str, Any], policies: List[str]) -> bool:
+    def create_shooting_bloc(self, scheduled_absolute_week: int, num_scenes: int, name: str, logistics: Dict, budget_data: Dict, policies: List[str]) -> bool:
+        """
+        Creates a shooting bloc using the new structured data format from ShootingBlocBuilder.
+        """
         if not self.scene_command_service: return False
-        return self.scene_command_service.create_shooting_bloc(absolute_week, region, num_scenes, name, set_location, visual_style_id, department_budgets, crew_assignments, picture_set_settings, policies)
+        return self.scene_command_service.create_shooting_bloc(
+            scheduled_absolute_week, 
+            num_scenes, 
+            name, 
+            logistics, 
+            budget_data, 
+            policies
+        )
     
     def create_blank_scene(self, absolute_week: Optional[int] = None) -> int:
         use_week = absolute_week if absolute_week is not None else self.game_state.absolute_week
         return self.scene_command_service.create_blank_scene(use_week)
+    
+    def get_shooting_bloc_builder(self) -> ShootingBlocBuilder:
+        """Factory method to create a configured builder instance."""
+        return ShootingBlocBuilder(
+            self.data_manager,
+            self.service_container.production_config,
+            self.service_container.crew_skill_calculator,
+            self.service_container.bloc_cost_calculator
+        )
 
     # --- Game Session Management ---
     def _on_session_loaded(self, result: Optional[Tuple[GameState, str]]):

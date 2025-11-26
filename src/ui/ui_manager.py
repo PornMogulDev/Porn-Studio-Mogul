@@ -35,7 +35,7 @@ from ui.dialogs.interactive_event_dialog import InteractiveEventDialog
 from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.game_menu_dialog import GameMenuDialog, ExitDialog
-from ui.dialogs.shooting_bloc_dialog import ShootingBlocDialog
+from ui.dialogs.call_sheet_dialog import CallSheetDialog
 
 # Presenters
 from ui.presenters.start_screen_presenter import StartScreenPresenter
@@ -46,6 +46,7 @@ from ui.presenters.talent_profile_presenter import TalentProfilePresenter
 from ui.presenters.go_to_list_presenter import GoToListPresenter
 from ui.presenters.shot_scene_details_presenter import ShotSceneDetailsPresenter
 from ui.presenters.game_menu_presenter import GameMenuPresenter
+from ui.presenters.call_sheet_presenter import CallSheetPresenter
 
 logger = logging.getLogger(__name__)
 
@@ -376,10 +377,17 @@ class UIManager:
 
             self.controller.quit_game(exit_save)
 
-    def show_shooting_bloc_dialog(self, week: int, year: int) -> bool:
-        dialog = ShootingBlocDialog(self.controller)
-        dialog.set_schedule(week, year)
-        return dialog.exec() == QDialog.DialogCode.Accepted
+    def show_call_sheet_dialog(self, week: int, year: int) -> bool:
+        # 1. Create View (Dumb)
+        dialog = CallSheetDialog(self.settings_manager, parent=self.parent_widget)
+        
+        # 2. Create Presenter (Smart, Parented to View)
+        presenter = CallSheetPresenter(self.controller, dialog, parent=dialog)
+        
+        # 3. Link, Initialize, and Configure
+        dialog.set_presenter(presenter)
+        presenter.initialize()
+        dialog.set_schedule_values(week, year)
 
     # -------------------------------------------------------------------------
     # Complex Event Handling (Interactive/Incomplete)

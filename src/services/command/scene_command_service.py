@@ -72,25 +72,43 @@ class SceneCommandService:
         )
     
     def create_shooting_bloc(self, 
-                             absolute_week: int,
-                             region: str, 
+                             scheduled_absolute_week: int,
                              num_scenes: int, 
                              name: str, 
-                             set_location: str,
-                             visual_style_id: str,
-                             department_budgets: Dict[str, int],
-                             crew_assignments: Dict[str, Dict],
-                             picture_set_settings: Dict[str, Any],
+                             logistics: Dict[str, str],
+                             budget_data: Dict[str, Any],
                              policies: List[str]) -> bool:
-        """Creates a new ShootingBloc and its associated blank scenes in the database."""
+        """
+        Creates a new ShootingBloc and its associated blank scenes in the database.
+        Arguments are now structured dictionaries from the ShootingBlocBuilder.
+        """
         session = self.session_factory()
         try:
+            # Unpack Logistics
+            region_id = logistics.get("region_id", "south_west_us")
+            location_id = logistics.get("location_id")
+            visual_style_id = logistics.get("visual_style_id", "glossy")
+            
+            # Unpack Budget Data
+            # Note: budget_data["allocations"] is {dept_id: percentage}.
+            # We need absolute amounts for the DB and Calculator.
+            total_budget = budget_data.get("total_budget", 5000)
+            allocations_percent = budget_data.get("allocations", {})
+            
+            department_budgets = {
+                dept_id: int(total_budget * pct) 
+                for dept_id, pct in allocations_percent.items()
+            }
             money_info = session.query(GameInfoDB).filter_by(key='money').one()
             current_money = int(float(money_info.value))
 
             cost = self.bloc_cost_calculator.calculate_shooting_bloc_cost(
-                num_scenes, set_location, department_budgets, crew_assignments, picture_set_settings, policies
-            )
+                location_id=location_id,
+                department_budgets=department_budgets,
+                crew_assignments={}, # Deprecated/Implicit in budgets now
+                picture_set_settings={}, # Placeholder for future feature
+                policies=policies
+             )
 
             new_money = current_money - cost
             money_info.value = str(new_money)
@@ -105,15 +123,23 @@ class SceneCommandService:
             )
 
             bloc_db = ShootingBlocDB(
-                name=name, scheduled_absolute_week=absolute_week, region_id=region,
-                set_location_id=set_location, visual_style_id=visual_style_id,
-                department_budgets=department_budgets, crew_assignments=crew_assignments,
+                name=name, 
+                scheduled_absolute_week=scheduled_absolute_week, 
+                region_id=region_id,
+                set_location_id=location_id, 
+                visual_style_id=visual_style_id,
+                department_budgets=department_budgets,
+                crew_assignments={}, # No longer storing raw assignments, just budgets
                 resolved_crew_skills=resolved_skills, # Persist the rolled stats
-                picture_set_settings=picture_set_settings,
+                picture_set_settings={},
                 production_cost=cost, on_set_policies=policies,
                 current_momentum=50.0, # Start neutral
                 current_stress=0.0     # Start fresh
             )
+
+            # Store the raw budget data blob for UI re-hydration (optional but good practice)
+            bloc_db.budget_data = budget_data
+
             session.add(bloc_db)
             session.flush()
 

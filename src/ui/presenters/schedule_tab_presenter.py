@@ -125,7 +125,7 @@ class ScheduleTabPresenter(QObject):
     @pyqtSlot()
     def on_plan_bloc_requested(self):
         """Opens the dialog to plan a new shooting bloc for the current game week."""
-        self.ui_manager.show_shooting_bloc_dialog(self.current_week, self.current_year)
+        self.ui_manager.show_call_sheet_dialog(self.current_week, self.current_year)
 
     @pyqtSlot(dict)
     def on_item_double_clicked(self, item_data: dict):
@@ -139,7 +139,7 @@ class ScheduleTabPresenter(QObject):
             week = item_data.get('week')
             year = item_data.get('year')
             if week is not None and year is not None:
-                self.ui_manager.show_shooting_bloc_dialog(week, year)
+                self.ui_manager.show_call_sheet_dialog(week, year)
 
     @pyqtSlot(str)
     def on_help_requested(self, topic_key: str):
