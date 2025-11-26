@@ -124,22 +124,28 @@ class TalentAvailabilityChecker:
         return AvailabilityResult(is_available=True)
 
     def _check_policies_and_production(self, talent: Union[Talent, TalentDB], bloc_db: ShootingBlocDB) -> AvailabilityResult:
-        """Checks for policy compatibility and production setting pickiness."""
+        """Checks for policy compatibility and production budget thresholds."""
+        
+        # 1. Check Policies (Existing Logic)
         active_policies = set(bloc_db.on_set_policies or [])
         policy_names = {p['id']: p['name'] for p in self.data_manager.on_set_policies_data.values()}
+        
         if required_policies := talent.policy_requirements.get('requires'):
             for policy_id in required_policies:
                 if policy_id not in active_policies:
                     policy_name = policy_names.get(policy_id, policy_id)
                     return AvailabilityResult(False, f"Requires the '{policy_name}' policy to be active.")
+        
         if refused_policies := talent.policy_requirements.get('refuses'):
             for policy_id in refused_policies:
                 if policy_id in active_policies:
                     policy_name = policy_names.get(policy_id, policy_id)
                     return AvailabilityResult(False, f"Refuses to work with the '{policy_name}' policy.")
     
+        # 2. Calculate Pickiness Score
         pop_scalar = self.config.pickiness_popularity_scalar
         amb_scalar = self.config.pickiness_ambition_scalar
+        
         if hasattr(talent, 'popularity_scores'):
             total_popularity = sum(p.score for p in talent.popularity_scores)
         else:
@@ -147,12 +153,29 @@ class TalentAvailabilityChecker:
         
         pickiness_score = (total_popularity * pop_scalar) + (talent.ambition * amb_scalar)
         
-        for category, tier_name in (bloc_db.production_settings or {}).items():
-            tier_data = next((t for t in self.data_manager.production_settings_data.get(category, []) if t['tier_name'] == tier_name), None)
-            # Deterministic seed
-            rng = random.Random(f"{talent.id}_{bloc_db.scheduled_absolute_week}")
-            if tier_data.get('is_low_tier', False) and rng.random() * 100 < pickiness_score:
-                return AvailabilityResult(False, f"Considers the '{tier_name}' {category} setting beneath them.")
+        # 3. Check Total Budget Refusals
+        # If the talent's pickiness exceeds a threshold key, the production must meet that threshold's value.
+        current_total_cost = bloc_db.production_cost
+        
+        for threshold_score, min_budget in self.config.total_budget_refusal_thresholds.items():
+            if pickiness_score >= threshold_score:
+                if current_total_cost < min_budget:
+                    return AvailabilityResult(False, f"Considers the total production budget (${current_total_cost:,}) too low for their status (Requires > ${min_budget:,}).")
+
+        # 4. Check Specific Department Budget Refusals
+        current_dept_budgets = bloc_db.department_budgets or {}
+        department_names = {d['id']: d['name'] for d in self.data_manager.production_departments.values()}
+        
+        for dept_id, thresholds in self.config.department_budget_refusal_thresholds.items():
+            # If the department isn't even funded/present, treat as 0
+            actual_budget = current_dept_budgets.get(dept_id, 0)
+            
+            for threshold_score, min_budget in thresholds.items():
+                if pickiness_score >= threshold_score:
+                    if actual_budget < min_budget:
+                        dept_name = department_names.get(dept_id, dept_id.replace('_', ' ').title())
+                        return AvailabilityResult(False, f"Requires a higher budget for {dept_name} (Allocated: ${actual_budget}, Requires: ${min_budget}).")
+
         return AvailabilityResult(is_available=True)
 
     def _check_contract_constraints(self, talent: Union[Talent, TalentDB], scene: Scene, roles_by_tag: Dict[str, Set[str]]) -> AvailabilityResult:

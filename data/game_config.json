@@ -45,6 +45,29 @@
     "2": 1.4,
     "3": 1.8
   },
+  "total_budget_refusal_thresholds": {
+    "20": 1000,
+    "40": 5000,
+    "60": 15000,
+    "80": 30000,
+    "95": 100000
+  },
+  "department_budget_refusal_thresholds": {
+    "craft_services": {
+      "30": 100,
+      "50": 500,
+      "80": 1000,
+      "90": 2000
+    },
+    "health_safety": {
+      "40": 200,
+      "70": 1000,
+      "90": 3000
+    },
+    "wardrobe": {
+      "80": 1000
+    }
+  },
   "hiring_rush_fee_multiplier": 1.25,
   "hiring_bulk_discount_tiers": { "2": 0.95, "3": 0.90, "4": 0.85 },
   "contract_fallback_salary_multiplier": 5.0,

@@ -25,6 +25,8 @@ class HiringConfig:
     rush_fee_multiplier: float
     bulk_discount_tiers: Dict[int, float]
     hazard_pay_modifiers: Dict[int, float]
+    total_budget_refusal_thresholds: Dict[int, int]
+    department_budget_refusal_thresholds: Dict[str, Dict[int, int]]
 
 @dataclass(frozen=True)
 class MarketConfig:

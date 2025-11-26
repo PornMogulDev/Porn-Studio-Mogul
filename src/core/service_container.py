@@ -374,7 +374,9 @@ class ServiceContainer:
             burnout_penalty_scenes=game_config.get("burnout_penalty_scenes", 1),
             rush_fee_multiplier=game_config.get("hiring_rush_fee_multiplier", 1.25),
             bulk_discount_tiers={int(k): v for k, v in game_config.get("hiring_bulk_discount_tiers", {}).items()},
-            hazard_pay_modifiers={int(k): v for k, v in game_config.get("hiring_hazard_pay_modifiers", {}).items()}
+            hazard_pay_modifiers={int(k): v for k, v in game_config.get("hiring_hazard_pay_modifiers", {}).items()},
+            total_budget_refusal_thresholds={int(k): v for k, v in game_config.get("total_budget_refusal_thresholds", {}).items()},
+            department_budget_refusal_thresholds={int(k): v for k, v in game_config.get("department_budget_refusal_thresholds", {}).items()}
         )
 
         self.contract_config = ContractConfig(
