@@ -258,8 +258,8 @@ class GameQueryService:
             scene_dc = scene_db.to_dataclass(Scene)
 
             # Populate the location
-            if scene_db.bloc and scene_db.bloc.location:
-                scene_dc.location = scene_db.bloc.location
+            if scene_db.bloc and scene_db.bloc.region_id:
+                scene_dc.location = scene_db.bloc.region_id
             else:
                 studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar()
                 scene_dc.location = studio_loc or ""
@@ -368,8 +368,8 @@ class GameQueryService:
             if not scene_db:
                 return ""
 
-            if scene_db.bloc and scene_db.bloc.location:
-                return scene_db.bloc.location
+            if scene_db.bloc and scene_db.bloc.region_id:
+                return scene_db.bloc.region_id
             
             # Fallback to studio location
             studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar()

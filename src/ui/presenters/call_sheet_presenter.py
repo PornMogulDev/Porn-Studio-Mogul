@@ -149,7 +149,9 @@ class CallSheetPresenter(QObject):
         name = self.view.get_name()
         
         # Generate Payload
-        bloc_data = self.builder.commit(name, abs_week, num_scenes)
+        # Ensure builder has latest scene count (commit uses internal state)
+        self.builder.set_num_scenes(num_scenes)
+        bloc_data = self.builder.commit(name, abs_week)
         
         # Use the controller method that accepts the payload dict
         success = self.controller.create_shooting_bloc(**bloc_data)

@@ -87,12 +87,10 @@ class ScheduleTab(QWidget):
 
             for bloc_vm in week_vm.blocs:
                 bloc_item = QStandardItem(bloc_vm.display_text)
-                bloc_item.setToolTip(bloc_vm.tooltip)
                 bloc_item.setData(bloc_vm.user_data, Qt.ItemDataRole.UserRole)
 
                 for scene_vm in bloc_vm.scenes:
                     scene_item = QStandardItem(scene_vm.display_text)
-                    scene_item.setToolTip(scene_vm.tooltip)
                     scene_item.setData(scene_vm.user_data, Qt.ItemDataRole.UserRole)
                     bloc_item.appendRow(scene_item)
                 
