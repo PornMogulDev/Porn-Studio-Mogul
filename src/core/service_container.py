@@ -47,7 +47,7 @@ from services.calculation.budget_efficiency_calculator import BudgetEfficiencyCa
 from services.calculation.stress_calculator import StressCalculator
 from services.calculation.crew_skill_calculator import CrewSkillCalculator
 from services.calculation.bloc_simulation_calculator import BlocSimulationCalculator
-from services.builders.shooting_bloc_builder import ShootingBlocBuilder
+from services.builders.call_sheet_builder import ShootingBlocBuilder
 from services.builders.scene_state_editor import SceneStateEditor
 
 if TYPE_CHECKING:

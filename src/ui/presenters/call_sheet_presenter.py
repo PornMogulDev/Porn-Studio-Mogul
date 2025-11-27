@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 from PyQt6.QtCore import QObject
 
-from services.builders.shooting_bloc_builder import ShootingBlocBuilder
+from services.builders.call_sheet_builder import ShootingBlocBuilder
 from utils import time_utils
 
 if TYPE_CHECKING:

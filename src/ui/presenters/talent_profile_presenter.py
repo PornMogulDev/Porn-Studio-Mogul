@@ -6,7 +6,7 @@ from PyQt6 import sip
 
 from data.game_state import Talent
 from core.interfaces import IGameController
-from ui.windows.talent_profile_window import TalentProfileWindow
+from ui.views.talent_profile_view import TalentProfileWindow
 from ui.view_models import ScheduleStatus, TalentScheduleWeekViewModel, TourViewModel
 from utils.formatters import get_fuzzed_skill_range, format_skill_range, format_fatigue
 from ui.builders.role_details_builder import prepare_role_details_data, format_role_details_html

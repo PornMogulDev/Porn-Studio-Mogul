@@ -35,7 +35,7 @@ from services.game_session_service import GameSessionService
 from services.player_settings_service import PlayerSettingsService
 from services.command.email_service import EmailService
 from services.models.results import EventAction, TourSponsorshipPreviewResult, ValidationResult
-from services.builders.shooting_bloc_builder import ShootingBlocBuilder
+from services.builders.call_sheet_builder import ShootingBlocBuilder
 from services.builders.scene_state_editor import SceneStateEditor
 from utils import time_utils
 

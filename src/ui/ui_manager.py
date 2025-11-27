@@ -10,7 +10,7 @@ from data.game_state import Talent
 # Windows / Views
 from ui.views.start_screen_view import StartScreenView
 from ui.views.main_window_view import MainWindowView
-from ui.windows.talent_profile_window import TalentProfileWindow
+from ui.views.talent_profile_view import TalentProfileWindow
 
 # Tabs (Views)
 from ui.tabs.talent_tab import TalentTab
