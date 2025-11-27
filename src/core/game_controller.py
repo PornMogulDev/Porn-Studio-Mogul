@@ -108,7 +108,7 @@ class GameController(QObject):
     def find_available_roles_for_talent(self, talent_id: int) -> List[Dict]:
         if not self.talent_query_service: return []
         return self.talent_query_service.find_available_roles_for_talent(
-            talent_id, self.game_state.studio_location, self.game_state.absolute_week
+            talent_id, self.game_state.studio.location, self.game_state.absolute_week
         )
 
     def calculate_bulk_hiring_costs(self, talent_id: int, roles: List[Dict]) -> Optional[Dict]:
@@ -177,20 +177,20 @@ class GameController(QObject):
         result = self.time_service.advance_week()
 
         self.game_state.absolute_week = result.new_absolute_week
-        self.game_state.money = result.new_money
+        self.game_state.studio.money = result.new_money
         self.save_manager.auto_save()
 
         if result.was_paused:
             if result.scenes_shot > 0: self.signals.scenes_changed.emit()
             return
 
-        if self.game_state.money <= self.game_constant.get('game_over_threshold', -5000):
+        if self.game_state.studio.money <= self.game_constant.get('game_over_threshold', -5000):
             self.signals.game_over_triggered.emit("bankruptcy")
             return
 
         new_year, new_week = time_utils.from_absolute(result.new_absolute_week)
         self.signals.time_changed.emit(new_week, new_year)
-        self.signals.money_changed.emit(self.game_state.money)
+        self.signals.money_changed.emit(self.game_state.studio.money)
         if result.scenes_shot > 0 or result.scenes_edited > 0: self.signals.scenes_changed.emit()
         if result.market_changed: self.signals.market_changed.emit()
         if result.talent_pool_changed: self.signals.talent_pool_changed.emit()
@@ -234,7 +234,7 @@ class GameController(QObject):
             self.game_state, self.current_save_path = result
             self.service_container.initialize_and_populate_services(self, self.game_state)
             
-            self.signals.money_changed.emit(self.game_state.money)
+            self.signals.money_changed.emit(self.game_state.studio.money)
             year, week = time_utils.from_absolute(self.game_state.absolute_week)
             self.signals.time_changed.emit(week, year)
             self.signals.scenes_changed.emit()
@@ -327,7 +327,7 @@ class GameController(QObject):
         self.casting_command_service.cast_talent_for_multiple_roles(talent_id, hiring_data)
     def get_tour_sponsorship_preview(self, talent_id: int, roles: List[Dict]) -> TourSponsorshipPreviewResult:
         if not self.tour_sponsorship_service: return TourSponsorshipPreviewResult(is_feasible=False, refusal_reason="Tour calculation service not available.")
-        studio_location = self.game_state.studio_location
+        studio_location = self.game_state.studio.location
         return self.tour_sponsorship_service.generate_preview(talent_id, roles, studio_location)
     def sponsor_tour(self, talent_id: int, roles_to_cast: list, tour_details: dict, total_upfront_cost: int):
         if not self.tour_command_service: return

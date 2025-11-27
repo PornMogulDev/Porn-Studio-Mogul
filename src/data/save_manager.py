@@ -4,11 +4,11 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
-import gc  # <--- IMPORT GARBAGE COLLECTOR
+import gc
 
 from data.game_state import *
 from database.db_manager import DBManager
-from database.db_models import GameInfoDB
+from database.db_models import GameInfoDB, StudioStateDB
 from utils.paths import SAVE_DIR
 
 logger = logging.getLogger(__name__)
@@ -110,13 +110,19 @@ class SaveManager:
         session = self.db_manager.get_session()
         
         game_info = {row.key: row.value for row in session.query(GameInfoDB).all()}
+        studio_db = session.query(StudioStateDB).first()
+        
+        if studio_db:
+            studio_state = studio_db.to_dataclass(StudioState)
+        else:
+            studio_state = StudioState()
+
         session.close()
 
         # Create a minimal GameState object. Large dicts are intentionally empty.
         state = GameState(
             absolute_week=int(game_info.get('absolute_week', 1)),
-            money=int(game_info.get('money', 0)),
-            studio_location=str(game_info.get('studio_location'))
+            studio=studio_state
         )
         return state
 

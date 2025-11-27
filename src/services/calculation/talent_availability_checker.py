@@ -123,11 +123,9 @@ class TalentAvailabilityChecker:
                     return AvailabilityResult(False, reason)
         return AvailabilityResult(is_available=True)
 
-    def _check_policies_and_production(self, talent: Union[Talent, TalentDB], bloc_db: ShootingBlocDB) -> AvailabilityResult:
-        """Checks for policy compatibility and production budget thresholds."""
-        
-        # 1. Check Policies (Existing Logic)
-        active_policies = set(bloc_db.on_set_policies or [])
+    def _check_policies(self, talent: Union[Talent, TalentDB], studio_policies: List[str]) -> AvailabilityResult:
+        """Checks for global studio policy compatibility."""
+        active_policies = set(studio_policies)
         policy_names = {p['id']: p['name'] for p in self.data_manager.on_set_policies_data.values()}
         
         if required_policies := talent.policy_requirements.get('requires'):
@@ -141,8 +139,12 @@ class TalentAvailabilityChecker:
                 if policy_id in active_policies:
                     policy_name = policy_names.get(policy_id, policy_id)
                     return AvailabilityResult(False, f"Refuses to work with the '{policy_name}' policy.")
+
+        return AvailabilityResult(is_available=True)
     
-        # 2. Calculate Pickiness Score
+    def _check_production_budget(self, talent: Union[Talent, TalentDB], bloc_db: ShootingBlocDB) -> AvailabilityResult:
+        """Checks for production budget thresholds."""
+        # Calculate Pickiness Score
         pop_scalar = self.config.pickiness_popularity_scalar
         amb_scalar = self.config.pickiness_ambition_scalar
         
@@ -153,8 +155,7 @@ class TalentAvailabilityChecker:
         
         pickiness_score = (total_popularity * pop_scalar) + (talent.ambition * amb_scalar)
         
-        # 3. Check Total Budget Refusals
-        # If the talent's pickiness exceeds a threshold key, the production must meet that threshold's value.
+        # Check Total Budget Refusals
         current_total_cost = bloc_db.production_cost
         
         for threshold_score, min_budget in self.config.total_budget_refusal_thresholds.items():
@@ -162,7 +163,7 @@ class TalentAvailabilityChecker:
                 if current_total_cost < min_budget:
                     return AvailabilityResult(False, f"Considers the total production budget (${current_total_cost:,}) too low for their status (Requires > ${min_budget:,}).")
 
-        # 4. Check Specific Department Budget Refusals
+        # Check Specific Department Budget Refusals
         current_dept_budgets = bloc_db.department_budgets or {}
         department_names = {d['id']: d['name'] for d in self.data_manager.production_departments.values()}
         
@@ -218,9 +219,9 @@ class TalentAvailabilityChecker:
         
         return AvailabilityResult(is_available=True)  
     
-    def check(self, talent: Union[Talent, TalentDB], scene: Scene, vp_id: int, bloc_db: Optional[ShootingBlocDB], 
-          bookings_before: List[Scene], bookings_current: List[Scene], bookings_after: List[Scene], 
-          estimated_fatigue_gain: int) -> AvailabilityResult:
+    def check(self, talent: Union[Talent, TalentDB], scene: Scene, vp_id: int, studio_policies: List[str],
+          bloc_db: Optional[ShootingBlocDB], bookings_before: List[Scene], bookings_current: List[Scene], 
+          bookings_after: List[Scene], estimated_fatigue_gain: int) -> AvailabilityResult:
         
         result = self._check_schedule_and_fatigue(talent, bookings_before, bookings_current, bookings_after, estimated_fatigue_gain)
         if not result.is_available: return result
@@ -243,8 +244,12 @@ class TalentAvailabilityChecker:
         result = self._check_preferences(talent, roles_by_tag)
         if not result.is_available: return result
 
+        # Global policies check
+        result = self._check_policies(talent, studio_policies)
+        if not result.is_available: return result
+
         if bloc_db:
-            result = self._check_policies_and_production(talent, bloc_db)
+            result = self._check_production_budget(talent, bloc_db)
             if not result.is_available: return result
  
         return AvailabilityResult(is_available=True)

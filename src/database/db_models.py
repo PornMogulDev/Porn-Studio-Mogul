@@ -48,10 +48,18 @@ class DataclassMapper:
         return dataclass_type.from_dict(data)
 
 class GameInfoDB(Base):
-    """Stores simple key-value game state like week, year, money."""
+    """Stores simple key-value game state like week, year. Money and location moved to StudioStateDB."""
     __tablename__ = 'game_info'
     key = Column(String, primary_key=True)
     value = Column(String)
+
+class StudioStateDB(Base, DataclassMapper):
+    """Stores the singleton studio state (money, location, policies)."""
+    __tablename__ = 'studio_state'
+    id = Column(Integer, primary_key=True)  # Singleton ID, essentially always 1
+    studio_policies = Column(JSON, default=list)
+    location = Column(String, default="")
+    money = Column(Integer, default=0)
 
 class ShootingBlocDB(Base, DataclassMapper):
     __tablename__ = 'shooting_blocs'
@@ -73,7 +81,7 @@ class ShootingBlocDB(Base, DataclassMapper):
     current_momentum = Column(Float, default=50.0)
     current_stress = Column(Float, default=0.0)
 
-    on_set_policies = Column(JSON, default=list)
+    # Removed on_set_policies
     scenes = relationship("SceneDB", back_populates="bloc", cascade="all, delete-orphan")
 
     def _customize_dataclass_data(self, data: dict, dataclass_type: Type[T]) -> dict:

@@ -7,7 +7,7 @@ from sqlalchemy import func
 from data.game_state import Scene, Tour
 from data.data_manager import DataManager
 from database.db_models import (
-    TalentDB, SceneDB, ActionSegmentDB,
+    TalentDB, SceneDB, ActionSegmentDB, StudioStateDB,
     ShootingBlocDB, SceneCastDB, TourDB
 )
 from services.query.game_query_service import GameQueryService
@@ -209,6 +209,9 @@ class TalentQueryService:
                 selectinload(SceneDB.bloc)
             ).get(scene_id)
 
+            studio_state = session.query(StudioStateDB).get(1) # Assuming ID 1 is singleton
+            current_policies = studio_state.studio_policies if studio_state else []
+
             if not scene_db: return []
             scene = self.query_service.get_scene_by_id(scene_id) # Scene dataclass
             
@@ -238,7 +241,7 @@ class TalentQueryService:
                 result = self.availability_checker.check(
                     talent_db, scene, vp_id, bloc_db, 
                     bookings_before, bookings_current, bookings_after, 
-                    estimated_fatigue
+                    estimated_fatigue, studio_policies=current_policies
                 )
                 if result.is_available:
                     eligible_talents_db.append(talent_db)
@@ -265,6 +268,9 @@ class TalentQueryService:
                 selectinload(SceneDB.action_segments).selectinload(ActionSegmentDB.slot_assignments),
                 selectinload(SceneDB.bloc) # Crucial: Load bloc to get region_id without query
             ).filter(SceneDB.status == 'casting').all()
+
+            studio_state = session.query(StudioStateDB).get(1)
+            current_policies = studio_state.studio_policies if studio_state else []
             
             bloc_ids = {s.bloc_id for s in scenes_in_casting if s.bloc_id}
             blocs_by_id = {b.id: b for b in session.query(ShootingBlocDB).filter(ShootingBlocDB.id.in_(bloc_ids)).all()} if bloc_ids else {}
@@ -302,7 +308,7 @@ class TalentQueryService:
                     result = self.availability_checker.check(
                         talent_db, scene, vp_db.id, bloc_db,
                         bookings_before, bookings_current, bookings_after,
-                        estimated_fatigue
+                        estimated_fatigue, studio_policies=current_policies
                     )
 
                     talent_effective_location = self.location_service.get_effective_location_at_date(

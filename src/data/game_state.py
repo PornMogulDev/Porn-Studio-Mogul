@@ -226,12 +226,16 @@ class ShootingBloc:
     current_momentum: float = 50.0
     current_stress: float = 0.0
     scenes: List[Scene] = field(default_factory=list)
-    on_set_policies: List[str] = field(default_factory=list)
+
+@dataclass_json
+@dataclass
+class StudioState:
+    studio_policies: list[str] = field(default_factory=list)
+    location: str = ""
+    money: int = 0
 
 @dataclass_json
 @dataclass
 class GameState:
-    active_policies: list[str] = field(default_factory=list)
+    studio: StudioState    
     absolute_week: int = 1
-    money: int = 0
-    studio_location: str = ""
