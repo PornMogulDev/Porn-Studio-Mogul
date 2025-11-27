@@ -41,7 +41,7 @@ class ShootingBlocBuilder:
         self.budget_per_scene: int = 5000
         self.num_scenes: int = 2
         
-        self.region_id: str = "south_west_us"
+        self.region_id: str = "South West (US)"
         self.location_id: Optional[str] = None
         self.visual_style_id: str = "glossy"
         self.active_policies: List[str] = []

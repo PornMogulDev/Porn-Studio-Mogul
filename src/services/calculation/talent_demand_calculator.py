@@ -1,6 +1,6 @@
 import logging
+from typing import List, Dict, Any, Optional, Set
 import numpy as np
-from typing import List, Dict, Any, Optional
 
 from data.data_manager import DataManager
 from data.game_state import Talent, Scene
@@ -101,9 +101,14 @@ class TalentDemandCalculator:
 
     def calculate_total_demand(self, talent: Talent, scene: Scene, vp_id: int,
                                talent_effective_location: str,
-                               current_absolute_week: int) -> Dict[str, int]:
+                               current_absolute_week: int,
+                               existing_bloc_ids: Set[int] = None) -> Dict[str, int]:
         """
         Calculates the total hiring cost for a single talent for a specific role.
+        
+        Args:
+            existing_bloc_ids: Optional set of bloc IDs the talent is already booked for.
+                               If the scene's bloc ID is in this set, travel fee is waived.
         """
         base_cost = self._calculate_base_demand(talent, scene, vp_id)
         
@@ -115,7 +120,17 @@ class TalentDemandCalculator:
         ds_adjusted_base = base_cost * intensity_multiplier
         hazard_pay = ds_adjusted_base - base_cost
 
-        travel_fee = self._calculate_travel_fee(talent, talent_effective_location, scene.location)
+        # Logistics Logic: Check if travel is required for this specific booking
+        travel_fee = 0
+        
+        # If the scene belongs to a bloc the talent is already booked for, assume they are there.
+        # Otherwise, calculate travel normally.
+        requires_new_travel = True
+        if existing_bloc_ids and scene.bloc_id in existing_bloc_ids:
+            requires_new_travel = False
+            
+        if requires_new_travel:
+            travel_fee = self._calculate_travel_fee(talent, talent_effective_location, scene.location)
         
         rush_fee = 0
         if scene.scheduled_absolute_week == current_absolute_week:
@@ -263,20 +278,45 @@ class TalentDemandCalculator:
 
     def calculate_bulk_hiring_costs(self, talent: Talent,
                                     roles_with_context: List[Dict[str, Any]],
-                                    current_absolute_week: int) -> Dict:
+                                    current_absolute_week: int,
+                                    existing_bloc_ids: Set[int] = None) -> Dict:
         """
         Calculates authoritative costs for a bulk hiring transaction.
+        Handles per-bloc travel fees incrementally.
+        
+        Args:
+            existing_bloc_ids: Set of bloc IDs the talent is already booked for.
         """
         from collections import defaultdict
+        
+        # Track which blocs we have already "paid" for in this calculation chain.
+        # We start with what's already in the DB.
+        covered_blocs = set(existing_bloc_ids) if existing_bloc_ids else set()
 
         roles_with_costs = []
         for role_context in roles_with_context:
+            scene = role_context['scene']
+            
+            # Calculate cost for this specific role, passing in our running set of covered blocs
+            # Note: We must pass a COPY or be careful, but since calculate_total_demand doesn't modify the set,
+            # we can pass `covered_blocs`. However, calculate_total_demand is stateless. 
+            # It just calculates. We need to manually update our covered set here for the NEXT iteration.
+            
             cost_breakdown = self.calculate_total_demand(
-                talent, role_context['scene'], role_context['virtual_performer_id'],
-                role_context['talent_effective_location'], current_absolute_week
+                talent, scene, role_context['virtual_performer_id'],
+                role_context['talent_effective_location'], current_absolute_week,
+                covered_blocs
             )
+            
+            # If this calculation resulted in a travel fee > 0, it means we just "paid" for this bloc.
+            # Add it to covered_blocs so the next scene in this loop gets it free.
+            # Even if travel was 0 (e.g. local), we add it, so we are consistent.
+            if scene.bloc_id:
+                covered_blocs.add(scene.bloc_id)
+                
             roles_with_costs.append({**role_context, **cost_breakdown})
 
+        # Calculate Bulk Discounts on Salaries (Upfront travel costs are never discounted)
         bloc_groups = defaultdict(list)
         for role in roles_with_costs:
             bloc_id = role['bloc_id'] if role['bloc_id'] is not None else f"nobloc_{role['scene'].id}"

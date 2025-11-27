@@ -116,6 +116,9 @@ class GameController(QObject):
             return None
         talent_dc = self.query_service.get_talent_by_id(talent_id)
         if not talent_dc: return None
+        
+        existing_bloc_ids = self.talent_query_service.get_booked_bloc_ids(talent_id) if self.talent_query_service else set()
+        
         roles_with_context = []
         for role in roles:
             scene_dc = self.query_service.get_scene_by_id(role['scene_id'])
@@ -127,8 +130,9 @@ class GameController(QObject):
                 'scene': scene_dc, 'virtual_performer_id': role['virtual_performer_id'],
                 'bloc_id': scene_dc.bloc_id, 'talent_effective_location': talent_loc
             })
+            
         return self.talent_demand_calculator.calculate_bulk_hiring_costs(
-            talent_dc, roles_with_context, self.game_state.absolute_week
+            talent_dc, roles_with_context, self.game_state.absolute_week, existing_bloc_ids
         )
 
     def calculate_demands_for_multiple_talents(self, talent_ids: List[int], scene_id: int, vp_id: int) -> Dict[int, int]:
@@ -140,11 +144,19 @@ class GameController(QObject):
         talent_locations = self.talent_location_service.get_effective_locations_for_multiple_talents(
             talent_ids, scene.scheduled_absolute_week
         )
+        
+        # Batch fetch booked blocs for all talents
+        booked_blocs_map = {}
+        if self.talent_query_service:
+             booked_blocs_map = self.talent_query_service.get_booked_bloc_ids_for_multiple_talents(talent_ids)
+        
         demands = {}
         for talent in talents:
+            existing_bloc_ids = booked_blocs_map.get(talent.id, set())
+            
             effective_location = talent_locations.get(talent.id, talent.base_location)
             cost_breakdown = self.talent_demand_calculator.calculate_total_demand(
-                talent, scene, vp_id, effective_location, self.game_state.absolute_week
+                talent, scene, vp_id, effective_location, self.game_state.absolute_week, existing_bloc_ids
             )
             demands[talent.id] = cost_breakdown['total_cost']
         return demands
