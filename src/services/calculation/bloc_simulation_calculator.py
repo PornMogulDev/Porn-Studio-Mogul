@@ -1,4 +1,6 @@
-from typing import Dict, Tuple
+from typing import Tuple
+
+from data.game_state import ShootingBloc
 from services.models.configs import ProductionConfig
 
 class BlocSimulationCalculator:
@@ -10,17 +12,16 @@ class BlocSimulationCalculator:
         self.data_manager = data_manager
         self.config = config
 
-    def calculate_simulation_deltas(self, bloc_context: Dict) -> Tuple[float, float]:
+    def calculate_simulation_deltas(self, bloc: ShootingBloc) -> Tuple[float, float]:
         """
         Returns (momentum_delta, stress_delta).
-        bloc_context requires: picture_set_settings, location_def, current_momentum.
         """
         # 1. Momentum Change
         # Driven by: Success of previous scene (not passed yet, assumed neutral for now),
         # and interruptions like Picture Sets.
         momentum_delta = 0.0
         
-        pic_settings = bloc_context.get('picture_set_settings', {})
+        pic_settings = bloc.picture_set_settings
         pic_type_id = pic_settings.get('type_id', 'video_grabs')
         pic_type_def = self.data_manager.picture_set_types.get(pic_type_id, {})
         
@@ -31,14 +32,25 @@ class BlocSimulationCalculator:
         stress_delta = self.config.bloc_base_stress
         stress_delta += pic_type_def.get('stress_impact', 0.0)
         
-        location_def = bloc_context.get('location_def', {})
+        location_def = self.data_manager.production_locations.get(bloc.set_location_id, {})
         loc_mods = location_def.get('simulation_modifiers', {})
-        stress_delta += loc_mods.get('base_stress', 0)
+        # 3. Location Quality Modifier
+        # If the location was underfunded, stress increases.
+        # resolved_crew_skills contains the quality score (0-100) for location_logistics
+        resolved_skills = bloc.resolved_crew_skills
+        loc_quality = resolved_skills.get('location_logistics', 50)
+        
+        # Base stress of the location (e.g. 20 for a warehouse, -10 for a villa)
+        base_loc_stress = loc_mods.get('base_stress', 0)
+        
+        # Multiplier: 50 quality = 1.0x, 100 quality = 0.5x, 0 quality = 1.5x
+        quality_mod = 1.5 - (loc_quality / 100.0)
+        stress_delta += (base_loc_stress * quality_mod)
         
         # Apply Momentum Bonus/Penalty to Stress
         # High momentum (flow state) reduces stress accumulation.
         # Low momentum (grinding) increases it.
-        current_momentum = bloc_context.get('current_momentum', self.config.bloc_base_momentum)
+        current_momentum = bloc.current_momentum
         if current_momentum > self.config.momentum_bonus_threshold:
             stress_delta *= self.config.momentum_bonus_multiplier
         elif current_momentum < self.config.momentum_penalty_threshold:

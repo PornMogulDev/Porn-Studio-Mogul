@@ -2,7 +2,9 @@
   {
     "id": "warehouse_cheap",
     "name": "Shady Warehouse",
-    "base_cost": 150,
+    "recommended_budget": 200,
+    "min_budget": 50,
+    "curve_type": "linear",
     "tags": ["Gritty", "Spacious", "Noisy", "Unregulated", "Dirty"],
     "simulation_modifiers": {
       "base_stress": 20,
@@ -15,7 +17,9 @@
   {
     "id": "apartment_rented",
     "name": "Rented Apartment",
-    "base_cost": 500,
+    "recommended_budget": 600,
+    "min_budget": 200,
+    "curve_type": "linear",
     "tags": ["Domestic", "Standard", "Private"],
     "simulation_modifiers": {
       "base_stress": 10,
@@ -28,7 +32,9 @@
   { 
     "id": "studio_stage",
     "name": "Sound Stage",
-    "base_cost": 800,
+    "recommended_budget": 1200,
+    "min_budget": 500,
+    "curve_type": "logarithmic",
     "tags": ["Standard", "Controlled"],
     "simulation_modifiers": {
       "base_stress": 5,
@@ -41,7 +47,9 @@
   {
     "id": "luxury_villa",
     "name": "Luxury Villa",
-    "base_cost": 2000,
+    "recommended_budget": 3000,
+    "min_budget": 1000,
+    "curve_type": "step",
     "tags": ["Glossy", "Scenic", "Private", "Opulent"],
      "simulation_modifiers": {
       "base_stress": -10,

@@ -376,7 +376,10 @@ class ServiceContainer:
             bulk_discount_tiers={int(k): v for k, v in game_config.get("hiring_bulk_discount_tiers", {}).items()},
             hazard_pay_modifiers={int(k): v for k, v in game_config.get("hiring_hazard_pay_modifiers", {}).items()},
             total_budget_refusal_thresholds={int(k): v for k, v in game_config.get("total_budget_refusal_thresholds", {}).items()},
-            department_budget_refusal_thresholds={int(k): v for k, v in game_config.get("department_budget_refusal_thresholds", {}).items()}
+            department_budget_refusal_thresholds={
+                k: {int(score): budget for score, budget in v.items()} 
+                for k, v in game_config.get("department_budget_refusal_thresholds", {}).items()
+            }
         )
 
         self.contract_config = ContractConfig(

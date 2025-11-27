@@ -27,26 +27,21 @@ class BlocCostCalculator:
         """
         total_cost = 0
 
-        # 1. Location Cost (Flat fee for the block/rental period)
-        loc_def = self.data_manager.production_locations.get(location_id)
-        if loc_def:
-            total_cost += loc_def.get('base_cost', 0)
-
-        # 2. Department Budgets
+        # 1. Department Budgets (Includes Location Logistics)
         # These are passed as total dollar amounts allocated for the whole block
         total_cost += sum(department_budgets.values())
 
-        # 3. Crew Costs (Freelancer hiring fees for the block)
+        # 2. Crew Costs (Freelancer hiring fees for the block)
         for _, assignment in crew_assignments.items():
             if assignment.get('type') == 'freelancer':
                 total_cost += assignment.get('budget', 0)
 
-        # 4. Picture Set Costs 
+        # 3. Picture Set Costs 
         # Specific costs are typically handled via the Photographer crew slot or 
         # specific department allocations, but this hook remains for specific logic.
         pass
 
-        # 5. Policies (Cost per block)
+        # 4. Policies (Cost per block)
         for policy_id in policies:
             policy = self.data_manager.on_set_policies_data.get(policy_id)
             if policy:

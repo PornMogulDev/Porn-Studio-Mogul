@@ -193,7 +193,9 @@ def create_tables(cursor):
     CREATE TABLE IF NOT EXISTS production_locations (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        base_cost INTEGER NOT NULL,
+        recommended_budget INTEGER NOT NULL,
+        min_budget INTEGER NOT NULL,
+        curve_type TEXT NOT NULL,
         tags_json TEXT,
         simulation_modifiers_json TEXT,
         synergy_bonuses_json TEXT,
@@ -553,13 +555,16 @@ def migrate_production_locations(cursor, data):
     for loc in data:
         cursor.execute("""
             INSERT OR REPLACE INTO production_locations (
-                id, name, base_cost, tags_json, simulation_modifiers_json, 
+                id, name, recommended_budget, min_budget, curve_type,
+                tags_json, simulation_modifiers_json,  
                 synergy_bonuses_json, synergy_penalties_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             loc.get('id'),
             loc.get('name'),
-            loc.get('base_cost'),
+            loc.get('recommended_budget'),
+            loc.get('min_budget'),
+            loc.get('curve_type', 'linear'),
             json.dumps(loc.get('tags', [])),
             json.dumps(loc.get('simulation_modifiers', {})),
             json.dumps(loc.get('synergy_bonuses', [])),

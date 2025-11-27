@@ -66,11 +66,6 @@ class SceneCommandService:
         new_scene_db.title = f"Untitled Scene {new_scene_db.id}"
         return new_scene_db
     
-    def calculate_shooting_bloc_cost(self, num_scenes: int, location_id: str, department_budgets: Dict, crew_assignments: Dict, picture_set_settings: Dict, policies: List[str]) -> int:
-        return self.bloc_cost_calculator.calculate_shooting_bloc_cost(
-            num_scenes, location_id, department_budgets, crew_assignments, picture_set_settings, policies
-        )
-    
     def create_shooting_bloc(self, 
                              scheduled_absolute_week: int,
                              num_scenes: int, 
@@ -119,7 +114,8 @@ class SceneCommandService:
             resolved_skills = self.crew_skill_calculator.generate_resolved_skills(
                 department_budgets=department_budgets,
                 production_departments=self.data_manager.production_departments,
-                visual_style_def=visual_style_def
+                visual_style_def=visual_style_def,
+                location_id=location_id
             )
 
             bloc_db = ShootingBlocDB(

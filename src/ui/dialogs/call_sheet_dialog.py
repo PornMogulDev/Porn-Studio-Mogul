@@ -249,8 +249,9 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
             widget.lockToggled.connect(self.presenter.on_lock_toggled)
         self.slider_widgets[dept_id] = widget
 
-        # This handles "Crew", "crew", and "CREW" correctly.
-        target_layout = self.crew_layout if str(dept_type).lower() == "crew" else self.resource_layout
+        # Explicit check for location or resource types
+        is_crew = str(dept_type).lower() == "crew"
+        target_layout = self.crew_layout if is_crew else self.resource_layout
         
         if target_layout:
             # Insert before the stretch (which is the last item)

@@ -238,7 +238,7 @@ class GameQueryService:
             scenes_dc = []
             for s in scenes_db:
                 scene = s.to_dataclass(Scene)
-                scene.location = s.bloc.location if s.bloc and s.bloc.location else studio_loc
+                scene.location = s.bloc.region_id if s.bloc and s.bloc.region_id else studio_loc
                 scenes_dc.append(scene)
             return scenes_dc
 
@@ -282,7 +282,7 @@ class GameQueryService:
             scenes_dc = []
             for s in scenes_db:
                 scene = s.to_dataclass(Scene)
-                scene.location = s.bloc.location if s.bloc and s.bloc.location else studio_loc
+                scene.location = s.bloc.region_id if s.bloc and s.bloc.region_id else studio_loc
                 scenes_dc.append(scene)
 
             return scenes_dc
@@ -301,7 +301,7 @@ class GameQueryService:
             scenes_dc = []
             for s in scenes_db:
                     scene = s.to_dataclass(Scene)
-                    scene.location = s.bloc.location if s.bloc and s.bloc.location else studio_loc
+                    scene.location = s.bloc.region_id if s.bloc and s.bloc.region_id else studio_loc
                     scenes_dc.append(scene)
             return scenes_dc
     
@@ -317,7 +317,7 @@ class GameQueryService:
             scenes_dc = []
             for s in scenes_db:
                 scene = s.to_dataclass(Scene)
-                scene.location = s.bloc.location if s.bloc and s.bloc.location else studio_loc
+                scene.location = s.bloc.region_id if s.bloc and s.bloc.region_id else studio_loc
                 scenes_dc.append(scene)
             return scenes_dc
 

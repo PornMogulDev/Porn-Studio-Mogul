@@ -58,7 +58,15 @@ class CallSheetPresenter(QObject):
                 show_assignment=True
             )
 
-        # B. Add Resource Sliders (From Production Departments)
+        # B. Add Location Slider (Dynamic)
+        # This is a special resource managed by the builder, not in the static DB cache
+        self.view.add_department_slider(
+            'location_logistics',
+            'Location & Set',
+            'resource'
+        )
+
+        # C. Add Resource Sliders (From Production Departments)
         for dept_id, dept_def in self.departments_cache.items():
             self.view.add_department_slider(
                 dept_id, 
@@ -112,7 +120,7 @@ class CallSheetPresenter(QObject):
     def on_location_changed(self, index: int):
         loc_id = self.view.combo_location.currentData()
         if loc_id:
-            self.builder.location_id = loc_id
+            self.builder.set_location(loc_id)
             self._sync_view_from_builder()
 
     def on_style_changed(self, index: int):
