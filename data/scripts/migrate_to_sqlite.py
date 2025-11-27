@@ -182,9 +182,11 @@ def create_tables(cursor):
         name TEXT NOT NULL,
         description TEXT,
         is_mandatory INTEGER NOT NULL,
+        base_weight REAL NOT NULL DEFAULT 0.0,
         base_stress_load REAL NOT NULL,
         base_fatigue_load REAL NOT NULL,
-        primary_skill TEXT
+        primary_skill TEXT,
+        impacts_json TEXT
     )
     """)
 
@@ -534,17 +536,19 @@ def migrate_production_jobs(cursor, data):
     for job in data:
         cursor.execute("""
             INSERT OR REPLACE INTO production_jobs (
-                id, name, description, is_mandatory, base_stress_load, 
-                base_fatigue_load, primary_skill
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                id, name, description, is_mandatory, base_weight, 
+                base_stress_load, base_fatigue_load, primary_skill, impacts_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             job.get('id'),
             job.get('name'),
             job.get('description'),
             1 if job.get('is_mandatory') else 0,
+            job.get('base_weight', 0.0), 
             job.get('base_stress_load'),
             job.get('base_fatigue_load'),
-            job.get('primary_skill')
+            job.get('primary_skill'),
+            json.dumps(job.get('impacts', [])) 
         ))
         count += 1
     print(f"{count} production jobs migrated.")

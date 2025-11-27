@@ -10,8 +10,7 @@ from services.events.event_conditions import (
     PolicyActiveCondition, PolicyInactiveCondition, CastHasGenderCondition,
     SceneHasTagConceptCondition, CastSizeIsCondition,
     TalentProfessionalismAboveCondition, TalentProfessionalismBelowCondition,
-    TalentPhysicalAttributeCondition, TalentParticipatesInConceptCondition,
-    HasProductionTierCondition, NotHasProductionTierCondition
+    TalentPhysicalAttributeCondition, TalentParticipatesInConceptCondition
 )
 
 logger = logging.getLogger(__name__)
@@ -35,8 +34,6 @@ class SceneEventTriggerService:
             'talent_professionalism_below': TalentProfessionalismBelowCondition(),
             'talent_physical_attribute': TalentPhysicalAttributeCondition(),
             'talent_participates_in_concept': TalentParticipatesInConceptCondition(),
-            'has_production_tier': HasProductionTierCondition(),
-            'not_has_production_tier': NotHasProductionTierCondition(),
         }
 
     def check_for_shoot_event(self, session: Session, scene: Scene) -> Optional[Dict]:
@@ -52,7 +49,6 @@ class SceneEventTriggerService:
             return None
 
         active_policies = set(bloc_db.on_set_policies or [])
-        all_production_tiers = bloc_db.production_settings or {}
         cast_talent_ids = list(scene.final_cast.values())
         if not cast_talent_ids: return None
 
@@ -76,59 +72,25 @@ class SceneEventTriggerService:
         ).filter(TalentDB.id.in_(cast_talent_ids)).all()
         
         event_to_trigger = None
-        triggering_talent_id = None
         triggering_talent = None
 
-        if bloc_db.production_settings:
-            base_bad_chance = self.data_manager.game_config.get("base_bad_event_chance_per_category", 0.10)
-            base_good_chance = self.data_manager.game_config.get("base_good_event_chance_per_category", 0.08)
-            
-            categories = list(bloc_db.production_settings.keys())
-            random.shuffle(categories)
-            
-            for category in categories:
-                tier_name = bloc_db.production_settings[category]
-                tier_data = next((t for t in self.data_manager.production_settings_data.get(category, []) if t['tier_name'] == tier_name), None)
-                if not tier_data: continue
-
-                bad_mod = tier_data.get('bad_event_chance_modifier', 1.0)
-                if random.random() < (base_bad_chance * bad_mod):
-                    triggering_talent = self._select_triggering_talent_weighted(cast_talents_db, 'bad')
-                    if triggering_talent:
-                        context = self._build_context(scene, all_production_tiers, active_policies, cast_genders, cast_size, scene_tag_concepts, triggering_talent, tier_name)
-                        event_to_trigger = self._select_event_from_pool(category, 'bad', context)
-                        if event_to_trigger:
-                            break
-                
-                good_mod = tier_data.get('good_event_chance_modifier', 1.0)
-                if random.random() < (base_good_chance * good_mod):
-                    triggering_talent = self._select_triggering_talent_weighted(cast_talents_db, 'good')
-                    if triggering_talent:
-                        context = self._build_context(scene, all_production_tiers, active_policies, cast_genders, cast_size, scene_tag_concepts, triggering_talent, tier_name)
-                        event_to_trigger = self._select_event_from_pool(category, 'good', context)
-                        if event_to_trigger:
-                            break
-                if event_to_trigger: break
-            
-            if event_to_trigger and triggering_talent:
-                return { 'event_data': event_to_trigger, 'scene_id': scene.id, 'talent_id': triggering_talent.id }
-
+        # Temporarily only consider policy-based events.
+        # Production setting based events are undergoing refactor.
         base_policy_chance = self.data_manager.game_config.get("base_policy_event_chance", 0.15)
         if random.random() < base_policy_chance:
             triggering_talent = self._select_triggering_talent_weighted(cast_talents_db, 'bad')
             if triggering_talent:
-                context = self._build_context(scene, all_production_tiers, active_policies, cast_genders, cast_size, scene_tag_concepts, triggering_talent)
+                context = self._build_context(scene, active_policies, cast_genders, cast_size, scene_tag_concepts, triggering_talent)
                 event_to_trigger = self._select_event_from_pool('Policy', 'bad', context)
                 if event_to_trigger:
                     return { 'event_data': event_to_trigger, 'scene_id': scene.id, 'talent_id': triggering_talent.id }
         
         return None
 
-    def _build_context(self, scene: Scene, all_production_tiers: Dict, active_policies: set, cast_genders: set, cast_size: int, scene_tag_concepts: set, triggering_talent: TalentDB, tier_name: Optional[str] = None) -> Dict:
+    def _build_context(self, scene: Scene, active_policies: set, cast_genders: set, cast_size: int, scene_tag_concepts: set, triggering_talent: TalentDB) -> Dict:
         """Helper to construct the context dictionary for condition checking."""
         return {
-            'scene': scene, 'tier_name': tier_name,
-            'all_production_tiers': all_production_tiers,
+            'scene': scene,
             'active_policies': active_policies, 'cast_genders': cast_genders,
             'cast_size': cast_size, 'scene_tag_concepts': scene_tag_concepts,
             'triggering_talent': triggering_talent,
@@ -149,10 +111,9 @@ class SceneEventTriggerService:
         return True
 
     def _select_event_from_pool(self, category: str, event_type: str, context: Dict) -> Optional[Dict]:
-        possible_events, tier_name = [], context.get('tier_name')
+        possible_events = []
         for event in self.data_manager.scene_events.values():
             if event.get('category') == category and event.get('type') == event_type:
-                if (tiers := event.get('triggering_tiers')) and tier_name not in tiers: continue
                 if not self._check_event_conditions(event.get('triggering_conditions'), context): continue
                 possible_events.append(event)
         if not possible_events: return None

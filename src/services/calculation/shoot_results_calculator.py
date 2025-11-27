@@ -41,6 +41,7 @@ class ShootResultsCalculator:
         crew_assignments = bloc_context.get('crew_assignments', {})
         location_def = bloc_context.get('location_def', {})
         cs_efficiency = bloc_context.get('craft_services_efficiency', 1.0)
+        hs_score = bloc_context.get('health_safety_score', 50)
 
         outcomes = []
         for talent in talents:
@@ -64,7 +65,8 @@ class ShootResultsCalculator:
                 jobs=jobs,
                 location_def=location_def,
                 craft_services_efficiency=cs_efficiency,
-                events_modifier=0.0 # Future: pass from Scene modifiers
+                health_safety_score=hs_score,
+                events_modifier=0.0 
             )
             
             # Calculate Burnout (Overflow of stress)
@@ -95,7 +97,8 @@ class ShootResultsCalculator:
         """Identifies all roles (Actor + Crew) a talent is performing."""
         jobs = ['actor'] # Implicitly an actor if they are in this list
         
-        # Check assignments in the dict structure: {'director': {'type': 'character', 'id': 5}, ...}
+        # Check assignments in the new dict structure: 
+        # {'director': {'type': 'character', 'id': 5}, 'camera': {'type': 'generic', ...}}
         for slot_id, assignment in crew_assignments.items():
             if assignment.get('type') == 'character' and assignment.get('id') == talent_id:
                 jobs.append(slot_id)

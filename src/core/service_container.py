@@ -108,7 +108,7 @@ class ServiceContainer:
         self.scene_event_command_service: Optional[SceneEventCommandService] = None
         self.player_settings_service: Optional[PlayerSettingsService] = None
         self.email_service: Optional[EmailService] = None
-        self.budget_efficienty_calculator: Optional[BudgetEfficiencyCalculator] = None
+        self.budget_efficiency_calculator: Optional[BudgetEfficiencyCalculator] = None
         self.stress_calculator: Optional[StressCalculator] = None
         self.crew_skill_calculator: Optional[CrewSkillCalculator] = None
         self.bloc_simulation_calculator: Optional[BlocSimulationCalculator] = None
@@ -133,12 +133,12 @@ class ServiceContainer:
         self.upfront_tour_calculator = UpfrontTourCostCalculator(self.data_manager)
         self.trait_modifier_resolver = TraitModifierResolver(self.data_manager)
         self.talent_status_calculator = TalentStatusCalculator(self.hiring_config, self.tour_config)
-        self.budget_efficienty_calculator = BudgetEfficiencyCalculator(self.production_config)
+        self.budget_efficiency_calculator = BudgetEfficiencyCalculator(self.production_config)
         self.stress_calculator = StressCalculator(self.data_manager, self.scene_calc_config)
         self.bloc_simulation_calculator = BlocSimulationCalculator(self.data_manager, self.production_config)
 
         # Level 1: Depends on Level 0 services
-        self.crew_skill_calculator = CrewSkillCalculator(self.data_manager, self.budget_efficienty_calculator, self.production_config)
+        self.crew_skill_calculator = CrewSkillCalculator(self.data_manager, self.budget_efficiency_calculator, self.production_config)
         self.tour_interest_calculator = TourInterestCalculator(self.trait_modifier_resolver, self.tour_config, self.data_manager)
         self.market_service = MarketService(market_resolver, self.data_manager.tag_definitions, config=self.market_config)
         self.talent_affinity_calculator = TalentAffinityCalculator(self.scene_calc_config)
@@ -166,13 +166,13 @@ class ServiceContainer:
             self.talent_status_calculator
         )
         self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
-        self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config, self.budget_efficienty_calculator)
+        self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config, self.budget_efficiency_calculator)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
         self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
         self.scene_processing_service = SceneProcessingService(
             self.data_manager, self.talent_command_service, self.scene_calc_config,
             self.tag_validation_checker, self.shoot_results_calculator, self.bloc_simulation_calculator,
-            self.scene_quality_calculator, self.post_production_calculator, self.budget_efficienty_calculator
+            self.scene_quality_calculator, self.post_production_calculator, self.budget_efficiency_calculator
         )
         self.scene_event_trigger_service = SceneEventTriggerService(self.data_manager)
         self.tour_sponsorship_service = TourSponsorshipPreviewService(self.data_manager, self.query_service,
@@ -301,7 +301,7 @@ class ServiceContainer:
         self.scene_event_command_service = None
         self.player_settings_service = None
         self.email_service = None
-        self.budget_efficienty_calculator = None
+        self.budget_efficiency_calculator = None
         self.stress_calculator = None
         self.crew_skill_calculator = None
         self.bloc_simulation_calculator = None

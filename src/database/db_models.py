@@ -61,9 +61,11 @@ class ShootingBlocDB(Base, DataclassMapper):
     scheduled_absolute_week = Column(Integer)
     set_location_id = Column(String)         
     visual_style_id = Column(String)
+    budget_per_scene = Column(Integer, default=0)
+    camera_count = Column(Integer, default=1)
     department_budgets = Column(JSON, default=dict)
     crew_assignments = Column(JSON, default=dict) # Stores WHO (e.g. "Generic", "Talent ID")
-    resolved_crew_skills = Column(JSON, default=dict) # Stores THE SKILL (e.g. "Director": 65)
+    production_cache = Column(JSON, default=dict) 
     picture_set_settings = Column(JSON, default=dict)
     production_cost = Column(Integer, default=0)
     

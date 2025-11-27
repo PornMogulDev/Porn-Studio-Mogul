@@ -3,7 +3,7 @@ from typing import Dict
 from sqlalchemy.orm import selectinload, Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from data.game_state import Scene, Talent
+from data.game_state import Scene, Talent, ShootingBloc
 from data.data_manager import DataManager
 from database.db_models import SceneDB, TalentDB, GameInfoDB, ShootingBlocDB, ScenePerformerContributionDB, TalentChemistryDB
 from services.command.talent_command_service import TalentCommandService
@@ -27,8 +27,8 @@ class SceneProcessingService:
     def __init__(self, data_manager: DataManager, talent_command_service: TalentCommandService,
                  config: SceneCalculationConfig, tag_validation_checker: TagValidationChecker,
                  shoot_results_calc: ShootResultsCalculator, bloc_sim_calc: BlocSimulationCalculator,
-                 scene_quality_calc: SceneQualityCalculator, post_prod_calc: PostProductionCalculator, 
-                 budget_efficiency_calc: BudgetEfficiencyCalculator):
+                 scene_quality_calc: SceneQualityCalculator, post_prod_calc: PostProductionCalculator,
+                 budget_efficiency_calculator: BudgetEfficiencyCalculator):
         self.data_manager = data_manager
         self.talent_command_service = talent_command_service
         self.config = config
@@ -37,7 +37,7 @@ class SceneProcessingService:
         self.bloc_simulation_calculator = bloc_sim_calc
         self.scene_quality_calculator = scene_quality_calc
         self.post_production_calculator = post_prod_calc
-        self.budget_efficiency_calculator = budget_efficiency_calc
+        self.budget_efficiency_calculator = budget_efficiency_calculator
 
     def prepare_for_shoot_calculation(self, session: Session, scene_db: SceneDB):
         """
@@ -74,24 +74,27 @@ class SceneProcessingService:
         cast_talents_dc = [t.to_dataclass(Talent) for t in talents_db]
 
         bloc_db = session.query(ShootingBlocDB).get(scene.bloc_id) if scene.bloc_id else None
-        
+        bloc_dc = bloc_db.to_dataclass(ShootingBloc) if bloc_db else None
+
         # --- 2. PREPARE CONTEXT ---
         bloc_context = {}
         if bloc_db:
-            # Calculate Craft Services Efficiency for Stress Relief
-            cs_budget = bloc_db.department_budgets.get('craft_services', 0)
-            cs_def = self.data_manager.production_departments.get('craft_services')
-            style_def = self.data_manager.visual_styles.get(bloc_db.visual_style_id, {})
+            # Look up pre-rolled scores from the cache
+            # Fallback to 50 (Average) if missing
+            cs_score = bloc_db.production_cache.get('craft_services', 50)
+            hs_score = bloc_db.production_cache.get('health_safety', 50)
             
-            cs_efficiency = 0.0
-            if cs_def:
-                cs_efficiency = self.budget_efficiency_calculator.calculate_efficiency(cs_def, cs_budget, style_def)
+            # Normalize scores (0-100) to efficiency scalars (approx 1.0 baseline)
+            # Used by StressCalculator
+            cs_efficiency = cs_score / 50.0
             
             bloc_context = {
-                'location_def': self.data_manager.production_locations.get(bloc_db.location_id, {}),
+                'location_def': self.data_manager.production_locations.get(bloc_db.set_location_id, {}),
                 'craft_services_efficiency': cs_efficiency,
+                'health_safety_score': hs_score,
                 'crew_assignments': bloc_db.crew_assignments,
                 'department_budgets': bloc_db.department_budgets,
+                'production_cache': bloc_db.production_cache, # <--- New: Pass the cache
                 'visual_style_id': bloc_db.visual_style_id
             }
 
@@ -106,9 +109,11 @@ class SceneProcessingService:
         )
         
         # 3b. Calculate Bloc Simulation (Momentum/Stress)
-        momentum_delta, stress_delta = self.bloc_simulation_calculator.calculate_simulation_deltas(
-            bloc_context
-        )
+        momentum_delta, stress_delta = 0.0, 0.0
+        if bloc_dc:
+            momentum_delta, stress_delta = self.bloc_simulation_calculator.calculate_simulation_deltas(
+                bloc_dc
+            )
         
         scene.performer_stamina_costs = {str(o.talent_id): o.stamina_cost for o in talent_outcomes}
 
@@ -194,12 +199,13 @@ class SceneProcessingService:
             for c in scene_db.performer_contributions_rel
         ]
 
+        camera_count = bloc_db.camera_count if bloc_db else 1
+
         post_prod_result = self.post_production_calculator.apply_effects(
             current_tag_qualities=scene_db.tag_qualities or {},
             current_contributions=current_contributions,
             post_prod_choices=scene_db.post_production_choices or {},
-            bloc_production_settings=(bloc_db.production_settings if bloc_db else {}),
-            default_camera_tier=self.data_manager.game_config.get("default_camera_setup_tier", "1")
+            camera_count=camera_count,
         )
 
         if post_prod_result:

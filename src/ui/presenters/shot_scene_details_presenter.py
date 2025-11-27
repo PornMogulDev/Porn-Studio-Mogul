@@ -123,7 +123,7 @@ class ShotSceneDetailsPresenter(QObject):
         editing_tiers = self.controller.data_manager.post_production_data.get('editing_tiers', [])
         camera_setup_tier = "1"
         if self.scene.bloc_id and (bloc := self.controller.get_bloc_by_id(self.scene.bloc_id)):
-            camera_setup_tier = bloc.production_settings.get('Camera Setup', '1')
+            camera_setup_tier = str(bloc.camera_count)
 
         options = []
         for i, tier in enumerate(editing_tiers):

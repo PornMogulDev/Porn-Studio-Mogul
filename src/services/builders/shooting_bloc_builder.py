@@ -15,12 +15,13 @@ class DepartmentState:
     id: str
     name: str
     basis_points: int # 0 to 10000 (0.00% to 100.00%)
+    type: str # 'resource' or 'crew'
     user_locked: bool = False
     system_disabled: bool = False
     min_budget: int = 0
-    soft_cap: int = 1000 # Dynamic target for efficiency
+    soft_cap: int = 1000 
     curve_type: str = 'linear'
-    type: str = "resource" 
+    base_weight: float = 0.0 # Helpful for UI tooltips/weight viz
 
 class ShootingBlocBuilder:
     TOTAL_BPS = 10000 # 100.00%
@@ -61,8 +62,8 @@ class ShootingBlocBuilder:
         
         all_defs = []
         
-        # 1. Add "Location Logistics" (Dynamic Department)
-        # We create a placeholder state; actual constraints set via set_logistics/set_location
+        # 1. Add "Location Logistics" (Dynamic Department/Resource)
+        # Treated as a resource that outputs a quality score
         self.departments['location_logistics'] = DepartmentState(
             id='location_logistics',
             name='Location & Set',
@@ -70,15 +71,16 @@ class ShootingBlocBuilder:
             type='resource',
             soft_cap=1000,
             min_budget=0,
-            curve_type='linear'
+            curve_type='linear',
+            base_weight=0.2 # Implicit weight for location
         )
         
-        # 2. Add Standard Resources
+        # 2. Add Standard Resources (Departments)
         if resource_defs:
             for k, v in resource_defs.items():
                 all_defs.append((k, v, 'resource'))
         
-        # 3. Add Crew
+        # 3. Add Crew (Jobs)
         if crew_defs:
             for k, v in crew_defs.items():
                 all_defs.append((k, v, 'crew'))
@@ -89,24 +91,21 @@ class ShootingBlocBuilder:
                 id=dept_id,
                 name=defs.get('name', dept_id.title()),
                 basis_points=0,
+                type=d_type,
                 min_budget=defs.get('min_budget', 0),
-                soft_cap=defs.get('soft_cap_budget', 1000),
+                soft_cap=defs.get('soft_cap_budget', 1000), # Note: Jobs usually don't have soft_cap in JSON yet, handled by calculator defaults or updates
                 curve_type=defs.get('curve_type', 'linear'),
-                type=d_type
+                base_weight=defs.get('base_weight', 0.0)
             )
             
         # Initial Even Split
-        # Includes location_logistics
         active_count = len(self.departments)
         if active_count > 0:
             split = self.TOTAL_BPS // active_count
             for d in self.departments.values():
                 d.basis_points = split
             
-            # Apply initial system locks (e.g. disable photographer if default is video grabs)
             self._apply_system_constraints()
-            
-            # Ensure exact 10000 sum
             self._normalize_sum()
 
     # --- Configuration Setters ---
@@ -126,7 +125,7 @@ class ShootingBlocBuilder:
         if self.location_id == location_id: return
         self.location_id = location_id
         
-        # Update the 'location_logistics' department constraints
+        # Update the 'location_logistics' department constraints based on the location def
         if 'location_logistics' in self.departments:
             loc_def = self.data_manager.production_locations.get(location_id, {})
             dept = self.departments['location_logistics']
@@ -157,16 +156,18 @@ class ShootingBlocBuilder:
         
         to_disable = set()
 
-        # Photographer
+        # Photographer check
         pst_def = self.data_manager.picture_set_types.get(self.picture_set_type_id, {})
         if not pst_def.get('requires_photographer', False):
             to_disable.add('photographer')
 
-        # Cameras
+        # Camera checks (Jobs)
         if self.camera_mounts[0] == "Tripod": 
-            to_disable.add('camera_a') # Static
+            # Note: Depending on design, tripod might still need an operator (Camera A)
+            # For this logic, let's assume Camera A is mandatory unless specified otherwise by logic
+            pass 
         
-        if self.camera_count < 2 or self.camera_mounts[1] == "Tripod":
+        if self.camera_count < 2:
             to_disable.add('camera_b')
 
         redistribution_needed = False
@@ -181,7 +182,7 @@ class ShootingBlocBuilder:
                 
             elif not should_be_disabled and dept.system_disabled:
                 dept.system_disabled = False
-                dept.basis_points = 0 # Starts at 0, user must drag
+                dept.basis_points = 0 # Starts at 0, user must drag or auto-balance
                 
         if redistribution_needed:
             self._normalize_sum()
@@ -191,13 +192,7 @@ class ShootingBlocBuilder:
             self.departments[dept_id].user_locked = is_locked
 
     def update_allocation(self, target_id: str, new_percent: float):
-        """
-        Adjusts target_id to new_percent (converted to bps), 
-        redistributing difference among available departments.
-        """
         if target_id not in self.departments: return
-        
-        # Convert to BPS
         target_bps = int(max(0.0, min(1.0, new_percent)) * self.TOTAL_BPS)
         self._redistribute_bps(target_id, target_bps)
 
@@ -207,10 +202,9 @@ class ShootingBlocBuilder:
 
         current_val = target.basis_points
         delta = target_val - current_val
-        
         if delta == 0: return
 
-        # Identify 'Liquid' Departments
+        # Identify 'Liquid' Departments (Unlocked, Enabled, Not Target)
         liquid_pool = [
             d for d in self.departments.values()
             if d.id != target_id and not d.user_locked and not d.system_disabled
@@ -220,20 +214,16 @@ class ShootingBlocBuilder:
 
         pool_total = sum(d.basis_points for d in liquid_pool)
 
-        # 1. Cap increase to available pool
+        # Cap increase to available pool
         if delta > 0 and delta > pool_total:
             target_val = current_val + pool_total
             delta = target_val - current_val
         
-        # 2. Apply change to target
+        # Apply change
         target.basis_points = target_val
         
-        # 3. Redistribute -delta (subtraction from pool)
+        # Distribute remaining delta
         remaining_delta = -delta
-        
-        # We iterate and distribute proportionally
-        # To avoid integer rounding losing/gaining 1-2 points, we accumulate remainder
-        # or use simple integer distribution and normalize at the end.
         
         if pool_total > 0:
             for dept in liquid_pool:
@@ -241,17 +231,15 @@ class ShootingBlocBuilder:
                 share = int(remaining_delta * ratio)
                 dept.basis_points = max(0, dept.basis_points + share)
         else:
-            # Pool was empty (0 bps), but we are adding to it (delta < 0, remaining > 0)
-            # Split evenly
+            # Even split if pool was 0
             share = int(remaining_delta / len(liquid_pool))
             for dept in liquid_pool:
                 dept.basis_points += share
             
-        # 4. Final Normalization to ensure strict 10000
         self._normalize_sum()
 
     def _normalize_sum(self):
-        """Ensures total equals 10000 by adjusting the largest active department."""
+        """Ensures total equals 10000 by adjusting the largest active unlocked department."""
         active_depts = [d for d in self.departments.values() if not d.system_disabled]
         if not active_depts: return
         
@@ -259,80 +247,69 @@ class ShootingBlocBuilder:
         diff = self.TOTAL_BPS - total
         
         if diff != 0:
-            # Prefer unlocked departments to absorb diff
             candidates = [d for d in active_depts if not d.user_locked]
             if not candidates:
                 candidates = active_depts
             
-            # Add/Sub from largest to minimize visual jump
+            # Absorb diff into largest candidate to minimize visual jump
             best_candidate = max(candidates, key=lambda d: d.basis_points)
-            
-            # Ensure we don't go negative if diff is negative
-            new_val = best_candidate.basis_points + diff
-            best_candidate.basis_points = max(0, new_val)
-            
-            # If we hit 0 and still have diff (rare edge case with negative diff),
-            # we might technically under-sum, but user locks prevent most of this.
-            # A second pass could handle strictness, but max(0) is usually safe.
+            new_val = max(0, best_candidate.basis_points + diff)
+            best_candidate.basis_points = new_val
 
     # --- Getters for UI ---
 
     def get_ui_data(self) -> Dict[str, Any]:
-        """Returns complex dict for UI update."""
+        """
+        Returns complex dict for UI update.
+        Calculates estimates based on Per-Scene Budget.
+        """
         allocations = {}
         estimates = {}
         
-        total_block_budget = self.budget_per_scene * self.num_scenes
-        
         for dept in self.departments.values():
-            
             # UI expects float 0.0-1.0
             percent = dept.basis_points / self.TOTAL_BPS
             
-            # Budget Amount (Per Scene for display)
+            # Budget Amount (Per Scene)
             scene_amt = int(self.budget_per_scene * percent)
             
             allocations[dept.id] = {
                 "percent": percent,
                 "amount": scene_amt,
                 "is_user_locked": dept.user_locked,
-                "is_system_disabled": dept.system_disabled
+                "is_system_disabled": dept.system_disabled,
+                "type": dept.type
             }
 
             # Estimates
-            block_amt = int(total_block_budget * percent)
-            
             if dept.system_disabled:
                 estimates[dept.id] = "N/A"
-            elif block_amt <= 0:
+            elif scene_amt <= 0:
                  estimates[dept.id] = "No Budget"
             else:
                 # Prepare definition dict for calculator
-                # For location_logistics, we construct a virtual def
                 def_dict = {
                     'id': dept.id,
-                    'recommended_budget': dept.soft_cap, # Used by calculator
+                    'recommended_budget': dept.soft_cap,
                     'min_budget': dept.min_budget,
                     'curve_type': dept.curve_type
                 }
                 
-                # Returns raw float (e.g. 1.15 for 115% efficiency)
+                # IMPORTANT: Passing scene_amt and budget_per_scene
                 val = self.crew_calculator.calculate_efficiency_raw(
-                    def_dict, block_amt, total_block_budget, self.visual_style_id
+                    def_dict, scene_amt, self.budget_per_scene, self.visual_style_id
                 )
                 
-                # Convert raw efficiency (e.g. 1.2) to display string
                 if dept.type == 'crew':
-                    # Skill 0-100
+                    # Skill Estimate (0-100)
                     base_skill = min(100, val * self.config.crew_skill_baseline_multiplier)
                     sigma = self.config.crew_skill_sigma 
                     min_s = max(1, int(base_skill - sigma))
                     max_s = min(100, int(base_skill + sigma))
                     estimates[dept.id] = f"Skill: {min_s}-{max_s}"
                 else:
-                    # Resource Quality (0-100+)
-                    # Just treat as raw score
-                    score = int(val * 100)
+                    # Resource/Dept Quality Estimate (0-100+)
+                    score = int(val * self.config.crew_skill_baseline_multiplier) # Normalizing to same 0-100 scale approximately
                     estimates[dept.id] = f"Quality: {score}"
                     
         total_cost = self.get_total_cost()
@@ -345,33 +322,54 @@ class ShootingBlocBuilder:
         }
 
     def get_total_cost(self) -> int:
-        total_block_budget = self.budget_per_scene * self.num_scenes
+        """
+        Calculates the upfront cost for the entire bloc.
+        """
+        # Calculate budgets per scene
+        scene_budgets = {}
+        for d in self.departments.values():
+            if not d.system_disabled:
+                scene_budgets[d.id] = int(self.budget_per_scene * (d.basis_points / self.TOTAL_BPS))
+
+        # Scale to Bloc Total (x num_scenes)
+        total_department_budgets = {k: v * self.num_scenes for k, v in scene_budgets.items()}
         
-        # Convert BPS to budget map
-        budget_map = {
-            d.id: int(total_block_budget * (d.basis_points / self.TOTAL_BPS))
-            for d in self.departments.values() 
-            if not d.system_disabled
-        }
-        
-        # Location ID is passed, but cost is now in budget_map['location_logistics']
-        # The Cost Calculator should interpret this correctly (i.e. not double count)
-        # Note: BlocCostCalculator sums department_budgets + location base_cost.
-        # We need to ensure we don't double charge if we migrated location to a budget item.
-        # FIX: We should pass None for location_id to cost calculator if location is a budget item,
-        # OR ensure BlocCostCalculator doesn't add base_cost if it's 0 (which migration handled).
+        # NOTE: Crew is technically "hired" via this budget in Generic mode.
+        # The Cost Calculator sums up department_budgets. 
+        # Since we put both Resources and Generic Crew $$ into this map temporarily for calculation,
+        # it sums correctly.
         
         return self.cost_calculator.calculate_shooting_bloc_cost(
-            self.location_id, budget_map, {}, {}, self.active_policies
+            self.location_id, 
+            total_department_budgets, 
+            {}, # No specific crew assignments (Generic/Freelancer cost is covered in dept budgets)
+            {}, 
+            self.active_policies
         )
 
     def commit(self, name: str, scheduled_week: int) -> Dict[str, Any]:
-        total_block_budget = self.budget_per_scene * self.num_scenes
+        """
+        Finalizes the builder state into the dictionary structure expected by SceneCommandService.
+        Separates 'resources' into department_budgets and 'crew' into crew_assignments.
+        """
+        department_budgets = {}
+        crew_assignments = {}
         
-        allocs = {
-            d.id: (d.basis_points / self.TOTAL_BPS) 
-            for d in self.departments.values()
-        }
+        for d in self.departments.values():
+            if d.system_disabled: continue
+            
+            # Calculate total budget for this slot for the whole bloc
+            per_scene = int(self.budget_per_scene * (d.basis_points / self.TOTAL_BPS))
+            total_bloc_amt = per_scene * self.num_scenes
+            
+            if d.type == 'resource':
+                department_budgets[d.id] = total_bloc_amt
+            elif d.type == 'crew':
+                # Currently only supporting Generic/Freelancer mode via builder
+                crew_assignments[d.id] = {
+                    "type": "generic",
+                    "budget": total_bloc_amt
+                }
         
         return {
             "name": name,
@@ -383,8 +381,13 @@ class ShootingBlocBuilder:
                 "visual_style_id": self.visual_style_id
             },
             "budget_data": {
-                "total_budget": total_block_budget,
-                "allocations": allocs
+                # We pass the pre-calculated maps
+                "department_budgets": department_budgets,
+                "crew_assignments": crew_assignments,
+                "budget_per_scene": self.budget_per_scene,
+                "camera_count": self.camera_count,
+                # Total budget is sum of all values
+                "total_budget": sum(department_budgets.values()) + sum(c['budget'] for c in crew_assignments.values())
             },
             "policies": self.active_policies
         }

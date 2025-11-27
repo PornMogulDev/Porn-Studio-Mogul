@@ -3,7 +3,7 @@ import random
 import numpy as np
 from collections import defaultdict
 from itertools import combinations
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 from data.game_state import Scene, Talent
 from data.data_manager import DataManager
@@ -17,7 +17,7 @@ class SceneQualityCalculator:
     """
     Critical, pure calculation service that acts as the final arbiter of a
     scene's quality score. Calculates all aspects of scene quality,
-    including tag qualities and performer contributions.
+    including tag qualities, performer contributions, and technical execution.
     """
     def __init__(self, data_manager: DataManager, config: SceneCalculationConfig,
                  budget_efficiency_calculator: BudgetEfficiencyCalculator):
@@ -32,27 +32,12 @@ class SceneQualityCalculator:
         """
         Calculates the final quality scores for a scene after it has been shot.
 
-        This is the main entry point for the calculator and orchestrates a 5-step process:
-        1. Calculates scene-wide modifiers from thematic tags.
-        2. Calculates the quality of each Action Tag based on performer contributions.
-        3. Calculates the quality of each Physical Tag.
-        4. Calculates a final production quality modifier from bloc settings and events.
-        5. Applies the final production modifier to all tag and performer scores.
-        
-        Args:
-            bloc_data: Dictionary containing {
-                'department_budgets': {},
-                'visual_style_id': str,
-                ...
-            }
-            shoot_modifiers: A dictionary of modifiers from a potential interactive event
-                             (e.g., {'performer_mods': {...}, 'quality_mods': {...}}).
-            bloc_production_settings: A dictionary of production settings from the parent
-                                      shooting bloc (e.g., {'camera': 'Tier 1'}).
-
-        Returns:
-            A SceneQualityResult object containing the final tag qualities and
-            performer contributions.
+        Process:
+        1. Calculate scene-wide modifiers from thematic tags (Weights, Chemistry amplifies).
+        2. Calculate Action Tag qualities and Performer Contributions.
+        3. Calculate Physical Tag qualities.
+        4. Calculate Technical Score Multiplier using Weighted Averages of Production Cache.
+        5. Apply multiplier to all base scores.
         """
         if not cast_talents:
             return SceneQualityResult(tag_qualities={}, performer_contributions=[])
@@ -81,13 +66,15 @@ class SceneQualityCalculator:
         tag_qualities = {**action_tag_qualities, **physical_tag_qualities}
 
         # 5. Calculate and apply the final production quality modifier
-        total_prod_quality_modifier = self._calculate_production_quality_modifier(
+        # This uses the new Weighted Average system based on cache and tags
+        total_prod_quality_modifier = self._calculate_technical_score_multiplier(
             scene, bloc_data, scene_mods
         )
     
         if overall_mod := quality_mods.get('overall'):
             total_prod_quality_modifier *= overall_mod.get('modifier', 1.0)
 
+        # Apply Modifier to all scores
         if total_prod_quality_modifier != 1.0:
             for key in tag_qualities:
                 tag_qualities[key] = round(tag_qualities[key] * total_prod_quality_modifier, 2)
@@ -103,20 +90,15 @@ class SceneQualityCalculator:
     def _calculate_scene_wide_modifiers(self, scene: Scene) -> Dict:
         """
         Calculates scene-wide quality modifiers by aggregating effects from all Thematic tags.
-
-        These modifiers can:
-        - Amplify the effect of production settings (e.g., 'Cinematic' tag boosts camera quality).
-        - Amplify the effect of cast chemistry.
-        - Shift the weight between Acting and Performance skills for quality calculations.
-        - Amplify the effect of Dom/Sub dynamics.
-
-        Args:
-            scene: The scene being calculated.
-
-        Returns:
-            A dictionary containing the aggregated scene-wide modifiers.
+        Also aggregates Department Weight Modifiers.
         """
-        scene_mods = {'prod_setting_amplifiers': defaultdict(lambda: 1.0), 'chemistry_amplifier': 1.0, 'acting_weight': self.config.scene_quality_base_acting_weight, 'ds_amplifier': 1.0}
+        scene_mods = {
+            'prod_setting_amplifiers': defaultdict(lambda: 1.0), 
+            'chemistry_amplifier': 1.0, 
+            'acting_weight': self.config.scene_quality_base_acting_weight, 
+            'ds_amplifier': 1.0,
+            'department_weight_mods': defaultdict(float) # New: Stores adds/subs to department weights
+        }
         all_scene_tags = set(scene.global_tags) | set(scene.assigned_tags.keys()) | set(scene.auto_tags) 
 
         for tag_name in all_scene_tags:
@@ -125,18 +107,28 @@ class SceneQualityCalculator:
                 if modifier_rules := tag_def.get('scene_wide_modifiers'):
                     for rule in modifier_rules:
                         mod_type = rule.get('type')
-                        if mod_type == 'amplify_production_setting':
+                        
+                        if mod_type == 'modify_department_weight':
+                            dept = rule.get('department')
+                            weight_add = rule.get('weight_add', 0.0)
+                            if dept:
+                                scene_mods['department_weight_mods'][dept] += weight_add
+
+                        elif mod_type == 'amplify_production_setting':
                             category = rule.get('category')
                             multiplier = rule.get('multiplier', 1.0)
                             if category:
                                 current_max = scene_mods['prod_setting_amplifiers'][category]
                                 scene_mods['prod_setting_amplifiers'][category] = max(current_max, multiplier)
+                                
                         elif mod_type == 'amplify_chemistry_effect':
                             multiplier = rule.get('multiplier', 1.0)
                             scene_mods['chemistry_amplifier'] = max(scene_mods['chemistry_amplifier'], multiplier)
+                            
                         elif mod_type == 'shift_acting_weight':
                             shift = rule.get('acting_weight_shift', 0.0)
                             scene_mods['acting_weight'] += shift
+                            
                         elif mod_type == 'amplify_dom_sub_effect':
                              multiplier = rule.get('multiplier', 1.0)
                              scene_mods['ds_amplifier'] = max(scene_mods['ds_amplifier'], multiplier)
@@ -144,43 +136,120 @@ class SceneQualityCalculator:
         scene_mods['acting_weight'] = np.clip(scene_mods['acting_weight'], self.config.scene_quality_min_acting_weight, self.config.scene_quality_max_acting_weight)
         return scene_mods
 
-    def _calculate_production_quality_modifier(self, scene: Scene, bloc_data: Dict | None, scene_mods: Dict) -> float:
+    def _calculate_technical_score_multiplier(self, scene: Scene, bloc_data: Dict | None, scene_mods: Dict) -> float:
         """
-        Calculates the final production quality modifier from bloc-level budgets.
-        (e.g., Camera, Location), amplified by scene-wide modifiers from Thematic tags.
-
-        Args:
-            scene: The scene being calculated.
-            bloc_production_settings: The production settings from the parent shooting bloc.
-            scene_mods: Pre-calculated scene-wide modifiers.
-
-        Returns:
-            A float representing the total production quality multiplier.
+        Calculates the Weighted Average Technical Score of the scene.
+        
+        Algorithm:
+        1. Iterate all production slots (Resources & Crew).
+        2. Determine Base Weight for each slot (from JSON).
+        3. Apply Modifiers:
+           - Tag Modifiers (e.g. Cosplay adds to Wardrobe).
+           - Audio Rule: Audio weight scales with Acting Weight.
+        4. Fetch Score (0-100) from production_cache.
+        5. Compute Weighted Average.
+        6. Convert Average (0-100) to Multiplier (e.g. 50 -> 1.0, 100 -> 1.5).
         """
-        total_prod_quality_modifier = 1.0
-        if bloc_data:
-            budgets = bloc_data.get('department_budgets', {})
-            style_id = bloc_data.get('visual_style_id', 'glossy')
-            style_def = self.data_manager.visual_styles.get(style_id, {})
+        if not bloc_data:
+            return 1.0
 
-            for dept_id, budget in budgets.items():
-                dept_def = self.data_manager.production_departments.get(dept_id)
-                if not dept_def: continue
+        production_cache = bloc_data.get('production_cache', {})
+        crew_assignments = bloc_data.get('crew_assignments', {})
+        dept_weight_mods = scene_mods.get('department_weight_mods', {})
+        
+        total_weight = 0.0
+        weighted_score_sum = 0.0
+        
+        # 1. Gather all active slots from the cache (Resources + Generic Crew)
+        # Note: We rely on the cache keys to know what was "paid for".
+        # Character Crew (if any) are in crew_assignments but might not be in cache if handled differently.
+        # For now, we assume if it's contributing to tech score, it has a score resolved.
+        
+        # We also need to check crew_assignments to catch slots that might use Characters
+        all_slots = set(production_cache.keys()) | set(crew_assignments.keys())
+        
+        for slot_id in all_slots:
+            # 2. Determine Base Weight
+            base_weight, impacts_tech = self._get_slot_weight_and_impact(slot_id)
+            
+            if not impacts_tech or base_weight <= 0:
+                continue
 
-                # Check if this department impacts visual quality
-                if "visual_quality" in dept_def.get("impacts", []):
-                    efficiency = self.budget_efficiency_calculator.calculate_efficiency(dept_def, budget, style_def)
-                    
-                    weight = dept_def.get('base_weight', 0.1)
-                    # If efficiency is 1.0, modifier is 1.0. If 0.5, it drags down total.
-                    # Weighted geometric mean or simple weighted modifier?
-                    # Using a weighted impact model:
-                    # Mod = 1.0 + (Efficiency - 1.0) * Weight
-                    modifier_impact = 1.0 + (efficiency - 1.0) * weight
-                    
-                    total_prod_quality_modifier *= modifier_impact
-        return total_prod_quality_modifier
-    
+            # 3. Apply Modifiers
+            final_weight = base_weight
+            
+            # A. Tag Modifiers
+            if slot_id in dept_weight_mods:
+                final_weight += dept_weight_mods[slot_id]
+            
+            # B. Audio Dynamic Rule
+            # Audio importance scales with dialogue (acting weight)
+            if slot_id == 'audio_equipment':
+                # Ratio: Current Acting Weight / Base Acting Weight
+                # e.g., 0.5 / 0.3 = 1.66x importance
+                ratio = scene_mods['acting_weight'] / self.config.scene_quality_base_acting_weight
+                final_weight *= ratio
+
+            if final_weight <= 0:
+                continue
+
+            # 4. Fetch Score
+            score = 0
+            assignment = crew_assignments.get(slot_id, {})
+            
+            # Case A: Generic or Resource (In Cache)
+            if slot_id in production_cache:
+                score = production_cache[slot_id]
+            
+            # Case B: Named Character (Future Proofing)
+            elif assignment.get('type') == 'character':
+                # TODO: Resolve character skill from DB/Context
+                # For now, fallback to cache or average
+                score = production_cache.get(slot_id, 50)
+            
+            weighted_score_sum += (score * final_weight)
+            total_weight += final_weight
+
+        if total_weight == 0:
+            return 1.0
+
+        # 5. Compute Weighted Average
+        average_score = weighted_score_sum / total_weight
+        
+        # 6. Convert to Multiplier
+        # Baseline: 50/100 -> 1.0x
+        # Max: 100/100 -> 1.5x (Configurable?)
+        # Min: 0/100 -> 0.5x
+        # Formula: 0.5 + (Score / 100)
+        multiplier = 0.5 + (average_score / 100.0)
+        
+        return max(0.1, multiplier)
+
+    def _get_slot_weight_and_impact(self, slot_id: str) -> Tuple[float, bool]:
+        """
+        Helper to find the base weight and tech impact flag for any slot ID
+        (checking both Departments and Jobs).
+        """
+        # Check Departments
+        dept_def = self.data_manager.production_departments.get(slot_id)
+        if dept_def:
+            impacts = dept_def.get('impacts', [])
+            return dept_def.get('base_weight', 0.0), ('tech_score' in impacts)
+        
+        # Check Jobs
+        job_def = self.data_manager.production_jobs.get(slot_id)
+        if job_def:
+            impacts = job_def.get('impacts', [])
+            return job_def.get('base_weight', 0.0), ('tech_score' in impacts)
+            
+        # Fallback for Location Logistics (Dynamic)
+        if slot_id == 'location_logistics':
+            # Location usually impacts tech score implicitly via stress/momentum,
+            # but if we want it to weigh in the visual quality directly:
+            return 0.2, True 
+
+        return 0.0, False
+
     def _calculate_action_tag_qualities(self, scene: Scene, final_cast_talents: Dict, scene_mods: Dict, performer_mods: Dict) -> Tuple[Dict, List[Dict]]:
         """
         Calculates quality scores for all Action tags by aggregating the individual

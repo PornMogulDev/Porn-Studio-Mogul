@@ -16,6 +16,7 @@ class StressCalculator:
                               jobs: List[str], 
                               location_def: Dict, 
                               craft_services_efficiency: float,
+                              health_safety_score: int,
                               events_modifier: float = 0.0) -> float:
         """
         Calculates stress gain for a single bloc/scene.
@@ -46,17 +47,25 @@ class StressCalculator:
         location_stress = loc_mods.get('base_stress', 0)
         
         # Apply traits interacting with location
-        # TODO: Move trait name to config/constants eventually
         if "Introvert" in talent.traits and "Public" in location_def.get('tags', []):
             location_stress += self.config.introvert_crowd_penalty
         
         total_stress += location_stress
 
         # 4. Support Reduction (Craft Services)
+        # Higher efficiency = more stress relief
         stress_relief = craft_services_efficiency * self.config.craft_services_stress_relief_scalar
         total_stress -= stress_relief
 
-        # 5. Events
+        # 5. Health & Safety Multiplier
+        # HS Score 100 -> 1.0x (No penalty)
+        # HS Score 50  -> 1.5x (50% penalty)
+        # HS Score 0   -> 2.0x (Double stress)
+        # Formula: 2.0 - (Score / 100.0)
+        hs_multiplier = 2.0 - (max(0, min(100, health_safety_score)) / 100.0)
+        total_stress *= hs_multiplier
+
+        # 6. Events
         total_stress += events_modifier
 
         return max(0.0, total_stress)

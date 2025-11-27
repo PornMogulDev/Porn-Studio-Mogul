@@ -1,72 +1,72 @@
- [
+[
   {
-      "id": "camera_equipment",
-      "name": "Camera & Lighting",
-      "description": "Equipment rental and lighting setup. Determines raw visual fidelity.",
-      "base_weight": 0.20,
-      "min_budget": 500,
-      "soft_cap_budget": 5000,
-      "curve_type": "logarithmic",
-      "impacts": ["visual_quality"]
-    },
-    {
-      "id": "audio_equipment",
-      "name": "Audio Equipment",
-      "description": "Microphones and mixing gear. Crucial for dialogue.",
-      "base_weight": 0.15,
-      "min_budget": 200,
-      "soft_cap_budget": 2500,
-      "curve_type": "linear",
-      "impacts": ["audio_quality"]
-    },
-    {
-      "id": "set_design",
-      "name": "Set Design",
-      "description": "Props, decoration, and background quality.",
-      "base_weight": 0.15,
-      "min_budget": 100,
-      "soft_cap_budget": 4000,
-      "curve_type": "linear",
-      "impacts": ["visual_quality", "immersion"]
-    },
-    {
-      "id": "wardrobe",
-      "name": "Wardrobe",
-      "description": "Costumes and outfits. Must meet thresholds for certain Tags.",
-      "base_weight": 0.10,
-      "min_budget": 50,
-      "soft_cap_budget": 2000,
-      "curve_type": "linear",
-      "impacts": ["visual_quality", "tag_compliance"]
-    },
-    {
-      "id": "makeup",
-      "name": "Makeup & Hair",
-      "description": "Enhances talent appearance and hides blemishes.",
-      "base_weight": 0.10,
-      "min_budget": 100,
-      "soft_cap_budget": 1500,
-      "curve_type": "linear",
-      "impacts": ["talent_appearance"]
-    },
-    {
-      "id": "craft_services",
-      "name": "Craft Services",
-      "description": "Food and amenities. Reduces Stress and Stamina drain.",
-      "base_weight": 0.0,
-      "min_budget": 50,
-      "soft_cap_budget": 1000,
-      "curve_type": "step",
-      "impacts": ["stress_reduction", "stamina_recovery"]
-    },
-    {
-      "id": "health_safety",
-      "name": "Health, Safety & Security",
-      "description": "Cleanliness, testing, and set privacy. Prevents negative events.",
-      "base_weight": 0.0,
-      "min_budget": 100,
-      "soft_cap_budget": 2000,
-      "curve_type": "exponential",
-      "impacts": ["event_prevention", "stress_reduction"]
-    }
- ]
+    "id": "camera_equipment",
+    "name": "Camera & Lighting",
+    "description": "Equipment rental and lighting setup. Determines raw visual fidelity.",
+    "base_weight": 0.20,
+    "min_budget": 500,
+    "soft_cap_budget": 5000,
+    "curve_type": "logarithmic",
+    "impacts": ["tech_score"]
+  },
+  {
+    "id": "audio_equipment",
+    "name": "Audio Equipment",
+    "description": "Microphones and mixing gear. Crucial for dialogue-heavy scenes.",
+    "base_weight": 0.15,
+    "min_budget": 200,
+    "soft_cap_budget": 2500,
+    "curve_type": "linear",
+    "impacts": ["audio_quality"]
+  },
+  {
+    "id": "set_design",
+    "name": "Set Design",
+    "description": "Props, decoration, and background quality.",
+    "base_weight": 0.15,
+    "min_budget": 100,
+    "soft_cap_budget": 4000,
+    "curve_type": "linear",
+    "impacts": ["tech_score"]
+  },
+  {
+    "id": "wardrobe",
+    "name": "Wardrobe",
+    "description": "Costumes and outfits. Weight increases significantly for specific tags (e.g., Cosplay).",
+    "base_weight": 0.15,
+    "min_budget": 50,
+    "soft_cap_budget": 2000,
+    "curve_type": "linear",
+    "impacts": ["tech_score"]
+  },
+  {
+    "id": "makeup",
+    "name": "Makeup & Hair",
+    "description": "Enhances talent appearance and hides blemishes.",
+    "base_weight": 0.10,
+    "min_budget": 100,
+    "soft_cap_budget": 1500,
+    "curve_type": "linear",
+    "impacts": ["tech_score"]
+  },
+  {
+    "id": "craft_services",
+    "name": "Craft Services",
+    "description": "Food and amenities. Reduces Stress and Stamina drain.",
+    "base_weight": 0.0,
+    "min_budget": 50,
+    "soft_cap_budget": 1000,
+    "curve_type": "step",
+    "impacts": ["stress_mitigation", "stamina_recovery"]
+  },
+  {
+    "id": "health_safety",
+    "name": "Health, Safety & Security",
+    "description": "Cleanliness, testing, and privacy. Low investment increases injury risks and base stress.",
+    "base_weight": 0.0,
+    "min_budget": 0,
+    "soft_cap_budget": 2000,
+    "curve_type": "exponential",
+    "impacts": ["stress_mitigation", "stamina_recovery"]
+  }
+]

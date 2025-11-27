@@ -216,9 +216,11 @@ class ShootingBloc:
     scheduled_absolute_week: int
     set_location_id: Optional[str] = None  # Physical Set (e.g., "warehouse_cheap")
     visual_style_id: Optional[str] = None
+    budget_per_scene: int = 0
+    camera_count: int = 1
     department_budgets: Dict[str, int] = field(default_factory=dict)
     crew_assignments: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    resolved_crew_skills: Dict[str, int] = field(default_factory=dict)
+    production_cache: Dict[str, int] = field(default_factory=dict)
     picture_set_settings: Dict[str, Any] = field(default_factory=dict)
     production_cost: int = 0
     current_momentum: float = 50.0

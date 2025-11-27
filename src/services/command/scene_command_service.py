@@ -85,36 +85,37 @@ class SceneCommandService:
             visual_style_id = logistics.get("visual_style_id", "glossy")
             
             # Unpack Budget Data
-            # Note: budget_data["allocations"] is {dept_id: percentage}.
-            # We need absolute amounts for the DB and Calculator.
-            total_budget = budget_data.get("total_budget", 5000)
-            allocations_percent = budget_data.get("allocations", {})
+            # Note: total_budget in budget_data is informational summation; actuals are in the sub-dicts
+            budget_per_scene = budget_data.get("budget_per_scene", 0)
+            camera_count = budget_data.get("camera_count", 1)
             
-            department_budgets = {
-                dept_id: int(total_budget * pct) 
-                for dept_id, pct in allocations_percent.items()
-            }
+            # These are now separate maps
+            department_budgets = budget_data.get("department_budgets", {})
+            crew_assignments = budget_data.get("crew_assignments", {})
+            
             money_info = session.query(GameInfoDB).filter_by(key='money').one()
             current_money = int(float(money_info.value))
 
             cost = self.bloc_cost_calculator.calculate_shooting_bloc_cost(
                 location_id=location_id,
                 department_budgets=department_budgets,
-                crew_assignments={}, # Deprecated/Implicit in budgets now
-                picture_set_settings={}, # Placeholder for future feature
+                crew_assignments=crew_assignments,
+                picture_set_settings={}, 
                 policies=policies
              )
 
             new_money = current_money - cost
             money_info.value = str(new_money)
 
-            # Generate Randomized Fixed Crew Skills via the specialized calculator
+            # Generate Production Cache (RNG Rolls for Resources & Generic Crew)
             visual_style_def = self.data_manager.visual_styles.get(visual_style_id, {})
             
-            resolved_skills = self.crew_skill_calculator.generate_resolved_skills(
+            production_cache = self.crew_skill_calculator.generate_production_cache(
                 department_budgets=department_budgets,
-                production_departments=self.data_manager.production_departments,
+                crew_assignments=crew_assignments,
                 visual_style_def=visual_style_def,
+                budget_per_scene=budget_per_scene,
+                num_scenes=num_scenes,
                 location_id=location_id
             )
 
@@ -124,17 +125,16 @@ class SceneCommandService:
                 region_id=region_id,
                 set_location_id=location_id, 
                 visual_style_id=visual_style_id,
+                budget_per_scene=budget_per_scene,
+                camera_count=camera_count,
                 department_budgets=department_budgets,
-                crew_assignments={}, # No longer storing raw assignments, just budgets
-                resolved_crew_skills=resolved_skills, # Persist the rolled stats
+                crew_assignments=crew_assignments, 
+                production_cache=production_cache,
                 picture_set_settings={},
                 production_cost=cost, on_set_policies=policies,
                 current_momentum=50.0, # Start neutral
                 current_stress=0.0     # Start fresh
             )
-
-            # Store the raw budget data blob for UI re-hydration (optional but good practice)
-            bloc_db.budget_data = budget_data
 
             session.add(bloc_db)
             session.flush()

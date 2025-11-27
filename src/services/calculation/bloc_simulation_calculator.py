@@ -34,11 +34,11 @@ class BlocSimulationCalculator:
         
         location_def = self.data_manager.production_locations.get(bloc.set_location_id, {})
         loc_mods = location_def.get('simulation_modifiers', {})
+        
         # 3. Location Quality Modifier
-        # If the location was underfunded, stress increases.
-        # resolved_crew_skills contains the quality score (0-100) for location_logistics
-        resolved_skills = bloc.resolved_crew_skills
-        loc_quality = resolved_skills.get('location_logistics', 50)
+        # We now use 'production_cache' to get the rolled quality
+        cache = bloc.production_cache
+        loc_quality = cache.get('location_logistics', 50)
         
         # Base stress of the location (e.g. 20 for a warehouse, -10 for a villa)
         base_loc_stress = loc_mods.get('base_stress', 0)
