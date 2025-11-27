@@ -368,5 +368,18 @@ class ThemeManager:
             QPushButton#inboxBtn[has_unread="true"]:hover {{
                 border: 2px solid {theme.text};
             }}
+
+            /* --- Call Sheet Dialog Styling --- */
+            QLabel#CallSheetTotalCost {{
+                font-weight: bold;
+                font-size: {font_size + 2}pt;
+                margin-top: 10px;
+            }}
+
+            QLabel#CallSheetMetaLabel {{
+                color: {theme.color_neutral};
+                font-style: italic;
+                font-size: {max(8, font_size - 2)}pt;
+            }}
                 """
         return qss

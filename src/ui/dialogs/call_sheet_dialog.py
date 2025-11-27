@@ -71,7 +71,7 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         
         # Add the Cost Preview to the bottom of the Resources column (outside scroll area)
         self.lbl_total_cost_preview = QLabel("Estimated Upfront Cost: $0")
-        self.lbl_total_cost_preview.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 10px;")
+        self.lbl_total_cost_preview.setObjectName("CallSheetTotalCost")
         self.lbl_total_cost_preview.setAlignment(Qt.AlignmentFlag.AlignRight)
         
         # Access the layout of the GroupBox to add the footer
@@ -139,8 +139,8 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         self.combo_location = QComboBox()
         layout.addWidget(self.combo_location)
         self.lbl_location_tags = QLabel("")
+        self.lbl_location_tags.setObjectName("CallSheetMetaLabel")
         self.lbl_location_tags.setWordWrap(True)
-        self.lbl_location_tags.setStyleSheet("color: gray; font-style: italic; font-size: 10px;")
         layout.addWidget(self.lbl_location_tags)
         
         # Visual Style
@@ -148,8 +148,8 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         self.combo_style = QComboBox()
         layout.addWidget(self.combo_style)
         self.lbl_style_desc = QLabel("")
+        self.lbl_style_desc.setObjectName("CallSheetMetaLabel")
         self.lbl_style_desc.setWordWrap(True)
-        self.lbl_style_desc.setStyleSheet("color: gray; font-size: 10px;")
         layout.addWidget(self.lbl_style_desc)
 
         # Picture Set Type
