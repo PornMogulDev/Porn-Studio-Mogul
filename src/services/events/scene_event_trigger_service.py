@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload, Session
 
 from data.game_state import Scene
 from data.data_manager import DataManager
-from database.db_models import TalentDB, ShootingBlocDB
+from database.db_models import TalentDB, ShootingBlocDB, StudioStateDB
 from services.events.event_conditions import (
     PolicyActiveCondition, PolicyInactiveCondition, CastHasGenderCondition,
     SceneHasTagConceptCondition, CastSizeIsCondition,
@@ -41,14 +41,14 @@ class SceneEventTriggerService:
         Checks if a random interactive event should trigger for a scene being shot.
         This is the main entry point for event triggering.
         """
+        return None  # Temporarily disabled during refactor
+    
         if not scene.bloc_id or not scene.final_cast:
             return None
 
-        bloc_db = session.query(ShootingBlocDB).get(scene.bloc_id)
-        if not bloc_db:
-            return None
+        studio_state = session.query(StudioStateDB).get(1)
+        active_policies = set(studio_state.studio_policies) if studio_state else set()
 
-        active_policies = set(bloc_db.on_set_policies or [])
         cast_talent_ids = list(scene.final_cast.values())
         if not cast_talent_ids: return None
 

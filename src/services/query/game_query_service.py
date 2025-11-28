@@ -6,7 +6,7 @@ from sqlalchemy import or_
 from data.game_state import Talent, Scene, ShootingBloc, MarketGroupState, EmailMessage
 from database.db_models import (TalentDB, TalentChemistryDB, SceneDB, ShootingBlocDB, 
                                 SceneCastDB, ActionSegmentDB, GoToListAssignmentDB, GameInfoDB,
-                                GoToListCategoryDB, MarketGroupStateDB, EmailMessageDB )
+                                GoToListCategoryDB, MarketGroupStateDB, EmailMessageDB, StudioStateDB )
 from utils import time_utils
 
 class GameQueryService:
@@ -228,7 +228,8 @@ class GameQueryService:
     def get_shot_scenes(self) -> List[Scene]:
         """Fetches all scenes that have been shot or released for the scenes tab."""
         with self.session_factory() as session:
-            studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar() or ""
+            studio_state = session.query(StudioStateDB).get(1)
+            studio_loc = studio_state.location if studio_state else ""
             scenes_db = session.query(SceneDB).populate_existing().options(
                 selectinload(SceneDB.performer_contributions_rel),
                 joinedload(SceneDB.bloc)
@@ -261,8 +262,8 @@ class GameQueryService:
             if scene_db.bloc and scene_db.bloc.region_id:
                 scene_dc.location = scene_db.bloc.region_id
             else:
-                studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar()
-                scene_dc.location = studio_loc or ""
+                studio_state = session.query(StudioStateDB).get(1)
+                scene_dc.location = studio_state.location if studio_state else ""
                 
             return scene_dc
         
@@ -278,7 +279,9 @@ class GameQueryService:
             if not scenes_db:
                 return []
             
-            studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar() or ""
+            studio_state = session.query(StudioStateDB).get(1)
+            studio_loc = studio_state.location if studio_state else ""
+
             scenes_dc = []
             for s in scenes_db:
                 scene = s.to_dataclass(Scene)
@@ -289,7 +292,8 @@ class GameQueryService:
 
     def get_scene_history_for_talent(self, talent_id: int) -> List[Scene]:
         with self.session_factory() as session:
-            studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar() or ""
+            studio_state = session.query(StudioStateDB).get(1)
+            studio_loc = studio_state.location if studio_state else ""
             scenes_db = session.query(SceneDB)\
                 .options(joinedload(SceneDB.bloc))\
                 .join(SceneCastDB)\
@@ -308,7 +312,8 @@ class GameQueryService:
     def get_incomplete_scenes_for_week(self, target_absolute_week: int) -> List[Scene]:
         """Finds scenes scheduled for a given week that are not fully cast or are still in design."""
         with self.session_factory() as session:
-            studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar() or ""
+            studio_state = session.query(StudioStateDB).get(1)
+            studio_loc = studio_state.location if studio_state else ""
             scenes_db = session.query(SceneDB).filter(
                 SceneDB.status.in_(['casting', 'design']),
                 SceneDB.scheduled_absolute_week == target_absolute_week
@@ -372,8 +377,8 @@ class GameQueryService:
                 return scene_db.bloc.region_id
             
             # Fallback to studio location
-            studio_loc = session.query(GameInfoDB.value).filter_by(key='studio_location').scalar()
-            return studio_loc or ""
+            studio_state = session.query(StudioStateDB).get(1)
+            return studio_state.location if studio_state else ""
     
     # --- Market ---
 

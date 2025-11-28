@@ -277,7 +277,7 @@ class TalentQueryService:
             
             all_bookings = self._get_bookings_by_absolute_week(session, [talent_id])
             
-            # --- New: Get Existing Bloc Commitments for accurate travel pricing ---
+            # Get Existing Bloc Commitments for accurate travel pricing ---
             existing_bloc_ids = self.get_booked_bloc_ids(talent_id)
 
             for scene_db in scenes_in_casting:
