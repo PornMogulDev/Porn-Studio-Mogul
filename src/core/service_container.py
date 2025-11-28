@@ -2,25 +2,14 @@ import logging
 from typing import Optional, TYPE_CHECKING
 
 from core.game_signals import GameSignals
+# Data
 from data.data_manager import DataManager
 from data.save_manager import SaveManager
 from data.game_state import GameState
+
+# Command
 from services.command.email_service import EmailService
 from services.command.go_to_list_service import GoToListService
-from services.market_service import MarketService
-from services.player_settings_service import PlayerSettingsService
-from services.time_service import TimeService
-from services.calculation.tag_validation_checker import TagValidationChecker
-from services.calculation.post_production_calculator import PostProductionCalculator
-from services.calculation.revenue_calculator import RevenueCalculator
-from services.calculation.scene_quality_calculator import SceneQualityCalculator
-from services.calculation.shoot_results_calculator import ShootResultsCalculator
-from services.calculation.talent_demand_calculator import TalentDemandCalculator
-from services.calculation.upfront_tour_cost_calculator import UpfrontTourCostCalculator
-from services.calculation.trait_modifier_resolver import TraitModifierResolver
-from services.calculation.talent_status_calculator import TalentStatusCalculator
-from services.tour_feasibility_service import TourFeasibilityService
-from services.tour_sponsorship_preview_service import TourSponsorshipPreviewService
 from services.command.scene_command_service import SceneCommandService
 from services.command.contract_command_service import ContractCommandService
 from services.command.casting_command_service import CastingCommandService
@@ -28,15 +17,9 @@ from services.command.talent_command_service import TalentCommandService
 from services.command.scene_event_command_service import SceneEventCommandService
 from services.command.scene_processing_service import SceneProcessingService
 from services.command.tour_command_service import TourCommandService
-from services.events.scene_event_trigger_service import SceneEventTriggerService
-from services.models.configs import (
-    HiringConfig, MarketConfig, SceneCalculationConfig, ContractConfig,
-    TourConfig, ProductionConfig
-)
-from services.query.game_query_service import GameQueryService
-from services.query.talent_query_service import TalentQueryService
-from services.query.tag_query_service import TagQueryService
-from services.query.talent_location_service import TalentLocationService
+from services.command.studio_command_service import StudioCommandService
+
+# Calculation
 from services.calculation.market_group_resolver import MarketGroupResolver
 from services.calculation.role_performance_calculator import RolePerformanceCalculator
 from services.calculation.talent_availability_checker import TalentAvailabilityChecker
@@ -47,8 +30,38 @@ from services.calculation.budget_efficiency_calculator import BudgetEfficiencyCa
 from services.calculation.stress_calculator import StressCalculator
 from services.calculation.crew_skill_calculator import CrewSkillCalculator
 from services.calculation.bloc_simulation_calculator import BlocSimulationCalculator
+from services.calculation.tag_validation_checker import TagValidationChecker
+from services.calculation.post_production_calculator import PostProductionCalculator
+from services.calculation.revenue_calculator import RevenueCalculator
+from services.calculation.scene_quality_calculator import SceneQualityCalculator
+from services.calculation.shoot_results_calculator import ShootResultsCalculator
+from services.calculation.talent_demand_calculator import TalentDemandCalculator
+from services.calculation.upfront_tour_cost_calculator import UpfrontTourCostCalculator
+from services.calculation.trait_modifier_resolver import TraitModifierResolver
+from services.calculation.talent_status_calculator import TalentStatusCalculator
+
+# Events
+from services.events.scene_event_trigger_service import SceneEventTriggerService
+
+# Query
+from services.query.game_query_service import GameQueryService
+from services.query.talent_query_service import TalentQueryService
+from services.query.tag_query_service import TagQueryService
+from services.query.talent_location_service import TalentLocationService
+
+#Builders
 from services.builders.call_sheet_builder import ShootingBlocBuilder
 from services.builders.scene_state_editor import SceneStateEditor
+
+from services.models.configs import (
+    HiringConfig, MarketConfig, SceneCalculationConfig, ContractConfig,
+    TourConfig, ProductionConfig
+)
+from services.market_service import MarketService
+from services.player_settings_service import PlayerSettingsService
+from services.time_service import TimeService
+from services.tour_feasibility_service import TourFeasibilityService
+from services.tour_sponsorship_preview_service import TourSponsorshipPreviewService
 
 if TYPE_CHECKING:
     from core.game_controller import GameController
@@ -112,6 +125,7 @@ class ServiceContainer:
         self.stress_calculator: Optional[StressCalculator] = None
         self.crew_skill_calculator: Optional[CrewSkillCalculator] = None
         self.bloc_simulation_calculator: Optional[BlocSimulationCalculator] = None
+        self.studio_command_service: Optional[StudioCommandService] = None
 
     def initialize_and_populate_services(self, controller: 'GameController', game_state: GameState):
         """
@@ -136,6 +150,7 @@ class ServiceContainer:
         self.budget_efficiency_calculator = BudgetEfficiencyCalculator(self.production_config)
         self.stress_calculator = StressCalculator(self.data_manager, self.scene_calc_config)
         self.bloc_simulation_calculator = BlocSimulationCalculator(self.data_manager, self.production_config)
+        self.studio_command_service = StudioCommandService(session_factory, self.signals, game_state)
 
         # Level 1: Depends on Level 0 services
         self.crew_skill_calculator = CrewSkillCalculator(self.data_manager, self.budget_efficiency_calculator, self.production_config)
@@ -242,6 +257,7 @@ class ServiceContainer:
         controller.scene_event_command_service = self.scene_event_command_service
         controller.player_settings_service = self.player_settings_service
         controller.email_service = self.email_service
+        controller.studio_command_service = self.studio_command_service
     
     def _clear_controller_services(self, controller: 'GameController'):
         """Sets all service references on the controller to None."""
@@ -265,6 +281,7 @@ class ServiceContainer:
         controller.scene_event_command_service = None
         controller.player_settings_service = None
         controller.email_service = None
+        controller.studio_command_service = None
 
     def _clear_container_services(self):
         """Sets all service references on this container to None."""
@@ -305,6 +322,7 @@ class ServiceContainer:
         self.stress_calculator = None
         self.crew_skill_calculator = None
         self.bloc_simulation_calculator = None
+        self.studio_command_service = None
 
     # --- Builder Factories ---
     

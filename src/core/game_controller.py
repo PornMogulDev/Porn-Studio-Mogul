@@ -10,7 +10,7 @@ from core.talent_generator import TalentGenerator
 from data.data_manager import DataManager
 from data.settings_manager import SettingsManager
 from ui.theme_manager import Theme, ThemeManager
-from database.db_models import TalentDB, SceneDB
+from database.db_models import TalentDB
 
 from services.query.tag_query_service import TagQueryService
 from services.query.game_query_service import GameQueryService
@@ -28,6 +28,7 @@ from services.command.contract_command_service import ContractCommandService
 from services.command.casting_command_service import CastingCommandService
 from services.command.tour_command_service import TourCommandService
 from services.command.scene_event_command_service import SceneEventCommandService
+from services.command.studio_command_service import StudioCommandService
 from services.market_service import MarketService
 from services.time_service import TimeService
 from services.command.go_to_list_service import GoToListService
@@ -90,6 +91,7 @@ class GameController(QObject):
         self.scene_event_command_service: Optional[SceneEventCommandService] = None
         self.player_settings_service: Optional[PlayerSettingsService] = None
         self.email_service: Optional[EmailService] = None
+        self.studio_command_service: Optional[StudioCommandService] = None
         
         self.game_over = False
 
@@ -211,6 +213,21 @@ class GameController(QObject):
     def create_blank_scene(self, absolute_week: Optional[int] = None) -> int:
         use_week = absolute_week if absolute_week is not None else self.game_state.absolute_week
         return self.scene_command_service.create_blank_scene(use_week)
+    
+    def toggle_studio_policy(self, policy_id: str, is_checked: bool):
+        """
+        Delegates policy toggling to the command service.
+        """
+        if not self.studio_command_service:
+            logger.error("StudioCommandService not initialized.")
+            return
+
+        success = self.studio_command_service.toggle_policy(policy_id, is_checked)
+        
+        if success:
+            # If the policy affects money immediately, emit that too
+            # self.signals.money_changed.emit(self.game_state.studio.money)
+            pass
     
     # --- UI Builder Instantiation ---
 
