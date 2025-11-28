@@ -17,6 +17,7 @@ class SceneEventCommandService:
     Handles the resolution of interactive events that occur during scene shoots.
     This service is self-contained and manages its own database transactions.
     It returns a result DTO to the controller, which then orchestrates the next step.
+    NOTE: The whole process is deprecated due to the rework to shooting blocks and policies.
     """
     def __init__(self, session_factory, data_manager: DataManager, query_service: GameQueryService):
         self.session_factory = session_factory

@@ -54,7 +54,7 @@ class MainWindowPresenter(QObject):
 
     def load_initial_data(self):
         """Populates the view with current state on startup."""
-        self._on_money_changed(self.controller.game_state.money)
+        self._on_money_changed(self.controller.game_state.studio.money)
         
         year, week = time_utils.from_absolute(self.controller.game_state.absolute_week)
         self._on_time_changed(week, year)

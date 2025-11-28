@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from core.game_signals import GameSignals
 from data.game_state import Talent
-from database.db_models import TalentDB, TourDB, GameInfoDB
+from database.db_models import TalentDB, TourDB, GameInfoDB, StudioStateDB
 from services.models.configs import TourConfig
 from services.command.casting_command_service import CastingCommandService
 from services.query.game_query_service import GameQueryService
@@ -47,10 +47,10 @@ class TourCommandService:
             if not talent_db: return False
 
             # --- 1. Financials (Trust, Don't Verify) ---
-            money_info = session.query(GameInfoDB).filter_by(key='money').one()
-            current_money = int(float(money_info.value))
+            studio_state = session.query(StudioStateDB).get(1)
+            current_money = int(float(studio_state.money))
             new_money = current_money - total_upfront_cost
-            money_info.value = str(new_money)
+            studio_state.money = str(new_money)
 
             # --- 2. Create Tour Record ---
             new_tour = TourDB(

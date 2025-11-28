@@ -44,7 +44,6 @@ class ShootingBlocBuilder:
         self.region_id: str = "South West (US)"
         self.location_id: Optional[str] = None
         self.visual_style_id: str = "glossy"
-        self.active_policies: List[str] = []
 
         self.picture_set_type_id: str = "video_grabs"
         self.camera_count: int = 1
@@ -142,12 +141,6 @@ class ShootingBlocBuilder:
         self.camera_count = count
         self.camera_mounts = (mounts + ["Tripod"] * 3)[:3]
         self._apply_system_constraints()
-
-    def toggle_policy(self, policy_id: str, is_active: bool):
-        if is_active and policy_id not in self.active_policies:
-            self.active_policies.append(policy_id)
-        elif not is_active and policy_id in self.active_policies:
-            self.active_policies.remove(policy_id)
 
     # --- Core Logic: Constraints & Allocations ---
 
@@ -344,7 +337,6 @@ class ShootingBlocBuilder:
             total_department_budgets, 
             {}, # No specific crew assignments (Generic/Freelancer cost is covered in dept budgets)
             {}, 
-            self.active_policies
         )
 
     def commit(self, name: str, scheduled_week: int) -> Dict[str, Any]:
@@ -389,5 +381,4 @@ class ShootingBlocBuilder:
                 # Total budget is sum of all values
                 "total_budget": sum(department_budgets.values()) + sum(c['budget'] for c in crew_assignments.values())
             },
-            "policies": self.active_policies
         }

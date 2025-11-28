@@ -74,15 +74,7 @@ class CallSheetPresenter(QObject):
                 'resource' # Hardcode type string
             )
 
-        # 4. Populate Policies
-        all_policies = list(self.controller.data_manager.on_set_policies_data.values())
-        active_ids = self.controller.game_state.active_policies
-        for pid in active_ids:
-            self.builder.toggle_policy(pid, True)
-            
-        self.view.populate_policies(all_policies, active_ids)
-
-        # 5. Initial Refresh
+        # 4. Initial Refresh
         self._sync_view_from_builder()
 
     def _sync_view_from_builder(self):
@@ -139,10 +131,6 @@ class CallSheetPresenter(QObject):
         # Triggered by count spinbox or any mount combo
         count, mounts = self.view.get_camera_config()
         self.builder.set_camera_config(count, mounts)
-        self._sync_view_from_builder()
-
-    def on_policy_toggled(self, policy_id: str, checked: bool):
-        self.builder.toggle_policy(policy_id, checked)
         self._sync_view_from_builder()
         
     def on_num_scenes_changed(self, value: int):

@@ -1,13 +1,14 @@
 import logging
 from typing import Optional, Tuple
 
-from data.game_state import GameState, MarketGroupState
+from database.db_models import (GameInfoDB, MarketGroupStateDB, TalentDB,
+                                GoToListCategoryDB, EmailMessageDB, StudioStateDB)
+from data.game_state import GameState, MarketGroupState, StudioState
 from data.save_manager import SaveManager, LIVE_SESSION_NAME, QUICKSAVE_NAME, EXITSAVE_NAME
 from core.talent_generator import TalentGenerator
 from data.data_manager import DataManager
 from core.game_signals import GameSignals
-from database.db_models import (GameInfoDB, MarketGroupStateDB, TalentDB,
-GoToListCategoryDB, EmailMessageDB)
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,19 +36,23 @@ class GameSessionService:
         session = self.save_manager.db_manager.get_session()
         try:
 
-            game_state = GameState(
-                absolute_week=1, 
+            studio_state = StudioState(
                 money=self.game_constant["initial_money"],
-                studio_location=self.game_constant["default_player_studio_location"]
+                location=self.game_constant["default_player_studio_location"]
             )
+            
+            game_state = GameState(
+                studio=studio_state,
+                absolute_week=1
+             )
 
             # Initialize GameInfo
-            game_info_data = [
-                GameInfoDB(key='absolute_week', value=str(game_state.absolute_week)),
-                GameInfoDB(key='money', value=str(game_state.money)),
-                GameInfoDB(key='studio_location', value=str(game_state.studio_location))
-            ]
-            session.add_all(game_info_data)
+            session.add(GameInfoDB(key='absolute_week', value=str(game_state.absolute_week)))
+ 
+            # Initialize StudioState
+            studio_state_db = StudioStateDB.from_dataclass(studio_state)
+            studio_state_db.id = 1 # Ensure singleton
+            session.add(studio_state_db)
 
             # Initialize Market Groups
             all_group_names = [g['name'] for g in self.market_data.get('viewer_groups', [])]

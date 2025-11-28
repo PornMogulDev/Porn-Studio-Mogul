@@ -3,7 +3,8 @@ from typing import Dict, Optional
 from sqlalchemy.orm import Session, selectinload
 
 from core.game_signals import GameSignals
-from database.db_models import SceneDB, SceneCastDB, GameInfoDB, ActionSegmentDB, TalentDB
+from database.db_models import (SceneDB, SceneCastDB, GameInfoDB, ActionSegmentDB,
+                                TalentDB, StudioStateDB)
 from data.game_state import Scene, Talent
 from services.command.contract_command_service import ContractCommandService
 from services.query.game_query_service import GameQueryService
@@ -77,10 +78,10 @@ class CastingCommandService:
         # --- 1. Apply changes to the database ---
         # Deduct upfront costs (e.g., travel fees). For tours, this will be 0
         # as the main tour cost is handled by TourCommandService.
-        money_info = session.query(GameInfoDB).filter_by(key='money').one()
-        current_money = int(float(money_info.value))
+        studio_state = session.query(StudioStateDB).get(1)
+        current_money = int(float(studio_state.money))
         new_money = current_money - upfront_cost
-        money_info.value = str(new_money)
+        studio_state.money = str(new_money)
 
         # --- 2. Guardrail: Validate Bulk Booking Constraints ---
         # We must ensure the client/UI didn't bypass fatigue or weekly limits.

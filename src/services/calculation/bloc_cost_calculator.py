@@ -15,8 +15,7 @@ class BlocCostCalculator:
                                      location_id: str,
                                      department_budgets: Dict[str, int],
                                      crew_assignments: Dict[str, Dict[str, Any]],
-                                     picture_set_settings: Dict[str, Any],
-                                     policies: List[str]) -> int:
+                                     picture_set_settings: Dict[str, Any]) -> int:
         """
         Calculates total cost for the entire shooting block.
         
@@ -40,11 +39,5 @@ class BlocCostCalculator:
         # Specific costs are typically handled via the Photographer crew slot or 
         # specific department allocations, but this hook remains for specific logic.
         pass
-
-        # 4. Policies (Cost per block)
-        for policy_id in policies:
-            policy = self.data_manager.on_set_policies_data.get(policy_id)
-            if policy:
-                total_cost += policy.get('cost_per_bloc', 0)
 
         return total_cost

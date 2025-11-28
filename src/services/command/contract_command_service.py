@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Any
 from sqlalchemy.orm import Session
 
-from database.db_models import TalentDB, ContractDB, GameInfoDB
+from database.db_models import TalentDB, ContractDB, GameInfoDB, StudioStateDB
 from core.game_signals import GameSignals
 from services.query.game_query_service import GameQueryService
 from services.models.configs import ContractConfig
@@ -51,10 +51,10 @@ class ContractCommandService:
                 
                 session.add(contract)
                 
-                money_info = session.query(GameInfoDB).filter_by(key='money').one()
-                current_money = int(float(money_info.value))
+                studio_state = session.query(StudioStateDB).get(1)
+                current_money = int(float(studio_state.money))
                 new_money = current_money - calculated_salary
-                money_info.value = str(new_money)
+                studio_state.money = str(new_money)
                 
                 session.commit()
                 
@@ -94,10 +94,10 @@ class ContractCommandService:
                 breakups.append(contract)
         
         if total_cost > 0:
-            money_info = session.query(GameInfoDB).filter_by(key='money').one()
-            current_money = int(float(money_info.value))
+            studio_state = session.query(StudioStateDB).get(1)
+            current_money = int(float(studio_state.money))
             new_money = current_money - total_cost
-            money_info.value = str(new_money)
+            studio_state.money = str(new_money)
             self.signals.money_changed.emit(new_money)
             
         # Handle Expirations

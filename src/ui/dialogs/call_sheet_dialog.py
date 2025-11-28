@@ -17,7 +17,6 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         self.presenter = None
         
         self.slider_widgets: Dict[str, BudgetSliderWidget] = {}
-        self.policy_checkboxes: Dict[str, QCheckBox] = {}
         
         # Explicit references for layouts to ensure sliders are added correctly
         self.crew_layout = None 
@@ -80,12 +79,6 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         columns_layout.addWidget(col_resources, stretch=2)
         
         main_layout.addLayout(columns_layout)
-
-        # --- Middle Section: Policies ---
-        policies_group = QGroupBox("On-Set Policies (Studio Defaults)")
-        self.policies_layout = QHBoxLayout(policies_group) 
-        self.policies_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        main_layout.addWidget(policies_group)
 
         # --- Bottom Buttons ---
         self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -223,23 +216,6 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         for style in styles:
             self.combo_style.addItem(style['name'], style['id'])
         self.combo_style.blockSignals(False)
-
-    def populate_policies(self, policies: List[Dict], active_ids: List[str]):
-        # Clear existing
-        for i in reversed(range(self.policies_layout.count())): 
-            if item := self.policies_layout.itemAt(i):
-                if widget := item.widget():
-                    widget.setParent(None)
-        self.policy_checkboxes.clear()
-
-        for pol in policies:
-            chk = QCheckBox(pol['name'])
-            chk.setToolTip(pol['description'])
-            chk.setChecked(pol['id'] in active_ids)
-            if self.presenter:
-                chk.toggled.connect(lambda c, pid=pol['id']: self.presenter.on_policy_toggled(pid, c))
-            self.policy_checkboxes[pol['id']] = chk
-            self.policies_layout.addWidget(chk)
 
     def add_department_slider(self, dept_id: str, name: str, dept_type: str, show_assignment: bool = False):
         """Creates a slider widget and places it in the correct column."""

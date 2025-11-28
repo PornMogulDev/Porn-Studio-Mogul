@@ -51,7 +51,7 @@ class GameController(QObject):
         self.save_manager = save_manager
         self.signals = signals
         self.service_container = service_container
-        self.game_state = GameState()
+        self.game_state = GameState(studio=StudioState())
         
         self.current_save_path = None 
         self._graceful_shutdown_in_progress = False
@@ -195,7 +195,7 @@ class GameController(QObject):
         if result.market_changed: self.signals.market_changed.emit()
         if result.talent_pool_changed: self.signals.talent_pool_changed.emit()
 
-    def create_shooting_bloc(self, scheduled_absolute_week: int, num_scenes: int, name: str, logistics: Dict, budget_data: Dict, policies: List[str]) -> bool:
+    def create_shooting_bloc(self, scheduled_absolute_week: int, num_scenes: int, name: str, logistics: Dict, budget_data: Dict) -> bool:
         """
         Creates a shooting bloc using the new structured data format from ShootingBlocBuilder.
         """
@@ -206,7 +206,6 @@ class GameController(QObject):
             name, 
             logistics, 
             budget_data, 
-            policies
         )
     
     def create_blank_scene(self, absolute_week: Optional[int] = None) -> int:
@@ -302,7 +301,7 @@ class GameController(QObject):
         self.signals.market_changed.emit()
         if result['market_changed']:
             for group_name in result['discoveries']: self.signals.notification_posted.emit(f"New market insights gained for '{group_name}'!")
-    def calculate_shooting_bloc_cost(self, num_scenes: int, settings: Dict, policies: List[str]) -> int: return self.bloc_cost_calculator.calculate_shooting_bloc_cost(num_scenes, settings, policies) if self.bloc_cost_calculator else 0
+    def calculate_shooting_bloc_cost(self, num_scenes: int, settings: Dict) -> int: return self.bloc_cost_calculator.calculate_shooting_bloc_cost(num_scenes, settings) if self.bloc_cost_calculator else 0
     def delete_scene(self, scene_id: int, penalty_percentage: float = 0.0): self.scene_command_service.delete_scene(scene_id, penalty_percentage)
     def update_scene_full(self, scene_data: Scene) -> Dict: return self.scene_command_service.update_scene_full(scene_data)
     def get_eligible_talent_for_role(self, scene_id: int, vp_id: int, filters: dict = None) -> List[TalentDB]: return self.talent_query_service.get_eligible_talent_for_role(scene_id, vp_id, filters) if self.talent_query_service else []

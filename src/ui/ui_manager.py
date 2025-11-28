@@ -424,7 +424,7 @@ class UIManager:
     def show_interactive_event(self, event_data: dict, scene_id: int, talent_id: int):
         scene_data = self.controller.get_scene_by_id(scene_id)
         talent_data = self.controller.get_talent_by_id(talent_id)
-        current_money = self.controller.game_state.money
+        current_money = self.controller.game_state.studio.money
 
         if not scene_data or not talent_data:
             logger.error(f"[UI ERROR] Missing data for event {event_data.get('id')}")

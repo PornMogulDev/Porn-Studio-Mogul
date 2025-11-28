@@ -2,7 +2,7 @@ import logging
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import NoResultFound
 
-from database.db_models import GameInfoDB, SceneDB
+from database.db_models import GameInfoDB, SceneDB, StudioStateDB
 from services.command.scene_command_service import SceneCommandService
 from services.command.talent_command_service import TalentCommandService
 from services.command.tour_command_service import TourCommandService
@@ -71,7 +71,8 @@ class TimeService:
             current_absolute_week = self._get_current_absolute_week(session)
             current_absolute_week_before_advance = current_absolute_week
 
-            money_info = session.query(GameInfoDB).filter_by(key='money').one()
+            studio_state = session.query(StudioStateDB).get(1)
+            money_info = studio_state.money
 
             # --- 0. Process Contracts (Salaries & Compliance) ---
             self.contract_service.process_weekly_contracts(session, current_absolute_week)
@@ -130,8 +131,8 @@ class TimeService:
             session.rollback()
             # Return current state on failure
             if current_absolute_week_before_advance != -1:
-                money_val = session.query(GameInfoDB).filter_by(key='money').one_or_none()
-                current_money = int(float(money_val.value)) if money_val else 0
+                studio_state = session.query(StudioStateDB).get(1)
+                current_money = int(float(studio_state.money)) if studio_state else 0
                 return WeekAdvancementResult(new_absolute_week=current_absolute_week_before_advance, new_money=current_money, was_paused=True)
             else:
                 return WeekAdvancementResult(new_absolute_week=1, new_money=0, was_paused=True)

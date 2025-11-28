@@ -5,7 +5,8 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from data.game_state import Scene, Talent, ShootingBloc
 from data.data_manager import DataManager
-from database.db_models import SceneDB, TalentDB, GameInfoDB, ShootingBlocDB, ScenePerformerContributionDB, TalentChemistryDB
+from database.db_models import (SceneDB, TalentDB, StudioStateDB, ShootingBlocDB, 
+                                ScenePerformerContributionDB, TalentChemistryDB)
 from services.command.talent_command_service import TalentCommandService
 from services.models.configs import SceneCalculationConfig
 from services.models.results import ShootCalculationResult
@@ -47,8 +48,8 @@ class SceneProcessingService:
         # Deduct salary costs
         total_salary_cost = sum(c.salary for c in scene_db.cast)
         if total_salary_cost > 0:
-            money_info = session.query(GameInfoDB).filter_by(key='money').one()
-            money_info.value = str(int(float(money_info.value)) - total_salary_cost)
+            studio_state = session.query(StudioStateDB).get(1)
+            studio_state.money = str(int(float(studio_state.money)) - total_salary_cost)
 
         # Discover and create chemistry between cast members
         talent_ids = [c.talent_id for c in scene_db.cast]
