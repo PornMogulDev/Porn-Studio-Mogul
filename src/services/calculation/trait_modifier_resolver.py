@@ -39,3 +39,38 @@ class TraitModifierResolver:
                     current_value += mod_value
         
         return current_value
+
+    def resolve_stress_modifiers(self, talent: Talent, location_def: dict, active_policies: list[str], cast_size: int) -> float:
+        """
+        Calculates total stress modifier from a talent's traits based on context.
+        """
+        total_stress_mod = 0.0
+        if not talent.traits:
+            return total_stress_mod
+
+        for trait_id in talent.traits:
+            trait_def = self.data_manager.get_trait_definition(trait_id)
+            if not trait_def: continue
+            
+            stress_mods = trait_def.get('stress_modifiers')
+            if not stress_mods: continue
+
+            # 1. Location tag penalties
+            location_tags = location_def.get('tags', [])
+            tag_penalties = stress_mods.get('location_tag_penalties', {})
+            for tag, penalty in tag_penalties.items():
+                if tag in location_tags:
+                    total_stress_mod += penalty
+
+            # 2. Policy penalties
+            policy_penalties = stress_mods.get('policy_penalties', {})
+            for policy_id, penalty in policy_penalties.items():
+                if policy_id in active_policies:
+                    total_stress_mod += penalty
+            
+            # 3. Cast size penalty
+            cast_size_scalar = stress_mods.get('cast_size_penalty_scalar', 0)
+            if cast_size_scalar > 0:
+                total_stress_mod += cast_size * cast_size_scalar
+
+        return total_stress_mod

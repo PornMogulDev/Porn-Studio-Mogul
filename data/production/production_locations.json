@@ -5,7 +5,7 @@
     "recommended_budget": 200,
     "min_budget": 50,
     "curve_type": "linear",
-    "tags": ["Gritty", "Spacious", "Noisy", "Unregulated", "Dirty"],
+    "tags": ["Gritty", "Spacious", "Noisy", "Unregulated", "Dirty", "Public"],
     "simulation_modifiers": {
       "base_stress": 20,
       "base_momentum": 0,

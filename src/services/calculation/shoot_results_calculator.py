@@ -25,7 +25,8 @@ class ShootResultsCalculator:
         self.stress_calculator = stress_calculator
 
     def calculate_talent_outcomes(
-        self, scene: Scene, talents: List[Talent], 
+        self, scene: Scene, talents: List[Talent],
+        active_policies: List[str],
         bloc_context: dict
     ) -> List[TalentShootOutcome]:
         """
@@ -66,7 +67,9 @@ class ShootResultsCalculator:
                 location_def=location_def,
                 craft_services_efficiency=cs_efficiency,
                 health_safety_score=hs_score,
-                events_modifier=0.0 
+                active_policies=active_policies,
+                cast_size=len(talents),
+                events_modifier=0.0
             )
             
             # Calculate Burnout (Overflow of stress)

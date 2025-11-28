@@ -22,6 +22,22 @@
     "conflicts_with": ["globetrotter"]
   },
   {
+    "id": "introvert",
+    "name": "Introvert",
+    "description": "Gets stressed in crowded or public situations.",
+    "type": "personality",
+    "stress_modifiers": {
+      "location_tag_penalties": {
+        "Public": 20
+      },
+      "policy_penalties": {
+        "policy_open_set": 15
+      },
+      "cast_size_penalty_scalar": 5
+    },
+    "conflicts_with": ["extrovert"]
+  },
+  {
     "id": "safe_sex",
     "name": "Safe Sex",
     "description": "Refuses to participate in productions that don't require an STD test.",

@@ -103,10 +103,13 @@ class SceneProcessingService:
         if bloc_db:
              bloc_context['current_momentum'] = bloc_db.current_momentum
 
+        studio_state = session.query(StudioStateDB).get(1)
+        active_policies = studio_state.active_policies if studio_state and studio_state.active_policies else []
+        
         # --- 3. DELEGATE TO PURE CALCULATORS ---
         # 3a. Calculate Talent Outcomes
         talent_outcomes = self.shoot_results_calculator.calculate_talent_outcomes(
-            scene, cast_talents_dc, bloc_context
+            scene, cast_talents_dc, active_policies, bloc_context
         )
         
         # 3b. Calculate Bloc Simulation (Momentum/Stress)

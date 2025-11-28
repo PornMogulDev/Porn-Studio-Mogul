@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from collections import defaultdict
 
 # --- Import all necessary components from your project ---
-from database.db_models import Base, MarketGroupStateDB, SceneDB, GameInfoDB
+from database.db_models import Base, MarketGroupStateDB, SceneDB, GameInfoDB, StudioStateDB
 from data.game_state import MarketGroupState
 from services.market_service import MarketService
 from services.command.scene_command_service import SceneCommandService
@@ -59,14 +59,14 @@ def setup_data(session: Session):
         id=1,
         title="Test Scene",
         status="ready_to_release",
-        global_tags=["Big Boobs"] # A tag that can be discovered
+        assigned_tags={"Big Boobs": [1]} # A tag that can be discovered
     )
     # Arrange: Add starting money
-    money = GameInfoDB(key="money", value="50000")
+    studio_state = StudioStateDB(id=1, money="50000")
     
     session.add(market_state)
     session.add(scene)
-    session.add(money)
+    session.add(studio_state)
     session.commit()
 
 
@@ -119,10 +119,10 @@ def test_release_scene_processes_and_saves_discoveries(session: Session, setup_d
         email_service=MockEmailService(),
         scene_processing_service=None, # Not needed
         revenue_calculator=MockRevenueCalculator(),
-        scene_event_trigger_service=None, # Not needed
-        bloc_cost_calculator=None # Not needed
-    )
-
+                    scene_event_trigger_service=None, # Not needed
+                    bloc_cost_calculator=None, # Not needed
+                    crew_skill_calculator=None # Not needed
+                )
     # --- ACT ---
     
     # Call the method we want to test

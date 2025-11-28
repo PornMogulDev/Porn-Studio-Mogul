@@ -148,7 +148,7 @@ class ServiceContainer:
         self.trait_modifier_resolver = TraitModifierResolver(self.data_manager)
         self.talent_status_calculator = TalentStatusCalculator(self.hiring_config, self.tour_config)
         self.budget_efficiency_calculator = BudgetEfficiencyCalculator(self.production_config)
-        self.stress_calculator = StressCalculator(self.data_manager, self.scene_calc_config)
+        self.stress_calculator = StressCalculator(self.data_manager, self.scene_calc_config, self.trait_modifier_resolver)
         self.bloc_simulation_calculator = BlocSimulationCalculator(self.data_manager, self.production_config)
         self.studio_command_service = StudioCommandService(session_factory, self.signals, game_state)
 
@@ -464,7 +464,7 @@ class ServiceContainer:
             popularity_gain_scalar=game_config.get("popularity_gain_scalar", 0.05),
             base_acting_stress=game_config.get("stress_base_acting", 0.5),
             multitasking_stress_multiplier=game_config.get("stress_multitasking_multiplier", 0.5),
-            introvert_crowd_penalty=game_config.get("stress_introvert_crow_penalty", 0.5),
+            introvert_crowd_penalty=game_config.get("stress_introvert_crowd_penalty", 0.5),
             craft_services_stress_relief_scalar=game_config.get("stress_craft_services_relief_scalar", 0.05),
             max_stress_threshold=game_config.get("stress_max_threshold", 100.0),
             burnout_conversion_rate=game_config.get("stress_burnout_conversion_rate", 1.0)
