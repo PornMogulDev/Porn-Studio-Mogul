@@ -381,5 +381,42 @@ class ThemeManager:
                 font-style: italic;
                 font-size: {max(8, font_size - 2)}pt;
             }}
-                """
+
+            /* --- Policy Dialog Styling --- */
+            QFrame#policyItem {{
+                border-bottom: 1px solid {theme.border};
+            }}
+            
+            /* The header/title for the dialog */
+            QLabel#policyDialogHeader {{
+                font-size: {font_size + 4}pt;
+                font-weight: bold;
+            }}
+            QLabel#policyDialogSubHeader {{
+                color: {theme.color_neutral};
+            }}
+
+            /* The policy row styling */
+            QCheckBox#policyCheckbox {{
+                font-weight: bold;
+                font-size: {font_size + 1}pt;
+            }}
+            QLabel#policyDescription {{
+                color: {theme.color_neutral};
+                font-style: italic;
+            }}
+            QLabel#policyCostLabel {{
+                font-weight: bold;
+            }}
+            /* Dynamic cost coloring */
+            QLabel#policyCostLabel[cost_type="per_scene"] {{
+                color: {theme.danger};
+            }}
+            QLabel#policyCostLabel[cost_type="weekly"] {{
+                color: {theme.color_warning};
+            }}
+            QLabel#policyCostLabel[cost_type="free"] {{
+                color: {theme.color_good};
+            }}
+            """
         return qss

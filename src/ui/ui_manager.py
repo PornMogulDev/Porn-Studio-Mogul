@@ -231,7 +231,7 @@ class UIManager:
 
     def show_policy_dialog(self):
         def factory():
-            dialog = PolicyDialog(parent=self.parent_widget)
+            dialog = PolicyDialog(self.settings_manager, parent=self.parent_widget)
             presenter = PolicyPresenter(self.controller, dialog, parent=dialog)
             dialog.set_presenter(presenter)
             presenter.initialize()

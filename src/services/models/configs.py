@@ -71,7 +71,6 @@ class SceneCalculationConfig:
     # Stress & Burnout
     base_acting_stress: float
     multitasking_stress_multiplier: float  # e.g., 0.5 (adds 50% per extra role)
-    introvert_crowd_penalty: float
     craft_services_stress_relief_scalar: float # e.g., 5.0 per efficiency point
     max_stress_threshold: float # 100.0
     burnout_conversion_rate: float # How much overflow stress becomes burnout (e.g., 0.1)

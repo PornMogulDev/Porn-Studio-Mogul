@@ -59,7 +59,6 @@ def scene_calc_config():
         base_acting_stress=10,
         multitasking_stress_multiplier=0.5,
         craft_services_stress_relief_scalar=0.1,
-        introvert_crowd_penalty=0, # Superseded by new logic
         stamina_to_pool_multiplier=0,
         in_scene_penalty_scalar=0,
         fatigue_penalty_scalar=0,

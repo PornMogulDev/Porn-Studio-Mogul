@@ -114,7 +114,6 @@
   "fatigue_stamina_recovery_modifier": 0.5,
   "stress_base_acting": 0.5,
   "stress_multitasking_multiplier": 0.5,
-  "stress_introvert_crowd_penalty": 0.5,
   "stress_craft_services_relief_scalar": 0.05,
   "stress_max_threshold": 100.0,
   "stress_burnout_conversion_rate": 1.0, 
