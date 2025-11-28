@@ -233,13 +233,14 @@ def create_tables(cursor):
     )
     """)
 
-    # on_set_policies
+    # studio_policies
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS on_set_policies_definitions (
+    CREATE TABLE IF NOT EXISTS studio_policy_definitions (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
-        cost_per_bloc INTEGER NOT NULL DEFAULT 0
+        per_scene_cost INTEGER NOT NULL DEFAULT 0,
+        weekly_upkeep INTEGER NOT NULL DEFAULT 0
     )
     """)
 
@@ -620,19 +621,20 @@ def migrate_post_production_settings(cursor, data):
         count += 1
     print(f"{count} post-production setting entries migrated.")
 
-def migrate_on_set_policies(cursor, data):
-    print("Migrating on_set_policies.json...")
+def migrate_studio_policies(cursor, data):
+    print("Migrating studio_policies.json...")
     count = 0
     for policy in data:
         cursor.execute("""
-            INSERT OR REPLACE INTO on_set_policies_definitions (
-                id, name, description, cost_per_bloc
-            ) VALUES (?, ?, ?, ?)
+            INSERT OR REPLACE INTO studio_policy_definitions (
+                id, name, description, per_scene_cost, weekly_upkeep
+            ) VALUES (?, ?, ?, ?, ?)
         """, (
             policy.get('id'),
             policy.get('name'),
             policy.get('description'),
-            policy.get('cost_per_bloc', 0)
+            policy.get('per_scene_cost', 0),
+            policy.get('weekly_upkeep', 0)
         ))
         count += 1
     print(f"{count} on-set policy entries migrated.")
@@ -776,7 +778,7 @@ def main():
         migrate_picture_set_types(cursor, load_json("production/picture_set_types.json"))
         
         migrate_post_production_settings(cursor, load_json("post_production_settings.json"))
-        migrate_on_set_policies(cursor, load_json("studio_policies.json"))
+        migrate_studio_policies(cursor, load_json("studio_policies.json"))
         migrate_scene_events(cursor, load_json("events/scene_events.json"))
         migrate_talent_archetypes(cursor, load_json("talent_generation/talent_archetypes.json"))
         migrate_traits(cursor, load_json("talent_generation/traits.json"))

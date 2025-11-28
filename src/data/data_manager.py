@@ -39,7 +39,7 @@ class DataManager:
         self.production_locations = self._load_production_locations()
         self.picture_set_types = self._load_picture_set_types()
         self.post_production_data = self._load_post_production_data()
-        self.on_set_policies_data = self._load_on_set_policies()
+        self.studio_policies_data = self._load_studio_policies()
         self.scene_events = self._load_scene_events()
         self.talent_archetypes = self._load_talent_archetypes()
         self.traits_data = self._load_traits()
@@ -293,10 +293,10 @@ class DataManager:
             
         return {"editing_tiers": tiers}
 
-    def _load_on_set_policies(self) -> Dict[str, Dict]:
-        """Loads all on-set policy definitions from the database."""
+    def _load_studio_policies(self) -> Dict[str, Dict]:
+        """Loads all studio policy definitions from the database."""
         cursor = self.conn.cursor()
-        cursor.execute("SELECT id, name, description, cost_per_bloc FROM on_set_policies_definitions ORDER BY name")
+        cursor.execute("SELECT id, name, description, per_scene_cost, weekly_upkeep FROM studio_policy_definitions ORDER BY name")
         policies = {}
         for row in cursor.fetchall():
             policy_data = dict(row)

@@ -45,6 +45,7 @@ class MainWindowPresenter(QObject):
         # Bottom Bar
         self.view.bottom_bar.inbox_clicked.connect(self.ui_manager.show_inbox)
         self.view.bottom_bar.go_to_list_clicked.connect(self.ui_manager.show_go_to_list)
+        self.view.bottom_bar.policies_clicked.connect(self.ui_manager.show_policy_dialog)
 
         # --- Actions (Hotkeys) ---
         self.view.action_menu.triggered.connect(self.ui_manager.show_game_menu)

@@ -7,12 +7,12 @@ from PyQt6.QtWidgets import QApplication, QDialog, QWidget, QMainWindow
 # Data
 from data.game_state import Talent
 
-# Windows / Views
+# Views
 from ui.views.start_screen_view import StartScreenView
 from ui.views.main_window_view import MainWindowView
 from ui.views.talent_profile_view import TalentProfileWindow
 
-# Tabs (Views)
+# Tabs
 from ui.tabs.talent_tab import TalentTab
 from ui.tabs.scenes_tab import ScenesTab
 from ui.tabs.schedule_tab import ScheduleTab
@@ -36,6 +36,7 @@ from ui.dialogs.save_load_ui import SaveLoadDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.game_menu_dialog import GameMenuDialog, ExitDialog
 from ui.dialogs.call_sheet_dialog import CallSheetDialog
+from ui.dialogs.policy_dialog import PolicyDialog
 
 # Presenters
 from ui.presenters.start_screen_presenter import StartScreenPresenter
@@ -47,6 +48,7 @@ from ui.presenters.go_to_list_presenter import GoToListPresenter
 from ui.presenters.shot_scene_details_presenter import ShotSceneDetailsPresenter
 from ui.presenters.game_menu_presenter import GameMenuPresenter
 from ui.presenters.call_sheet_presenter import CallSheetPresenter
+from ui.presenters.policy_presenter import PolicyPresenter
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +225,19 @@ class UIManager:
             return dialog
 
         dialog = self._get_or_create_singleton_dialog(EmailDialog, factory)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def show_policy_dialog(self):
+        def factory():
+            dialog = PolicyDialog(parent=self.parent_widget)
+            presenter = PolicyPresenter(self.controller, dialog, parent=dialog)
+            dialog.set_presenter(presenter)
+            presenter.initialize()
+            return dialog
+
+        dialog = self._get_or_create_singleton_dialog(PolicyDialog, factory)
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
