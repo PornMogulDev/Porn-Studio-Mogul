@@ -79,9 +79,9 @@ class CastingCommandService:
         # Deduct upfront costs (e.g., travel fees). For tours, this will be 0
         # as the main tour cost is handled by TourCommandService.
         studio_state = session.query(StudioStateDB).get(1)
-        current_money = int(float(studio_state.money))
+        current_money = studio_state.money
         new_money = current_money - upfront_cost
-        studio_state.money = str(new_money)
+        studio_state.money = new_money
 
         # --- 2. Guardrail: Validate Bulk Booking Constraints ---
         # We must ensure the client/UI didn't bypass fatigue or weekly limits.

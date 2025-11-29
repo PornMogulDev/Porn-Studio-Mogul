@@ -93,7 +93,7 @@ class SceneCommandService:
             crew_assignments = budget_data.get("crew_assignments", {})
             
             studio_state = session.query(StudioStateDB).get(1)
-            current_money = int(float(studio_state.money))
+            current_money = studio_state.money
 
             cost = self.bloc_cost_calculator.calculate_shooting_bloc_cost(
                 location_id=location_id,
@@ -103,7 +103,7 @@ class SceneCommandService:
              )
 
             new_money = current_money - cost
-            studio_state.money = str(new_money)
+            studio_state.money = new_money
 
             # Generate Production Cache (RNG Rolls for Resources & Generic Crew)
             visual_style_def = self.data_manager.visual_styles.get(visual_style_id, {})
@@ -191,9 +191,9 @@ class SceneCommandService:
                 cost = int(total_salary * penalty_percentage)
                 if cost > 0:
                     studio_state = session.query(StudioStateDB).get(1)
-                    current_money = int(float(studio_state.money))
+                    current_money = studio_state.money
                     new_money = current_money - cost
-                    studio_state.money = str(new_money)
+                    studio_state.money = new_money
                     self.signals.notification_posted.emit(f"Paid ${cost:,} in severance for cancelling '{scene_title}'.")
                     self.signals.money_changed.emit(new_money)
             
@@ -315,10 +315,10 @@ class SceneCommandService:
             
             cost = tier_data.get('cost', 0)
             studio_state = session.query(StudioStateDB).get(1)
-            current_money = int(float(studio_state.money))
+            current_money = studio_state.money
 
             new_money = current_money - cost
-            studio_state.money = str(new_money)
+            studio_state.money = new_money
             scene_db.status = 'in_editing'
             scene_db.weeks_remaining = tier_data.get('weeks', 2)
             
@@ -382,8 +382,8 @@ class SceneCommandService:
             scene_db.revenue_modifier_details = revenue_result.revenue_modifier_details
     
             studio_state = session.query(StudioStateDB).get(1)
-            new_money = int(float(studio_state.money)) + revenue
-            studio_state.money = str(new_money)
+            new_money = studio_state.money + revenue
+            studio_state.money = new_money
 
             if discoveries:
                 abs_week_info = session.query(GameInfoDB).filter_by(key='absolute_week').one()

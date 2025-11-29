@@ -49,7 +49,7 @@ class SceneProcessingService:
         total_salary_cost = sum(c.salary for c in scene_db.cast)
         if total_salary_cost > 0:
             studio_state = session.query(StudioStateDB).get(1)
-            studio_state.money = str(int(float(studio_state.money)) - total_salary_cost)
+            studio_state.money = studio_state.money - total_salary_cost
 
         # Discover and create chemistry between cast members
         talent_ids = [c.talent_id for c in scene_db.cast]

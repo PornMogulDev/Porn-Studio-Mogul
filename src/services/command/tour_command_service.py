@@ -48,9 +48,9 @@ class TourCommandService:
 
             # --- 1. Financials (Trust, Don't Verify) ---
             studio_state = session.query(StudioStateDB).get(1)
-            current_money = int(float(studio_state.money))
+            current_money = studio_state.money
             new_money = current_money - total_upfront_cost
-            studio_state.money = str(new_money)
+            studio_state.money = new_money
 
             # --- 2. Create Tour Record ---
             new_tour = TourDB(

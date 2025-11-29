@@ -52,9 +52,9 @@ class ContractCommandService:
                 session.add(contract)
                 
                 studio_state = session.query(StudioStateDB).get(1)
-                current_money = int(float(studio_state.money))
+                current_money = studio_state.money
                 new_money = current_money - calculated_salary
-                studio_state.money = str(new_money)
+                studio_state.money = new_money
                 
                 session.commit()
                 
@@ -95,9 +95,9 @@ class ContractCommandService:
         
         if total_cost > 0:
             studio_state = session.query(StudioStateDB).get(1)
-            current_money = int(float(studio_state.money))
+            current_money = studio_state.money
             new_money = current_money - total_cost
-            studio_state.money = str(new_money)
+            studio_state.money = new_money
             self.signals.money_changed.emit(new_money)
             
         # Handle Expirations
