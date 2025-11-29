@@ -161,3 +161,22 @@ class TotalRuntimeViewModel:
     """Holds display-ready data for the action segment runtime total label."""
     text: str
     status: str # e.g., 'good', 'bad', 'warning', 'neutral'
+
+# --- AI STUDIOS ---
+@dataclass
+class AIStudioViewModel:
+    """Display data for an AI Studio in the list."""
+    id: int
+    name: str
+    location: str
+    money_str: str
+    active_status_str: str
+
+@dataclass
+class AISceneViewModel:
+    """Display data for an AI-generated scene."""
+    id: int
+    title: str
+    date_str: str
+    quality_score_str: str
+    market_group: str

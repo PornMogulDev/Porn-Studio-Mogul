@@ -3,10 +3,16 @@ from typing import List, Dict, Optional
 from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy import or_
 
-from data.game_state import Talent, Scene, ShootingBloc, MarketGroupState, EmailMessage
-from database.db_models import (TalentDB, TalentChemistryDB, SceneDB, ShootingBlocDB, 
-                                SceneCastDB, ActionSegmentDB, GoToListAssignmentDB, GameInfoDB,
-                                GoToListCategoryDB, MarketGroupStateDB, EmailMessageDB, StudioStateDB )
+from data.game_state import (
+    Talent, Scene, ShootingBloc, MarketGroupState,
+    EmailMessage, AIStudio, AIScene
+)
+from database.db_models import (
+    TalentDB, TalentChemistryDB, SceneDB, ShootingBlocDB, 
+    SceneCastDB, ActionSegmentDB, GoToListAssignmentDB,
+    GoToListCategoryDB, MarketGroupStateDB, EmailMessageDB,
+    StudioStateDB, AISceneDB, AIStudioDB
+)
 from utils import time_utils
 
 class GameQueryService:
@@ -387,6 +393,22 @@ class GameQueryService:
         with self.session_factory() as session:
             results = session.query(MarketGroupStateDB).all()
             return {r.name: r.to_dataclass(MarketGroupState) for r in results}
+        
+    # --- AI Studios ---
+
+    def get_all_ai_studios(self) -> List[AIStudio]:
+        """Fetches all active AI studios."""
+        with self.session_factory() as session:
+            studios_db = session.query(AIStudioDB).filter_by(active=True).order_by(AIStudioDB.name).all()
+            return [s.to_dataclass(AIStudio) for s in studios_db]
+
+    def get_ai_studio_scenes(self, studio_id: int) -> List[AIScene]:
+        """Fetches all scenes for a specific AI studio."""
+        with self.session_factory() as session:
+            scenes_db = session.query(AISceneDB).filter_by(ai_studio_id=studio_id)\
+                .order_by(AISceneDB.released_absolute_week.desc())\
+                .all()
+            return [s.to_dataclass(AIScene) for s in scenes_db]
     
     # --- Email ---
 

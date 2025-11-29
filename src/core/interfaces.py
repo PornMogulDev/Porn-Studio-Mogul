@@ -3,10 +3,10 @@ from typing import Protocol, Optional, List, Dict, Tuple, Set, Any
 from core.game_signals import GameSignals
 from data.game_state import (
     Scene, Talent, ShootingBloc, MarketGroupState,
-    EmailMessage, Tour
+    EmailMessage, Tour, AIScene, AIStudio
 )
 from data.data_manager import DataManager
-from database.db_models import TalentDB, SceneDB
+from database.db_models import TalentDB
 from data.settings_manager import SettingsManager
 from ui.theme_manager import ThemeManager, Theme
 from services.models.results import TourSponsorshipPreviewResult, ValidationResult
@@ -114,6 +114,10 @@ class IGameController(Protocol):
     
     # --- Studio ---
     def toggle_studio_policy(self, policy_id: str, is_checked: bool): ...
+
+    # --- AI Studios ---
+    def get_all_ai_studios(self) -> List[AIStudio]: ...
+    def get_ai_studio_scenes(self, studio_id: int) -> List[AIScene]: ...
 
     # --- Shooting & Release ---
     def resolve_interactive_event(self, event_id: str, scene_id: int, talent_id: int, choice_id: str) -> None: ...

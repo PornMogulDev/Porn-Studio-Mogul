@@ -54,6 +54,7 @@ class SettingsManager:
             "talent_filter_presets": {},
             "scene_planner_presets": {},
             "hiring_dashboard_panel_visibility": {},
+            "ai_studio_panel_visibility": {},
         }
         self.settings = self._load_settings()
 

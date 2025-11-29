@@ -17,12 +17,14 @@ from ui.tabs.talent_tab import TalentTab
 from ui.tabs.scenes_tab import ScenesTab
 from ui.tabs.schedule_tab import ScheduleTab
 from ui.tabs.market_tab import MarketTab
+from ui.tabs.ai_studios_tab import AIStudiosTab
 
 # Tab Presenters
 from ui.presenters.talent_tab_presenter import TalentTabPresenter
 from ui.presenters.scenes_tab_presenter import ScenesTabPresenter
 from ui.presenters.schedule_tab_presenter import ScheduleTabPresenter
 from ui.presenters.market_tab_presenter import MarketTabPresenter
+from ui.presenters.ai_studios_tab_presenter import AIStudiosTabPresenter
 
 # Dialogs
 from ui.dialogs.email_dialog import EmailDialog
@@ -144,6 +146,14 @@ class UIManager:
         )
         self.tab_presenters.append(market_presenter)
         main_view.add_tab(market_view, "Market")
+
+        # -- AI Studios Tab --
+        ai_studios_view = AIStudiosTab(self.controller.theme_manager, self.settings_manager)
+        ai_studios_presenter = AIStudiosTabPresenter(
+            self.controller, ai_studios_view, parent=ai_studios_view
+        )
+        self.tab_presenters.append(ai_studios_presenter)
+        main_view.add_tab(ai_studios_view, "AI Studios")
 
     def refresh_main_window_data(self):
         """

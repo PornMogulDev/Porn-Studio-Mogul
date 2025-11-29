@@ -242,6 +242,17 @@ class AIStudio:
 
 @dataclass_json
 @dataclass
+class AIScene:
+    id: int
+    ai_studio_id: int
+    title: str
+    created_absolute_week: int
+    released_absolute_week: int
+    target_market_group: str
+    quality_score: float
+
+@dataclass_json
+@dataclass
 class StudioState:
     studio_policies: list[str] = field(default_factory=list)
     location: str = ""

@@ -263,7 +263,7 @@ class SceneDB(Base, DataclassMapper):
         data['pps_salaries'] = {str(c.talent_id): c.salary for c in self.cast}
         return data
     
-class AISceneDB(Base):
+class AISceneDB(Base, DataclassMapper):
     __tablename__ = 'ai_scenes'
     
     id = Column(Integer, primary_key=True, autoincrement=True)

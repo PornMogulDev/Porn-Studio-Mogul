@@ -167,6 +167,14 @@ class GameController(QObject):
         if not self.talent_location_service: return {}
         return self.talent_location_service.get_effective_locations_for_multiple_talents(talent_ids, absolute_week)
 
+    def get_all_ai_studios(self) -> List[AIStudio]:
+        if not self.query_service: return []
+        return self.query_service.get_all_ai_studios()
+    
+    def get_ai_studio_scenes(self, studio_id: int) -> List[AIScene]:
+        if not self.query_service: return []
+        return self.query_service.get_ai_studio_scenes(studio_id)
+
     # --- Game Logic ---
     def advance_week(self):
         if self.game_over: return
