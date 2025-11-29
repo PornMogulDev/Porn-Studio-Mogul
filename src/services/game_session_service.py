@@ -1,9 +1,9 @@
 import logging
 from typing import Optional, Tuple
 
-from database.db_models import (GameInfoDB, MarketGroupStateDB, TalentDB,
+from database.db_models import (GameInfoDB, MarketGroupStateDB, TalentDB, AIStudioDB,
                                 GoToListCategoryDB, EmailMessageDB, StudioStateDB)
-from data.game_state import GameState, MarketGroupState, StudioState
+from data.game_state import GameState, MarketGroupState, StudioState, AIStudio
 from data.save_manager import SaveManager, LIVE_SESSION_NAME, QUICKSAVE_NAME, EXITSAVE_NAME
 from core.talent_generator import TalentGenerator
 from data.data_manager import DataManager
@@ -70,6 +70,23 @@ class GameSessionService:
             # Create default Go-To List category
             general_category = GoToListCategoryDB(name="General", is_deletable=False)
             session.add(general_category)
+
+            # --- Create Initial AI Studios ---
+            ai_studio_names = ["South West Studio", "South East Studio", "Czech Studio"]
+            ai_studio_locations = ["South West (US)", "South East (US)", "Czechia"]
+
+            for i, (name, location) in enumerate(zip(ai_studio_names, ai_studio_locations), start=1):
+                ai_studio = AIStudio(
+                    id=i,
+                    name=name,
+                    location=location,
+                    money=100000,
+                    scenes_per_month_target=4,
+                    preferred_market_groups=["Straight Men", "Gay Men"] 
+                )
+                
+                # Persist to database
+                session.add(AIStudioDB.from_dataclass(ai_studio))
 
             # Create welcome email
             welcome_email = EmailMessageDB(

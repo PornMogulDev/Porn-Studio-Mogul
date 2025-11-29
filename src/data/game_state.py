@@ -229,6 +229,19 @@ class ShootingBloc:
 
 @dataclass_json
 @dataclass
+class AIStudio:
+    id: int
+    name: str
+    location: str  # Base location like player studio
+    money: int = 100000  # Simple resource tracking
+    active: bool = True  # Can be disabled/retired
+    
+    # Simple behavior parameters for prototype
+    scenes_per_month_target: int = 4  # How many scenes they aim to create
+    preferred_market_groups: List[str] = field(default_factory=list)  # Target audiences
+
+@dataclass_json
+@dataclass
 class StudioState:
     studio_policies: list[str] = field(default_factory=list)
     location: str = ""
@@ -237,5 +250,6 @@ class StudioState:
 @dataclass_json
 @dataclass
 class GameState:
-    studio: StudioState    
+    studio: StudioState
+    ai_studios: List[AIStudio] = field(default_factory=list) 
     absolute_week: int = 1

@@ -61,6 +61,19 @@ class StudioStateDB(Base, DataclassMapper):
     location = Column(String, default="")
     money = Column(Integer, default=0)
 
+class AIStudioDB(Base, DataclassMapper):
+    __tablename__ = 'ai_studios'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    location = Column(String, nullable=False)
+    money = Column(Integer, default=100000)
+    active = Column(Boolean, default=True)
+    scenes_per_month_target = Column(Integer, default=4)
+    preferred_market_groups = Column(JSON, default=list)
+    
+    dataclass_type = AIStudio
+
 class ShootingBlocDB(Base, DataclassMapper):
     __tablename__ = 'shooting_blocs'
     id = Column(Integer, primary_key=True)
@@ -249,6 +262,22 @@ class SceneDB(Base, DataclassMapper):
         data['final_cast'] = {str(c.virtual_performer_id): c.talent_id for c in self.cast}
         data['pps_salaries'] = {str(c.talent_id): c.salary for c in self.cast}
         return data
+    
+class AISceneDB(Base):
+    __tablename__ = 'ai_scenes'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ai_studio_id = Column(Integer, ForeignKey('ai_studios.id'), nullable=False)
+    title = Column(String, nullable=False)
+    created_absolute_week = Column(Integer, nullable=False)
+    released_absolute_week = Column(Integer)
+    
+    # Simple scene properties for market impact
+    target_market_group = Column(String, nullable=False)
+    quality_score = Column(Float, default=50.0)  # 0-100 scale
+    
+    # Relationship
+    studio = relationship('AIStudioDB', backref='scenes')
 
 class VirtualPerformerDB(Base, DataclassMapper):
     __tablename__ = 'virtual_performers'
