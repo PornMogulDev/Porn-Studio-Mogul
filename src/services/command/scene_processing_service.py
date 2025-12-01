@@ -104,8 +104,7 @@ class SceneProcessingService:
              bloc_context['current_momentum'] = bloc_db.current_momentum
 
         studio_state = session.query(StudioStateDB).get(1)
-        print(f'{studio_state}')
-        active_policies = studio_state.active_policies if studio_state and studio_state.active_policies else []
+        active_policies = studio_state.studio_policies if studio_state and studio_state.studio_policies else []
         
         # --- 3. DELEGATE TO PURE CALCULATORS ---
         # 3a. Calculate Talent Outcomes

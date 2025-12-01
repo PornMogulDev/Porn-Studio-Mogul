@@ -1,3 +1,4 @@
+from typing import Optional, TYPE_CHECKING
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QDialogButtonBox, 
     QFormLayout, QWidget, QTabWidget, QRadioButton, QButtonGroup, 
@@ -8,10 +9,14 @@ from ui.widgets.scene_summary_widget import SceneSummaryWidget
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.shot_scene_details_presenter import ShotSceneDetailsPresenter
 
+if TYPE_CHECKING:
+    from ui.ui_manager import UIManager
+
 class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
-    def __init__(self, settings_manager, parent=None):
+    def __init__(self, settings_manager, parent=None, ui_manager: Optional['UIManager'] = None):
         super().__init__(parent)
         self.settings_manager = settings_manager
+        self.ui_manager = ui_manager
         self.presenter = None 
 
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -77,7 +82,7 @@ class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
         self.tabs.addTab(financial_tab, "Financials")
         
         # --- Tab 2: Design Summary ---
-        self.summary_widget = SceneSummaryWidget(self)
+        self.summary_widget = SceneSummaryWidget(ui_manager=self.ui_manager)
         self.tabs.addTab(self.summary_widget, "Design Summary")
 
         # --- Tab 3: Post-Production (will be created dynamically) ---

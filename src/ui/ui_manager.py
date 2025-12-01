@@ -329,7 +329,7 @@ class UIManager:
             return
 
         # Creation
-        dialog = ShotSceneDetailsDialog(self.settings_manager, self.parent_widget)
+        dialog = ShotSceneDetailsDialog(self.settings_manager, parent=self.parent_widget, ui_manager=self)
         presenter = ShotSceneDetailsPresenter(
             scene_id, self.controller, dialog, initial_tab=initial_tab, parent=dialog
         )
