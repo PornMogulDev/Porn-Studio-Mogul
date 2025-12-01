@@ -231,7 +231,26 @@ class UIManager:
         card.load_talent(talent, self.controller)
         
         # Position offset: slightly to the right and down so cursor doesn't cover it
-        card.move(global_pos.x() + 15, global_pos.y() + 15)
+        # Logic to keep the tooltip on screen
+        screen = QApplication.screenAt(global_pos)
+        if screen:
+            screen_geo = screen.availableGeometry()
+            card_geo = card.sizeHint()
+            
+            x = global_pos.x() + 15
+            y = global_pos.y() + 15
+            
+            # Check Right Edge
+            if x + card_geo.width() > screen_geo.right():
+                x = global_pos.x() - card_geo.width() - 5
+            
+            # Check Bottom Edge
+            if y + card_geo.height() > screen_geo.bottom():
+                y = global_pos.y() - card_geo.height() - 5
+                
+            card.move(x, y)
+        else:
+            card.move(global_pos.x() + 15, global_pos.y() + 15)
         card.show()
         card.raise_()
 

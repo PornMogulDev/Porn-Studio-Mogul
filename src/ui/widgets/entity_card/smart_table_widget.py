@@ -17,6 +17,14 @@ class SmartTableWidget(QTableWidget):
         super().__init__(parent)
         self.setMouseTracking(True) 
         self._last_hovered_index = QModelIndex()
+        self._smart_columns = {0}
+
+    def set_smart_columns(self, columns: list[int]):
+        """Configures which columns trigger the smart hover card."""
+        self._smart_columns = set(columns)
+
+    def add_smart_column(self, column: int):
+        self._smart_columns.add(column)
 
     def mouseMoveEvent(self, event: QMouseEvent):
         super().mouseMoveEvent(event)
@@ -26,8 +34,8 @@ class SmartTableWidget(QTableWidget):
         if index.isValid() and index.row() == self._last_hovered_index.row() and index.column() == self._last_hovered_index.column():
             return
 
-        # STRICT BEHAVIOR: Only show summary for Column 0 (Alias)
-        if index.isValid() and index.column() == 0:
+        # Behavior: Only show summary for configured smart columns
+        if index.isValid() and index.column() in self._smart_columns:
             self._last_hovered_index = index
             # QTableWidget uses item(row, col).data(...) internally via the model interface
             entity_data = index.data(Qt.ItemDataRole.UserRole)
@@ -50,7 +58,7 @@ class SmartTableWidget(QTableWidget):
         if event.button() == Qt.MouseButton.LeftButton and (event.modifiers() & Qt.KeyboardModifier.AltModifier):
             index = self.indexAt(event.pos())
             if index.isValid():
-                if index.column() == 0:
+                if index.column() in self._smart_columns:
                     entity_data = index.data(Qt.ItemDataRole.UserRole)
                     if entity_data:
                         self.smart_alt_clicked.emit(entity_data)

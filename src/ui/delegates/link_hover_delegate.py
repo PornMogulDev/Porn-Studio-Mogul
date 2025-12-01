@@ -15,6 +15,7 @@ class LinkHoverDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._last_hovered_link = None
+        self._last_hit_test_pos = None
 
     def paint(self, painter, option, index):
         options = option
@@ -52,6 +53,12 @@ class LinkHoverDelegate(QStyledItemDelegate):
         Note: The View must have setMouseTracking(True) for MouseMove to trigger this.
         """
         if event.type() == event.Type.MouseMove:
+            # OPTIMIZATION: Don't recalculate layout if mouse hasn't moved significantly
+            # or if the event position isn't strictly within the visual rect (handled by View, but safe to check)
+            if self._last_hit_test_pos and (event.pos() - self._last_hit_test_pos).manhattanLength() < 3:
+                return False
+            
+            self._last_hit_test_pos = event.pos()
             anchor = self._get_anchor_at(event.pos(), option, index)
             
             if anchor:
