@@ -20,7 +20,6 @@ class LinkHoverDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         options = option
         self.initStyleOption(options, index)
-
         painter.save()
 
         # Setup Text Document for HTML rendering
@@ -44,7 +43,6 @@ class LinkHoverDelegate(QStyledItemDelegate):
         
         painter.translate(options.rect.left(), options.rect.top() + y_offset)
         doc.documentLayout().draw(painter, ctx)
-
         painter.restore()
 
     def editorEvent(self, event, model, option, index):
@@ -53,8 +51,7 @@ class LinkHoverDelegate(QStyledItemDelegate):
         Note: The View must have setMouseTracking(True) for MouseMove to trigger this.
         """
         if event.type() == QEvent.Type.MouseMove:
-            # OPTIMIZATION: Don't recalculate layout if mouse hasn't moved significantly
-            # or if the event position isn't strictly within the visual rect (handled by View, but safe to check)
+            # Optimization: Don't process micro-jitters
             if self._last_hit_test_pos and (event.pos() - self._last_hit_test_pos).manhattanLength() < 3:
                 return False
             
@@ -105,5 +102,4 @@ class LinkHoverDelegate(QStyledItemDelegate):
         local_x = pos.x() - option.rect.left()
         local_y = pos.y() - option.rect.top() - y_offset
 
-        # CHANGED: Use QPointF for Qt6 compatibility
         return doc.documentLayout().anchorAt(QPointF(local_x, local_y))
