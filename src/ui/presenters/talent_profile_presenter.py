@@ -8,9 +8,9 @@ from data.game_state import Talent
 from core.interfaces import IGameController
 from ui.views.talent_profile_view import TalentProfileWindow
 from ui.view_models import ScheduleStatus, TalentScheduleWeekViewModel, TourViewModel
-from utils.formatters import get_fuzzed_skill_range, format_skill_range, format_fatigue
 from ui.builders.role_details_builder import prepare_role_details_data, format_role_details_html
 from ui.builders.preferences_view_model_builder import build_preferences_view_model
+from ui.builders.talent_view_data_builder import TalentViewDataBuilder
 from utils import time_utils
 
 if TYPE_CHECKING:
@@ -111,7 +111,7 @@ class TalentProfilePresenter(QObject):
         del self.open_talents[talent_id]
         
         self.view.remove_talent_tab(talent_id)
- 
+
         if not self.open_talents:
             self.current_talent_id = None
             self.view.close()
@@ -151,36 +151,12 @@ class TalentProfilePresenter(QObject):
         self.refresh_available_roles()
 
     def _load_and_display_details(self, talent: Talent):
-        ethnicity_str = talent.ethnicity
-        if talent.primary_ethnicity and talent.ethnicity != talent.primary_ethnicity:
-            ethnicity_str = f"{talent.ethnicity}"
+        """Uses the shared Builder to populate details."""
+        basic_info = TalentViewDataBuilder.build_basic_info(talent, self.controller)
+        skills_info = TalentViewDataBuilder.build_skills_info(talent)
 
-        # Resolve traits to dicts for display
-        traits_display = []
-        for t_id in talent.traits:
-            if t_def := self.controller.data_manager.get_trait_definition(t_id):
-                traits_display.append(t_def)
-
-        self.view.details_widget.display_basic_info({
-            'age': talent.age,
-            'gender': talent.gender,
-            'orientation': talent.orientation_score,
-            'ethnicity': ethnicity_str,
-            'nationality': talent.nationality,
-            'base_location': talent.base_location,
-            'current_location': talent.current_location,
-            'popularity': round(sum(talent.popularity.values())),
-            'fatigue': format_fatigue(talent.fatigue),
-            'traits_data': traits_display
-        })
-        self.view.details_widget.display_skills({
-            'performance': format_skill_range(get_fuzzed_skill_range(talent.performance, talent.experience, talent.id)),
-            'acting': format_skill_range(get_fuzzed_skill_range(talent.acting, talent.experience, talent.id)),
-            'stamina': format_skill_range(get_fuzzed_skill_range(talent.stamina, talent.experience, talent.id)),
-            'dom_skill': format_skill_range(get_fuzzed_skill_range(talent.dom_skill, talent.experience, talent.id)),
-            'sub_skill': format_skill_range(get_fuzzed_skill_range(talent.sub_skill, talent.experience, talent.id)),
-            'experience': int(talent.experience)
-        })
+        self.view.details_widget.display_basic_info(basic_info)
+        self.view.details_widget.display_skills(skills_info)
         self.view.details_widget.populate_physical_label(talent)
 
     def _load_and_display_schedule(self):
@@ -248,7 +224,7 @@ class TalentProfilePresenter(QObject):
             role_data['tooltip_html'] = tooltip_html
             
         talent = self.open_talents[self.current_talent_id]
-        studio_location = self.controller.game_state.studio_location
+        studio_location = self.controller.game_state.studio.location
         is_contracted = getattr(talent, 'contract', None) is not None
         try:
             self.view.hiring_widget.update_available_roles(available_roles, talent.base_location, studio_location, is_contracted)
@@ -335,7 +311,7 @@ class TalentProfilePresenter(QObject):
     def _load_and_display_preferences(self, talent: Talent):
         """Processes and summarizes talent preferences for UI display."""
         tag_definitions = self.controller.data_manager.tag_definitions
-        policy_definitions = self.controller.data_manager.on_set_policies_data
+        policy_definitions = self.controller.data_manager.studio_policies_data
 
         preferences_data, limits, required_policies, refused_policies, ds_data = build_preferences_view_model(
             talent=talent,

@@ -1,13 +1,13 @@
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, TYPE_CHECKING
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox,
-    QListWidget, QListWidgetItem, QPushButton, QLabel, QDialogButtonBox,
-    QSpinBox, QGroupBox, QWidget, QScrollArea, QStackedWidget,
-    QCheckBox, QMessageBox, QMenu, QTabWidget
+QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox,
+QListWidget, QListWidgetItem, QPushButton, QLabel, QDialogButtonBox,
+QSpinBox, QGroupBox, QWidget, QScrollArea, QStackedWidget,
+QCheckBox, QMessageBox, QMenu, QTabWidget
 )
 from PyQt6.QtCore import (
-    Qt, pyqtSignal, QTimer, QPoint,
-    QSize
+Qt, pyqtSignal, QTimer, QPoint,
+QSize
 )
 from PyQt6.QtGui import QKeyEvent
 
@@ -21,7 +21,10 @@ from ui.widgets.scene_planner.slot_assignment_widget import SlotAssignmentWidget
 from ui.widgets.preset_widget import PresetWidget
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.help_button import HelpButton
-    
+
+if TYPE_CHECKING:
+    from ui.ui_manager import UIManager
+
 class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     # --- Signals for User Actions ---
     view_loaded = pyqtSignal()
@@ -37,13 +40,13 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     protagonist_toggled = pyqtSignal(int, bool)
     total_runtime_changed = pyqtSignal(int)
     toggle_favorite_requested = pyqtSignal(str, str) # tag_name, tag_type
-    
+
     # Thematic Tags
     thematic_search_changed = pyqtSignal(str)
     thematic_filter_requested = pyqtSignal()
     add_thematic_tags_requested = pyqtSignal()
     remove_thematic_tags_requested = pyqtSignal()
-    
+
     # Physical Tags
     physical_search_changed = pyqtSignal(str)
     physical_filter_requested = pyqtSignal()
@@ -51,7 +54,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     remove_physical_tags_requested = pyqtSignal()
     selected_physical_tag_changed = pyqtSignal(str) # tag_name or ""
     physical_tag_assignment_changed = pyqtSignal(str, int, bool) # tag_name, vp_id, is_checked
-    
+
     # Action Tags
     action_search_changed = pyqtSignal(str)
     action_filter_requested = pyqtSignal()
@@ -62,10 +65,11 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     segment_parameter_changed = pyqtSignal(int, str, int) # segment_id, role, new_value
     slot_assignment_changed = pyqtSignal(int, str, int) # segment_id, slot_id, vp_id or 0 for None
 
-    def __init__(self, settings_manager, parent=None):
+    def __init__(self, settings_manager, ui_manager: 'UIManager' = None, parent=None):
         super().__init__(parent)
         self.presenter = None
         self.settings_manager = settings_manager
+        self.ui_manager = ui_manager # Passed to Summary Widget
         self.help_signal_proxy = None # To directly handle the help signal from the view
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         
@@ -82,7 +86,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         self.setup_ui()
         self._connect_signals()
         self._restore_geometry()
-    
+
         QTimer.singleShot(0, self.view_loaded.emit)
 
     def setup_ui(self):
@@ -112,8 +116,8 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         editor_layout.addWidget(self._create_content_design_group(), 7)
         self.main_stack.addWidget(editor_widget)
         
-        # Page 1: Summary
-        self.summary_widget = SceneSummaryWidget()
+        # Page 1: Summary (Inject UI Manager here)
+        self.summary_widget = SceneSummaryWidget(ui_manager=self.ui_manager)
         self.main_stack.addWidget(self.summary_widget)
         
         bottom_layout = QHBoxLayout()
@@ -309,8 +313,8 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         
         # --- Context Menus for Favorites ---
         for list_widget, tag_type in [(self.available_thematic_list, 'thematic'), (self.selected_thematic_list, 'thematic'),
-                                     (self.available_physical_list, 'physical'), (self.selected_physical_list, 'physical'),
-                                     (self.available_actions_list, 'action'), (self.selected_actions_list, 'action')]:
+                                    (self.available_physical_list, 'physical'), (self.selected_physical_list, 'physical'),
+                                    (self.available_actions_list, 'action'), (self.selected_actions_list, 'action')]:
             list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             list_widget.customContextMenuRequested.connect(lambda pos, lw=list_widget, tt=tag_type: self._show_tag_context_menu(lw, pos, tt))
 
@@ -477,8 +481,8 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         self.status_combo.setEnabled(not is_cast_locked)
         self.button_box.button(QDialogButtonBox.StandardButton.Ok).setText("Close" if is_cast_locked else "OK")
         widgets_to_toggle = [self.title_edit, self.delete_button, self.total_runtime_spinbox,
-                             self.focus_target_combo, self.performer_count_spinbox, self.ds_level_spinbox, self.content_tabs,
-                             self.preset_widget]
+                            self.focus_target_combo, self.performer_count_spinbox, self.ds_level_spinbox, self.content_tabs,
+                            self.preset_widget]
         for widget in widgets_to_toggle: widget.setEnabled(is_editable)
         self.runtime_percent_spinbox.setEnabled(is_editable)
         for i in range(self.slots_layout.count()):
@@ -541,7 +545,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
 
     def handle_delete_scene(self):
         reply = QMessageBox.question(self, 'Confirm Deletion', "Are you sure you want to permanently delete this scene?\nThis action cannot be undone.", 
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes: self.delete_requested.emit(0.0)
 
     # --- Public Getter Methods for Presenter ---
@@ -560,7 +564,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
                     "disposition": combos[2].currentText()
                 })
         return performers_data
-    
+
     def get_selected_available_thematic_tags(self) -> List[str]:
         return [item.text() for item in self.available_thematic_list.selectedItems()]
 

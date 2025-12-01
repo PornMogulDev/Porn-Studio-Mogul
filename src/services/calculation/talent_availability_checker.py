@@ -126,7 +126,7 @@ class TalentAvailabilityChecker:
     def _check_policies(self, talent: Union[Talent, TalentDB], studio_policies: List[str]) -> AvailabilityResult:
         """Checks for global studio policy compatibility."""
         active_policies = set(studio_policies)
-        policy_names = {p['id']: p['name'] for p in self.data_manager.on_set_policies_data.values()}
+        policy_names = {p['id']: p['name'] for p in self.data_manager.studio_policies_data.values()}
         
         if required_policies := talent.policy_requirements.get('requires'):
             for policy_id in required_policies:
@@ -219,9 +219,9 @@ class TalentAvailabilityChecker:
         
         return AvailabilityResult(is_available=True)  
     
-    def check(self, talent: Union[Talent, TalentDB], scene: Scene, vp_id: int, studio_policies: List[str],
-          bloc_db: Optional[ShootingBlocDB], bookings_before: List[Scene], bookings_current: List[Scene], 
-          bookings_after: List[Scene], estimated_fatigue_gain: int) -> AvailabilityResult:
+    def check(self, talent: Union[Talent, TalentDB], scene: Scene, vp_id: int, bloc_db: Optional[ShootingBlocDB],
+        bookings_before: List[Scene], bookings_current: List[Scene], bookings_after: List[Scene],
+        estimated_fatigue_gain: int, studio_policies: List[str],) -> AvailabilityResult:
         
         result = self._check_schedule_and_fatigue(talent, bookings_before, bookings_current, bookings_after, estimated_fatigue_gain)
         if not result.is_available: return result

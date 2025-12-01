@@ -1,89 +1,112 @@
-### 1. Data Layer & Models
+### 1. The Architecture: "Smart Entities"
 
-**File:** `services/query/game_query_service.py`
-*   **Update `GameQueryService`**:
-    *   Add `get_all_ai_studios() -> List[AIStudio]`: Fetches all AI studios from the database, converts them to dataclasses.
-    *   Add `get_ai_studio_scenes(studio_id: int) -> List[AIScene]`: Fetches all scenes associated with a specific AI studio ID.
+We cannot simply paste strings like `"John Doe"` into widgets anymore. We need to attach metadata (the ID and Type) to the UI element holding the text.
 
-**File:** `view_models.py`
-*   **Add `AIStudioViewModel`**:
-    *   Fields: `id`, `name`, `location`, `money_str`, `active_status_str`.
-*   **Add `AISceneViewModel`**:
-    *   Fields: `id`, `title`, `date_str`, `quality_score_str`, `revenue_str` (if simulated), `market_group`.
+We will create three core components:
+1.  **`EntitySummaryCard`**: A reusable, borderless popup widget (the "Tooltip") that fetches and displays a snapshot of the entity (Avatar, Name, Status, Key Stats).
+2.  **`InteractiveLabel`**: A replacement for `QLabel` for standalone text.
+3.  **`SmartTableMixin` / `SmartListMixin`**: Logic to inject into Tables/Lists to handle mouse tracking and retrieving IDs from items.
 
-### 2. UI Widgets (The Parts)
+### 2. Component Implementation
 
-Create a new directory: `ui/widgets/ai_studios/`
+#### A. The Summary Card (The "Tooltip")
+This is not a standard `QToolTip` (which only supports basic HTML). It is a `QWidget` with the `Qt.WindowType.ToolTip` flag.
 
-**File:** `ui/widgets/ai_studios/studio_list_widget.py`
-*   Inherits `QWidget`.
-*   Contains a `QTreeWidget` or `QTableWidget` to display the list of studios.
-*   Signal: `studio_selected(int)` (emits the studio ID).
-*   Method: `set_studios(studios: List[AIStudioViewModel])`.
+```python
+class EntitySummaryCard(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
+        self.layout = QVBoxLayout(self)
+        # Add labels for Name, Stats, Status...
+        # Styling via QSS to look like a floating card
+    
+    def load_talent(self, talent_dto):
+        # Populate labels
+        pass
+```
 
-**File:** `ui/widgets/ai_studios/studio_details_widget.py`
-*   Inherits `QWidget` (using `GeometryManagerMixin` if persistent geometry is needed, though likely not for a sub-panel).
-*   Layout: `QFormLayout` or `QGridLayout`.
-*   Displays: Name, Location, Current Funds, Target Output, Preferred Markets.
-*   Method: `display_studio(studio: AIStudio)`.
-*   Method: `clear()`.
+#### B. The Interactive Label (For static text)
+Used in forms, headers, and descriptions.
 
-**File:** `ui/widgets/ai_studios/studio_scenes_widget.py`
-*   Inherits `QWidget`.
-*   Contains a `QTableWidget` for the scenes.
-*   Columns: Title, Release Date, Market, Quality.
-*   Method: `set_scenes(scenes: List[AISceneViewModel])`.
+```python
+class SmartLink(QLabel):
+    link_clicked = pyqtSignal(str, int) # type, id
 
-### 3. The View (The Shell)
+    def __init__(self, text, entity_type, entity_id, parent=None):
+        super().__init__(text, parent)
+        self.entity_type = entity_type
+        self.entity_id = entity_id
+        
+        # Visual cues
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet("color: #5A9Bcf; text-decoration: underline;") # Theme compliant link color
 
-**File:** `ui/tabs/ai_studios_tab.py`
-*   Inherits `QWidget`.
-*   **Layout Structure**:
-    *   Top: Toolbar area containing `ViewMenuButton`.
-    *   Center: `QSplitter` (Horizontal).
-        *   Left Pane: `StudioListWidget`.
-        *   Right Pane: `QSplitter` (Vertical).
-            *   Top: `StudioDetailsWidget`.
-            *   Bottom: `StudioScenesWidget`.
-*   **API**:
-    *   Expose methods to access the sub-widgets (e.g., `get_list_widget()`).
-    *   Method `set_widget_visibility(key: str, visible: bool)` to handle logic from the `ViewMenuButton`.
+    def enterEvent(self, event):
+        # 1. Fetch summary data via a global service/controller
+        # 2. Position EntitySummaryCard near self.mapToGlobal(QPoint(0,0))
+        # 3. Show card
+        pass
 
-### 4. The Presenter (The Logic)
+    def leaveEvent(self, event):
+        # Hide card
+        pass
 
-**File:** `ui/presenters/ai_studios_tab_presenter.py`
-*   Class `AIStudiosTabPresenter`.
-*   **Dependencies**: `GameController`, `AIStudiosTab`, `ViewMenuButton`.
-*   **Initialization**:
-    *   Load the visibility state from `SettingsManager`.
-    *   Populate `ViewMenuButton` items (List, Details, Scenes).
-    *   Connect `ViewMenuButton.visibility_changed` to the View's visibility logic.
-    *   Connect `StudioListWidget.studio_selected` to `_on_studio_selected`.
-*   **Logic**:
-    *   `load_initial_data()`: Fetch studios via `controller.query_service`, convert to ViewModels, populate List.
-    *   `_on_studio_selected(studio_id)`: Fetch full studio details and scene list, update Details and Scenes widgets.
-    *   `refresh()`: Reloads data (useful after a turn advance).
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            if event.modifiers() & Qt.KeyboardModifier.AltModifier:
+                # Logic for Alt+Click
+                pass
+            else:
+                self.link_clicked.emit(self.entity_type, self.entity_id)
+```
 
-### 5. Integration
+#### C. Handling Tables and Lists
+We cannot use `SmartLink` widgets inside `QTableWidget` cells easily (it's computationally heavy to have 1000 widgets in a grid). Instead, we use **`Qt.ItemDataRole.UserRole`** to store the ID inside the cell, and enable **Mouse Tracking**.
 
-**File:** `ui_manager.py`
-*   **Import**: New View and Presenter.
-*   **Update `_assemble_tabs`**:
-    *   Instantiate `AIStudiosTab`.
-    *   Instantiate `AIStudiosTabPresenter`.
-    *   Add the tab to `MainWindowView` with the label "AI Studios".
-    *   Add the presenter to `self.tab_presenters` list to ensure it receives refresh calls.
+We create a Mixin for your Tables:
 
-**File:** `data/settings_manager.py`
-*   **Update `_default_settings`**:
-    *   Add `ai_studio_panel_visibility`: Dict to store the user's show/hide preferences for the three widgets.
+```python
+class SmartHoverMixin:
+    """Mixin for QTableWidget, QTreeWidget, QListWidget"""
+    
+    def setup_smart_hover(self):
+        self.setMouseTracking(True)
+        self.entered.connect(self._on_item_entered) # Fires when mouse moves over an item
+        self.itemClicked.connect(self._on_item_clicked)
 
-### 6. File Creation Order
+    def _on_item_entered(self, index):
+        # 1. Get data: index.data(Qt.ItemDataRole.UserRole) -> returns ID
+        # 2. If ID exists, show EntitySummaryCard at QCursor.pos()
+        pass
 
-1.  Modify `services/query/game_query_service.py`.
-2.  Modify `view_models.py`.
-3.  Create `ui/widgets/ai_studios/*.py`.
-4.  Create `ui/tabs/ai_studios_tab.py`.
-5.  Create `ui/presenters/ai_studios_tab_presenter.py`.
-6.  Modify `ui_manager.py`.
-7.  Modify `data/settings_manager.py`.
+    def _on_item_clicked(self, item):
+        # Handle Alt+Click logic here
+        pass
+```
+
+### 3. Implementation Plan
+
+#### Step 1: The Data Service
+We need a fast way to get "Summary" data without loading the heavy full profile.
+*   **Action:** Add `get_talent_summary(id)` to `GameQueryService`.
+*   **Return:** A lightweight DTO (`TalentSummaryViewModel`) containing just name, age, simple status, and thumbnail path.
+
+#### Step 2: The UI Service (The "Pop-up Manager")
+We don't want every label managing its own popup window instance.
+*   **Action:** Create `TooltipManager` in `UIManager`.
+*   **Logic:** It holds a single instance of `EntitySummaryCard`. It has a method `show_tooltip(global_pos, entity_type, entity_id)`.
+
+#### Step 3: Refactoring Views
+This is the "grunt work" phase.
+1.  **Tables:** Anywhere we populate a table with a talent name (e.g., `ScenePlanner`, `TalentList`), we must set `item.setData(Qt.ItemDataRole.UserRole, talent_id)`.
+2.  **Labels:** Replace specific `QLabel`s (like in the Scene Planner "Cast" list or Email sender) with `SmartLink`.
+
+#### Step 4: Input Handling
+*   **Standard Click:** Opens the profile (existing logic).
+*   **Alt+Click:** We can reserve this for "Quick Actions" (e.g., instantly add to a casting shortlist) or just make it the specific trigger to open the full window if you want standard clicks to select rows.
+
+### Feasibility Summary
+
+*   **Performance:** High. Using `UserRole` in tables is zero-cost. Using `enterEvent` on labels is cheap.
+*   **Complexity:** Moderate. Requires refactoring how lists are populated (adding the ID to the item data).
+*   **UX Impact:** Massive improvement. It creates a "hyperlinked" feel to the application, making navigation significantly faster.

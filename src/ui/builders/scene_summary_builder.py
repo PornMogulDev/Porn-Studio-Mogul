@@ -8,7 +8,9 @@ def prepare_summary_data(scene: Scene, controller: IGameController) -> Dict:
     """
     Processes a Scene object and returns a structured dictionary
     suitable for display in a summary widget.
+    code Code
 
+        
     Args:
         scene: The Scene object to process (can be a working copy or a final one).
         controller: The game controller for accessing services like talent lookups.
@@ -27,26 +29,30 @@ def prepare_summary_data(scene: Scene, controller: IGameController) -> Dict:
     vp_map = {vp.id: vp for vp in scene.virtual_performers}
     talent_cache = {}
 
-    def get_performer_display_name(vp_id: int) -> str:
+    def get_talent_info(vp_id: int) -> tuple[int, str]:
+        """Returns (talent_id, alias) if cast, else (None, VP Name)."""
         if talent_id := scene.final_cast.get(str(vp_id)):
             if talent_id in talent_cache:
-                return talent_cache[talent_id]
+                return talent_id, talent_cache[talent_id]
             if talent := controller.get_talent_by_id(talent_id):
                 talent_cache[talent_id] = talent.alias
-                return talent.alias
+                return talent_id, talent.alias
         
-        return vp_map.get(vp_id, VirtualPerformer(name="Unknown", gender="N/A")).name
+        # Fallback to VP name if not cast or talent not found
+        vp_name = vp_map.get(vp_id, VirtualPerformer(name="Unknown", gender="N/A")).name
+        return None, vp_name
 
     # 1. Process Performers
     for vp in scene.virtual_performers:
-        talent_alias = get_performer_display_name(vp.id)
+        t_id, t_alias = get_talent_info(vp.id)
         
         summary["performers"].append({
             "role_name": vp.name,
             "gender": vp.gender,
             "ethnicity": vp.ethnicity,
             "disposition": vp.disposition,
-            "cast_talent_alias": talent_alias if scene.final_cast.get(str(vp.id)) else "Uncast"
+            "cast_talent_id": t_id,
+            "cast_talent_alias": t_alias
         })
 
     # 2. Process Thematic Tags
@@ -57,7 +63,10 @@ def prepare_summary_data(scene: Scene, controller: IGameController) -> Dict:
         if not (tag_def := controller.tag_definitions.get(tag_name)) or tag_def.get('type') != 'Physical':
             continue
             
-        assigned_names = [get_performer_display_name(vp_id) for vp_id in assigned_vp_ids]
+        # We process assignments to include IDs for smart links here too if needed,
+        # but for now we just show names as per original string logic,
+        # or we could expand this later.
+        assigned_names = [get_talent_info(vp_id)[1] for vp_id in assigned_vp_ids]
         summary["physical_tags"].append({
             "tag_name": tag_name,
             "assigned_performers": sorted(assigned_names)
@@ -84,7 +93,7 @@ def prepare_summary_data(scene: Scene, controller: IGameController) -> Dict:
             # e.g., slot_id is "ActionName_RoleName_1"
             try:
                 role = assignment.slot_id.rsplit('_', 2)[-2]
-                display_name = get_performer_display_name(assignment.virtual_performer_id)
+                _, display_name = get_talent_info(assignment.virtual_performer_id)
                 all_slots[role]["assigned"].append(display_name)
             except (IndexError, ValueError):
                 continue # Skip malformed slot IDs

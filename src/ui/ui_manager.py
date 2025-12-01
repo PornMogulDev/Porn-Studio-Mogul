@@ -4,8 +4,11 @@ from typing import Optional, Type, Callable, Dict
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QDialog, QWidget, QMainWindow
 
-# Data
+#Data
 from data.game_state import Talent
+
+# Smart Hover
+from ui.widgets.entity_card.entity_summary_card import EntitySummaryCard
 
 # Views
 from ui.views.start_screen_view import StartScreenView
@@ -67,21 +70,22 @@ class UIManager:
         self.controller = controller
         self.settings_manager = self.controller.settings_manager
         # The main window usually acts as the default parent for dialogs
-        self.parent_widget = parent_widget 
-        
+        self.parent_widget = parent_widget
+
         # Tracking
         self._dialog_instances: Dict[str, QWidget] = {}
         self._open_scene_dialogs: Dict[int, QWidget] = {}
         self._open_shot_scene_dialogs: Dict[int, QWidget] = {}
         self._talent_profile_window_singleton: Optional[TalentProfileWindow] = None
-        
+        self._summary_card: Optional[EntitySummaryCard] = None
+
         # Keep references to main presenters to prevent GC if not parented correctly
         self.main_presenter = None
         self.tab_presenters = []
 
-    # -------------------------------------------------------------------------
-    # Core Window Creation (For Application.py)
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# Core Window Creation (For Application.py)
+# -------------------------------------------------------------------------
 
     def create_start_screen(self) -> QWidget:
         view = StartScreenView(parent=self.parent_widget)
@@ -175,15 +179,15 @@ class UIManager:
     # -------------------------------------------------------------------------
 
     def _get_or_create_singleton_dialog(self, 
-                                      dialog_class: Type[QWidget], 
-                                      factory_func: Optional[Callable[[], QWidget]] = None) -> QWidget:
+                                    dialog_class: Type[QWidget], 
+                                    factory_func: Optional[Callable[[], QWidget]] = None) -> QWidget:
         """
         Retrieves an existing singleton dialog or creates a new one.
         
         Args:
             dialog_class: The class to use for the key lookup.
             factory_func: A function that returns the fully assembled (View+Presenter) widget.
-                          If None, falls back to legacy instantiation (View(controller)).
+                        If None, falls back to legacy instantiation (View(controller)).
         """
         dialog_name = dialog_class.__name__
         if dialog_name not in self._dialog_instances:
@@ -204,6 +208,37 @@ class UIManager:
         if dialog_name in self._dialog_instances:
             del self._dialog_instances[dialog_name]
             logger.info(f"Closed and untracked dialog: {dialog_name}.")
+
+    # -------------------------------------------------------------------------
+    # Smart Hover / Summary Card
+    # -------------------------------------------------------------------------
+
+    def get_summary_card(self) -> EntitySummaryCard:
+        if not self._summary_card:
+            # We treat this as a singleton tooltip reused across the app
+            self._summary_card = EntitySummaryCard(self.settings_manager, self.parent_widget)
+        return self._summary_card
+
+    def show_talent_summary(self, talent_id: int, global_pos):
+        """
+        Loads and displays the floating summary card for a talent.
+        """
+        talent = self.controller.get_talent_by_id(talent_id)
+        if not talent:
+            return
+            
+        card = self.get_summary_card()
+        card.load_talent(talent, self.controller)
+        
+        # Position offset: slightly to the right and down so cursor doesn't cover it
+        card.move(global_pos.x() + 15, global_pos.y() + 15)
+        card.show()
+        card.raise_()
+
+    def hide_talent_summary(self):
+        """Hides the summary card."""
+        if self._summary_card:
+            self._summary_card.hide()
 
     # -------------------------------------------------------------------------
     # Specific Dialog Show Methods
@@ -265,7 +300,8 @@ class UIManager:
             return
 
         # Creation
-        dialog = ScenePlannerDialog(self.settings_manager, parent=self.parent_widget)
+        # Pass self (UIManager) so the summary widget inside can request tooltips/profiles
+        dialog = ScenePlannerDialog(self.settings_manager, ui_manager=self, parent=self.parent_widget)
         presenter = ScenePlannerPresenter(self.controller, scene_id, dialog, parent=dialog)
         
         if hasattr(dialog, 'set_presenter'):
@@ -489,6 +525,10 @@ class UIManager:
             dialog_list.append(self._talent_profile_window_singleton)
         dialog_list.extend(self._open_scene_dialogs.values())
         dialog_list.extend(self._open_shot_scene_dialogs.values())
+        
+        # Close the summary card too if it exists
+        if self._summary_card:
+            self._summary_card.close()
 
         for dialog in dialog_list:
             if dialog:
@@ -500,5 +540,6 @@ class UIManager:
         self._talent_profile_window_singleton = None
         self._open_scene_dialogs.clear()
         self._open_shot_scene_dialogs.clear()
+        self._summary_card = None
 
         logger.info("All managed modeless dialogs have been closed.")

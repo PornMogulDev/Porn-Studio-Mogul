@@ -1,11 +1,19 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGroupBox, QLabel, QScrollArea, QFrame
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGroupBox, QLabel, QScrollArea, QFrame, QHBoxLayout
 from PyQt6.QtCore import Qt
-from typing import Dict
+from typing import Dict, TYPE_CHECKING
+from ui.widgets.entity_card.smart_label import SmartLabel
+
+if TYPE_CHECKING:
+    from ui.ui_manager import UIManager
 
 class SceneSummaryWidget(QWidget):
-    """A read-only widget to display a structured summary of a scene."""
-    def __init__(self, parent=None):
+    """
+    A read-only widget to display a structured summary of a scene.
+    Supports SmartLabels for cast members.
+    """
+    def __init__(self, ui_manager: 'UIManager' = None, parent=None):
         super().__init__(parent)
+        self.ui_manager = ui_manager
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.setup_ui()
@@ -41,10 +49,8 @@ class SceneSummaryWidget(QWidget):
         comp_layout = QVBoxLayout(comp_group)
         performers = summary_data.get("performers", [])
         if performers:
-            for i, p_data in enumerate(performers):
-                details = (f"<b>{p_data['role_name']}</b> ({p_data['gender']}, {p_data['ethnicity']}) "
-                           f"| Cast: <b>{p_data['cast_talent_alias']}</b>")
-                comp_layout.addWidget(QLabel(details))
+            for p_data in performers:
+                comp_layout.addWidget(self._create_performer_line(p_data))
         else:
             comp_layout.addWidget(QLabel("No performers defined."))
         self.content_layout.addWidget(comp_group)
@@ -84,8 +90,8 @@ class SceneSummaryWidget(QWidget):
                 actions_layout.addWidget(seg_label)
                 
                 if not a_seg_data['assignments']:
-                     role_label = QLabel("  • <i>(No roles defined)</i>")
-                     actions_layout.addWidget(role_label)
+                    role_label = QLabel("  • <i>(No roles defined)</i>")
+                    actions_layout.addWidget(role_label)
                 else:
                     for assignment in a_seg_data['assignments']:
                         role_label = QLabel(f"  • {assignment['role']}: {assignment['assigned_performer']}")
@@ -93,3 +99,29 @@ class SceneSummaryWidget(QWidget):
         else:
             actions_layout.addWidget(QLabel("No action segments defined."))
         self.content_layout.addWidget(actions_group)
+
+    def _create_performer_line(self, p_data):
+        """Helper to create a line with a SmartLabel if cast."""
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Role Info part
+        role_info = QLabel(f"<b>{p_data['role_name']}</b> ({p_data['gender']}, {p_data['ethnicity']}) | Cast: ")
+        layout.addWidget(role_info)
+        
+        # Cast link part
+        if p_data.get('cast_talent_id') and self.ui_manager:
+            # Create interactive SmartLabel
+            link = SmartLabel(p_data['cast_talent_alias'], p_data['cast_talent_id'])
+            link.hover_entered.connect(self.ui_manager.show_talent_summary)
+            link.hover_left.connect(self.ui_manager.hide_talent_summary)
+            link.profile_requested.connect(self.ui_manager.show_talent_profile_by_id)
+            layout.addWidget(link)
+        else:
+            # Fallback to plain text if uncast or no UI manager
+            text = p_data.get('cast_talent_alias', "Uncast")
+            layout.addWidget(QLabel(text))
+            
+        layout.addStretch()
+        return container
