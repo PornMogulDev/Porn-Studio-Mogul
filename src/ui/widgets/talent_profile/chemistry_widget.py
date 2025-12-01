@@ -2,13 +2,18 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QTableWidget,
     QTableWidgetItem, QAbstractItemView
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint
 from utils.formatters import get_chemistry_status
+from ui.widgets.entity_card.smart_table_widget import SmartTableWidget
 
 class ChemistryWidget(QWidget):
     """A widget for displaying a talent's chemistry with other talent."""
     talent_profile_requested = pyqtSignal(int)  # other_talent_id
+    
+    # New Smart Signals
+    smart_hover_entered = pyqtSignal(object, QPoint)
+    smart_hover_left = pyqtSignal()
+    smart_alt_clicked = pyqtSignal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -21,7 +26,7 @@ class ChemistryWidget(QWidget):
 
         chemistry_group = QGroupBox("Chemistry")
         chemistry_layout = QVBoxLayout(chemistry_group)
-        self.chemistry_table = QTableWidget()
+        self.chemistry_table = SmartTableWidget()
         self.chemistry_table.setColumnCount(2)
         self.chemistry_table.setHorizontalHeaderLabels(["Talent", "Chemistry"])
         self.chemistry_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -33,6 +38,10 @@ class ChemistryWidget(QWidget):
 
     def _connect_signals(self):
         self.chemistry_table.itemDoubleClicked.connect(self._on_chemistry_double_clicked)
+        # Connect SmartTable signals to Widget signals
+        self.chemistry_table.smart_hover_entered.connect(self.smart_hover_entered)
+        self.chemistry_table.smart_hover_left.connect(self.smart_hover_left)
+        self.chemistry_table.smart_alt_clicked.connect(self.smart_alt_clicked)
     
     def _on_chemistry_double_clicked(self, item: QTableWidgetItem):
         # We only care about clicks in the first column (talent alias)

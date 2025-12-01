@@ -58,6 +58,12 @@ class TalentProfilePresenter(QObject):
         self.view.history_widget.open_scene_dialog_requested.connect(self._on_shot_scene_details_requested)
         self.view.hiring_widget.contract_preview_requested.connect(self._on_contract_preview_requested)
         self.view.hiring_widget.contract_sign_requested.connect(self._on_contract_sign_requested)
+        
+        # Smart Hover/Click for Chemistry Widget
+        self.view.chemistry_widget.smart_hover_entered.connect(self.uimanager.show_talent_summary)
+        self.view.chemistry_widget.smart_hover_left.connect(self.uimanager.hide_talent_summary)
+        self.view.chemistry_widget.smart_alt_clicked.connect(self.uimanager.show_talent_profile_by_id)
+
         # Connect to global signals to stay up-to-date
         self.controller.signals.scenes_changed.connect(self._refresh_current_talent_data_on_change)
         self.controller.signals.roster_changed.connect(self._refresh_current_talent_data_on_change)
