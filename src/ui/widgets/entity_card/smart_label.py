@@ -24,10 +24,8 @@ class SmartLabel(QLabel):
         
         # Visual cues
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setProperty("smart_link", True) 
-        # Basic underline style to indicate interactivity
-        # ( Ideally this should be moved to external QSS/Theme manager )
-        self.setStyleSheet("text-decoration: underline; color: #5A9Bcf;") 
+        # This property allows theme_manager to target this specific type of label
+        self.setProperty("role", "smart_link")
 
     def enterEvent(self, event):
         # Map local mouse position to global screen position for the tooltip

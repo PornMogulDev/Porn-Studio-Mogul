@@ -21,14 +21,6 @@ class EntitySummaryCard(QWidget):
         # Container frame for styling (border, background) to mimic a card
         self.container = QFrame()
         self.container.setObjectName("SummaryCard")
-        # Inline style for basic visibility, should be moved to theme manager ideally
-        self.container.setStyleSheet("""
-            QFrame#SummaryCard {
-                background-color: #2b2b2b;
-                border: 1px solid #555;
-                border-radius: 4px;
-            }
-        """)
         container_layout = QVBoxLayout(self.container)
         container_layout.setContentsMargins(5, 5, 5, 5)
         

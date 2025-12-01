@@ -418,5 +418,23 @@ class ThemeManager:
             QLabel#policyCostLabel[cost_type="free"] {{
                 color: {theme.color_good};
             }}
+
+            /* --- Smart Link (SmartLabel) Styling --- */
+            QLabel[role="smart_link"] {{
+                color: {theme.accent};
+                text-decoration: none;
+                font-weight: bold;
+            }}
+            QLabel[role="smart_link"]:hover {{
+                color: {theme.accent_hover};
+                text-decoration: underline;
+            }}
+
+            /* --- Entity Summary Card Styling --- */
+            QFrame#SummaryCard {{
+                background-color: {theme.background};
+                border: 1px solid {theme.border};
+                border-radius: 4px;
+            }}
             """
         return qss
