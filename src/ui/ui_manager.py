@@ -352,6 +352,9 @@ class UIManager:
             logger.info(f"Closed Shot Scene Details for scene ID: {scene_id}.")
 
     def show_talent_profile(self, talent: Talent):
+        # Ensure any floating summary card is hidden when opening the full profile
+        self.hide_talent_summary()
+
         if self._talent_profile_window_singleton is None:
             window = TalentProfileWindow(self.settings_manager, self.parent_widget)
             presenter = TalentProfilePresenter(self.controller, window, self, parent=window)

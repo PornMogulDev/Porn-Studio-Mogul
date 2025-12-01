@@ -1,13 +1,15 @@
 from typing import List, Optional
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableView,
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QAbstractItemView, QHeaderView
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QModelIndex
+from PyQt6.QtCore import Qt, pyqtSignal, QModelIndex, QPoint
 
 from data.game_state import Scene
 from ui.models.scene_table_models import SceneTableModel, SceneSortFilterProxyModel
 from ui.view_models import SceneViewModel
+from ui.widgets.entity_card.smart_table_view import SmartTableView
+from ui.delegates.link_hover_delegate import LinkHoverDelegate
 
 class ScenesTab(QWidget):
     """
@@ -18,6 +20,11 @@ class ScenesTab(QWidget):
     selection_changed = pyqtSignal(object)       # Emits selected SceneViewModel or None
     manage_button_clicked = pyqtSignal(object)   # Emits selected SceneViewModel
     item_double_clicked = pyqtSignal(int)        # Emits scene_id
+    
+    # New signals for the link delegate interaction
+    cast_hover_entered = pyqtSignal(int, QPoint) 
+    cast_hover_left = pyqtSignal()
+    cast_alt_clicked = pyqtSignal(int)           # talent_id
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -28,7 +35,8 @@ class ScenesTab(QWidget):
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
-        self.scene_table = QTableView()
+        # Use SmartTableView (though we mainly rely on the Delegate for the cast column)
+        self.scene_table = SmartTableView()
         self.scene_table.setModel(self.proxy_model)
         self.scene_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.scene_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -37,6 +45,12 @@ class ScenesTab(QWidget):
         self.scene_table.horizontalHeader().setStretchLastSection(True)
         self.scene_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.scene_table.sortByColumn(2, Qt.SortOrder.AscendingOrder)
+        
+        # --- Install Custom Delegate for Cast Column ---
+        # "Cast" is the 5th column (index 4) based on SceneTableModel headers
+        self.link_delegate = LinkHoverDelegate(self.scene_table)
+        self.scene_table.setItemDelegateForColumn(4, self.link_delegate)
+        
         layout.addWidget(self.scene_table)
 
         button_layout = QHBoxLayout()
@@ -49,6 +63,11 @@ class ScenesTab(QWidget):
         self.scene_table.doubleClicked.connect(self._on_item_double_clicked)
         self.manage_scene_btn.clicked.connect(self._on_manage_button_clicked)
         self.scene_table.selectionModel().selectionChanged.connect(self._on_selection_changed)
+        
+        # Delegate signals
+        self.link_delegate.link_hover_entered.connect(self.cast_hover_entered)
+        self.link_delegate.link_hover_left.connect(self.cast_hover_left)
+        self.link_delegate.link_alt_clicked.connect(self.cast_alt_clicked)
         
         # Initial state
         self.manage_scene_btn.setEnabled(False)

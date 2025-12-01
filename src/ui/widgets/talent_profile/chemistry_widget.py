@@ -55,7 +55,6 @@ class ChemistryWidget(QWidget):
             chem_item = QTableWidgetItem(display_text)
             # Set the property that the stylesheet will use for coloring
             chem_item.setData(Qt.ItemDataRole.UserRole, status) # Store for potential future use
-            chem_item.setProperty("status", status)
             chem_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
  
             self.chemistry_table.setItem(row, 0, alias_item)

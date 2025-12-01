@@ -29,6 +29,11 @@ class ScenesTabPresenter(QObject):
         self.view.manage_button_clicked.connect(self.on_manage_button_clicked)
         self.view.item_double_clicked.connect(self.on_item_double_clicked)
 
+        # Connect Smart Hover for Cast Column
+        self.view.cast_hover_entered.connect(self.ui_manager.show_talent_summary)
+        self.view.cast_hover_left.connect(self.ui_manager.hide_talent_summary)
+        self.view.cast_alt_clicked.connect(self.ui_manager.show_talent_profile_by_id)
+
     def load_initial_data(self):
         """Entry point called by the MainWindow to perform the first data load."""
         self.refresh_data()
@@ -70,11 +75,19 @@ class ScenesTabPresenter(QObject):
             if not scene.final_cast:
                 cast_str = f"({len(scene.virtual_performers)} roles uncast)"
             else:
-                talent_aliases = []
+                talent_parts = []
+                # Get theme color for links (hardcoded for now to match SmartLabel style)
+                link_style = "text-decoration: none; color: #5A9Bcf; font-weight: bold;"
+                
                 for talent_id in scene.final_cast.values():
                     talent = self.controller.get_talent_by_id(talent_id)
-                    talent_aliases.append(talent.alias if talent else f"ID {talent_id}?")
-                cast_str = ", ".join(talent_aliases)
+                    if talent:
+                        # Create HTML link: <a href="ID">Alias</a>
+                        part = f'<a href="{talent.id}" style="{link_style}">{talent.alias}</a>'
+                        talent_parts.append(part)
+                    else:
+                        talent_parts.append(f"ID {talent_id}?")
+                cast_str = ", ".join(talent_parts)
 
             vm = SceneViewModel(
                 scene_id=scene.id,

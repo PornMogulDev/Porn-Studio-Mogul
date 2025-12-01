@@ -88,6 +88,21 @@ class TalentTabPresenter(QObject):
         self.view.open_advanced_filters_requested.connect(self.on_open_advanced_filters)
         self.view.open_talent_profile_requested.connect(self.on_open_talent_profile)
         self.view.help_requested.connect(self.on_help_requested)
+        # Connect to internal handler to extract ID from data object
+        self.view.smart_hover_entered.connect(self._on_table_hover)
+        self.view.smart_hover_left.connect(self.ui_manager.hide_talent_summary)
+
+    @pyqtSlot(object, QPoint)
+    def _on_table_hover(self, data_obj, pos: QPoint):
+        """Extracts the ID from the table model's data object and shows summary."""
+        talent_id = None
+        if hasattr(data_obj, 'talent_db'):
+            talent_id = data_obj.talent_db.id
+        elif hasattr(data_obj, 'id'):
+            talent_id = data_obj.id
+            
+        if talent_id:
+            self.ui_manager.show_talent_summary(talent_id, pos)
 
     def _stop_casting_mode(self):
         """Resets the tab from casting mode back to its general browsing state."""
@@ -301,9 +316,15 @@ class TalentTabPresenter(QObject):
         self.filter_dialog = None
     
     @pyqtSlot(object)
-    def on_open_talent_profile(self, talent: Union[Talent, TalentDB]):
-        if isinstance(talent, TalentDB): talent = talent.to_dataclass(Talent)
-        self.ui_manager.show_talent_profile(talent)
+    def on_open_talent_profile(self, talent_data: Union[Talent, TalentDB, TalentFilterCache, CastingTalentCache]):
+        # Handle various data types that might come from the table or context menu
+        if hasattr(talent_data, 'talent_db'): # It's a cache object
+            talent_data = talent_data.talent_db
+            
+        if isinstance(talent_data, TalentDB): 
+            talent_data = talent_data.to_dataclass(Talent)
+            
+        self.ui_manager.show_talent_profile(talent_data)
 
     @pyqtSlot(str)
     def on_help_requested(self, topic_key: str):

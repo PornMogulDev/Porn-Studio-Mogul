@@ -11,6 +11,7 @@ from ui.widgets.help_button import HelpButton
 from ui.models.talent_table_model import TalentTableModel
 from ui.widgets.view_menu_button import ViewMenuButton
 from ui.widgets.role_details_widget import RoleDetailsWidget
+from ui.widgets.entity_card.smart_table_view import SmartTableView
 
 class TalentTab(QWidget):
     # Signals for the Presenter
@@ -22,6 +23,8 @@ class TalentTab(QWidget):
     open_talent_profile_requested = pyqtSignal(object)
     initial_load_requested = pyqtSignal()
     help_requested = pyqtSignal(str)
+    smart_hover_entered = pyqtSignal(object, QPoint)
+    smart_hover_left = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -31,7 +34,7 @@ class TalentTab(QWidget):
         # --- UI Components ---
         self.view_options_button: ViewMenuButton = None
         self.role_details_widget: RoleDetailsWidget = None
-        self.talent_table_view: QTableView = None
+        self.talent_table_view: SmartTableView = None
         self.main_splitter: QSplitter = None
         
         self.setup_ui()
@@ -75,7 +78,7 @@ class TalentTab(QWidget):
         self.role_details_widget.hide() # Start hidden
         
         # Bottom Pane: Talent Table
-        self.talent_table_view = QTableView()
+        self.talent_table_view = SmartTableView()
         self._configure_table_view_properties()
 
         self.main_splitter.addWidget(self.role_details_widget)
@@ -90,9 +93,18 @@ class TalentTab(QWidget):
         self.talent_table_view.customContextMenuRequested.connect(self.show_talent_list_context_menu)
         self.talent_table_view.doubleClicked.connect(self.show_talent_profile)
         self.name_filter_input.textChanged.connect(self.filter_talent_list)
+        
+        # Now these connections will work because the signals are defined above
+        self.talent_table_view.smart_hover_entered.connect(self.smart_hover_entered)
+        self.talent_table_view.smart_hover_left.connect(self.smart_hover_left)
+        
         self.advanced_filter_btn.clicked.connect(lambda: self.open_advanced_filters_requested.emit(self.advanced_filters))
         self.view_options_button.visibility_changed.connect(self._on_visibility_changed)
         help_btn.help_requested.connect(self.help_requested)
+        self.talent_table_view.smart_alt_clicked.connect(self.show_talent_profile_direct)
+
+    def show_talent_profile_direct(self, talent):
+         self.open_talent_profile_requested.emit(talent)
 
     def _configure_table_view_properties(self):
         """Sets the static properties for the QTableView."""
