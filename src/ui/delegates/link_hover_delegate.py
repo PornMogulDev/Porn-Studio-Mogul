@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QStyledItemDelegate, QStyle
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QRect, QPointF
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QEvent, QPointF
 from PyQt6.QtGui import QTextDocument, QAbstractTextDocumentLayout, QPalette
 
 class LinkHoverDelegate(QStyledItemDelegate):
@@ -52,7 +52,7 @@ class LinkHoverDelegate(QStyledItemDelegate):
         Handle mouse events to detect link interaction.
         Note: The View must have setMouseTracking(True) for MouseMove to trigger this.
         """
-        if event.type() == event.Type.MouseMove:
+        if event.type() == QEvent.Type.MouseMove:
             # OPTIMIZATION: Don't recalculate layout if mouse hasn't moved significantly
             # or if the event position isn't strictly within the visual rect (handled by View, but safe to check)
             if self._last_hit_test_pos and (event.pos() - self._last_hit_test_pos).manhattanLength() < 3:
@@ -78,7 +78,7 @@ class LinkHoverDelegate(QStyledItemDelegate):
             # Return False so we don't consume the event (allow row selection hover effects)
             return False
 
-        elif event.type() == event.Type.MouseButtonPress:
+        elif event.type() == QEvent.Type.MouseButtonPress:
             if event.button() == Qt.MouseButton.LeftButton and (event.modifiers() & Qt.KeyboardModifier.AltModifier):
                 anchor = self._get_anchor_at(event.pos(), option, index)
                 if anchor:

@@ -7,8 +7,8 @@ from PyQt6.QtWidgets import QApplication, QDialog, QWidget, QMainWindow
 #Data
 from data.game_state import Talent
 
-# Smart Hover
-from ui.widgets.entity_card.entity_summary_card import EntitySummaryCard
+# Managers
+from ui.managers.tooltip_manager import TooltipManager
 
 # Views
 from ui.views.start_screen_view import StartScreenView
@@ -77,7 +77,9 @@ class UIManager:
         self._open_scene_dialogs: Dict[int, QWidget] = {}
         self._open_shot_scene_dialogs: Dict[int, QWidget] = {}
         self._talent_profile_window_singleton: Optional[TalentProfileWindow] = None
-        self._summary_card: Optional[EntitySummaryCard] = None
+        
+        # Dedicated manager for tooltips
+        self.tooltip_manager = TooltipManager(self.controller, self.parent_widget)
 
         # Keep references to main presenters to prevent GC if not parented correctly
         self.main_presenter = None
@@ -213,51 +215,15 @@ class UIManager:
     # Smart Hover / Summary Card
     # -------------------------------------------------------------------------
 
-    def get_summary_card(self) -> EntitySummaryCard:
-        if not self._summary_card:
-            # We treat this as a singleton tooltip reused across the app
-            self._summary_card = EntitySummaryCard(self.settings_manager, self.parent_widget)
-        return self._summary_card
-
     def show_talent_summary(self, talent_id: int, global_pos):
         """
-        Loads and displays the floating summary card for a talent.
+        Delegates to TooltipManager.
         """
-        talent = self.controller.get_talent_by_id(talent_id)
-        if not talent:
-            return
-            
-        card = self.get_summary_card()
-        card.load_talent(talent, self.controller)
-        
-        # Position offset: slightly to the right and down so cursor doesn't cover it
-        # Logic to keep the tooltip on screen
-        screen = QApplication.screenAt(global_pos)
-        if screen:
-            screen_geo = screen.availableGeometry()
-            card_geo = card.sizeHint()
-            
-            x = global_pos.x() + 15
-            y = global_pos.y() + 15
-            
-            # Check Right Edge
-            if x + card_geo.width() > screen_geo.right():
-                x = global_pos.x() - card_geo.width() - 5
-            
-            # Check Bottom Edge
-            if y + card_geo.height() > screen_geo.bottom():
-                y = global_pos.y() - card_geo.height() - 5
-                
-            card.move(x, y)
-        else:
-            card.move(global_pos.x() + 15, global_pos.y() + 15)
-        card.show()
-        card.raise_()
+        self.tooltip_manager.show_talent_summary(talent_id, global_pos)
 
     def hide_talent_summary(self):
         """Hides the summary card."""
-        if self._summary_card:
-            self._summary_card.hide()
+        self.tooltip_manager.hide_summary()
 
     # -------------------------------------------------------------------------
     # Specific Dialog Show Methods
@@ -548,9 +514,7 @@ class UIManager:
         dialog_list.extend(self._open_scene_dialogs.values())
         dialog_list.extend(self._open_shot_scene_dialogs.values())
         
-        # Close the summary card too if it exists
-        if self._summary_card:
-            self._summary_card.close()
+        self.tooltip_manager.cleanup()
 
         for dialog in dialog_list:
             if dialog:
@@ -562,6 +526,5 @@ class UIManager:
         self._talent_profile_window_singleton = None
         self._open_scene_dialogs.clear()
         self._open_shot_scene_dialogs.clear()
-        self._summary_card = None
 
         logger.info("All managed modeless dialogs have been closed.")
