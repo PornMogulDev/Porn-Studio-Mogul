@@ -30,9 +30,8 @@ class TopBarWidget(QWidget):
         self.inbox_btn = QToolButton()
         self.inbox_btn.setText("Inbox")
         self.inbox_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        # Assuming 'inbox.svg' exists in assets/icons
-        self.inbox_btn.setIcon(self.icon_manager.get_icon("read_icon")) 
-        self.inbox_btn.setIconSize(QSize(20, 20))
+        # Initial State: "text" (default)
+        self.icon_manager.apply_icon(self.inbox_btn, "read_icon", "text")
         self.inbox_btn.clicked.connect(self.inbox_clicked.emit)
         self.inbox_btn.setStyleSheet("QToolButton { border: none; font-weight: bold; } QToolButton:hover { color: #0078D7; }")
         layout.addWidget(self.inbox_btn)
@@ -67,12 +66,12 @@ class TopBarWidget(QWidget):
         """Updates icon and text based on unread count."""
         if unread_count > 0:
             self.inbox_btn.setText(f"Inbox ({unread_count})")
-            # Use 'inbox_unread' icon or a colored version of standard inbox
-            # Assuming 'inbox_unread.svg' exists, or we color the standard one red
-            self.inbox_btn.setIcon(self.icon_manager.get_icon("unread_icon"))
+            # Set Property: Warning
+            self.icon_manager.apply_icon(self.inbox_btn, "unread_icon", "warning")
         else:
             self.inbox_btn.setText("Inbox")
-            self.inbox_btn.setIcon(self.icon_manager.get_icon("read_icon"))
+            # Set Property: Text (Normal)
+            self.icon_manager.apply_icon(self.inbox_btn, "read_icon", "text")
 
     def update_money_display(self, money: int):
         self.money_label.setText(f"Money: ${money:,}")

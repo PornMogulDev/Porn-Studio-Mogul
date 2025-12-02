@@ -85,19 +85,16 @@ class BudgetSliderWidget(QWidget):
         self.slider.valueChanged.connect(self._on_slider_change)
         bot_layout.addWidget(self.slider)
 
-        # 7. Lock Button
+        # Lock Button
         self.btn_lock = QToolButton()
         self.btn_lock.setCheckable(True)
         self.btn_lock.setIconSize(QSize(16, 16))
         self.btn_lock.setToolTip("Lock this allocation percentage")
         self.btn_lock.setStyleSheet("QToolButton { border: none; background: transparent; }")
-
-        # Set icons
-        self.icon_unlocked = self.icon_manager.get_icon("unlocked_icon")
-        self.icon_locked = self.icon_manager.get_icon("locked_icon")
-        
-        self.btn_lock.setIcon(self.icon_unlocked)
         self.btn_lock.toggled.connect(self._on_lock_toggled)
+        
+        # Initial Icon (Unlocked, Normal Color)
+        self.icon_manager.apply_icon(self.btn_lock, "unlocked_icon", "text")
         
         bot_layout.addWidget(self.btn_lock)
         
@@ -119,27 +116,30 @@ class BudgetSliderWidget(QWidget):
         self.lbl_percent.setText(f"{percent * 100:.1f}%")
         self.lbl_estimate.setText(estimate_text)
         
-        # 3. Handle Disabled State (System Logic)
+        # 3. Handle Disabled State
         if is_system_disabled:
-            # We keep the widget technically enabled so labels are readable, 
-            # but disable interactions
             self.slider.setEnabled(False)
             self.btn_lock.setEnabled(False)
             self.btn_lock.setChecked(True) 
-            self.btn_lock.setIcon(self.icon_locked)
+            
+            # System Disabled: Locked Icon + Disabled Color
+            self.icon_manager.apply_icon(self.btn_lock, "locked_icon", "disabled")
+            
             self.lbl_estimate.setText("Not Required")
             self.setStyleSheet("color: gray;")
         else:
-            self.setStyleSheet("") # Reset style
-            
-            # 4. Handle Lock State
+            self.setStyleSheet("")
             if self.btn_lock.isChecked() != is_user_locked:
                 self.btn_lock.setChecked(is_user_locked)
 
-            # Update Icon based on state
-            self.btn_lock.setIcon(self.icon_locked if is_user_locked else self.icon_unlocked)
+            # --- DECOUPLED LOGIC ---
+            if is_user_locked:
+                # User Locked: Locked Icon + Disabled Color (Gray)
+                self.icon_manager.apply_icon(self.btn_lock, "locked_icon", "disabled")
+            else:
+                # Unlocked: Unlocked Icon + Text Color (Normal)
+                self.icon_manager.apply_icon(self.btn_lock, "unlocked_icon", "text")
             
-            # Only the slider is disabled when user-locked
             self.slider.setEnabled(not is_user_locked)
             self.btn_lock.setEnabled(True) 
 
@@ -154,6 +154,10 @@ class BudgetSliderWidget(QWidget):
 
     def _on_lock_toggled(self, checked):
         if not self._is_updating:
-            # Update icon immediately for feedback
-            self.btn_lock.setIcon(self.icon_locked if checked else self.icon_unlocked)
+            # Immediate feedback
+            if checked:
+                self.icon_manager.apply_icon(self.btn_lock, "locked_icon", "disabled")
+            else:
+                self.icon_manager.apply_icon(self.btn_lock, "unlocked_icon", "text")
+            
             self.lockToggled.emit(self.dept_id, checked)
