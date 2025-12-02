@@ -9,7 +9,7 @@ from ui.view_models import (
 from utils import time_utils
 
 if TYPE_CHECKING:
-    from ui.ui_manager import UIManager
+    from ui.managers.ui_manager import UIManager
     from ui.tabs.schedule_tab import ScheduleTab
 
 class ScheduleTabPresenter(QObject):

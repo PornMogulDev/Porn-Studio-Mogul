@@ -23,7 +23,7 @@ from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.help_button import HelpButton
 
 if TYPE_CHECKING:
-    from ui.ui_manager import UIManager
+    from ui.managers.ui_manager import UIManager
 
 class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     # --- Signals for User Actions ---

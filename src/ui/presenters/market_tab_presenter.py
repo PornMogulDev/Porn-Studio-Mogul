@@ -4,7 +4,7 @@ from PyQt6.QtCore import QObject, pyqtSlot
 
 from core.interfaces import IGameController
 from ui.view_models import MarketGroupViewModel, SentimentViewModel
-from ui.theme_manager import Theme
+from ui.managers.theme_manager import Theme
 
 class MarketTabPresenter(QObject):
     """

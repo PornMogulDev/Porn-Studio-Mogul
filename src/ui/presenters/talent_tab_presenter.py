@@ -11,7 +11,7 @@ from ui.presenters.talent_filter_cache import TalentFilterCache, CastingTalentCa
 from ui.presenters.role_details_presenter import RoleDetailsPresenter
 
 if TYPE_CHECKING:
-    from ui.ui_manager import UIManager
+    from ui.managers.ui_manager import UIManager
 
 # --- Asynchronous Worker for Demand Calculation ---
 class WorkerSignals(QObject):

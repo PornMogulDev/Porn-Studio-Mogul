@@ -8,7 +8,7 @@ from ui.view_models import SceneViewModel
 from utils import time_utils # Moved from _create_view_models
 
 if TYPE_CHECKING:
-    from ui.ui_manager import UIManager
+    from ui.managers.ui_manager import UIManager
     from ui.tabs.scenes_tab import ScenesTab
 
 class ScenesTabPresenter(QObject):

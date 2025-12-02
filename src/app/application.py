@@ -12,8 +12,8 @@ from core.game_signals import GameSignals
 from core.game_controller import GameController
 from ui.views.start_screen_view import StartScreenView
 # MainGameWindow is no longer imported here, UIManager creates it
-from ui.ui_manager import UIManager
-from ui.theme_manager import ThemeManager 
+from ui.managers.ui_manager import UIManager
+from ui.managers.theme_manager import ThemeManager 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from utils.paths import LOG_DIR, LOG_FILE
 

@@ -14,7 +14,7 @@ from ui.builders.talent_view_data_builder import TalentViewDataBuilder
 from utils import time_utils
 
 if TYPE_CHECKING:
-    from ui.ui_manager import UIManager
+    from ui.managers.ui_manager import UIManager
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ from ui.widgets.main_window.detachable_tab_widget import DetachableTabWidget
 from ui.widgets.main_window.top_bar_widget import TopBarWidget
 from ui.widgets.main_window.bottom_bar_widget import BottomBarWidget
 from ui.managers.notifications_manager import NotificationManager
-from ui.theme_manager import ThemeManager
+from ui.managers.theme_manager import ThemeManager
 from data.settings_manager import SettingsManager
 
 class MainWindowView(QWidget):

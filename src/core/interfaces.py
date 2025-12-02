@@ -8,7 +8,7 @@ from data.game_state import (
 from data.data_manager import DataManager
 from database.db_models import TalentDB
 from data.settings_manager import SettingsManager
-from ui.theme_manager import ThemeManager, Theme
+from ui.managers.theme_manager import ThemeManager, Theme
 from services.models.results import TourSponsorshipPreviewResult, ValidationResult
     
 class IGameController(Protocol):

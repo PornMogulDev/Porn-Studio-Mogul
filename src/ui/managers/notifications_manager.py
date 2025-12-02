@@ -1,7 +1,7 @@
 from PyQt6.QtCore import Qt, QPropertyAnimation, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QLabel
 
-from ui.theme_manager import Theme, ThemeManager
+from ui.managers.theme_manager import Theme, ThemeManager
 from data.settings_manager import SettingsManager
 
 class NotificationManager:

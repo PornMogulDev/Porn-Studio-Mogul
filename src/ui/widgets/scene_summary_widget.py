@@ -4,7 +4,7 @@ from typing import Dict, TYPE_CHECKING
 from ui.widgets.entity_card.smart_label import SmartLabel
 
 if TYPE_CHECKING:
-    from ui.ui_manager import UIManager
+    from ui.managers.ui_manager import UIManager
 
 class SceneSummaryWidget(QWidget):
     """

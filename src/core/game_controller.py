@@ -9,7 +9,7 @@ from data.save_manager import SaveManager
 from core.talent_generator import TalentGenerator
 from data.data_manager import DataManager
 from data.settings_manager import SettingsManager
-from ui.theme_manager import Theme, ThemeManager
+from ui.managers.theme_manager import Theme, ThemeManager
 from database.db_models import TalentDB
 
 from services.query.tag_query_service import TagQueryService

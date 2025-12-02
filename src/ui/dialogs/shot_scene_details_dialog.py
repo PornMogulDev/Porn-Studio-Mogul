@@ -10,7 +10,7 @@ from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.shot_scene_details_presenter import ShotSceneDetailsPresenter
 
 if TYPE_CHECKING:
-    from ui.ui_manager import UIManager
+    from ui.managers.ui_manager import UIManager
 
 class ShotSceneDetailsDialog(GeometryManagerMixin, QDialog):
     def __init__(self, settings_manager, parent=None, ui_manager: Optional['UIManager'] = None):
