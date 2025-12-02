@@ -39,11 +39,11 @@ class MainWindowPresenter(QObject):
         # --- View Component Signals ---
         # Top Bar
         self.view.top_bar.menu_clicked.connect(self.ui_manager.show_game_menu)
+        self.view.top_bar.inbox_clicked.connect(self.ui_manager.show_inbox)
         self.view.top_bar.next_week_clicked.connect(self.controller.advance_week)
         self.view.top_bar.help_requested.connect(self.ui_manager.show_help)
         
         # Bottom Bar
-        self.view.bottom_bar.inbox_clicked.connect(self.ui_manager.show_inbox)
         self.view.bottom_bar.go_to_list_clicked.connect(self.ui_manager.show_go_to_list)
         self.view.bottom_bar.policies_clicked.connect(self.ui_manager.show_policy_dialog)
 

@@ -1,6 +1,8 @@
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel, QSlider, 
-                             QCheckBox, QComboBox)
-from PyQt6.QtCore import Qt, pyqtSignal
+                             QToolButton, QComboBox)
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
+
+from ui.managers.icon_manager import IconManager
 
 class BudgetSliderWidget(QWidget):
     """
@@ -13,10 +15,12 @@ class BudgetSliderWidget(QWidget):
     allocationChanged = pyqtSignal(str, float)
     lockToggled = pyqtSignal(str, bool)
 
-    def __init__(self, dept_id: str, name: str, parent=None, show_assignment: bool = False):
+    def __init__(self, dept_id: str, name: str, icon_manager: IconManager,
+                 parent=None, show_assignment: bool = False):
         super().__init__(parent)
         self.dept_id = dept_id
         self.name = name
+        self.icon_manager = icon_manager
         self.show_assignment = show_assignment
         
         self._is_updating = False # Critical for preventing feedback loops
@@ -81,12 +85,22 @@ class BudgetSliderWidget(QWidget):
         self.slider.valueChanged.connect(self._on_slider_change)
         bot_layout.addWidget(self.slider)
 
-        # 7. Lock Checkbox
-        self.chk_lock = QCheckBox("Lock")
-        self.chk_lock.setToolTip("Lock this allocation percentage")
-        self.chk_lock.toggled.connect(self._on_lock_toggled)
-        bot_layout.addWidget(self.chk_lock)
+        # 7. Lock Button
+        self.btn_lock = QToolButton()
+        self.btn_lock.setCheckable(True)
+        self.btn_lock.setIconSize(QSize(16, 16))
+        self.btn_lock.setToolTip("Lock this allocation percentage")
+        self.btn_lock.setStyleSheet("QToolButton { border: none; background: transparent; }")
 
+        # Set icons
+        self.icon_unlocked = self.icon_manager.get_icon("unlocked_icon")
+        self.icon_locked = self.icon_manager.get_icon("locked_icon")
+        
+        self.btn_lock.setIcon(self.icon_unlocked)
+        self.btn_lock.toggled.connect(self._on_lock_toggled)
+        
+        bot_layout.addWidget(self.btn_lock)
+        
         # Add rows to main layout
         layout.addLayout(top_layout)
         layout.addLayout(bot_layout)
@@ -110,20 +124,24 @@ class BudgetSliderWidget(QWidget):
             # We keep the widget technically enabled so labels are readable, 
             # but disable interactions
             self.slider.setEnabled(False)
-            self.chk_lock.setEnabled(False)
-            self.chk_lock.setChecked(True) 
+            self.btn_lock.setEnabled(False)
+            self.btn_lock.setChecked(True) 
+            self.btn_lock.setIcon(self.icon_locked)
             self.lbl_estimate.setText("Not Required")
             self.setStyleSheet("color: gray;")
         else:
             self.setStyleSheet("") # Reset style
             
-            # 4. Handle Lock State (User Logic)
-            if self.chk_lock.isChecked() != is_user_locked:
-                self.chk_lock.setChecked(is_user_locked)
+            # 4. Handle Lock State
+            if self.btn_lock.isChecked() != is_user_locked:
+                self.btn_lock.setChecked(is_user_locked)
+
+            # Update Icon based on state
+            self.btn_lock.setIcon(self.icon_locked if is_user_locked else self.icon_unlocked)
             
             # Only the slider is disabled when user-locked
             self.slider.setEnabled(not is_user_locked)
-            self.chk_lock.setEnabled(True) 
+            self.btn_lock.setEnabled(True) 
 
         self._is_updating = False
 
@@ -136,4 +154,6 @@ class BudgetSliderWidget(QWidget):
 
     def _on_lock_toggled(self, checked):
         if not self._is_updating:
+            # Update icon immediately for feedback
+            self.btn_lock.setIcon(self.icon_locked if checked else self.icon_unlocked)
             self.lockToggled.emit(self.dept_id, checked)

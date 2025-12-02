@@ -77,11 +77,11 @@ ACKNOWLEDGEMENTS_FILE = DATA_DIR / "acknowledgements.md"
 LOG_FILE = LOG_DIR / "app.log"
  
 # Asset sub-directories and files (read-only)
-IMG_DIR = ASSETS_DIR / "images"
+ICON_DIR = ASSETS_DIR / "icons"
 FONTS_DIR = ASSETS_DIR / "fonts"
  
-DISCORD_LOGO = IMG_DIR / "discord_icon.svg"
-REDDIT_LOGO = IMG_DIR / "reddit_icon.svg"
-GITHUB_LOGO = IMG_DIR / "github_icon.svg"
-F95_LOGO = IMG_DIR / "f95_icon.svg"
+DISCORD_LOGO = ICON_DIR / "discord_icon.svg"
+REDDIT_LOGO = ICON_DIR / "reddit_icon.svg"
+GITHUB_LOGO = ICON_DIR / "github_icon.svg"
+F95_LOGO = ICON_DIR / "f95_icon.svg"
   

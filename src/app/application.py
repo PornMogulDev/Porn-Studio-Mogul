@@ -10,10 +10,9 @@ from data.settings_manager import SettingsManager
 from core.service_container import ServiceContainer
 from core.game_signals import GameSignals
 from core.game_controller import GameController
-from ui.views.start_screen_view import StartScreenView
-# MainGameWindow is no longer imported here, UIManager creates it
 from ui.managers.ui_manager import UIManager
-from ui.managers.theme_manager import ThemeManager 
+from ui.managers.theme_manager import ThemeManager
+from ui.managers.icon_manager import IconManager
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from utils.paths import LOG_DIR, LOG_FILE
 
@@ -85,6 +84,8 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         apply_theme(self.settings_manager, self.theme_manager)
         self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
 
+        self.icon_manager = IconManager(self.theme_manager)
+
         # --- Create long-lived application components ---
         self.data_manager = DataManager()
         self.signals = GameSignals()
@@ -98,7 +99,7 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
                                          self.save_manager, self.signals, self.service_container)
         
         # Pass self as parent_widget to UIManager
-        self.ui_manager = UIManager(self.controller, self)
+        self.ui_manager = UIManager(self.controller, self.icon_manager, self)
         
         self.start_screen = self.ui_manager.create_start_screen()
         # Factory method creates the View+Presenter and injects Tabs
@@ -130,6 +131,8 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
     def _on_setting_changed(self, key: str):
         if key in ("theme", "font_family", "font_size"):
             apply_theme(self.settings_manager, self.theme_manager)
+            if key == "theme":
+                self.icon_manager.refresh_theme() # Refresh icons on theme change
 
     def closeEvent(self, event: QCloseEvent):
         self._save_geometry()

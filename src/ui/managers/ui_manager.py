@@ -2,12 +2,13 @@ import logging
 from typing import Optional, Type, Callable, Dict
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QDialog, QWidget, QMainWindow
+from PyQt6.QtWidgets import QApplication, QDialog, QWidget
 
 #Data
 from data.game_state import Talent
 
 # Managers
+from ui.managers.icon_manager import IconManager
 from ui.managers.tooltip_manager import TooltipManager
 
 # Views
@@ -66,8 +67,9 @@ class UIManager:
     3. Link View <-> Presenter.
     4. Manage Parent/Child lifecycles to prevent memory leaks or crashes.
     """
-    def __init__(self, controller, parent_widget: QWidget = None):
+    def __init__(self, controller,  icon_manager: IconManager, parent_widget: QWidget = None):
         self.controller = controller
+        self.icon_manager = icon_manager
         self.settings_manager = self.controller.settings_manager
         # The main window usually acts as the default parent for dialogs
         self.parent_widget = parent_widget
@@ -105,6 +107,7 @@ class UIManager:
         view = MainWindowView(
             self.settings_manager, 
             self.controller.theme_manager, 
+            self.icon_manager,
             parent=None
         ) 
         
@@ -428,7 +431,7 @@ class UIManager:
 
     def show_call_sheet_dialog(self, week: int, year: int) -> bool:
         # 1. Create View (Dumb)
-        dialog = CallSheetDialog(self.settings_manager, parent=self.parent_widget)
+        dialog = CallSheetDialog(self.settings_manager, self.icon_manager, parent=self.parent_widget)
         
         # 2. Create Presenter (Smart, Parented to View)
         presenter = CallSheetPresenter(self.controller, dialog, parent=dialog)

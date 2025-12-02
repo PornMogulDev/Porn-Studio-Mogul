@@ -9,6 +9,7 @@ from ui.widgets.main_window.top_bar_widget import TopBarWidget
 from ui.widgets.main_window.bottom_bar_widget import BottomBarWidget
 from ui.managers.notifications_manager import NotificationManager
 from ui.managers.theme_manager import ThemeManager
+from ui.managers.icon_manager import IconManager
 from data.settings_manager import SettingsManager
 
 class MainWindowView(QWidget):
@@ -17,11 +18,13 @@ class MainWindowView(QWidget):
     It holds the Top Bar, the Tab Widget, and the Bottom Bar.
     It knows NOTHING about the GameController.
     """
-    def __init__(self, settings_manager: SettingsManager, theme_manager: ThemeManager, parent=None):
+    def __init__(self, settings_manager: SettingsManager, theme_manager: ThemeManager,
+                 icon_manager: IconManager, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.theme_manager = theme_manager
-        
+        self.icon_manager = icon_manager
+
         self.setup_ui()
         self._create_actions()
         
@@ -32,7 +35,7 @@ class MainWindowView(QWidget):
         layout = QVBoxLayout(self)
 
         # --- Top Bar ---
-        self.top_bar = TopBarWidget(parent=self)
+        self.top_bar = TopBarWidget(self.icon_manager, parent=self)
         layout.addWidget(self.top_bar)
 
         # --- Tabs ---
@@ -86,7 +89,7 @@ class MainWindowView(QWidget):
         self.top_bar.update_time_display(week, year)
 
     def update_inbox_count(self, count: int):
-        self.bottom_bar.update_inbox_count(count)
+        self.top_bar.update_inbox_count(count)
     
     def set_font_from_settings(self, font):
         """Called when font settings change."""

@@ -6,11 +6,13 @@ from PyQt6.QtCore import Qt, QSize
 
 from ui.widgets.budget_slider_widget import BudgetSliderWidget
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
+from ui.managers.icon_manager import IconManager
 
 class CallSheetDialog(GeometryManagerMixin, QDialog):
-    def __init__(self, settings_manager, parent=None):
+    def __init__(self, settings_manager, icon_manager: IconManager, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
+        self.icon_manager = icon_manager
         self.setWindowTitle("Production Call Sheet")
         self.defaultSize = QSize(1000, 750)
         
@@ -219,7 +221,7 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
 
     def add_department_slider(self, dept_id: str, name: str, dept_type: str, show_assignment: bool = False):
         """Creates a slider widget and places it in the correct column."""
-        widget = BudgetSliderWidget(dept_id, name, show_assignment=show_assignment)
+        widget = BudgetSliderWidget(dept_id, name, self.icon_manager, show_assignment=show_assignment)
         if self.presenter:
             widget.allocationChanged.connect(self.presenter.on_allocation_changed)
             widget.lockToggled.connect(self.presenter.on_lock_toggled)
