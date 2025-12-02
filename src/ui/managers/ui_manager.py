@@ -251,13 +251,18 @@ class UIManager:
         dialog.activateWindow()
 
     def show_inbox(self):
+        logger.info("[UIManager] show_inbox() called")
+    
         def factory():
+            logger.info("[UIManager] Creating new EmailDialog and EmailPresenter")
             dialog = EmailDialog(self.settings_manager, parent=self.parent_widget)
             presenter = EmailPresenter(self.controller, dialog, parent=dialog)
             dialog.set_presenter(presenter)
+            logger.info(f"[UIManager] EmailDialog created: {id(dialog)}, EmailPresenter created: {id(presenter)}")
             return dialog
 
         dialog = self._get_or_create_singleton_dialog(EmailDialog, factory)
+        logger.info(f"[UIManager] Using EmailDialog: {id(dialog)}")
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
@@ -510,6 +515,8 @@ class UIManager:
         """
         Closes and clears all managed dialog instances.
         """
+        logger.info("[UIManager] close_all_dialogs() called, cleaning up presenters...")
+        
         dialog_list = []
         dialog_list.extend(self._dialog_instances.values())
         if self._talent_profile_window_singleton:
@@ -521,7 +528,14 @@ class UIManager:
 
         for dialog in dialog_list:
             if dialog:
-                # Force deletion to ensure signal disconnection
+                # Explicitly call cleanup on the presenter before closing the dialog
+                if hasattr(dialog, 'presenter') and dialog.presenter and hasattr(dialog.presenter, 'cleanup'):
+                    try:
+                        dialog.presenter.cleanup()
+                    except Exception as e:
+                        logger.warning(f"Error during presenter cleanup for {type(dialog).__name__}: {e}")
+
+                # Force deletion to ensure signal disconnection for other Qt reasons
                 dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
                 dialog.close()
 

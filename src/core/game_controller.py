@@ -263,7 +263,10 @@ class GameController(QObject):
             self.signals.time_changed.emit(week, year)
             self.signals.scenes_changed.emit()
             self.signals.talent_pool_changed.emit()
+            
+            logger.info(f"Emitting emails_changed from {__name__} on session load.")
             self.signals.emails_changed.emit()
+            
             self.signals.show_main_window_requested.emit()
 
     def new_game_started(self):

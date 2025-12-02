@@ -34,7 +34,7 @@ class ScheduleTab(QWidget):
         menu_bar.addWidget(self.help_btn)
         
         top_bar = QHBoxLayout()
-        self.plan_scene_btn = QPushButton("Plan Shooting Bloc")
+        self.plan_scene_btn = QPushButton("Plan Shooting Block")
         top_bar.addWidget(self.plan_scene_btn)
         top_bar.addStretch()
         top_bar.addWidget(QLabel("Viewing Year:"))

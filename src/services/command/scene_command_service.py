@@ -392,6 +392,7 @@ class SceneCommandService:
 
             session.commit()
             if discoveries:
+                logger.info(f"Emitting emails_changed from {__name__} after market discovery.")
                 self.signals.emails_changed.emit()
 
             return {

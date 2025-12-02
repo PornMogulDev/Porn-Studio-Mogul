@@ -1,3 +1,4 @@
+import logging
 from typing import List, Dict, Optional
 
 from sqlalchemy.orm import selectinload, joinedload
@@ -14,6 +15,8 @@ from database.db_models import (
     StudioStateDB, AISceneDB, AIStudioDB
 )
 from utils import time_utils
+
+logger = logging.getLogger(__name__)
 
 class GameQueryService:
     """
@@ -424,4 +427,6 @@ class GameQueryService:
     def get_unread_email_count(self) -> int:
         """Returns the count of unread emails."""
         with self.session_factory() as session:
-            return session.query(EmailMessageDB).filter_by(is_read=False).count()
+            count = session.query(EmailMessageDB).filter_by(is_read=False).count()
+            logger.info(f"[GameQueryService] get_unread_email_count() = {count}")
+            return count

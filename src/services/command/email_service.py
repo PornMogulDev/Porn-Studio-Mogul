@@ -25,13 +25,18 @@ class EmailService:
 
     def mark_email_as_read(self, email_id: int):
         """Marks a single email as read."""
+        logger.info(f"[EmailService] mark_email_as_read({email_id}) called")
         session = self.session_factory()
         try:
             email_db = session.query(EmailMessageDB).get(email_id)
+            logger.info(f"[EmailService] Email {email_id} found: {email_db is not None}, was_read: {email_db.is_read if email_db else 'N/A'}")
             if email_db and not email_db.is_read:
                 email_db.is_read = True
                 session.commit()
+                logger.info(f"[EmailService] Email {email_id} marked as read, emitting emails_changed.")
                 self.signals.emails_changed.emit()
+            else:
+                logger.info(f"[EmailService] Email {email_id} not marked (already read or not found)")
         except Exception as e:
             logger.error(f"Failed to mark email {email_id} as read: {e}")
             session.rollback()
@@ -48,6 +53,7 @@ class EmailService:
                 EmailMessageDB.id.in_(email_ids)
             ).delete(synchronize_session=False)
             session.commit()
+            logger.info(f"Emitting emails_changed from {__name__} after deleting emails.")
             self.signals.emails_changed.emit()
         except Exception as e:
             logger.error(f"Failed to delete emails: {e}")

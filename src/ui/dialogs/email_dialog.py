@@ -10,6 +10,9 @@ from ui.widgets.help_button import HelpButton
 from ui.widgets.revert_geometry_button import RestoreGeometryButton
 from ui.view_models import EmailListItemViewModel, EmailContentViewModel
 from ui.presenters.email_presenter import EmailPresenter
+import logging
+
+logger = logging.getLogger(__name__)
 
 class EmailDialog(GeometryManagerMixin, QDialog):
     # --- Signals for the Presenter ---
@@ -19,6 +22,7 @@ class EmailDialog(GeometryManagerMixin, QDialog):
 
     def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
+        logger.info(f"[EmailDialog] __init__ called, id: {id(self)}")
         self.settings_manager = settings_manager
         self.presenter: Optional[EmailPresenter] = None
         
@@ -28,6 +32,14 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         self.setup_ui()
         self.connect_signals()
         self._restore_geometry()
+
+    def __del__(self):
+        logger.info(f"[EmailDialog] __del__ called, id: {id(self)}")
+
+    def closeEvent(self, event):
+        logger.info(f"[EmailDialog] closeEvent called, id: {id(self)}")
+        self._save_geometry()
+        super().closeEvent(event)
 
     def set_presenter(self, presenter: EmailPresenter):
         """Links this view to its presenter and triggers the initial data load."""

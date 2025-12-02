@@ -5,9 +5,15 @@ from PyQt6.QtWidgets import QMessageBox
 from core.interfaces import IGameController
 from ui.view_models import EmailListItemViewModel, EmailContentViewModel
 from utils import time_utils
+import logging
 
 if TYPE_CHECKING:
     from ui.dialogs.email_dialog import EmailDialog
+
+logger = logging.getLogger(__name__)
+
+# Class-level counter to track instances
+_instance_counter = 0
 
 class EmailPresenter(QObject):
     """
@@ -20,15 +26,33 @@ class EmailPresenter(QObject):
         self.controller = controller
         self.view = view
 
+        global _instance_counter
+        _instance_counter += 1
+        self._instance_id = _instance_counter
+
+        logger.info(f"[EmailPresenter #{self._instance_id}] Created.")
+
         # --- Internal State ---
         self.current_selected_id: Optional[int] = None
 
         # --- Signal Connections ---
         self.controller.signals.emails_changed.connect(self.load_initial_data)
-        
+
         self.view.email_selected.connect(self.on_email_selected)
         self.view.delete_requested.connect(self.on_delete_requested)
         self.view.help_requested.connect(self.on_help_requested)
+
+        # Connect the cleanup method to the view's destruction
+        self.view.destroyed.connect(self.cleanup)
+
+
+    def cleanup(self):
+        logger.info(f"[EmailPresenter #{self._instance_id}] cleanup() called.")
+        try:
+            self.controller.signals.emails_changed.disconnect(self.load_initial_data)
+            logger.info(f"[EmailPresenter #{self._instance_id}] Successfully disconnected from emails_changed")
+        except (RuntimeError, TypeError) as e:
+            logger.warning(f"[EmailPresenter #{self._instance_id}] Failed to disconnect from emails_changed: {e}")
 
     @pyqtSlot()
     def load_initial_data(self):
@@ -36,6 +60,11 @@ class EmailPresenter(QObject):
         The main entry point for refreshing the dialog. Fetches all emails,
         formats them into view models, and commands the view to update.
         """
+        if not self.view or not self.view.isVisible():
+            logger.info(f"[EmailPresenter #{self._instance_id}] Skipping load_initial_data - view is not visible.")
+            return
+            
+        logger.info(f"[EmailPresenter #{self._instance_id}] load_initial_data() called.")
         all_emails = self.controller.get_all_emails()
 
         # Build the view model for the list
@@ -48,7 +77,7 @@ class EmailPresenter(QObject):
         ]
 
         self.view.update_email_list(list_vms, self.current_selected_id)
-        
+
         # After updating the list, ensure the details pane is also correct.
         # This handles cases where the selected email might have been deleted.
         if self.current_selected_id and not any(vm.id == self.current_selected_id for vm in list_vms):
@@ -63,10 +92,12 @@ class EmailPresenter(QObject):
         Handles the selection of an email from the list. Fetches its content,
         marks it as read if necessary, and updates the details pane.
         """
+        logger.info(f"[EmailPresenter #{self._instance_id}] on_email_selected({email_id})")
         self.current_selected_id = email_id
 
         if email_id is None:
             # No email is selected, so command the view to show an empty state.
+            logger.info(f"[EmailPresenter #{self._instance_id}] No email selected, showing empty state")
             empty_vm = EmailContentViewModel(is_visible=False)
             self.view.display_email_content(empty_vm)
             return
@@ -74,6 +105,8 @@ class EmailPresenter(QObject):
         # Fetch the full email object to get its details
         # Note: We refetch here to ensure we have the most current data.
         email_obj = next((e for e in self.controller.get_all_emails() if e.id == email_id), None)
+        logger.info(f"[EmailPresenter #{self._instance_id}] Found email: {email_obj.id if email_obj else 'None'}, is_read: {email_obj.is_read if email_obj else 'N/A'}")
+
 
         if email_obj:
             year, week = time_utils.from_absolute(email_obj.absolute_week)
@@ -89,6 +122,7 @@ class EmailPresenter(QObject):
             # The controller will then emit emails_changed, which will cause
             # load_initial_data to run and update the list's bolding.
             if not email_obj.is_read:
+                logger.info(f"[EmailPresenter #{self._instance_id}] Marking email {email_obj.id} as read")
                 self.controller.mark_email_as_read(email_obj.id)
         else:
             # This can happen if the email was deleted by another process
