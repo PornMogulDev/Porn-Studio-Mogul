@@ -49,7 +49,7 @@ class IconManager:
         "Mexican": "mx",
         "Australian": "au",
         "Colombian": "co",
-        "Venezuelan": "vz",
+        "Venezuelan": "ve",
         "Argentinian": "ar",
         "Czech": "cz",
         "Hungarian": "hu",
