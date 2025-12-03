@@ -20,8 +20,9 @@ class ScheduleTab(QWidget):
     item_double_clicked = pyqtSignal(dict)
     help_requested = pyqtSignal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, icon_manager, parent=None):
         super().__init__(parent)
+        self.icon_manager = icon_manager
         self.model = None
         self.setup_ui()
     
@@ -30,7 +31,7 @@ class ScheduleTab(QWidget):
 
         # --- Top Control Bar ---
         menu_bar = QVBoxLayout()
-        self.help_btn = HelpButton("schedule", self)
+        self.help_btn = HelpButton("schedule", self.icon_manager, self)
         menu_bar.addWidget(self.help_btn)
         
         top_bar = QHBoxLayout()

@@ -107,7 +107,7 @@ class IconManager:
         """Calculates a square icon size based on the current font size."""
         font_size = self.settings_manager.font_size
         # Multiplier to ensure icons are large enough relative to text (e.g., 12pt -> 24px)
-        size = int(font_size * 1.5)
+        size = int(font_size * 2.0)
         return QSize(size, size)
 
     def apply_icon(self, target: QObject, icon_name: str, role: str = None):

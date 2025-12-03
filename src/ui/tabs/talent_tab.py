@@ -26,8 +26,9 @@ class TalentTab(QWidget):
     smart_hover_entered = pyqtSignal(object, QPoint)
     smart_hover_left = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, icon_manager):
         super().__init__()
+        self.icon_manager = icon_manager
         self.talent_model = None
         self.advanced_filters = {}
         
@@ -65,7 +66,7 @@ class TalentTab(QWidget):
 
         # --- Top controls container (outside the splitter) ---
         top_bar_layout = QHBoxLayout()
-        help_btn = HelpButton("talent", self)
+        help_btn = HelpButton("talent", self.icon_manager, self)
         self.view_options_button = ViewMenuButton(self)
         self.view_options_button.setToolTip("Show/Hide Panels & Columns")
         self.name_filter_input = QLineEdit(placeholderText="Filter by name...")
@@ -147,7 +148,7 @@ class TalentTab(QWidget):
         header.resizeSection(2, 100) # Gender
         header.resizeSection(3, 120) # Orientation
         header.resizeSection(4, 150) # Ethnicity
-        header.resizeSection(5, 100) # Nationality
+        header.resizeSection(5, 120) # Nationality
         header.resizeSection(6, 160) # Base Location
         header.resizeSection(7, 160) # Effective Location
         header.resizeSection(8, 75) # Dick Size

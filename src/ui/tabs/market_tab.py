@@ -16,8 +16,9 @@ class MarketTab(QWidget):
     group_selected = pyqtSignal(str)
     help_requested = pyqtSignal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, icon_manager, parent=None):
         super().__init__(parent)
+        self.icon_manager = icon_manager
         self.current_group_widget = None
         self.setup_ui()
     
@@ -29,7 +30,7 @@ class MarketTab(QWidget):
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        help_btn = HelpButton("market", self)
+        help_btn = HelpButton("market", self.icon_manager, self)
         # The presenter will handle the signal connection from the controller
         help_btn.help_requested.connect(self.help_requested)
         main_layout.addWidget(help_btn)

@@ -125,7 +125,7 @@ class UIManager:
         """Helper to build tabs and inject them into the main window."""
         
         # -- Schedule Tab --
-        schedule_view = ScheduleTab()
+        schedule_view = ScheduleTab(self.icon_manager)
         schedule_presenter = ScheduleTabPresenter(
             self.controller, schedule_view, self, parent=schedule_view
         )
@@ -133,7 +133,7 @@ class UIManager:
         main_view.add_tab(schedule_view, "Schedule")
 
         # -- Talent Tab --
-        talent_view = TalentTab()
+        talent_view = TalentTab(self.icon_manager)
         talent_presenter = TalentTabPresenter(
             self.controller, talent_view, self, self.icon_manager, parent=talent_view
         )
@@ -149,7 +149,7 @@ class UIManager:
         main_view.add_tab(scenes_view, "Scenes")
 
         # -- Market Tab --
-        market_view = MarketTab()
+        market_view = MarketTab(self.icon_manager)
         market_presenter = MarketTabPresenter(
             self.controller, market_view, parent=market_view
         )
@@ -255,7 +255,7 @@ class UIManager:
     
         def factory():
             logger.info("[UIManager] Creating new EmailDialog and EmailPresenter")
-            dialog = EmailDialog(self.settings_manager, parent=self.parent_widget)
+            dialog = EmailDialog(self.settings_manager, self.icon_manager, parent=self.parent_widget)
             presenter = EmailPresenter(self.controller, dialog, parent=dialog)
             dialog.set_presenter(presenter)
             logger.info(f"[UIManager] EmailDialog created: {id(dialog)}, EmailPresenter created: {id(presenter)}")
@@ -294,7 +294,7 @@ class UIManager:
 
         # Creation
         # Pass self (UIManager) so the summary widget inside can request tooltips/profiles
-        dialog = ScenePlannerDialog(self.settings_manager, ui_manager=self, parent=self.parent_widget)
+        dialog = ScenePlannerDialog(self.settings_manager, self.icon_manager, ui_manager=self, parent=self.parent_widget)
         presenter = ScenePlannerPresenter(self.controller, scene_id, dialog, parent=dialog)
         
         if hasattr(dialog, 'set_presenter'):

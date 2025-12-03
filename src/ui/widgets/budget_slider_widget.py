@@ -90,7 +90,6 @@ class BudgetSliderWidget(QWidget):
         self.btn_lock.setCheckable(True)
         self.btn_lock.setIconSize(QSize(16, 16))
         self.btn_lock.setToolTip("Lock this allocation percentage")
-        self.btn_lock.setStyleSheet("QToolButton { border: none; background: transparent; }")
         self.btn_lock.toggled.connect(self._on_lock_toggled)
         
         # Initial Icon (Unlocked, Normal Color)

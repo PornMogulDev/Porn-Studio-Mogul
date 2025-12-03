@@ -65,11 +65,12 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     segment_parameter_changed = pyqtSignal(int, str, int) # segment_id, role, new_value
     slot_assignment_changed = pyqtSignal(int, str, int) # segment_id, slot_id, vp_id or 0 for None
 
-    def __init__(self, settings_manager, ui_manager: 'UIManager' = None, parent=None):
+    def __init__(self, settings_manager, icon_manager, ui_manager: 'UIManager' = None, parent=None):
         super().__init__(parent)
         self.presenter = None
         self.settings_manager = settings_manager
         self.ui_manager = ui_manager # Passed to Summary Widget
+        self.icon_manager = icon_manager
         self.help_signal_proxy = None # To directly handle the help signal from the view
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         
@@ -92,7 +93,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
         header_layout = QHBoxLayout()
-        self.help_btn = HelpButton("scene_planner", self)
+        self.help_btn = HelpButton("scene_planner", self.icon_manager, self)
         header_layout.addWidget(self.help_btn, 0)
         self.bloc_info_label = QLabel()
         font = self.bloc_info_label.font(); font.setItalic(True); self.bloc_info_label.setFont(font)

@@ -20,10 +20,11 @@ class EmailDialog(GeometryManagerMixin, QDialog):
     delete_requested = pyqtSignal(list)
     help_requested = pyqtSignal(str)
 
-    def __init__(self, settings_manager, parent=None):
+    def __init__(self, settings_manager, icon_manager, parent=None):
         super().__init__(parent)
         logger.info(f"[EmailDialog] __init__ called, id: {id(self)}")
         self.settings_manager = settings_manager
+        self.icon_manager = icon_manager
         self.presenter: Optional[EmailPresenter] = None
         
         self.setWindowTitle("Inbox")
@@ -58,7 +59,7 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         top_layout.addStretch(3)
         revert_btn = RestoreGeometryButton(parent=self)
         top_layout.addWidget(revert_btn, 1)
-        self.help_btn = HelpButton("email", self)
+        self.help_btn = HelpButton("email", self.icon_manager, self)
         top_layout.addWidget(self.help_btn, 1)
         left_panel.addLayout(top_layout)
 
