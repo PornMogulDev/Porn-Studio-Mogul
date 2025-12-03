@@ -15,11 +15,12 @@ class TalentTableModel(QAbstractTableModel):
     displaying that data in a table view. It performs no business logic or
     database queries.
     """
-    def __init__(self, settings_manager, cup_size_order: List[str], parent=None):
+    def __init__(self, settings_manager, icon_manager, cup_size_order: List[str], parent=None):
         super().__init__(parent)
         self.raw_data: List[Union[TalentFilterCache, CastingTalentCache]] = []
         self._viewmodel_cache: Dict[int, TalentViewModel] = {}
         self.settings_manager = settings_manager
+        self.icon_manager = icon_manager
 
         self._cup_map = {cup: i for i, cup in enumerate(cup_size_order)} if cup_size_order else {}
         self.headers = ["Alias", "Age", "Gender", "Orientation", "Ethnicity", "Nationality", "Base Location", "Effective Location", "Dick Size", "Cup Size", "Perf.", "Act.", "Dom", "Sub", "Stam.", "Pop.", "Demand"]
@@ -49,6 +50,10 @@ class TalentTableModel(QAbstractTableModel):
             if col == 14: return item.stamina
             if col == 15: return item.popularity
             if col == 16: return item.demand
+
+        elif role == Qt.ItemDataRole.DecorationRole:
+            if col == 5: # Nationality column
+                return self.icon_manager.get_flag_icon(item.nationality)
         
         elif role == Qt.ItemDataRole.UserRole: return item.talent_obj
         return None

@@ -9,7 +9,7 @@ class EntitySummaryCard(QWidget):
     A floating tooltip-like widget that displays a summary of an entity.
     Reuses the DetailsWidget to show talent info.
     """
-    def __init__(self, settings_manager, parent=None):
+    def __init__(self, settings_manager, icon_manager, parent=None):
         # ToolTip flag makes it float above other windows, Frameless removes OS window chrome
         super().__init__(parent, Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -25,7 +25,7 @@ class EntitySummaryCard(QWidget):
         container_layout.setContentsMargins(5, 5, 5, 5)
         
         # Reuse existing details widget
-        self.details_widget = DetailsWidget(settings_manager)
+        self.details_widget = DetailsWidget(settings_manager, icon_manager)
         # Hide the physical attributes row by default in summary to save space if needed, 
         # or keep it if detail is preferred.
         

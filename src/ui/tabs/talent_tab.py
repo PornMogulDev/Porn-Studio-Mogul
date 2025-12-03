@@ -39,11 +39,12 @@ class TalentTab(QWidget):
         
         self.setup_ui()
 
-    def create_model_and_load(self, settings_manager, cup_size_order: List[str]):
+    def create_model_and_load(self, settings_manager, icon_manager, cup_size_order: List[str]):
         """Called by the presenter to inject dependencies and trigger initial load."""
         if self.talent_model is None:
             self.talent_model = TalentTableModel(
                 settings_manager=settings_manager,
+                icon_manager=icon_manager,
                 cup_size_order=cup_size_order
             )
             self.talent_table_view.setModel(self.talent_model)

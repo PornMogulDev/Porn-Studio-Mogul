@@ -81,7 +81,7 @@ class UIManager:
         self._talent_profile_window_singleton: Optional[TalentProfileWindow] = None
         
         # Dedicated manager for tooltips
-        self.tooltip_manager = TooltipManager(self.controller, self.parent_widget)
+        self.tooltip_manager = TooltipManager(self.controller, self.icon_manager, self.parent_widget)
 
         # Keep references to main presenters to prevent GC if not parented correctly
         self.main_presenter = None
@@ -135,7 +135,7 @@ class UIManager:
         # -- Talent Tab --
         talent_view = TalentTab()
         talent_presenter = TalentTabPresenter(
-            self.controller, talent_view, self, parent=talent_view
+            self.controller, talent_view, self, self.icon_manager, parent=talent_view
         )
         self.tab_presenters.append(talent_presenter)
         main_view.add_tab(talent_view, "Talent")
@@ -349,7 +349,7 @@ class UIManager:
         self.hide_talent_summary()
 
         if self._talent_profile_window_singleton is None:
-            window = TalentProfileWindow(self.settings_manager, self.parent_widget)
+            window = TalentProfileWindow(self.settings_manager, self.icon_manager, self.parent_widget)
             presenter = TalentProfilePresenter(self.controller, window, self, parent=window)
             window.presenter = presenter
             presenter.open_talent_profile_requested.connect(self.show_talent_profile_by_id)

@@ -13,15 +13,16 @@ class TooltipManager:
     FIXME: Known Issue - The summary card persists on screen when Alt-Tabbing/losing focus
     while hovering a delegate link. Attempts to catch ApplicationDeactivate events were unsuccessful.
     """
-    def __init__(self, controller, parent_widget: QWidget = None):
+    def __init__(self, controller, icon_manager, parent_widget: QWidget = None):
         self.controller = controller
         self.settings_manager = controller.settings_manager
+        self.icon_manager = icon_manager
         self.parent_widget = parent_widget
         self._summary_card: Optional[EntitySummaryCard] = None
 
     def _get_card(self) -> EntitySummaryCard:
         if not self._summary_card:
-            self._summary_card = EntitySummaryCard(self.settings_manager, self.parent_widget)
+            self._summary_card = EntitySummaryCard(self.settings_manager, self.icon_manager, self.parent_widget)
         return self._summary_card
 
     def show_talent_summary(self, talent_id: int, global_pos):

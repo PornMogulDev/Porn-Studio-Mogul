@@ -4,7 +4,7 @@ from PyQt6.QtCore import QSize, Qt, QObject
 from PyQt6.QtWidgets import QAbstractButton 
 from PyQt6.QtSvg import QSvgRenderer
 
-from utils.paths import ICON_DIR
+from utils.paths import ICON_DIR, FLAG_DIR
 from ui.managers.theme_manager import ThemeManager, Theme
 
 class IconManager:
@@ -31,6 +31,35 @@ class IconManager:
         # Specifics
         "unread": "color_warning",
         "locked": "disabled_text", # Visual preference for locks
+    }
+
+    # Map Game Strings -> ISO Codes (Filenames)
+    NATIONALITY_MAP = {
+        "US": "us",
+        "Japanese": "jp",
+        "French": "fr",
+        "Belgian": "be",
+        "German": "de",
+        "British": "gb",
+        "Brazilian": "br",
+        "Russian": "ru",
+        "Ukrainian": "ua",
+        "Belarusian": "by",
+        "Canadian": "ca",
+        "Mexican": "mx",
+        "Australian": "au",
+        "Colombian": "co",
+        "Venezuelan": "vz",
+        "Argentinian": "ar",
+        "Czech": "cz",
+        "Hungarian": "hu",
+        "Spanish": "es",
+        "Italian": "it",
+        "Polish": "pl",
+        "Moldovan": "md",
+        "Romanian": "ro",
+        "Dutch": "nl",
+        "Latvian": "lv"
     }
 
     def __init__(self, theme_manager: ThemeManager):
@@ -135,3 +164,31 @@ class IconManager:
         theme_name = self.theme_manager.settings_manager.get_setting("theme", "light")
         self._current_theme_obj = self.theme_manager.get_theme(theme_name)
         self._cache.clear()
+
+    def get_flag_icon(self, nationality: str) -> QIcon:
+        """
+        Retrieves the flag icon for a given nationality string.
+        """
+        # 1. Lookup the ISO code
+        iso_code = self.NATIONALITY_MAP.get(nationality)
+        
+        # 2. Fallback: If not mapped, try using the string as-is (lowercased)
+        # This handles cases where your DB might actually match ISO or country names
+        if not iso_code:
+            iso_code = nationality.lower()
+
+        # 3. Use the ISO code to find the file
+        # We assume FLAGS_DIR is defined in paths.py
+        file_name = f"{iso_code}.svg"
+        file_path = FLAG_DIR / file_name
+        
+        # 4. Return standard "original" load
+        if file_path.exists():
+            return self._load_original_svg(file_path)
+            
+        # 5. Return empty or generic 'globe' icon if not found
+        return self.get_icon("globe", "neutral") 
+
+    def _load_original_svg(self, file_path: Path) -> QIcon:
+        """Loads SVG directly without recoloring."""
+        return QIcon(str(file_path))

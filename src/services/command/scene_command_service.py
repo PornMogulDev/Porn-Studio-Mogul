@@ -141,14 +141,14 @@ class SceneCommandService:
                 self._create_scene_for_bloc(session, bloc_db)
             
             session.commit()
-            self.signals.notification_posted.emit(f"Shooting bloc '{name}' planned. Cost: ${cost:,}")
+            self.signals.notification_posted.emit(f"Shooting block '{name}' planned. Cost: ${cost:,}")
             self.signals.money_changed.emit(new_money)
             self.signals.scenes_changed.emit()
             return True
         except Exception as e:
-            logger.error(f"[ERROR] Failed to create shooting bloc in DB: {e}")
+            logger.error(f"[ERROR] Failed to create shooting block in DB: {e}")
             session.rollback()
-            self.signals.notification_posted.emit("Error: Failed to plan shooting bloc.")
+            self.signals.notification_posted.emit("Error: Failed to plan shooting block.")
             return False
         finally:
             session.close()

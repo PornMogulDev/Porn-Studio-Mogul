@@ -78,6 +78,7 @@ LOG_FILE = LOG_DIR / "app.log"
  
 # Asset sub-directories and files (read-only)
 ICON_DIR = ASSETS_DIR / "icons"
+FLAG_DIR = ICON_DIR / "flags"
 FONTS_DIR = ASSETS_DIR / "fonts"
  
 DISCORD_LOGO = ICON_DIR / "discord_icon.svg"

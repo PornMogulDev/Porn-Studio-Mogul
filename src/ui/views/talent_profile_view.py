@@ -24,9 +24,10 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
     # Emitted after the user confirms the tour details in the dialog.
     tour_sponsorship_confirmed = pyqtSignal(int, list, dict, int) # talent_id, roles_to_cast, tour_details, total_cost
 
-    def __init__(self, settings_manager, parent=None):
+    def __init__(self, settings_manager, icon_manager, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
+        self.icon_manager = icon_manager
         self.presenter = None # Will be set by UIManager
         self._is_loading_layout = False # Flag to prevent signal loops
 
@@ -106,7 +107,7 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
 
     def _create_dock_widgets(self):
         """Creates and arranges all the dockable panel widgets."""
-        self.details_widget = DetailsWidget(self.settings_manager)
+        self.details_widget = DetailsWidget(self.settings_manager, self.icon_manager)
         self._add_dock("Details & Skills", self.details_widget, Qt.DockWidgetArea.LeftDockWidgetArea)
 
         self.preferences_widget = PreferencesWidget()

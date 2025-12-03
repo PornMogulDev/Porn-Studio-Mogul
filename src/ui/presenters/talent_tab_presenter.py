@@ -12,6 +12,7 @@ from ui.presenters.role_details_presenter import RoleDetailsPresenter
 
 if TYPE_CHECKING:
     from ui.managers.ui_manager import UIManager
+    from ui.managers.icon_manager import IconManager
 
 # --- Asynchronous Worker for Demand Calculation ---
 class WorkerSignals(QObject):
@@ -43,11 +44,12 @@ class DemandCalculationWorker(QRunnable):
         self.signals.finished.emit(demands)
 
 class TalentTabPresenter(QObject):
-    def __init__(self, controller: IGameController, view: TalentTab, ui_manager: 'UIManager', parent=None):
+    def __init__(self, controller: IGameController, view: TalentTab, ui_manager: 'UIManager', icon_manager: 'IconManager', parent=None):
         super().__init__(parent)
         self.controller = controller
         self.view = view
         self.ui_manager = ui_manager
+        self.icon_manager = icon_manager
         self.filter_dialog = None
 
         self.view.presenter = self
@@ -72,6 +74,7 @@ class TalentTabPresenter(QObject):
         self._connect_signals()
         self.view.create_model_and_load(
             self.controller.settings_manager,
+            self.icon_manager,
             self.controller.get_available_cup_sizes()
         )
 
