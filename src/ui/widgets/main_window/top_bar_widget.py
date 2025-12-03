@@ -16,6 +16,7 @@ class TopBarWidget(QWidget):
     def __init__(self, icon_manager: IconManager, parent=None):
         super().__init__(parent)
         self.icon_manager = icon_manager
+        self.last_unread_count = 0
         self.setup_ui()
 
     def setup_ui(self):
@@ -26,14 +27,12 @@ class TopBarWidget(QWidget):
         menu_btn.clicked.connect(self.menu_clicked.emit)
         layout.addWidget(menu_btn)
 
-        # --- Inbox Button (Replaces Bottom Bar Inbox) ---
-        self.inbox_btn = QToolButton()
-        self.inbox_btn.setText("Inbox")
-        self.inbox_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        # --- Inbox Button ---
+        # Changed to QPushButton to match the style of Menu/Next Week
+        self.inbox_btn = QPushButton()
         # Initial State: "text" (default)
         self.icon_manager.apply_icon(self.inbox_btn, "read_icon", "text")
         self.inbox_btn.clicked.connect(self.inbox_clicked.emit)
-        self.inbox_btn.setStyleSheet("QToolButton { border: none; font-weight: bold; } QToolButton:hover { color: #0078D7; }")
         layout.addWidget(self.inbox_btn)
 
         next_week_btn = QPushButton("Next Week ►")
@@ -64,14 +63,18 @@ class TopBarWidget(QWidget):
 
     def update_inbox_count(self, unread_count: int):
         """Updates icon and text based on unread count."""
+        self.last_unread_count = unread_count
         if unread_count > 0:
-            self.inbox_btn.setText(f"Inbox ({unread_count})")
+            self.inbox_btn.setText(f"({unread_count})")
             # Set Property: Warning
             self.icon_manager.apply_icon(self.inbox_btn, "unread_icon", "warning")
         else:
-            self.inbox_btn.setText("Inbox")
             # Set Property: Text (Normal)
             self.icon_manager.apply_icon(self.inbox_btn, "read_icon", "text")
+    
+    def refresh_icons(self):
+        """Refreshes icons to apply new scaling or themes."""
+        self.update_inbox_count(self.last_unread_count)
 
     def update_money_display(self, money: int):
         self.money_label.setText(f"Money: ${money:,}")

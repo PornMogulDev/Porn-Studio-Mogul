@@ -84,7 +84,7 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         apply_theme(self.settings_manager, self.theme_manager)
         self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
 
-        self.icon_manager = IconManager(self.theme_manager)
+        self.icon_manager = IconManager(self.theme_manager, self.settings_manager)
 
         # --- Create long-lived application components ---
         self.data_manager = DataManager()

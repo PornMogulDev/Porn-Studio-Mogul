@@ -162,7 +162,7 @@ class TalentTabPresenter(QObject):
     
     @pyqtSlot(str)
     def on_setting_changed(self, key: str):
-        if key == 'unit_system': self.view.talent_model.refresh()
+        if key == 'unit_system' or 'font_size': self.view.talent_model.refresh()
 
     @pyqtSlot(dict)
     def on_filters_changed(self, all_filters: dict):

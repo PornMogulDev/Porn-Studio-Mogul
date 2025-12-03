@@ -4,6 +4,7 @@ from PyQt6.QtCore import QSize, Qt, QObject
 from PyQt6.QtWidgets import QAbstractButton 
 from PyQt6.QtSvg import QSvgRenderer
 
+from data.settings_manager import SettingsManager
 from utils.paths import ICON_DIR, FLAG_DIR
 from ui.managers.theme_manager import ThemeManager, Theme
 
@@ -62,11 +63,18 @@ class IconManager:
         "Latvian": "lv"
     }
 
-    def __init__(self, theme_manager: ThemeManager):
+    def __init__(self, theme_manager: ThemeManager, settings_manager: SettingsManager):
         self.theme_manager = theme_manager
+        self.settings_manager = settings_manager
         self._cache = {}
         self._current_theme_obj = None
         self.refresh_theme()
+
+        self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
+
+    def _on_setting_changed(self, key: str):
+        if key == "font_size":
+            self._cache.clear()
 
     @property
     def current_theme(self) -> Theme:
@@ -94,6 +102,13 @@ class IconManager:
         # 4. Cache
         self._cache[cache_key] = icon
         return icon
+    
+    def get_target_size(self) -> QSize:
+        """Calculates a square icon size based on the current font size."""
+        font_size = self.settings_manager.font_size
+        # Multiplier to ensure icons are large enough relative to text (e.g., 12pt -> 24px)
+        size = int(font_size * 1.5)
+        return QSize(size, size)
 
     def apply_icon(self, target: QObject, icon_name: str, role: str = None):
         """
@@ -116,6 +131,8 @@ class IconManager:
         
         if isinstance(target, (QAbstractButton, QAction)):
             target.setIcon(icon)
+            if isinstance(target, QAbstractButton):
+                target.setIconSize(self.get_target_size())
 
     def _resolve_color(self, role: str) -> str:
         """Helper to convert role string to hex color."""
@@ -148,7 +165,7 @@ class IconManager:
         if not renderer.isValid():
             return QIcon()
             
-        base_size = QSize(64, 64) 
+        base_size = self.get_target_size() 
         pixmap = QPixmap(base_size)
         pixmap.fill(Qt.GlobalColor.transparent)
         

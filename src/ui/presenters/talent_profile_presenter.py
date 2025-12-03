@@ -308,7 +308,7 @@ class TalentProfilePresenter(QObject):
             if self.current_talent_id:
                 talent = self.open_talents[self.current_talent_id]
                 self.view.details_widget.populate_physical_label(talent)
-        elif key == "theme":
+        elif key == "theme" or key == "font_size":
             current_theme = self.controller.theme_manager.get_theme(self.controller.settings_manager.get_setting("theme", "light"))
             self.view.preferences_widget.set_theme_colors(danger_color=current_theme.danger)
             self.view.hiring_widget.set_theme_colors(danger_color=current_theme.danger)

@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt, QModelIndex, pyqtSignal, QPoint
+from PyQt6.QtCore import Qt, QModelIndex, pyqtSignal, QPoint, QSize
 from typing import List
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
@@ -41,6 +41,8 @@ class TalentTab(QWidget):
 
     def create_model_and_load(self, settings_manager, icon_manager, cup_size_order: List[str]):
         """Called by the presenter to inject dependencies and trigger initial load."""
+        self.settings_manager = settings_manager
+        self.icon_manager = icon_manager
         if self.talent_model is None:
             self.talent_model = TalentTableModel(
                 settings_manager=settings_manager,
@@ -51,6 +53,10 @@ class TalentTab(QWidget):
             self._configure_table_view_headers()
             self._load_and_apply_column_visibility()
             self._setup_visibility_controls()
+
+            self.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
+            self._update_table_icon_size()
+
             self.initial_load_requested.emit()
 
     def setup_ui(self):
@@ -119,6 +125,17 @@ class TalentTab(QWidget):
         self.talent_table_view.setSortingEnabled(True)
         self.talent_table_view.sortByColumn(0, Qt.SortOrder.AscendingOrder)
         self.talent_table_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+
+    def _on_setting_changed(self, key):
+        if key == "font_size":
+            self._update_table_icon_size()
+
+    def _update_table_icon_size(self):
+        """Calculates and sets the table icon size based on font scaling."""
+        target_size = self.icon_manager.get_target_size()
+        width = target_size.width()
+        height = int(width / 1.5) # Roughly 3:2 aspect ratio for flags
+        self.talent_table_view.setIconSize(QSize(width, height))
 
     def _configure_table_view_headers(self):
         """Sets the initial column sizes."""

@@ -86,7 +86,12 @@ class DetailsWidget(QWidget):
         self.nationality_label.setText(data['nationality'])
         flag_icon = self.icon_manager.get_flag_icon(data['nationality'])
         if not flag_icon.isNull():
-             self.nationality_icon_label.setPixmap(flag_icon.pixmap(24, 16))
+             # Calculate scaled flag size maintaining roughly 3:2 aspect ratio
+             target_sq = self.icon_manager.get_target_size().width()
+             width = target_sq
+             height = int(target_sq / 1.5)
+             self.nationality_icon_label.setFixedSize(width, height)
+             self.nationality_icon_label.setPixmap(flag_icon.pixmap(width, height))
              self.nationality_icon_label.setVisible(True)
         else:
              self.nationality_icon_label.setVisible(False)

@@ -94,3 +94,4 @@ class MainWindowView(QWidget):
     def set_font_from_settings(self, font):
         """Called when font settings change."""
         self.bottom_bar.setFont(font)
+        self.top_bar.refresh_icons()
