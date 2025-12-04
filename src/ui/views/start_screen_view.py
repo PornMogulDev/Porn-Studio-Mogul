@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ui.widgets.clickable_svg_widget import ClickableSvgWidget
-from ui.widgets.menu_button import MenuButton
+from ui.widgets.buttons.menu_button import MenuButton
 from utils.paths import DISCORD_LOGO, GITHUB_LOGO, REDDIT_LOGO, F95_LOGO
 
 class StartScreenView(QWidget):

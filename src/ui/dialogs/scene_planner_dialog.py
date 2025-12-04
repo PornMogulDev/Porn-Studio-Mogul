@@ -20,7 +20,7 @@ from ui.widgets.scene_planner.action_segment_widget import ActionSegmentItemWidg
 from ui.widgets.scene_planner.slot_assignment_widget import SlotAssignmentWidget
 from ui.widgets.preset_widget import PresetWidget
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
-from ui.widgets.help_button import HelpButton
+from ui.widgets.buttons.help_button import HelpButton
 
 if TYPE_CHECKING:
     from ui.managers.ui_manager import UIManager

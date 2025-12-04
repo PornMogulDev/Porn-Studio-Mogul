@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import ( QHBoxLayout, QLabel, QSizePolicy,
     QSpacerItem, QWidget, QToolButton
 )
 
-from ui.widgets.help_button import HelpButton
+from ui.widgets.buttons.help_button import HelpButton
 from ui.managers.icon_manager import IconManager
 
 class TopBarWidget(QWidget):

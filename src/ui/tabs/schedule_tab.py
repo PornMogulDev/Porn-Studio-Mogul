@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QStandardItemModel, QStandardItem
 
 from ui.view_models import ScheduleWeekViewModel
-from ui.widgets.help_button import HelpButton
+from ui.widgets.buttons.help_button import HelpButton
 
 class ScheduleTab(QWidget):
     """

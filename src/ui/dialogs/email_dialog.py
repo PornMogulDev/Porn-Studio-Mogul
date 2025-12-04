@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, QTimer
 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
-from ui.widgets.help_button import HelpButton
+from ui.widgets.buttons.help_button import HelpButton
 from ui.widgets.revert_geometry_button import RestoreGeometryButton
 from ui.view_models import EmailListItemViewModel, EmailContentViewModel
 from ui.presenters.email_presenter import EmailPresenter

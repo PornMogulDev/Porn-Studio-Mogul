@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 
 from ui.view_models import MarketGroupViewModel, SentimentViewModel
-from ui.widgets.help_button import HelpButton
+from ui.widgets.buttons.help_button import HelpButton
 
 class MarketTab(QWidget):
     """

@@ -8,9 +8,9 @@ from PyQt6.QtWidgets import (
 )
 
 from data.game_state import Talent
-from ui.widgets.help_button import HelpButton
+from ui.widgets.buttons.help_button import HelpButton
 from ui.models.talent_table_model import TalentTableModel
-from ui.widgets.view_menu_button import ViewMenuButton
+from ui.widgets.buttons.view_menu_button import ViewMenuButton
 from ui.widgets.role_details_widget import RoleDetailsWidget
 from ui.widgets.scene_summary_widget import SceneSummaryWidget
 from ui.widgets.entity_card.smart_table_view import SmartTableView
@@ -21,7 +21,6 @@ class TalentTab(QWidget):
     context_menu_requested = pyqtSignal(list, QPoint)
     add_talent_to_category_requested = pyqtSignal(list, int)
     remove_talent_from_category_requested = pyqtSignal(list, int)
-    open_advanced_filters_requested = pyqtSignal(dict) # Kept for compatibility, though likely deprecated by side panel
     open_talent_profile_requested = pyqtSignal(object)
     initial_load_requested = pyqtSignal()
     help_requested = pyqtSignal(str)
@@ -129,9 +128,10 @@ class TalentTab(QWidget):
         self.toggle_filter_btn = QToolButton()
         self.toggle_filter_btn.setCheckable(True)
         self.toggle_filter_btn.setChecked(True)
-        self.toggle_filter_btn.setArrowType(Qt.ArrowType.RightArrow)
+        # Initial Icon state (Expanded -> chevron_right to close)
+        self.icon_manager.apply_icon(self.toggle_filter_btn, "chevron_right", "accent")
+        
         self.toggle_filter_btn.setToolTip("Collapse Filters")
-        self.toggle_filter_btn.setFixedWidth(20)
         self.toggle_filter_btn.setFixedWidth(20)
         self.toggle_filter_btn.setSizePolicy(
             QSizePolicy.Policy.Fixed,
@@ -197,12 +197,21 @@ class TalentTab(QWidget):
         
         if self.talent_filter_widget:
             self.talent_filter_widget.setVisible(visible)
-            
+        
+        # Collapse/expand the entire filter sidebar in the splitter
+        sizes = self.main_splitter.sizes()
         if visible:
-            self.toggle_filter_btn.setArrowType(Qt.ArrowType.RightArrow)
+            # Restore: give filter panel reasonable space (e.g., 250px or 20% of total)
+            if sizes[2] < 200:  # If currently collapsed
+                total = sum(sizes)
+                self.main_splitter.setSizes([sizes[0], total - 250, 250])
+            self.icon_manager.apply_icon(self.toggle_filter_btn, "chevron_right", "accent")
             self.toggle_filter_btn.setToolTip("Collapse Filters")
         else:
-            self.toggle_filter_btn.setArrowType(Qt.ArrowType.LeftArrow)
+            # Collapse: set filter panel width to just the button width (20px)
+            total = sum(sizes)
+            self.main_splitter.setSizes([sizes[0], total - 20, 20])
+            self.icon_manager.apply_icon(self.toggle_filter_btn, "chevron_left", "accent")
             self.toggle_filter_btn.setToolTip("Expand Filters")
 
     # --- Info Panel Management ---
@@ -256,6 +265,8 @@ class TalentTab(QWidget):
             if key == "font_size":
                 self._update_table_icon_size()
             self.view_options_button.refresh_icon()
+            # Refresh toggle icon (re-applies icon with current theme colors)
+            self.set_filter_panel_visible(self.is_filter_panel_expanded)
 
     def _update_table_icon_size(self):
         """Calculates and sets the table icon size based on font scaling."""

@@ -431,5 +431,19 @@ class ThemeManager:
             QToolButton:hover {{
                 background-color: {theme.background_light};
             }}
+
+            /* --- Splitter Styling --- */
+
+            QSplitter::handle {{
+                background-color: transparent;
+            }}
+            QSplitter::handle:horizontal {{
+                width: 2px;
+                background-color: {theme.accent};
+            }}
+            QSplitter::handle:vertical {{
+                height: 2px;
+                background-color: {theme.accent};
+            }}
             """
         return qss

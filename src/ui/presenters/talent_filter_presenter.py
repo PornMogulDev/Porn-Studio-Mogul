@@ -3,13 +3,13 @@ from PyQt6.QtCore import QObject, pyqtSlot
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from ui.dialogs.talent_filter_dialog import TalentFilterDialog
+    from ui.widgets.talent_filter_widget import TalentFilterWidget
     from core.interfaces import IGameController
 from data.settings_manager import SettingsManager
 from utils.preset_handler import PresetHandler
 
 class TalentFilterPresenter(QObject):
-    def __init__(self, view: 'TalentFilterDialog', controller: 'IGameController', initial_filters: dict, settings_manager: 'SettingsManager'):
+    def __init__(self, view: 'TalentFilterWidget', controller: 'IGameController', initial_filters: dict, settings_manager: 'SettingsManager'):
         super().__init__()
         self.controller = controller
         self.view = view
