@@ -53,8 +53,13 @@ class SettingsManager:
             "talent_profile_last_layout": None,
             "talent_filter_presets": {},
             "scene_planner_presets": {},
-            "hiring_dashboard_panel_visibility": {},
             "ai_studio_panel_visibility": {},
+            
+            # Casting Mode Preferences
+            "casting_mode_show_role_details": True,
+            "casting_mode_show_scene_summary": True,
+            "auto_hide_filter_on_casting": True,
+            "demand_column_user_preference": True,
         }
         self.settings = self._load_settings()
 

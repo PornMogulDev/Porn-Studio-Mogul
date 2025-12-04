@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QGroupBox, QHBoxLayout, QLabel, 
-    QComboBox, QDialogButtonBox, QPushButton, QFontComboBox, QSpinBox
+    QComboBox, QDialogButtonBox, QPushButton, QFontComboBox,
+    QSpinBox, QCheckBox
 )
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QFont
@@ -79,6 +80,24 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         display_v_layout.addLayout(font_size_layout)
         
         main_layout.addWidget(display_group)
+
+        # --- Casting Mode Behavior Group ---
+        casting_group = QGroupBox("Casting Mode Behavior")
+        casting_v_layout = QVBoxLayout(casting_group)
+
+        self.cb_show_role_details = QCheckBox("Show Role Details Panel")
+        self.cb_show_role_details.setToolTip("Displays the role description and requirements in the sidebar when casting.")
+        casting_v_layout.addWidget(self.cb_show_role_details)
+
+        self.cb_show_scene_summary = QCheckBox("Show Scene Summary Panel")
+        self.cb_show_scene_summary.setToolTip("Displays the scene summary (performers, tags) in the sidebar when casting.")
+        casting_v_layout.addWidget(self.cb_show_scene_summary)
+
+        self.cb_auto_hide_filter = QCheckBox("Auto-collapse Filter on Apply")
+        self.cb_auto_hide_filter.setToolTip("Automatically collapses the filter sidebar after applying filters in casting mode.")
+        casting_v_layout.addWidget(self.cb_auto_hide_filter)
+
+        main_layout.addWidget(casting_group)
         
         # --- Window Layout Group ---
         layout_group = QGroupBox("Window Layout")
@@ -137,6 +156,11 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         self.font_combo.setCurrentFont(QFont(vm.font_family))
         self.font_size_spinbox.setValue(vm.font_size)
 
+        # Load Casting Mode settings
+        self.cb_show_role_details.setChecked(vm.casting_mode_show_role_details)
+        self.cb_show_scene_summary.setChecked(vm.casting_mode_show_scene_summary)
+        self.cb_auto_hide_filter.setChecked(vm.auto_hide_filter_on_casting)
+
         # Unblock signals now that setup is complete.
         self.unit_combo.blockSignals(False)
         self.theme_combo.blockSignals(False)
@@ -155,6 +179,14 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
     def get_selected_font_size(self) -> int:
         """Allows the presenter to get the final selected font size."""
         return self.font_size_spinbox.value()
+    
+    def get_casting_mode_settings(self) -> dict:
+        """Returns a dict of the casting mode boolean settings."""
+        return {
+            "casting_mode_show_role_details": self.cb_show_role_details.isChecked(),
+            "casting_mode_show_scene_summary": self.cb_show_scene_summary.isChecked(),
+            "auto_hide_filter_on_casting": self.cb_auto_hide_filter.isChecked()
+        }
 
     # The accept and reject methods are now empty shells. The presenter's slots,
     # connected to the accepted/rejected signals, contain all the logic.

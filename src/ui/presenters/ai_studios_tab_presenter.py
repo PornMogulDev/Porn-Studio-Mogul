@@ -13,28 +13,11 @@ class AIStudiosTabPresenter(QObject):
         self.controller = controller
         self.view = view
         
-        self._setup_view_menu()
         self._connect_signals()
-        
-    def _setup_view_menu(self):
-        # Load saved visibility or default to True
-        settings = self.controller.settings_manager.get_setting("ai_studio_panel_visibility", {})
-        
-        items = [
-            {"key": "list", "name": "Studio List", "visible": settings.get("list", True), "enabled": False}, # Always show list for nav
-            {"key": "details", "name": "Studio Details", "visible": settings.get("details", True)},
-            {"key": "scenes", "name": "Filmography", "visible": settings.get("scenes", True)},
-        ]
-        self.view.view_menu_button.set_items(items)
-        
-        # Apply initial visibility
-        for item in items:
-            self.view.set_widget_visibility(item["key"], item["visible"])
-
+    
     def _connect_signals(self):
         # View events
         self.view.list_widget.studio_selected.connect(self._on_studio_selected)
-        self.view.view_menu_button.visibility_changed.connect(self._on_visibility_changed)
         
         # Controller events (refresh data when week advances)
         self.controller.signals.time_changed.connect(self.refresh)
@@ -86,11 +69,3 @@ class AIStudiosTabPresenter(QObject):
                 ))
             
             self.view.scenes_widget.set_scenes(scene_vms)
-
-    def _on_visibility_changed(self, key: str, visible: bool):
-        self.view.set_widget_visibility(key, visible)
-        
-        # Save setting
-        settings = self.controller.settings_manager.get_setting("ai_studio_panel_visibility", {})
-        settings[key] = visible
-        self.controller.settings_manager.set_setting("ai_studio_panel_visibility", settings)

@@ -2,8 +2,9 @@ from PyQt6.QtCore import Qt, QModelIndex, pyqtSignal, QPoint, QSize
 from typing import List
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLineEdit, QMenu, QTableView, QHeaderView, QSplitter
+    QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
+    QLineEdit, QMenu, QTableView, QHeaderView, 
+    QToolButton, QSizePolicy
 )
 
 from data.game_state import Talent
@@ -11,6 +12,7 @@ from ui.widgets.help_button import HelpButton
 from ui.models.talent_table_model import TalentTableModel
 from ui.widgets.view_menu_button import ViewMenuButton
 from ui.widgets.role_details_widget import RoleDetailsWidget
+from ui.widgets.scene_summary_widget import SceneSummaryWidget
 from ui.widgets.entity_card.smart_table_view import SmartTableView
 
 class TalentTab(QWidget):
@@ -19,31 +21,45 @@ class TalentTab(QWidget):
     context_menu_requested = pyqtSignal(list, QPoint)
     add_talent_to_category_requested = pyqtSignal(list, int)
     remove_talent_from_category_requested = pyqtSignal(list, int)
-    open_advanced_filters_requested = pyqtSignal(dict)
+    open_advanced_filters_requested = pyqtSignal(dict) # Kept for compatibility, though likely deprecated by side panel
     open_talent_profile_requested = pyqtSignal(object)
     initial_load_requested = pyqtSignal()
     help_requested = pyqtSignal(str)
     smart_hover_entered = pyqtSignal(object, QPoint)
     smart_hover_left = pyqtSignal()
+    
+    # New Signals
+    filter_panel_toggled = pyqtSignal(bool)
 
     def __init__(self, icon_manager):
         super().__init__()
         self.icon_manager = icon_manager
         self.talent_model = None
         self.advanced_filters = {}
+        self.settings_manager = None
+        self.is_filter_panel_expanded = True
         
         # --- UI Components ---
         self.view_options_button: ViewMenuButton = None
         self.role_details_widget: RoleDetailsWidget = None
+        self.scene_summary_widget: SceneSummaryWidget = None
         self.talent_table_view: SmartTableView = None
         self.main_splitter: QSplitter = None
+        self.info_panel_container: QWidget = None
+        self.filter_sidebar_container: QWidget = None
+        self.talent_filter_widget = None
         
         self.setup_ui()
 
-    def create_model_and_load(self, settings_manager, icon_manager, cup_size_order: List[str]):
+    def create_model_and_load(self, settings_manager, icon_manager, ui_manager, cup_size_order: List[str]):
         """Called by the presenter to inject dependencies and trigger initial load."""
         self.settings_manager = settings_manager
         self.icon_manager = icon_manager
+        
+        # Inject UI Manager into summary widget for smart links
+        if self.scene_summary_widget:
+            self.scene_summary_widget.ui_manager = ui_manager
+
         if self.talent_model is None:
             self.talent_model = TalentTableModel(
                 settings_manager=settings_manager,
@@ -64,52 +80,160 @@ class TalentTab(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
 
-        # --- Top controls container (outside the splitter) ---
+        # --- Top controls container ---
         top_bar_layout = QHBoxLayout()
         help_btn = HelpButton("talent", self.icon_manager, self)
-        self.view_options_button = ViewMenuButton(self)
-        self.view_options_button.setToolTip("Show/Hide Panels & Columns")
+        self.view_options_button = ViewMenuButton(self.icon_manager, self)
+        self.view_options_button.setToolTip("Show/Hide Columns")
+        
         self.name_filter_input = QLineEdit(placeholderText="Filter by name...")
-        self.advanced_filter_btn = QPushButton("Advanced Filter...")
+        # Note: Advanced Filter button removed as filters are now integrated in the sidebar
         
         top_bar_layout.addWidget(help_btn)
         top_bar_layout.addWidget(self.view_options_button)
         top_bar_layout.addWidget(self.name_filter_input)
-        top_bar_layout.addWidget(self.advanced_filter_btn)
         main_layout.addLayout(top_bar_layout)
 
-        # --- Main Splitter Layout ---
-        self.main_splitter = QSplitter(Qt.Orientation.Vertical, self)
+        # --- Main Splitter (Horizontal) ---
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal, self)
         
-        # Top Pane: Role Details
+        # 1. Left Pane: Info Panel (Vertical Splitter inside a Widget)
+        self.info_panel_container = QWidget()
+        info_layout = QVBoxLayout(self.info_panel_container)
+        info_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.info_splitter = QSplitter(Qt.Orientation.Vertical)
         self.role_details_widget = RoleDetailsWidget(self)
-        self.role_details_widget.hide() # Start hidden
+        self.scene_summary_widget = SceneSummaryWidget(parent=self)
         
-        # Bottom Pane: Talent Table
+        self.info_splitter.addWidget(self.role_details_widget)
+        self.info_splitter.addWidget(self.scene_summary_widget)
+        info_layout.addWidget(self.info_splitter)
+        
+        # Initially hidden (only shown in Casting Mode)
+        self.info_panel_container.hide() 
+        self.main_splitter.addWidget(self.info_panel_container)
+        
+        # 2. Middle Pane: Talent Table
         self.talent_table_view = SmartTableView()
         self._configure_table_view_properties()
-
-        self.main_splitter.addWidget(self.role_details_widget)
         self.main_splitter.addWidget(self.talent_table_view)
+        
+        # 3. Right Pane: Filter Sidebar
+        self.filter_sidebar_container = QWidget()
+        self.filter_sidebar_layout = QHBoxLayout(self.filter_sidebar_container)
+        self.filter_sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        self.filter_sidebar_layout.setSpacing(0)
+        
+        # Toggle Button (Chevron)
+        self.toggle_filter_btn = QToolButton()
+        self.toggle_filter_btn.setCheckable(True)
+        self.toggle_filter_btn.setChecked(True)
+        self.toggle_filter_btn.setArrowType(Qt.ArrowType.RightArrow)
+        self.toggle_filter_btn.setToolTip("Collapse Filters")
+        self.toggle_filter_btn.setFixedWidth(20)
+        self.toggle_filter_btn.setFixedWidth(20)
+        self.toggle_filter_btn.setSizePolicy(
+            QSizePolicy.Policy.Fixed,
+            QSizePolicy.Policy.Expanding  # Match vertical height
+        )
+        
+        self.toggle_filter_btn.clicked.connect(self._toggle_filter_panel)
+        
+        self.filter_sidebar_layout.addWidget(self.toggle_filter_btn)
+        
+        # Placeholder for the filter widget (injected later)
+        self.filter_placeholder_layout = QVBoxLayout()
+        self.filter_sidebar_layout.addLayout(self.filter_placeholder_layout)
+        
+        self.main_splitter.addWidget(self.filter_sidebar_container)
         main_layout.addWidget(self.main_splitter)
 
-        # --- Fine-tune initial layout ---
-        self.main_splitter.setSizes([200, 800]) # Give more space to table by default
-        self.main_splitter.setStretchFactor(1, 1) # Allow table to grow more
+        # --- Layout Priorities ---
+        self.main_splitter.setStretchFactor(0, 0) # Info Panel
+        self.main_splitter.setStretchFactor(1, 1) # Table (grows)
+        self.main_splitter.setStretchFactor(2, 0) # Filter Panel
 
         # --- Connections ---
         self.talent_table_view.customContextMenuRequested.connect(self.show_talent_list_context_menu)
         self.talent_table_view.doubleClicked.connect(self.show_talent_profile)
         self.name_filter_input.textChanged.connect(self.filter_talent_list)
         
-        # Now these connections will work because the signals are defined above
         self.talent_table_view.smart_hover_entered.connect(self.smart_hover_entered)
         self.talent_table_view.smart_hover_left.connect(self.smart_hover_left)
+        self.talent_table_view.smart_alt_clicked.connect(self.show_talent_profile_direct)
         
-        self.advanced_filter_btn.clicked.connect(lambda: self.open_advanced_filters_requested.emit(self.advanced_filters))
         self.view_options_button.visibility_changed.connect(self._on_visibility_changed)
         help_btn.help_requested.connect(self.help_requested)
-        self.talent_table_view.smart_alt_clicked.connect(self.show_talent_profile_direct)
+
+    def set_filter_widget(self, widget: QWidget):
+        """Injected by Presenter. Replaces any placeholder in the right sidebar."""
+        self.talent_filter_widget = widget
+        self.filter_sidebar_layout.addWidget(widget)
+        # Ensure initial state matches toggle button
+        widget.setVisible(self.is_filter_panel_expanded)
+        
+        # Forward signals from the embedded widget
+        # Assuming widget has 'filters_applied' signal
+        if hasattr(widget, 'filters_applied'):
+            widget.filters_applied.connect(self.on_filters_applied)
+        # Also connect local role selection signals if present
+        if hasattr(widget, 'scene_selected'):
+            # These might be connected directly by the presenter, 
+            # but we ensure the view hierarchy is respected if needed.
+            pass
+
+    def _toggle_filter_panel(self):
+        """Internal slot to toggle filter visibility and update icon."""
+        self.is_filter_panel_expanded = not self.is_filter_panel_expanded
+        self.set_filter_panel_visible(self.is_filter_panel_expanded)
+        # Emit signal if presenter needs to track/save this state
+        self.filter_panel_toggled.emit(self.is_filter_panel_expanded)
+
+    def set_filter_panel_visible(self, visible: bool):
+        """Programmatically set filter panel state."""
+        self.is_filter_panel_expanded = visible
+        self.toggle_filter_btn.setChecked(visible)
+        
+        if self.talent_filter_widget:
+            self.talent_filter_widget.setVisible(visible)
+            
+        if visible:
+            self.toggle_filter_btn.setArrowType(Qt.ArrowType.RightArrow)
+            self.toggle_filter_btn.setToolTip("Collapse Filters")
+        else:
+            self.toggle_filter_btn.setArrowType(Qt.ArrowType.LeftArrow)
+            self.toggle_filter_btn.setToolTip("Expand Filters")
+
+    # --- Info Panel Management ---
+
+    def set_info_panel_visible(self, visible: bool):
+        """Shows or hides the entire left sidebar."""
+        self.info_panel_container.setVisible(visible)
+
+    def configure_info_panel(self, show_role: bool, show_summary: bool):
+        """Configures which widgets are visible inside the info panel."""
+        self.role_details_widget.setVisible(show_role)
+        self.scene_summary_widget.setVisible(show_summary)
+        
+        # If both are hidden, hide the container to save space
+        if not show_role and not show_summary:
+            self.info_panel_container.hide()
+
+    def update_scene_summary(self, summary_data: dict):
+        """Updates the scene summary widget."""
+        self.scene_summary_widget.update_summary(summary_data)
+
+    def display_role_details(self, html: str):
+        """Updates the content of the role details panel."""
+        self.role_details_widget.update_role_details(html)
+    
+    def clear_role_details(self):
+        """Clears the role details display and shows the placeholder."""
+        self.role_details_widget.clear()
+        self.scene_summary_widget.update_summary({}) # Clear summary too
+
+    # --- Existing Functionality ---
 
     def show_talent_profile_direct(self, talent):
          self.open_talent_profile_requested.emit(talent)
@@ -128,8 +252,10 @@ class TalentTab(QWidget):
         self.talent_table_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
     def _on_setting_changed(self, key):
-        if key == "font_size":
-            self._update_table_icon_size()
+        if key in {"font_size", "theme"}:
+            if key == "font_size":
+                self._update_table_icon_size()
+            self.view_options_button.refresh_icon()
 
     def _update_table_icon_size(self):
         """Calculates and sets the table icon size based on font scaling."""
@@ -166,20 +292,12 @@ class TalentTab(QWidget):
 
     # --- Public Methods for Presenter ---
 
-    def display_role_details(self, html: str):
-        """Updates the content of the role details panel."""
-        self.role_details_widget.update_role_details(html)
-    
-    def clear_role_details(self):
-        """Clears the role details display and shows the placeholder."""
-        self.role_details_widget.clear()
-
     def set_role_details_panel_visible(self, visible: bool):
-        """Programmatically sets the visibility of the role details panel."""
+        # Deprecated: logic moved to configure_info_panel / set_info_panel_visible
+        # Kept temporarily if presenter still calls it directly
         self.role_details_widget.setVisible(visible)
-        self.view_options_button.update_item_visibility('__role_details', visible)
-        if self.talent_model:
-            self.talent_model.settings_manager.set_setting("talent_tab_role_details_visible", visible)
+        if visible and not self.info_panel_container.isVisible():
+             self.info_panel_container.setVisible(True)
 
     def update_talent_list(self, talents: list):
         self.talent_model.update_data(talents)
@@ -199,40 +317,42 @@ class TalentTab(QWidget):
     # --- Internal Logic & Slots ---
 
     def _setup_visibility_controls(self):
-        """Configures the ViewMenuButton for columns and panels."""
+        """Configures the ViewMenuButton for columns."""
         if not self.talent_model: return
         
-        is_panel_visible = self.talent_model.settings_manager.get_setting("talent_tab_role_details_visible", False)
-        self.role_details_widget.setVisible(is_panel_visible)
-        
-        items = [{
-            'key': '__role_details',
-            'name': 'Show Role Details',
-            'visible': self.role_details_widget.isVisible(),
-        }]
-        
-        column_items = [
-            {
-                'key': header, 'name': header,
-                'visible': not self.talent_table_view.isColumnHidden(i),
-            } for i, header in enumerate(self.talent_model.headers)
-        ]
-        items.extend(column_items)
+        items = []
+        for i, header in enumerate(self.talent_model.headers):
+            item = {
+                'key': header, 
+                'name': header,
+            }
+            if header == "Demand":
+                user_pref = self.settings_manager.get_setting("demand_column_user_preference", True)
+                item['visible'] = user_pref
+                item['tooltip'] = "This column is only visible during Casting Mode."
+            else:
+                item['visible'] = not self.talent_table_view.isColumnHidden(i)
+                item['tooltip'] = f"Toggle visibility of the {header} column."
+
+            items.append(item)
+
         self.view_options_button.set_items(items)
     
     def _on_visibility_changed(self, key: str, visible: bool):
-        """Handles visibility changes for columns and the role panel."""
         if not self.talent_model: return
 
-        if key == '__role_details':
-            self.set_role_details_panel_visible(visible)
+        self.view_options_button.update_item_visibility(key, visible)
+
+        if key == "Demand":
+            self.settings_manager.set_setting("demand_column_user_preference", visible)
+            # The presenter handles actual column showing/hiding based on mode
         else:
             try:
                 index = self.talent_model.headers.index(key)
                 self.talent_table_view.setColumnHidden(index, not visible)
                 self._save_column_visibility_settings()
             except ValueError:
-                pass # Header not found
+                pass 
             
     def _save_column_visibility_settings(self):
         if not self.talent_model: return
@@ -250,6 +370,8 @@ class TalentTab(QWidget):
         )
         visible_set = set(visible_columns)
         for i, header_text in enumerate(self.talent_model.headers):
+            # Special case: Demand column visibility is strictly controlled by logic + pref, not just saved state
+            if header_text == "Demand": continue 
             self.talent_table_view.setColumnHidden(i, header_text not in visible_set)
 
     def show_talent_profile(self, index: QModelIndex):
@@ -270,6 +392,15 @@ class TalentTab(QWidget):
         if selected_talents:
             global_pos = self.talent_table_view.viewport().mapToGlobal(pos)
             self.context_menu_requested.emit(selected_talents, global_pos)
+
+    def set_demand_column_visible(self, visible: bool):
+        """Public method for Presenter to control Demand column visibility based on mode."""
+        if not self.talent_model: return
+        if "Demand" in self.talent_model.headers:
+            index = self.talent_model.headers.index("Demand")
+            self.talent_table_view.setColumnHidden(index, not visible)
+            # Update the menu checkmark to reflect the actual state
+            self.view_options_button.update_item_visibility("Demand", visible)
 
     def display_talent_context_menu(self, talents: List[Talent], all_categories: list, pos: QPoint):
         menu = QMenu(self)

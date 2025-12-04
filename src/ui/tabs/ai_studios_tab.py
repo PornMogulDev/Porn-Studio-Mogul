@@ -3,7 +3,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from ui.widgets.view_menu_button import ViewMenuButton
 from ui.widgets.ai_studios.studio_list_widget import StudioListWidget
 from ui.widgets.ai_studios.studio_details_widget import StudioDetailsWidget
 from ui.widgets.ai_studios.studio_scenes_widget import StudioScenesWidget
@@ -26,13 +25,6 @@ class AIStudiosTab(QWidget, GeometryManagerMixin):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         
-        # --- Toolbar ---
-        toolbar_layout = QHBoxLayout()
-        self.view_menu_button = ViewMenuButton(self)
-        toolbar_layout.addWidget(self.view_menu_button)
-        toolbar_layout.addStretch()
-        layout.addLayout(toolbar_layout)
-
         # --- Main Splitter (Horizontal) ---
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         

@@ -3,12 +3,13 @@ from PyQt6.QtCore import QObject, pyqtSlot, QPoint, QRunnable, QThreadPool, pyqt
 
 from core.interfaces import IGameController
 from ui.tabs.talent_tab import TalentTab
-from ui.dialogs.talent_filter_dialog import TalentFilterDialog
+from ui.widgets.talent_filter_widget import TalentFilterWidget
 from data.game_state import Talent, Scene
 from database.db_models import TalentDB
 from utils.formatters import get_fuzzed_skill_range
 from ui.presenters.talent_filter_cache import TalentFilterCache, CastingTalentCache
 from ui.presenters.role_details_presenter import RoleDetailsPresenter
+from ui.builders.scene_summary_builder import prepare_summary_data
 
 if TYPE_CHECKING:
     from ui.managers.ui_manager import UIManager
@@ -50,8 +51,7 @@ class TalentTabPresenter(QObject):
         self.view = view
         self.ui_manager = ui_manager
         self.icon_manager = icon_manager
-        self.filter_dialog = None
-
+        
         self.view.presenter = self
 
         # --- Thread Pool for Background Tasks ---
@@ -63,18 +63,34 @@ class TalentTabPresenter(QObject):
         # --- Caching Mechanism ---
         self._all_talents_for_filtering: List[TalentDB] = []
         self._talent_filter_cache: Dict[int, TalentFilterCache] = {}
-        # Role-specific cache for calculated demands to prevent re-calculation on sub-filters
         self._demand_cache: Dict[int, int] = {}
         self._current_casting_context: Optional[Tuple[int, int]] = None # (scene_id, vp_id)
         self._cache_is_dirty = True
+        self._is_casting_mode = False
         
-        # Sequence ID to handle race conditions in background calculation updates
         self._filter_sequence_id = 0
 
+        # --- Initialize Filter Widget ---
+        self.filter_widget = TalentFilterWidget(
+            controller=self.controller,
+            ethnicities_hierarchy=self.controller.get_ethnicity_hierarchy(),
+            cup_sizes=self.controller.get_available_cup_sizes(),
+            nationalities=self.controller.get_available_nationalities(),
+            locations_by_region=self.controller.get_locations_by_region(),
+            go_to_categories=self.controller.get_go_to_list_categories(),
+            current_filters={},
+            settings_manager=self.controller.settings_manager,
+            parent=self.view
+        )
+        # Inject the widget into the view's layout
+        self.view.set_filter_widget(self.filter_widget)
+
         self._connect_signals()
+        
         self.view.create_model_and_load(
             self.controller.settings_manager,
             self.icon_manager,
+            self.ui_manager,
             self.controller.get_available_cup_sizes()
         )
 
@@ -83,15 +99,17 @@ class TalentTabPresenter(QObject):
         self.controller.signals.go_to_categories_changed.connect(self.view.refresh_from_state)
         self.controller.signals.go_to_list_changed.connect(self.view.refresh_from_state)
         self.controller.settings_manager.signals.setting_changed.connect(self.on_setting_changed)
+        
+        # View Signals
         self.view.initial_load_requested.connect(self.view.refresh_from_state)
         self.view.standard_filters_changed.connect(self.on_filters_changed)
         self.view.context_menu_requested.connect(self.on_context_menu_requested)
         self.view.add_talent_to_category_requested.connect(self.controller.add_talents_to_go_to_category)
         self.view.remove_talent_from_category_requested.connect(self.controller.remove_talents_from_go_to_category)
-        self.view.open_advanced_filters_requested.connect(self.on_open_advanced_filters)
         self.view.open_talent_profile_requested.connect(self.on_open_talent_profile)
         self.view.help_requested.connect(self.on_help_requested)
-        # Connect to internal handler to extract ID from data object
+        
+        # Internal Handler for table hover
         self.view.smart_hover_entered.connect(self._on_table_hover)
         self.view.smart_hover_left.connect(self.ui_manager.hide_talent_summary)
 
@@ -107,11 +125,49 @@ class TalentTabPresenter(QObject):
         if talent_id:
             self.ui_manager.show_talent_summary(talent_id, pos)
 
-    def _stop_casting_mode(self):
-        """Resets the tab from casting mode back to its general browsing state."""
+    def _update_casting_ui_state(self, scene_id: int, vp_id: int):
+        """
+        Manages the visibility and content of the Left Info Panel and Demand Column
+        based on the current casting context and user settings.
+        """
+        if self._is_casting_mode and scene_id and vp_id:
+            # 1. Update Layout Visibility
+            show_role = self.controller.settings_manager.get_setting("casting_mode_show_role_details", True)
+            show_summary = self.controller.settings_manager.get_setting("casting_mode_show_scene_summary", True)
+            
+            self.view.configure_info_panel(show_role, show_summary)
+            self.view.set_info_panel_visible(show_role or show_summary)
+            
+            # 2. Update Content
+            # Role Details
+            self.role_details_presenter.display_role(scene_id, vp_id)
+            
+            # Scene Summary
+            if scene := self.controller.get_scene_by_id(scene_id):
+                summary_data = prepare_summary_data(scene, self.controller)
+                self.view.update_scene_summary(summary_data)
+                
+            # 3. Auto-Collapse Filter (if enabled)
+            if self.controller.settings_manager.get_setting("auto_hide_filter_on_casting", True):
+                self.view.set_filter_panel_visible(False)
+                
+        else:
+            # Reset to browsing mode
+            self.view.set_info_panel_visible(False)
+            self.view.clear_role_details()
+            self.role_details_presenter.clear()
 
-        self.role_details_presenter.clear()
-        self.view.set_role_details_panel_visible(False)
+        # 4. Update Demand Column (Always runs)
+        self._update_demand_column()
+
+    def _update_demand_column(self):
+        """
+        Enforces the rule: Demand column is visible ONLY if 
+        User wants it (pref) AND we are in Casting Mode.
+        """
+        user_wants_it = self.controller.settings_manager.get_setting("demand_column_user_preference", True)
+        should_show = user_wants_it and self._is_casting_mode
+        self.view.set_demand_column_visible(should_show)
 
     @pyqtSlot()
     def _invalidate_filter_cache(self):
@@ -138,7 +194,7 @@ class TalentTabPresenter(QObject):
                 dom_range=(dom_fuzzed, dom_fuzzed) if isinstance(dom_fuzzed, int) else dom_fuzzed,
                 sub_range=(sub_fuzzed, sub_fuzzed) if isinstance(sub_fuzzed, int) else sub_fuzzed,
                 popularity=popularity,
-                effective_location=t_db.current_location # Default "smart" location is current location
+                effective_location=t_db.current_location
             )
         self._cache_is_dirty = False
 
@@ -146,15 +202,19 @@ class TalentTabPresenter(QObject):
         user_min_perf, user_max_perf = filters.get('performance_min', 0), filters.get('performance_max', 100)
         talent_min_perf, talent_max_perf = cache_item.perf_range
         if not (talent_min_perf <= user_max_perf and talent_max_perf >= user_min_perf): return False
+        
         user_min_act, user_max_act = filters.get('acting_min', 0), filters.get('acting_max', 100)
         talent_min_act, talent_max_act = cache_item.act_range
         if not (talent_min_act <= user_max_act and talent_max_act >= user_min_act): return False
+        
         user_min_stam, user_max_stam = filters.get('stamina_min', 0), filters.get('stamina_max', 100)
         talent_min_stam, talent_max_stam = cache_item.stam_range
         if not (talent_min_stam <= user_max_stam and talent_max_stam >= user_min_stam): return False
+        
         user_min_dom, user_max_dom = filters.get('dominance_min', 0), filters.get('dominance_max', 100)
         talent_min_dom, talent_max_dom = cache_item.dom_range
         if not (talent_min_dom <= user_max_dom and talent_max_dom >= user_min_dom): return False
+        
         user_min_sub, user_max_sub = filters.get('submission_min', 0), filters.get('submission_max', 100)
         talent_min_sub, talent_max_sub = cache_item.sub_range
         if not (talent_min_sub <= user_max_sub and talent_max_sub >= user_min_sub): return False
@@ -162,11 +222,19 @@ class TalentTabPresenter(QObject):
     
     @pyqtSlot(str)
     def on_setting_changed(self, key: str):
-        if key == 'unit_system' or 'font_size': self.view.talent_model.refresh()
+        if key in ('unit_system', 'font_size'): 
+            self.view.talent_model.refresh()
+        
+        # Handle Casting Mode UI Preference Changes
+        elif key in ('casting_mode_show_role_details', 'casting_mode_show_scene_summary', 'demand_column_user_preference'):
+            # Re-run the UI state update to reflect new settings immediately
+            if self._current_casting_context:
+                self._update_casting_ui_state(*self._current_casting_context)
+            else:
+                self._update_demand_column()
 
     @pyqtSlot(dict)
     def on_filters_changed(self, all_filters: dict):
-        # Increment sequence to invalidate any pending workers from previous filter state
         self._filter_sequence_id += 1
         current_seq_id = self._filter_sequence_id
 
@@ -174,12 +242,28 @@ class TalentTabPresenter(QObject):
 
         scene_id = all_filters.get('scene_id')
         vp_id = all_filters.get('vp_id')
+        
+        # Determine Mode
+        new_is_casting = (scene_id is not None and vp_id is not None and vp_id > -1)
+        
+        # Check if we are transitioning INTO casting mode (or changing roles within it)
+        mode_changed = (self._is_casting_mode != new_is_casting)
+        self._is_casting_mode = new_is_casting
+        
+        # Update Context
+        new_context = (scene_id, vp_id) if new_is_casting else None
+        
+        # Clear cache if context changed
+        if self._current_casting_context != new_context:
+            self._demand_cache.clear()
+            self._current_casting_context = new_context
+            
+        # Update Sidebar/Layout state
+        self._update_casting_ui_state(scene_id, vp_id)
 
-        if scene_id is not None and vp_id is not None and vp_id > -1:
+        if new_is_casting:
             # --- PATH A: Role-Specific Filtering ---
-            self.role_details_presenter.display_role(scene_id, vp_id) # Update the details panel
-            self.view.set_role_details_panel_visible(True) # Show the panel
-
+            
             # Separate attributes that can be filtered in SQL from skills that are fuzzy/in-memory
             attribute_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission', 'gender', 'ethnicities'))}
             
@@ -193,20 +277,13 @@ class TalentTabPresenter(QObject):
             # Perform optimized DB fetch with attribute filters applied
             base_candidates_db = self.controller.get_eligible_talent_for_role(scene_id, vp_id, attribute_filters)
 
-            # --- Orchestration Step 1: Prepare data for the worker ---
-            new_context = (scene_id, vp_id)
-            if self._current_casting_context != new_context:
-                self._demand_cache.clear()
-                self._current_casting_context = new_context
-
             # Pre-fetch scene data.
             scene_dc = self.controller.get_scene_by_id(scene_id)
             if not scene_dc:
                 self.view.update_talent_list([])
                 return
             
-            # --- Step 1.5: Pre-filter talents and pre-fetch all necessary location data ---
-            # base_candidates_db is already filtered by attributes. Now apply fuzzy skill filters (in-memory)
+            # --- Step 1: Pre-filter talents and pre-fetch all necessary location data ---
             talents_passing_skills_db = [
                 t_db for t_db in base_candidates_db 
                 if (filter_cache_item := self._talent_filter_cache.get(t_db.id)) and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters)
@@ -216,45 +293,37 @@ class TalentTabPresenter(QObject):
             talent_locations = self.controller.get_effective_locations_for_multiple_talents(
                 all_relevant_ids, scene_dc.scheduled_absolute_week
             )
-            # --- Step 1.6: Apply effective location filter after fetching locations ---
+            
+            # --- Step 2: Apply effective location filter ---
             if effective_location_filters := all_filters.get('effective_locations'):
                 talents_passing_skills_db = [
                     t_db for t_db in talents_passing_skills_db
                     if talent_locations.get(t_db.id) in effective_location_filters
                 ]
 
-            # --- Orchestration Step 2: Build the list for the UI, using cached demands where available ---
+            # --- Step 3: Build list using cached demands ---
             final_cache_items = []
             talent_ids_to_calculate = []
             for t_db in talents_passing_skills_db:
                 filter_cache_item = self._talent_filter_cache.get(t_db.id)
-                if filter_cache_item: # We know this is true from the pre-filter above
-                    # Use cached demand if it exists, otherwise mark for calculation
+                if filter_cache_item:
                     cached_demand = self._demand_cache.get(t_db.id)
-                    # Update the effective location for the context of this scene
                     filter_cache_item.effective_location = talent_locations.get(t_db.id, t_db.base_location)
                     final_cache_items.append(CastingTalentCache(**filter_cache_item.__dict__, demand=cached_demand))
                     if cached_demand is None:
                         talent_ids_to_calculate.append(t_db.id)
             
-            # --- Orchestration Step 3: Update UI immediately. Rows without demand will show "Calculating..." ---
             self.view.update_talent_list(final_cache_items)
 
-            # --- Orchestration Step 4: Start background calculation ONLY for missing demands ---
+            # --- Step 4: Background Calc ---
             if talent_ids_to_calculate:
-                # Pass all pre-fetched data to the worker.
                 talents_to_calc = self.controller.get_multiple_talents_by_ids(talent_ids_to_calculate)
                 worker = DemandCalculationWorker(self.controller, talents_to_calc, scene_dc, vp_id, talent_locations)
-                # Use lambda to capture the current sequence ID
                 worker.signals.finished.connect(lambda res: self._on_demand_calculation_finished(res, current_seq_id))
                 self.thread_pool.start(worker)
         else:
-            # --- PATH B: Standard, General Filtering ---
-            self._current_casting_context = None # Clear context when not in casting mode
-            self._stop_casting_mode()
-            # Separate filters for the DB query vs. the in-memory cache filter
+            # --- PATH B: Standard Filtering ---
             db_filters = {k: v for k, v in all_filters.items() if not k.startswith(('performance', 'acting', 'stamina', 'dominance', 'submission'))}
-            # Exclude effective_locations from the initial DB query as it's a dynamic value
             effective_location_filters = db_filters.pop('effective_locations', [])
             talents_from_db = self.controller.get_filtered_talents(db_filters)
 
@@ -262,9 +331,7 @@ class TalentTabPresenter(QObject):
             for t_db in talents_from_db:
                 filter_cache_item = self._talent_filter_cache.get(t_db.id)
                 if filter_cache_item and self._talent_passes_cached_skill_filters(filter_cache_item, all_filters):
-                    # In general mode, ensure effective location is the current location
                     filter_cache_item.effective_location = t_db.current_location
-                    # Apply the effective location filter in-memory
                     if effective_location_filters and filter_cache_item.effective_location not in effective_location_filters:
                         continue
                     cache_items_passing_skills.append(filter_cache_item)
@@ -273,60 +340,29 @@ class TalentTabPresenter(QObject):
     @pyqtSlot(dict)
     def _on_demand_calculation_finished(self, demands: dict, seq_id: int):
         """Slot to receive results from the background worker and update the model."""
-        # Race condition check: Discard results if filters have changed since this worker started
         if seq_id != self._filter_sequence_id:
             return
 
-        # Update the presenter's demand cache first
         self._demand_cache.update(demands)
 
-        # Then, update the underlying data in the model with the newly calculated values
         model_data = self.view.talent_model.raw_data
         for item in model_data:
             if isinstance(item, CastingTalentCache):
-                if item.demand is None: # Only update if it was previously None
+                if item.demand is None:
                     item.demand = demands.get(item.talent_db.id)
         
-        # Tell the view to redraw itself with the new data
         self.view.talent_model.refresh()
 
     @pyqtSlot(list, QPoint)
     def on_context_menu_requested(self, talents: List[Talent], pos: QPoint):
         self.view.display_talent_context_menu(talents, self.controller.get_go_to_list_categories(), pos)
 
-    @pyqtSlot(dict)
-    def on_open_advanced_filters(self, current_filters: dict):
-        if self.filter_dialog is None:
-            self.filter_dialog = TalentFilterDialog(
-                controller=self.controller,
-                ethnicities_hierarchy=self.controller.get_ethnicity_hierarchy(),
-                cup_sizes=self.controller.get_available_cup_sizes(),
-                nationalities=self.controller.get_available_nationalities(),
-                locations_by_region=self.controller.get_locations_by_region(),
-                go_to_categories=self.controller.get_go_to_list_categories(),
-                current_filters=current_filters,
-                settings_manager=self.controller.settings_manager,
-                parent=self.view,
-            )
-            self.filter_dialog.filters_applied.connect(self.view.on_filters_applied)
-            self.filter_dialog.finished.connect(self.on_filter_dialog_closed)
-            self.filter_dialog.show()
-        else:
-            self.filter_dialog.raise_()
-            self.filter_dialog.activateWindow()
-     
-    def on_filter_dialog_closed(self, result):
-        self.filter_dialog = None
-    
     @pyqtSlot(object)
     def on_open_talent_profile(self, talent_data: Union[Talent, TalentDB, TalentFilterCache, CastingTalentCache]):
-        # Handle various data types that might come from the table or context menu
-        if hasattr(talent_data, 'talent_db'): # It's a cache object
+        if hasattr(talent_data, 'talent_db'):
             talent_data = talent_data.talent_db
-            
         if isinstance(talent_data, TalentDB): 
             talent_data = talent_data.to_dataclass(Talent)
-            
         self.ui_manager.show_talent_profile(talent_data)
 
     @pyqtSlot(str)

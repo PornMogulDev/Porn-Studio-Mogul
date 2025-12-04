@@ -117,12 +117,14 @@ class SceneViewModel:
 # --- SETTINGS DIALOG ---
 @dataclass
 class SettingsViewModel:
-    """Holds the initial state of settings to populate the dialog."""
     unit_system: str
     theme: str
     font_family: str
     font_size: int
-
+    casting_mode_show_role_details: bool = True
+    casting_mode_show_scene_summary: bool = True
+    auto_hide_filter_on_casting: bool = True
+    
 # --- EMAIL DIALOG ---
 @dataclass
 class EmailListItemViewModel:

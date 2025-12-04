@@ -1,78 +1,109 @@
-### Objective
-Ensure that all application icons (SVG-based and colored via `IconManager`) are generated at a resolution proportional to the user's selected `font_size` setting. When the font size changes, the icon cache should flush, and the UI should update to display crisply scaled icons.
+### 1. Settings Configuration
+Define the new user preferences required to manage the layout behavior.
 
-### Strategy
+*   **File:** `data/settings_manager.py` (or via `SettingsDialogPresenter` logic)
+*   **New Keys:**
+    *   `casting_mode_show_role_details`: `bool` (Default: `True`) - Toggles the top-left widget.
+    *   `casting_mode_show_scene_summary`: `bool` (Default: `True`) - Toggles the bottom-left widget.
+    *   `auto_hide_filter_on_casting`: `bool` (Default: `True`) - Automatically collapses the filter sidebar when "Apply" is clicked during casting.
+    *   `demand_column_user_preference`: `bool` (Default: `True`) - Stores whether the user *wants* to see the Demand column, separate from whether the mode allows it.
 
-1.  **Centralize Sizing Logic:** Modify `IconManager` to calculate the target icon size (in pixels) based on the `SettingsManager`'s font size property.
-2.  **Dynamic Generation:** Update the `_colorize_svg` method in `IconManager` to use this calculated size instead of the hardcoded 64x64 resolution.
-3.  **Cache Invalidation:** Connect `IconManager` to the `setting_changed` signal. If "font_size" changes, clear the internal icon cache.
-4.  **UI Refresh:** Implement a `refresh_styling()` or `refresh_icons()` pattern in the Views (Main Window, Top Bar, etc.) to re-request icons from the manager after a settings change.
+### 2. Refactor `ViewMenuButton`
+Change the button to use an Eye icon, strictly manage columns using Actions with ticks, and support tooltips.
 
----
+*   **File:** `ui/widgets/view_menu_button.py`
+*   **Changes:**
+    *   **Icon:** Set to "Eye" icon.
+    *   **Menu Logic:**
+        *   Iterate through items.
+        *   Create `QAction` for each item.
+        *   Set `action.setCheckable(True)`.
+        *   Set `action.setChecked(is_visible)`.
+        *   **Tooltip Support:** If the item dictionary contains a `tooltip` key, set `action.setToolTip(...)`. This is specifically for the "Demand" column clarification.
+        *   Connect `triggered` signal to `visibility_changed`.
+    *   **Removal:** Delete `QWidgetAction` and `QCheckBox` logic.
 
-### Implementation Plan
+### 3. Create `TalentFilterWidget`
+Convert the existing Dialog into a Widget for embedding in the Tab.
 
-#### 1. Modify `ui/managers/icon_manager.py`
+*   **File:** `ui/widgets/talent_filter_widget.py` (New File)
+*   **Source:** Copy logic from `ui/dialogs/talent_filter_dialog.py`.
+*   **Changes:**
+    *   Inherit `QWidget` instead of `QDialog`.
+    *   Remove `geometry_manager_mixin` (the Tab splitter will handle size).
+    *   Remove "Close" button.
+    *   Keep "Apply" and "Reset" buttons functionality.
+    *   Ensure layout is suitable for a sidebar (vertical constraints).
+*   **File:** `ui/dialogs/talent_filter_dialog.py`
+    *   Delete or deprecate.
 
-*   **Dependency Injection:** Ensure `SettingsManager` is passed into `__init__` (currently only `ThemeManager` is).
-*   **New Method `get_target_size()`:**
-    *   Retrieve `font_size` from settings (default 12pt).
-    *   Apply a scaling multiplier (e.g., `1.5` or `2.0`) to convert the point size to a pixel size suitable for icons (e.g., 12pt text -> 24px icon).
-    *   Return a `QSize`.
-*   **Update `_colorize_svg`:**
-    *   Replace `base_size = QSize(64, 64)` with `base_size = self.get_target_size()`.
-*   **Signal Handling:**
-    *   Connect to `self.settings_manager.signals.setting_changed`.
-    *   If the key is `"font_size"`, call `self._cache.clear()`.
-*   **Update `apply_icon`:**
-    *   Ensure that when applying an icon to a `QAbstractButton`, we also call `target.setIconSize(self.get_target_size())`. This ensures the button layout reserves enough space for the larger icon.
+### 4. Layout Restructuring (`TalentTab`)
+Implement the 3-column responsive layout with collapsible sidebars.
 
-#### 2. Modify `ui/widgets/main_window/top_bar_widget.py`
+*   **File:** `ui/tabs/talent_tab.py`
+*   **Layout Structure:**
+    *   **Main H-Splitter:**
+        *   **Left Widget:** `info_panel_container` (QWidget)
+            *   Layout: `QVBoxLayout` or `QSplitter` (Vertical).
+            *   Top: `RoleDetailsWidget`.
+            *   Bottom: `SceneSummaryWidget`.
+        *   **Middle Widget:** `TalentTableView`.
+        *   **Right Widget:** `filter_container` (QWidget)
+            *   Layout: `QHBoxLayout`.
+            *   **Left:** Chevron `QToolButton` (for toggling visibility).
+            *   **Right:** `TalentFilterWidget`.
+*   **Logic:**
+    *   **Collapsing Filters:**
+        *   Slot connected to Chevron button: Toggles `TalentFilterWidget` visibility.
+        *   Updates Chevron icon (`<` vs `>`).
+    *   **Casting Mode Layout:**
+        *   `set_info_panel_visible(visible: bool)`: Shows/Hides the entire Left Widget.
+        *   `configure_info_panel(show_role: bool, show_summary: bool)`: Shows/Hides specific widgets inside the Left Widget based on user settings.
 
-*   **New Method `refresh_icons()`:**
-    *   Move the logic that sets icons for buttons (Menu, Next Week, etc.) into this method (or call `setup_ui` logic that is safe to re-run).
-    *   Specifically, re-call `icon_manager.apply_icon(...)` for the **Inbox** button, as its icon depends on state ("read" vs "unread").
-    *   Ensure standard buttons (Menu, Next Week) have their icons re-set so they pick up the new resolution.
+### 5. `TalentTabPresenter` Implementation
+The Presenter becomes the central coordinator for the view's layout state and data flow.
 
-#### 3. Modify `ui/widgets/main_window/bottom_bar_widget.py` (and similar widgets)
+*   **File:** `ui/presenters/talent_tab_presenter.py`
+*   **Logic Updates:**
+    *   **Initialization:**
+        *   Load settings (`casting_mode_*`).
+        *   Initialize `TalentFilterWidget` and connect its `apply` signal to `on_filters_changed`.
+        *   Connect `ViewMenuButton` signals.
+    *   **Column Visibility Logic (`Demand`):**
+        *   Intercept column toggle requests.
+        *   If "Demand" is toggled: Update `demand_column_user_preference` setting.
+        *   **Calculation:** Actual visibility = `demand_column_user_preference` AND `is_casting_mode`.
+        *   Apply visibility to View.
+    *   **Casting Mode State Machine (`on_filters_changed`):**
+        *   Determine `is_casting_mode` (Scene ID & VP ID present).
+        *   **If Casting Mode:**
+            *   Show Left Info Panel (if settings allow).
+            *   Update Role Details & Scene Summary data.
+            *   Calculate Demand Column visibility (User Pref + True).
+            *   If `auto_hide_filter_on_casting` is True: Trigger View to collapse filter sidebar.
+        *   **If Browsing Mode:**
+            *   Hide Left Info Panel (Table moves to Left).
+            *   Clear Role/Scene widgets.
+            *   Force Demand Column hidden (User Pref + False).
+    *   **View Menu Config:**
+        *   When populating the `ViewMenuButton`:
+        *   Add "Demand" item.
+        *   Set `tooltip`: "Only visible during Casting Mode" (or similar).
+        *   Set `checked`: Based on `demand_column_user_preference`.
 
-*   **New Method `refresh_icons()`:**
-    *   Similar to TopBar, iterate over buttons/labels that use icons and re-apply them via `IconManager`.
+### 6. Supporting Updates
 
-#### 4. Modify `ui/views/main_window_view.py`
+*   **File:** `ui/models/talent_table_model.py`
+    *   No major changes, ensure "Demand" index is retrievable.
+*   **File:** `ui/widgets/scene_summary_widget.py`
+    *   Ensure it handles empty data gracefully (already does, but verify `clear()`).
+*   **File:** `ui/managers/icon_manager.py`
+    *   Add `get_icon("eye")`, `get_icon("chevron_left")`, `get_icon("chevron_right")`.
 
-*   **Update `set_font_from_settings`:**
-    *   This method is already called when settings change.
-    *   Add calls to `self.top_bar.refresh_icons()` and `self.bottom_bar.refresh_icons()`.
+### Implementation Order
 
-#### 5. Modify `ui/widgets/talent_profile/details_widget.py`
-
-*   **Update `display_basic_info`:**
-    *   Currently, this sets a fixed size for the flag: `self.nationality_icon_label.setFixedSize(24, 16)`.
-    *   Change this to calculate dimensions based on `IconManager.get_target_size()` to maintain the aspect ratio but scale with the font.
-
-#### 6. Modify `ui/models/talent_table_model.py`
-
-*   **Update `refresh()`:**
-    *   The model handles data. The `IconManager` handles the cache.
-    *   When `font_size` changes, the Presenter will trigger a refresh.
-    *   The `data()` method calls `icon_manager.get_flag_icon`. Since the cache was cleared in Step 1, this will automatically generate a new, correctly sized Pixmap. No code changes needed here specifically, provided the Presenter triggers the refresh.
-
-#### 7. Modify `ui/presenters/main_window_presenter.py`
-
-*   **Signal Connection:**
-    *   Ensure the `on_setting_changed` slot handles `"font_size"`.
-    *   It should trigger `view.set_font_from_settings` (which now updates icons per Step 4).
-    *   It should also trigger a general app-wide refresh (like `refresh_main_window_data`) to force tables to redraw.
-
-### Expected Flow
-
-1.  User changes Font Size in Settings Dialog.
-2.  `SettingsManager` emits `setting_changed("font_size")`.
-3.  `IconManager` hears signal -> Clears `_cache`.
-4.  `MainWindowPresenter` hears signal -> Calls `view.set_font_from_settings()`.
-5.  `MainWindowView` updates stylesheet -> Calls `top_bar.refresh_icons()`.
-6.  `TopBarWidget` asks `IconManager` for "menu_icon".
-7.  `IconManager` calculates new size (e.g., 32px), generates new Pixmap, caches it, and returns `QIcon`.
-8.  `TopBarWidget` sets the new icon on the button.
-9.  Visual result: Icons grow/shrink to match the text legibility.
+1.  **Refactor Filter:** Create `TalentFilterWidget`.
+2.  **Refactor View Button:** Update `ViewMenuButton` to use Actions/Eye Icon.
+3.  **Refactor Tab Layout:** Rewrite `TalentTab` to use the 3-section Splitter layout and embed the new widgets.
+4.  **Refactor Presenter:** Implement the logic to coordinate visibility, settings, and the "Demand" column rules.
+5.  **Clean up:** Remove old Dialog files.

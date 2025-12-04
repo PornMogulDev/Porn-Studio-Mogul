@@ -27,6 +27,11 @@ class SettingsDialogPresenter(QObject):
         self.initial_theme = self.settings_manager.get_setting("theme")
         self.initial_font_family = self.settings_manager.font_family
         self.initial_font_size = self.settings_manager.font_size
+        
+        # Casting Mode Defaults
+        self.initial_show_role = self.settings_manager.get_setting("casting_mode_show_role_details", True)
+        self.initial_show_summary = self.settings_manager.get_setting("casting_mode_show_scene_summary", True)
+        self.initial_auto_hide = self.settings_manager.get_setting("auto_hide_filter_on_casting", True)
 
         self._connect_signals()
         self._populate_initial_view()
@@ -51,7 +56,10 @@ class SettingsDialogPresenter(QObject):
             unit_system=self.initial_unit_system,
             theme=self.initial_theme,
             font_family=self.initial_font_family,
-            font_size=self.initial_font_size
+            font_size=self.initial_font_size,
+            casting_mode_show_role_details=self.initial_show_role,
+            casting_mode_show_scene_summary=self.initial_show_summary,
+            auto_hide_filter_on_casting=self.initial_auto_hide
         )
         self.view.populate_controls(vm)
 
@@ -96,7 +104,11 @@ class SettingsDialogPresenter(QObject):
         final_font = self.view.get_selected_font()
         self.settings_manager.set_setting("font_family", final_font.family())
         self.settings_manager.set_setting("font_size", self.view.get_selected_font_size())
-
+        
+        # Save Casting Mode Settings
+        casting_settings = self.view.get_casting_mode_settings()
+        for key, value in casting_settings.items():
+            self.settings_manager.set_setting(key, value)
 
     @pyqtSlot()
     def on_rejected(self):
