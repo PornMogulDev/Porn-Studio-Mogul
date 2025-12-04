@@ -186,25 +186,34 @@ class IconManager:
         """
         Retrieves the flag icon for a given nationality string.
         """
-        # 1. Lookup the ISO code
+        # 1. Check Cache first (using a prefix to avoid collision with generic icons)
+        cache_key = f"flag_{nationality}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        # 2. Lookup the ISO code
         iso_code = self.NATIONALITY_MAP.get(nationality)
         
-        # 2. Fallback: If not mapped, try using the string as-is (lowercased)
-        # This handles cases where your DB might actually match ISO or country names
+        # 3. Fallback logic
         if not iso_code:
             iso_code = nationality.lower()
 
-        # 3. Use the ISO code to find the file
-        # We assume FLAGS_DIR is defined in paths.py
         file_name = f"{iso_code}.svg"
         file_path = FLAG_DIR / file_name
         
-        # 4. Return standard "original" load
+        icon = None
+        
+        # 4. Load
         if file_path.exists():
-            return self._load_original_svg(file_path)
-            
-        # 5. Return empty or generic 'globe' icon if not found
-        return self.get_icon("globe", "neutral") 
+             icon = self._load_original_svg(file_path)
+        else:
+            # Fallback to generic globe, but we must cache this result too
+            # so we don't check disk for missing flags repeatedly.
+            icon = self.get_icon("globe_icon", "neutral") 
+
+        # 5. Cache and return
+        self._cache[cache_key] = icon
+        return icon
 
     def _load_original_svg(self, file_path: Path) -> QIcon:
         """Loads SVG directly without recoloring."""

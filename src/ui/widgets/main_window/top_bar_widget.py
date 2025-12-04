@@ -16,16 +16,19 @@ class TopBarWidget(QWidget):
     def __init__(self, icon_manager: IconManager, parent=None):
         super().__init__(parent)
         self.icon_manager = icon_manager
+
+        self.last_unread_count = 0
+
         self.setup_ui()
 
     def setup_ui(self):
         layout = QHBoxLayout(self)
 
-        menu_btn = QToolButton()
-        menu_btn.setToolTip("Open Game Menu (Esc)")
-        self.icon_manager.apply_icon(menu_btn, "game_menu_icon", "accent")
-        menu_btn.clicked.connect(self.menu_clicked.emit)
-        layout.addWidget(menu_btn)
+        self.menu_btn = QToolButton()
+        self.menu_btn.setToolTip("Open Game Menu (Esc)")
+        self.icon_manager.apply_icon(self.menu_btn, "game_menu_icon", "accent")
+        self.menu_btn.clicked.connect(self.menu_clicked.emit)
+        layout.addWidget(self.menu_btn)
 
         # --- Inbox Button ---
         # Changed to QPushButton to match the style of Menu/Next Week
@@ -36,18 +39,18 @@ class TopBarWidget(QWidget):
         self.inbox_btn.clicked.connect(self.inbox_clicked.emit)
         layout.addWidget(self.inbox_btn)
 
-        next_week_btn = QToolButton()
-        next_week_btn.setToolTip("Advance to the next week (P)")
-        self.icon_manager.apply_icon(next_week_btn, "next_icon", "accent")
-        next_week_btn.clicked.connect(self.next_week_clicked.emit)
-        layout.addWidget(next_week_btn)
+        self.next_week_btn = QToolButton()
+        self.next_week_btn.setToolTip("Advance to the next week (P)")
+        self.icon_manager.apply_icon(self.next_week_btn, "next_icon", "accent")
+        self.next_week_btn.clicked.connect(self.next_week_clicked.emit)
+        layout.addWidget(self.next_week_btn)
 
         layout.addStretch()
         
         # HelpButton internally emits help_requested, we pass it up
-        help_btn = HelpButton("overview", self.icon_manager, self)
-        help_btn.help_requested.connect(self.help_requested.emit)
-        layout.addWidget(help_btn)
+        self.help_btn = HelpButton("overview", self.icon_manager, self)
+        self.help_btn.help_requested.connect(self.help_requested.emit)
+        layout.addWidget(self.help_btn)
 
         layout.addSpacerItem(
             QSpacerItem(
@@ -65,6 +68,7 @@ class TopBarWidget(QWidget):
 
     def update_inbox_count(self, unread_count: int):
         """Updates icon and text based on unread count."""
+        self.last_unread_count = unread_count
         if unread_count > 0:
             self.inbox_btn.setToolTip(f"Inbox, {unread_count} unread messages")
             # Set Property: Warning
@@ -76,7 +80,15 @@ class TopBarWidget(QWidget):
     
     def refresh_icons(self):
         """Refreshes icons to apply new scaling or themes."""
-        self.update_inbox_count(self.last_unread_count)
+        self.icon_manager.apply_icon(self.menu_btn, "game_menu_icon", "accent")
+        self.icon_manager.apply_icon(self.next_week_btn, "next_icon", "accent")
+
+        if hasattr(self.help_btn, "refresh_icon"):
+            self.help_btn.refresh_icon()
+        
+        # Use the stored count to refresh the inbox state correctly
+        if hasattr(self, 'last_unread_count'):
+            self.update_inbox_count(self.last_unread_count)
 
     def update_money_display(self, money: int):
         self.money_label.setText(f"Money: ${money:,}")

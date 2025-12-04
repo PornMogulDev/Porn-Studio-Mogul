@@ -37,6 +37,10 @@ class HelpButton(QToolButton):
         """Connects the button's clicked signal."""
         self.clicked.connect(self._emit_help_request)
 
+    def refresh_icon(self):
+        """Makes sure the icon keeps up with changes to theme/font size."""
+        self.icon_manager.apply_icon(self, "help_icon", "accent")
+
     @pyqtSlot()
     def _emit_help_request(self):
         """Emits a signal to request help for this button's topic."""

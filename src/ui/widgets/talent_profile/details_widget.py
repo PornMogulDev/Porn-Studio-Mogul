@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QGroupBox, QLabel,
     QListWidget, QListWidgetItem, QHBoxLayout
 )
+from PyQt6.QtCore import QSize
 
 from data.game_state import Talent
 from utils.formatters import format_orientation, format_physical_attribute
@@ -85,13 +86,17 @@ class DetailsWidget(QWidget):
         self.ethnicity_label.setText(data['ethnicity'])
         self.nationality_label.setText(data['nationality'])
         flag_icon = self.icon_manager.get_flag_icon(data['nationality'])
+        
         if not flag_icon.isNull():
-             # Calculate scaled flag size maintaining roughly 3:2 aspect ratio
-             target_sq = self.icon_manager.get_target_size().width()
-             width = target_sq
-             height = int(target_sq / 1.5)
-             self.nationality_icon_label.setFixedSize(width, height)
-             self.nationality_icon_label.setPixmap(flag_icon.pixmap(width, height))
+             target_height = int(self.icon_manager.get_target_size().height() * 0.75) # Slightly smaller than full button icon
+             
+             # Get actual available size for the pixmap
+             # Generate a pixmap at requested height, width=0 allows auto-calc
+             pixmap = flag_icon.pixmap(QSize(100, target_height)) 
+             
+             # Reset fixed size to allow label to adapt to content
+             self.nationality_icon_label.setFixedSize(pixmap.size())
+             self.nationality_icon_label.setPixmap(pixmap)
              self.nationality_icon_label.setVisible(True)
         else:
              self.nationality_icon_label.setVisible(False)
