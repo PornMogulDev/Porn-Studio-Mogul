@@ -18,28 +18,54 @@ from pathlib import Path
 from typing import List, Dict
 
 
-def get_package_licenses(requirements_file: Path) -> List[Dict]:
+def get_package_licenses(requirements_file: Path, use_all_packages: bool = False) -> List[Dict]:
     """
     Get license information for packages in requirements.txt.
     
+    Args:
+        requirements_file: Path to requirements.txt
+        use_all_packages: If True, get licenses for ALL installed packages (pip freeze),
+                         including transitive dependencies. If False, only packages in requirements.txt.
+    
     Returns list of dicts with package info including full license text.
     """
-    if not requirements_file.exists():
-        print(f"Error: {requirements_file} not found", file=sys.stderr)
-        print("Run 'python generate_requirements.py' first", file=sys.stderr)
-        sys.exit(1)
+    packages = []
     
-    print(f"Reading packages from {requirements_file}...")
-    
-    # Read package names from requirements.txt
-    with open(requirements_file, 'r') as f:
-        packages = []
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#'):
-                # Extract package name (before ==, >=, etc.)
-                pkg_name = line.split('==')[0].split('>=')[0].split('<=')[0].strip()
-                packages.append(pkg_name)
+    if use_all_packages:
+        print("Using pip freeze to get ALL installed packages (including transitive dependencies)...")
+        # Get all installed packages
+        try:
+            result = subprocess.run(
+                ["pip", "freeze"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            for line in result.stdout.strip().split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    # Extract package name (before ==, >=, etc.)
+                    pkg_name = line.split('==')[0].split('>=')[0].split('<=')[0].strip()
+                    packages.append(pkg_name)
+        except subprocess.CalledProcessError as e:
+            print(f"Error running pip freeze: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        if not requirements_file.exists():
+            print(f"Error: {requirements_file} not found", file=sys.stderr)
+            print("Run 'python generate_requirements.py' first", file=sys.stderr)
+            sys.exit(1)
+        
+        print(f"Reading packages from {requirements_file}...")
+        
+        # Read package names from requirements.txt
+        with open(requirements_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    # Extract package name (before ==, >=, etc.)
+                    pkg_name = line.split('==')[0].split('>=')[0].split('<=')[0].strip()
+                    packages.append(pkg_name)
     
     if not packages:
         print("No packages found in requirements.txt", file=sys.stderr)
@@ -124,6 +150,12 @@ def main():
         default="requirements.txt",
         help="Requirements file to read (default: requirements.txt)",
     )
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Include ALL installed packages (pip freeze), including transitive dependencies. "
+             "Use this for complete license compliance documentation.",
+    )
     
     args = parser.parse_args()
     
@@ -132,7 +164,7 @@ def main():
     output_file = project_root / args.output
     
     # Get license information
-    licenses_data = get_package_licenses(requirements_file)
+    licenses_data = get_package_licenses(requirements_file, use_all_packages=args.full)
     
     # Format as markdown
     markdown_content = format_license_markdown(licenses_data)

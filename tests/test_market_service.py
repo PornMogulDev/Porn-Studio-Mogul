@@ -2,10 +2,10 @@ import pytest
 from unittest.mock import patch
 from types import SimpleNamespace
 
-from services.calculation.market_group_resolver import MarketGroupResolver
-from services.market_service import MarketService
-from data.game_state import Scene, MarketGroupState, ActionSegment
-from database.db_models import Base, MarketGroupStateDB
+from src.services.calculation.market_group_resolver import MarketGroupResolver
+from src.services.market_service import MarketService
+from src.data.game_state import Scene, MarketGroupState, ActionSegment
+from src.database.db_models import Base, MarketGroupStateDB
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

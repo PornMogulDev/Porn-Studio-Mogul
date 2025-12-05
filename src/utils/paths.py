@@ -78,11 +78,11 @@ LOG_FILE = LOG_DIR / "app.log"
  
 # Asset sub-directories and files (read-only)
 ICON_DIR = ASSETS_DIR / "icons"
+BRAND_DIR = ICON_DIR / "brands"
 FLAG_DIR = ICON_DIR / "flags"
 FONTS_DIR = ASSETS_DIR / "fonts"
  
-DISCORD_LOGO = ICON_DIR / "discord_icon.svg"
-REDDIT_LOGO = ICON_DIR / "reddit_icon.svg"
-GITHUB_LOGO = ICON_DIR / "github_icon.svg"
-F95_LOGO = ICON_DIR / "f95_icon.svg"
-  
+DISCORD_LOGO = BRAND_DIR / "discord_icon.svg"
+REDDIT_LOGO = BRAND_DIR / "reddit_icon.svg"
+GITHUB_LOGO = BRAND_DIR / "github_icon.svg"
+F95_LOGO = BRAND_DIR / "f95_icon.svg"

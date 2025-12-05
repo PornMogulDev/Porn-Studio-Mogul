@@ -19,18 +19,10 @@ This file tracks licenses for non-code assets such as icons, fonts, images, and 
 
 | Icon/Set Name | File(s) | License | Source | Attribution Required | Notes |
 |---------------|---------|---------|--------|---------------------|-------|
-| SVG Logos | Multiple in `assets/icons/` | CC0 1.0 Universal | [gilbarbara/logos](https://github.com/gilbarbara/logos) | No | Public domain |
-| Discord Icon | `discord_icon.svg` | *[TO BE FILLED]* | *[TO BE FILLED]* | *[TO BE FILLED]* | Check Discord brand assets page |
-| F95 Icon | `f95_icon.svg` | *[TO BE FILLED]* | [logos-world.net](https://logos-world.net/)| *[TO BE FILLED]* | Converted to SVG in [freeconvert.com](https://www.freeconvert.com/png-to-svg) |
-| GitHub Icon | `github_icon.svg` | *[TO BE FILLED]* | *[TO BE FILLED]* | *[TO BE FILLED]* | Check GitHub brand assets |
-| Reddit Icon | `reddit_icon.svg` | *[TO BE FILLED]* | *[TO BE FILLED]* | *[TO BE FILLED]* | Check Reddit brand assets |
-| Globe Icon | `globe_icon.svg` | *[TO BE FILLED]* | *[TO BE FILLED]* | *[TO BE FILLED]* | - |
-| Help Icon | `help_icon.svg` | *[TO BE FILLED]* | *[TO BE FILLED]* | *[TO BE FILLED]* | - |
-| Eye Icon | `eye_icon.svg` | *[TO BE FILLED]* | *[TO BE FILLED]* | *[TO BE FILLED]* | - |
-| Chevron Icons | `chevron_left.svg`, `chevron_right.svg` | *[TO BE FILLED]* | *[TO BE FILLED]* | *[TO BE FILLED]* | - |
-| Game Menu Icon | `game_menu_icon.svg` | *[TO BE FILLED]* | *[TO BE FILLED]* | *[TO BE FILLED]* | - |
-| Lock Icons | `locked_icon.svg`, `unlocked_icon.svg` | *[TO BE FILLED]* | *[TO BE FILLED]* | *[TO BE FILLED]* | - |
-| Status Icons | `tick_icon.svg`, `read_icon.svg`, `unread_icon.svg`, `next_icon.svg` | *[TO BE FILLED]* | *[TO BE FILLED]* | *[TO BE FILLED]* | - |
+| SVG Logos | Most brand icons at `assets/icons/brands` | CC0 1.0 Universal | [gilbarbara/logos](https://github.com/gilbarbara/logos) | No | Public domain |
+| Bootstrap Icons | All game icons at `assets/icons` | MIT License | [Bootstrap Icons](https://github.com/twbs/icons) | Yes - See NOTICE.md | - |
+| flag-icons | All flags at `assets/icons/flags` | MIT License | [flags-icons](https://github.com/lipis/flag-icons) | Yes - See NOTICE.md | - |
+| F95 Zone Icon | `f95_icon.svg` | *[TO BE FILLED]* | [logos-world.net](https://logos-world.net/)| *[TO BE FILLED]* | Converted to SVG in [freeconvert.com](https://www.freeconvert.com/png-to-svg) |
 
 ---
 
@@ -60,7 +52,6 @@ When researching licenses for assets, check these common sources:
 
 ### Font Licenses
 - **[Google Fonts](https://fonts.google.com/)** - Mostly SIL OFL 1.1
-- **[Adobe Fonts](https://fonts.adobe.com/)** - Varies by font
 
 ---
 
