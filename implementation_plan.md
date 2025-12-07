@@ -1,140 +1,194 @@
-# Introduce 13-Month Calendar System
+# AI Studio Archetypes Implementation
 
-## Overview
-
-Adding a 13-month calendar system (4 weeks per month, 52 weeks per year) with month display in the UI and converting weekly contract scene limits to monthly limits. Backend batching logic for AI studios and tours will use monthly cycles.
+Replaces the hardcoded AI studio creation and simple quality-based saturation with a comprehensive archetype-based system that generates scenes with random tags, runs full revenue calculations, and generates saturation effects per viewer group based on interest scores.
 
 ## User Review Required
 
-> [!WARNING]
-> **Breaking Change: Contract System**  
-> Contracts will change from `max_scenes_per_week` to `max_scenes_per_month`. This affects:
-> - Contract validation logic (now checks 4-week periods instead of single weeks)
-> - Database migration needed for existing contracts
-> - Players will have more flexibility but monthly validation is more complex
-
 > [!IMPORTANT]
-> **Batch Processing Changes**  
-> AI studios and autonomous tours will switch from variable weekly batching to fixed monthly batching (13 batches per year). This changes when AI decisions occur.
+> **Database Schema Changes**: The `AISceneDB` model will need new fields to store tag data and revenue calculation results. This will require database migration handling.
+
+> [!WARNING]
+> **No Data Migration for Existing Saves**: Per user requirement, we will NOT migrate existing save files. Only the `migrate_to_sqlite.py` script will be updated to reference the new schema.
 
 ## Proposed Changes
 
-### Core Time Utilities
+### Data Layer
 
-#### [MODIFY] [time_utils.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/utils/time_utils.py)
+#### [NEW] [ai_studio_archetypes.json](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/data/ai_studio_archetypes.json)
 
-Add month conversion functions:
-- `to_month(absolute_week: int) -> Tuple[int, int, int]` - Returns (year, month, week_in_month) 
-- `from_month(year: int, month: int) -> int` - Returns first absolute_week of the month
-- `get_month_range(absolute_week: int) -> Tuple[int, int]` - Returns (start_week, end_week) for the month containing the given week
+Create AI studio archetype definitions similar to `talent_archetypes.json`:
 
-Update constant:
-- Add `WEEKS_PER_MONTH = 4`
-- Add `MONTHS_PER_YEAR = 13`
+```json
+[
+  {
+    "id": "mainstream_hetero",
+    "name": "Mainstream Straight Studio",
+    "weight": 30,
+   "orientation": "Straight",
+    "focus_groups": ["Straight Men", "Straight Women"],
+    "locations": ["South West (US)", "South East (US)", "Midwest (US)"],
+    "scenes_per_month": {"min": 3, "max": 5},
+    "tag_quality_range": {"min": 50.0, "max": 85.0},
+    "tag_preferences": {
+      "action_tags": {
+        "Blowjob": 1.5,
+        "Vaginal": 2.0,
+        "Anal": 1.2,
+        "Facial": 1.3
+      },
+      "physical_tags": {
+        "Big Boobs": 1.5,
+        "Teen": 1.3,
+        "MILF": 1.2
+      },
+      "thematic_tags": {
+        "Boobs Worship": 0.8
+      }
+    }
+  }
+]
+```
+
+Structure:
+- Basic info: `id`, `name`, `weight` for generation probability
+- `orientation`: Scene orientation (Straight, Gay, Lesbian, Bi) - all tags must match this
+- `focus_groups`: List of viewer groups this studio targets (pick one per scene)
+- `locations`: Possible studio locations (pick one)
+- `scenes_per_month`: Min/max range for monthly production
+- `tag_quality_range`: Min/max for generated tag quality scores
+- `tag_preferences`: Weighted probabilities for tag selection by category
+
+Tags with "Male" or "Female" pseudo-orientations can be selected for any scene if listed in the archetype.
 
 ---
 
-### UI Updates
+### Core Generation Layer
 
-#### [MODIFY] [top_bar_widget.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/widgets/main_window/top_bar_widget.py)
+#### [NEW] [ai_studio_generator.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/core/ai_studio_generator.py)
 
-Update display format from "Week X, Year YYYY" to "Month X, Week Y, Year YYYY":
-- Modify `update_time_display()` to accept month parameter
-- Update label text format
+Create generator class following the pattern from `talent_generator.py`:
 
-**Presenter changes needed**: The presenter calling this widget needs to calculate and pass the month value.
+- `__init__(self, archetype_data, tag_definitions, market_data, location_data)`: Initialize with data dependencies
+- `_weighted_choice(self, options)`: Utility for weighted random selection
+- `_select_archetype(self)`: Choose archetype based on weights
+- `generate_ai_studio(self, studio_id)`: Generate single AI studio from archetype
+- `generate_multiple_studios(self, count, start_id)`: Generate multiple studios
 
-#### [MODIFY] [hiring_widget.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/widgets/talent_profile/hiring_widget.py)
-
-Update contract negotiation UI:
-- Change "Max Scenes/Week" label to "Max Scenes/Month"
-- Update spinner range from 1-7 to 4-28 (assuming 1-7 per week × 4 weeks)
-- Update preview label to show monthly limit
+Returns `AIStudio` dataclass instances ready to be converted to `AIStudioDB`.
 
 ---
 
-### Data Models
-
-#### [MODIFY] [game_state.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/data/game_state.py)
-
-Update `Contract` dataclass:
-- Rename `max_scenes_per_week: int` to `max_scenes_per_month: int`
+### Database Layer
 
 #### [MODIFY] [db_models.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/database/db_models.py)
 
-Update `ContractDB`:
-- Rename `max_scenes_per_week` column to `max_scenes_per_month`
-- **Migration required**: Add database migration script to update column name and multiply existing values by 4
+Update `AIStudioDB` to add:
+- `archetype_id` (String, nullable): Reference to archetype used for this studio
+
+Update `AISceneDB` to replace simple `quality_score` with full tag and revenue data:
+- Remove: `quality_score` field
+- Add: `orientation` (String): Scene orientation
+- Add: `global_tags` (JSON, list): Thematic tags
+- Add: `assigned_tags` (JSON, dict): Physical tags with quality
+Add: `action_segments` (JSON, list): Action tags with runtime and quality
+- Add: `tag_qualities` (JSON, dict): Quality scores per tag
+- Add: `viewer_group_interest` (JSON, dict): Interest scores per viewer group
+- Add: `revenue` (Integer, default=0): Total calculated revenue
+- Add: `revenue_modifier_details` (JSON, dict): Revenue modifiers for debugging
+
+Keep `target_market_group` for backwards compatibility.
 
 ---
 
-### Contract Validation & Calculation
-
-#### [MODIFY] [bulk_booking_validator.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/calculation/bulk_booking_validator.py)
-
-Change validation from weekly to monthly:
-- Replace `weekly_counts` with `monthly_counts` (keyed by month, not absolute_week)
-- In `try_book_role()`, calculate which month the scene belongs to
-- Check against `contract.max_scenes_per_month` instead of `max_scenes_per_week`
-- For non-contracted talent, keep weekly ambition-based calculation but accumulate across the month
-
-**Critical**: Maintain weekly burnout detection - this should not change.
-
-#### [MODIFY] [contract_command_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/contract_command_service.py)
-
-Update contract creation:
-- Change parameter from `max_scenes_per_week` to `max_scenes_per_month` in `sign_contract()`
-- Keep weekly salary payment logic unchanged (paid every week)
-
-#### [MODIFY] [talent_demand_calculator.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/calculation/talent_demand_calculator.py)
-
-Update salary calculation:
-- In `calculate_contract_salary()`, parameter changes from `max_scenes_per_week` to `max_scenes_per_month`
-- Adjust formula: `weekly_salary = adjusted_base * (max_scenes_per_month / 4) * contract_premium`
-  - This maintains that more scenes per month = higher weekly salary
-
----
-
-### Backend Monthly Batching
+### Service Layer - AI Director
 
 #### [MODIFY] [ai_studio_director.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/ai/ai_studio_director.py)
 
-Update to monthly cycles:
-- In `_should_create_scene()`, use monthly batching instead of weekly
-- Calculate: `month = time_utils.to_month(current_week)[1]`
-- Probability: `studio.scenes_per_month_target / 4.0` (remains same formula, but clearer intent)
-- Add randomization to distribute within the month's 4 weeks
+Update `_create_scene()` method to:
 
-#### [MODIFY] [tour_command_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/tour_command_service.py)
+1. **Generate Scene Data**:
+   - Select orientation from studio's archetype
+   - Select focus group from archetype's `focus_groups`
+   - Generate 2-5 tags from each category (physical, action, thematic)
+   - Weight tag selection by archetype preferences
+   - Filter tags by orientation (tags must match scene orientation OR have "Male"/"Female" pseudo-orientation)
+   - Generate random quality for each tag within archetype's quality range
 
-Update autonomous tour batching:
-- In `process_autonomous_tour_decisions()`, change from weekly modulo batching to monthly
-- Replace: `target_remainder = current_absolute_week % batch_size` 
-- With: Calculate month, use `month % 13` or similar for 13 batches
-- Filter candidates based on monthly batch assignment
+2. **Create Scene Mock Object**:
+   - Build minimal `Scene` dataclass with required fields for revenue calculation
+   - Populate: `global_tags`, `assigned_tags`, `action_segments`, `tag_qualities`, `focus_target`
+   - Create simple `action_segments` with runtime percentages (distribute evenly)
+   - Use default `dom_sub_dynamic_level` of 1
+   - Set `total_runtime_minutes` to a standard value (e.g., 30)
+
+3. **Calculate Revenue**:
+   - Call `revenue_calculator.calculate_revenue()` with mock Scene, empty cast list, current market states, resolved groups
+   - Extract `viewer_group_interest` and `total_revenue` from result
+
+4. **Persist**:
+   - Pass all generated data to `ai_studio_command_service.create_ai_scene()`
+
+Update `_process_scene_releases()` to:
+- Use `viewer_group_interest` scores instead of single `quality_score`
+- Apply saturation updates to ALL groups based on their interest scores
+- Scale saturation impact: `impact = (interest_score / max_possible_interest) * base_impact`
 
 ---
 
-### Configuration
+### Service Layer - Command Service
 
-#### [MODIFY] [configs.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/models/configs.py)
+#### [MODIFY] [ai_studio_command_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/ai_studio_command_service.py)
 
-Update `HiringConfig`:
-- Keep `max_scenes_per_week_base` and `max_scenes_per_week_ambition_modifier` (still used for non-contracted talent weekly limits)
-- Document that these apply per-week for non-contracted talent, but contracts use monthly limits
+Update `create_ai_scene()` signature and logic:
+- Add parameters: `orientation`, `global_tags`, `assigned_tags`, `action_segments`, `tag_qualities`, `viewer_group_interest`, `revenue`
+- Create `AISceneDB` with all new fields populated
 
 ---
 
-### Database Migration
+### Game Session Service
 
-#### [NEW] [migration_script.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/migrations/add_monthly_contract_limits.py)
+#### [MODIFY] [game_session_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/game_session_service.py)
 
-Create migration to:
-1. Add new column `max_scenes_per_month` with NOT NULL constraint
-2. Populate with `max_scenes_per_week * 4` for existing contracts
-3. Drop old `max_scenes_per_week` column
+In `start_new_game()` method:
+1. Remove hardcoded AI studio creation (lines 74-89)
+2. Add dependency injection for `AIStudioGenerator`
+3. Call `ai_studio_generator.generate_multiple_studios(count=3, start_id=1)` 
+4. Persist generated studios to database via `AIStudioDB.from_dataclass()`
 
-**Note**: Verify migration approach with existing database setup.
+Set initial studio count to 3 (matching current behavior).
+
+---
+
+### Data Manager Integration
+
+#### [MODIFY] [data_manager.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/data/data_manager.py)
+
+Add loading for AI studio archetypes:
+- Add `ai_studio_archetypes` property
+- Load from `data/ai_studio_archetypes.json` in `__init__()`
+- Handle file loading errors gracefully
+
+---
+
+### Service Container
+
+#### [MODIFY] [service_container.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/core/service_container.py)
+
+Add `AIStudioGenerator` to dependency injection:
+- Instantiate with archetype data, tag definitions, market data, location data
+- Make available to `GameSessionService`
+- Wire up dependencies for `AIStudioDirector` (needs `revenue_calculator`)
+
+---
+
+### Migration
+
+#### [MODIFY] [migrate_to_sqlite.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/data/scripts/migrate_to_sqlite.py)
+
+Update to reflect new schema:
+- Update `AIStudioDB` table creation to include `archetype_id`
+- Update `AISceneDB` table creation with new JSON fields
+- No need to handle old data migration per user requirement
 
 ---
 
@@ -142,58 +196,34 @@ Create migration to:
 
 ### Automated Tests
 
-**Note**: The project has limited test coverage (only 4 test files in `tests/` directory). Most verification will need to be manual.
+No existing automated tests were found for AI studios. We will verify manually.
 
 ### Manual Verification
 
-#### Test 1: Time Display
-1. Launch the game
-2. Verify top bar shows "Month X, Week Y, Year YYYY" format
-3. Click "Next Week" button multiple times
-4. Verify:
-   - Week cycles 1-4 within each month
-   - Month increments when week goes from 4 to 1
-   - Year increments when month goes from 13 to 1
+1. **Start New Game**:
+   - Run `python src/main.py`
+   - Create a new game
+   - Verify 3 AI studios are created with varied archetypes, locations, and preferences
+   - Check database directly: should see AIStudioDB records with `archetype_id` populated
 
-#### Test 2: Contract Creation & Monthly Limits
-1. Open talent profile for any talent
-2. Click "Offer Exclusive Contract"
-3. Verify UI shows "Max Scenes/Month" (not "per week")
-4. Set to 8 scenes/month
-5. Sign contract
-6. Attempt to hire talent for 3 scenes in week 1 of month ✓ (should succeed, 3 < 8)
-7. Advance to week 2 of same month
-8. Attempt to hire for 6 more scenes ✓ (should fail, 3+6=9 > 8)
-9. Advance to next month
-10. Attempt to hire for 6 scenes ✓ (should succeed, new month resets counter)
+2. **Advance Time to Trigger Scene Creation**:
+   - Advance to week 2 (first week of first month)
+   - Check logs for scene creation messages
+   - Verify scenes are created with tags and calculated revenue
+   - Check database: AISceneDB should have `global_tags`, `assigned_tags`, `action_segments`, `tag_qualities`, `viewer_group_interest`, and `revenue` fields populated
 
-#### Test 3: Non-Contracted Talent Weekly Limits
-1. Find talent without contract
-2. Hire for 2 scenes in same week (assuming default limit is 2)
-3. Attempt to hire for 3rd scene in same week ✗ (should fail with "Weekly limit reached")
-4. Verify this is still enforced WEEKLY, not monthly
+3. **Verify Revenue Calculation**:
+   - Check that `viewer_group_interest` contains scores for multiple groups
+   - Verify `revenue` is non-zero and reasonable
+   - Check logs for saturation updates to multiple market groups
 
-#### Test 4: AI Studio Monthly Batching
-1. Note current week and month
-2. Observe AI studio scene creation patterns over 2-3 months
-3. Verify scenes are created approximately evenly across months (not clustered by week modulo)
+4. **Verify Scene Release**:
+   - Advance time to scene release week (creation week + 2)
+   - Verify saturation is applied to market groups based on interest scores
+   - Check `MarketGroupStateDB` to see saturation changes
 
-#### Test 5: Tour Autonomous Decisions
-1. Observe talent autonomous tour booking over several months
-2. Verify batching appears monthly (different talents evaluated each month)
-
-#### Test 6: Database Migration
-1. Create a test save with contracts that have `max_scenes_per_week = 2`
-2. Run migration script
-3. Load save and verify contracts show `max_scenes_per_month = 8`
-4. Verify validation works correctly with migrated data
-
-### Success Criteria
-- [ ] Top bar displays months correctly
-- [ ] Week/month/year transitions are accurate
-- [ ] Contract UI shows monthly limits
-- [ ] Monthly contract validation works (Test 2 passes)
-- [ ] Weekly limits still apply to non-contracted talent (Test 3 passes)
-- [ ] AI studios use monthly batching
-- [ ] Tours use monthly batching
-- [ ] Migration preserves contract intent (weekly limit × 4)
+5. **Verify Tag Selection Follows Archetype**:
+   - Examine generated scenes in database
+   - Verify all action/physical tags match the archetype's orientation
+   - Verify tags with weights in archetype appear more frequently
+   - Verify tag qualities fall within archetype's quality range
