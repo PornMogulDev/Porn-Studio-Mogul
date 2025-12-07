@@ -57,8 +57,11 @@ class MainWindowPresenter(QObject):
         """Populates the view with current state on startup."""
         self._on_money_changed(self.controller.game_state.studio.money)
         
-        year, week = time_utils.from_absolute(self.controller.game_state.absolute_week)
-        self._on_time_changed(week, year)
+        # GameController emits/stores (year, week_of_year)
+        # We transform to (year, month, week_in_month) for display
+        abs_week = self.controller.game_state.absolute_week
+        year, month, week = time_utils.to_month(abs_week)
+        self.view.update_time(month, week, year)
         
         self._on_emails_changed()
 
@@ -70,7 +73,11 @@ class MainWindowPresenter(QObject):
 
     @pyqtSlot(int, int)
     def _on_time_changed(self, week: int, year: int):
-        self.view.update_time(week, year)
+        # Controller emits week as 1-52 (week of year)
+        # We must calculate the specific month and week-in-month
+        abs_week = time_utils.to_absolute(year, week)
+        _, month, week_in_month = time_utils.to_month(abs_week)
+        self.view.update_time(month, week_in_month, year)
 
     @pyqtSlot()
     def _on_emails_changed(self):

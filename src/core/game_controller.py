@@ -446,29 +446,50 @@ class GameController(QObject):
         if not self.player_settings_service: return
         self.player_settings_service.reset_favorite_tags(tag_type)
     def validate_potential_bookings(self, talent_id: int, roles_data: List[Dict]) -> Dict[Tuple[int, int], ValidationResult]:
-        if not self.query_service or not self.talent_query_service or not self.shoot_results_calculator or not self.talent_demand_calculator: return {}
+        if not self.query_service or not self.talent_query_service or not self.shoot_results_calculator or not self.talent_demand_calculator: 
+            return {}
+        
         talent = self.query_service.get_talent_by_id(talent_id)
-        if not talent: return {}
+        if not talent: 
+            return {}
+
+        # 1. Resolve Scene Objects first to determine the time window
+        scene_ids = [r['scene_id'] for r in roles_data]
+        # Use a dictionary for fast lookups later
+        scenes_map = {s.id: s for s in self.get_multiple_scenes_by_ids(scene_ids)}
         
-        # This part needs fixing because we can't just get bookings for one year
-        # A quick fix is to get all bookings for all time, which is inefficient.
-        # A better fix would be to get bookings for a range of years.
-        # For now, let's assume the UI won't allow booking too far in the future
-        # and just get bookings for the current and next year.
-        current_absolute_week = self.game_state.absolute_week
-        current_year, _ = time_utils.from_absolute(current_absolute_week)
+        # If any scene is missing, mark it invalid immediately to avoid logic errors
+        valid_scenes = [s for s in scenes_map.values()]
         
-        start_abs_week_current_year = time_utils.to_absolute(current_year, 1)
-        end_abs_week_next_year = time_utils.to_absolute(current_year + 1, 52)
+        if not valid_scenes:
+            # Return error results for all inputs
+            return {
+                (r['scene_id'], r['virtual_performer_id']): ValidationResult(False, "Scene not found") 
+                for r in roles_data
+            }
+
+        # 2. Determine the precise range of time needed
+        # We need the full month context for the earliest and latest proposed booking
+        min_week = min(s.scheduled_absolute_week for s in valid_scenes)
+        max_week = max(s.scheduled_absolute_week for s in valid_scenes)
         
+        # Get the start of the month containing the earliest booking
+        # and the end of the month containing the latest booking
+        start_range_week, _ = time_utils.get_month_range(min_week)
+        _, end_range_week = time_utils.get_month_range(max_week)
+        
+        # 3. Fetch ONLY the relevant booking history
+        # This reduces the query from "All Time" to usually "4 to 8 weeks"
         all_bookings_map = self.talent_query_service.get_talent_bookings_by_absolute_week(
-            talent.id, start_abs_week_current_year, end_abs_week_next_year
+            talent.id, start_range_week, end_range_week
         )
         
+        # Flatten map to list for the validator
         existing_bookings = []
         for week_bookings in all_bookings_map.values():
             existing_bookings.extend(week_bookings)
-        
+
+        # 4. Initialize Validator
         validator = BulkBookingValidator(
             current_absolute_week=self.game_state.absolute_week,
             talent=talent,
@@ -476,9 +497,6 @@ class GameController(QObject):
             hiring_config=self.talent_demand_calculator.hiring_config,
             shoot_calculator=self.shoot_results_calculator
         )
-
-        scene_ids = [r['scene_id'] for r in roles_data]
-        scenes_map = {s.id: s for s in self.get_multiple_scenes_by_ids(scene_ids)}
 
         results = {}
         for role in roles_data:

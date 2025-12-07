@@ -85,8 +85,8 @@ class MainWindowView(QWidget):
     def update_money(self, money: int):
         self.top_bar.update_money_display(money)
 
-    def update_time(self, week: int, year: int):
-        self.top_bar.update_time_display(week, year)
+    def update_time(self, month: int, week: int, year: int):
+        self.top_bar.update_time_display(month, week, year)
 
     def update_inbox_count(self, count: int):
         self.top_bar.update_inbox_count(count)

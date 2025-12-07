@@ -20,52 +20,52 @@ class ContractCommandService:
         self.query_service = query_service
         self.config = config
 
-    def sign_contract(self, talent_id: int, terms: Dict[str, Any], calculated_salary: int) -> bool:
-        """Creates a new exclusive contract for a talent."""
-        with self.session_factory() as session:
-            try:
-                talent_db = session.query(TalentDB).get(talent_id)
-                if not talent_db:
-                    logger.error(f"Talent {talent_id} not found for contract signing.")
-                    return False
-
-                if talent_db.contract:
-                    logger.warning(f"Talent {talent_id} already has a contract.")
-                    return False
+    def sign_contract(self, talent_id: int, terms: dict, calculated_salary: int) -> bool:
+        """
+        Creates a new exclusive contract for the talent.
+        """
+        session = self.session_factory()
+        try:
+            # 1. Validation (or simple override if existing?)
+            # For now, we assume the UI handled confirmation of overwriting old contracts.
+            
+            # Remove existing contract if any
+            existing = session.query(ContractDB).filter_by(talent_id=talent_id).first()
+            if existing:
+                session.delete(existing)
                 
-                abs_week_info = session.query(GameInfoDB).filter_by(key='absolute_week').one()
-                current_absolute_week = int(abs_week_info.value)
-
-                contract = ContractDB(
-                    talent_id=talent_id,
-                    start_absolute_week=current_absolute_week,
-                    duration_weeks=terms['duration_weeks'],
-                    weekly_salary=calculated_salary,
-                    compliance=self.config.initial_compliance,
-                    allowed_orientations=terms.get('allowed_orientations', []),
-                    allowed_concepts=terms.get('allowed_concepts', []),
-                    max_dynamic=terms.get('max_dynamic', 3),
-                    disposition=terms.get('disposition'),
-                    max_scenes_per_week=terms.get('max_scenes_per_week', 1)
-                )
-                
-                session.add(contract)
-                
-                studio_state = session.query(StudioStateDB).get(1)
-                current_money = studio_state.money
-                new_money = current_money - calculated_salary
-                studio_state.money = new_money
-                
-                session.commit()
-                
-                self.signals.notification_posted.emit(f"Signed exclusive contract with {talent_db.alias}!")
-                self.signals.money_changed.emit(new_money)
-                self.signals.roster_changed.emit()
-                return True
-            except Exception as e:
-                logger.error(f"Error signing contract for talent {talent_id}: {e}", exc_info=True)
-                session.rollback()
-                return False
+            # 2. Create new Contract
+            abs_week_info = session.query(GameInfoDB).filter_by(key='absolute_week').one()
+            current_week = int(abs_week_info.value)
+            
+            new_contract = ContractDB(
+                talent_id=talent_id,
+                start_absolute_week=current_week,
+                duration_weeks=terms.get('duration_weeks', 52),
+                weekly_salary=calculated_salary,
+                max_scenes_per_month=terms.get('max_scenes_per_month', 4),
+                max_dynamic=terms.get('max_dynamic', 3),
+                disposition=terms.get('disposition'),
+                allowed_concepts=terms.get('allowed_concepts', []),
+                allowed_orientations=terms.get('allowed_orientations', [])
+            )
+            session.add(new_contract)
+            session.commit()
+            
+            self.signals.roster_changed.emit()
+            
+            # Fetch alias for notification
+            talent = self.query_service.get_talent_by_id(talent_id)
+            if talent:
+                self.signals.notification_posted.emit(f"Signed exclusive contract with {talent.alias}.")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error signing contract for talent {talent_id}: {e}", exc_info=True)
+            session.rollback()
+            return False
+        finally:
+            session.close()
 
     def process_weekly_contracts(self, session: Session, current_absolute_week: int):
         """

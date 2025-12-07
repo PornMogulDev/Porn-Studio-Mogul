@@ -8,6 +8,8 @@ from typing import Tuple
 # but for simplicity in this utility, we'll define it as a constant.
 # It must be kept in sync with the value in `data/game_config.json`.
 WEEKS_PER_YEAR = 52
+WEEKS_PER_MONTH = 4
+MONTHS_PER_YEAR = 13
 STARTING_YEAR = 2010
 
 def to_absolute(year: int, week: int) -> int:
@@ -29,6 +31,35 @@ def from_absolute(absolute_week: int) -> Tuple[int, int]:
     week = (absolute_week - 1) % WEEKS_PER_YEAR + 1
     year = STARTING_YEAR + year_offset
     return year, week
+
+def to_month(absolute_week: int) -> Tuple[int, int, int]:
+    """
+    Converts absolute week to (year, month, week_in_month).
+    Month is 1-13, week_in_month is 1-4.
+    """
+    year, week_of_year = from_absolute(absolute_week)
+    
+    # 0-indexed calculations
+    week_idx = week_of_year - 1
+    month_idx = week_idx // WEEKS_PER_MONTH
+    week_in_month_idx = week_idx % WEEKS_PER_MONTH
+    
+    return year, month_idx + 1, week_in_month_idx + 1
+
+def from_month(year: int, month: int) -> int:
+    """Returns the absolute_week of the first week of the specified month."""
+    if not 1 <= month <= MONTHS_PER_YEAR:
+        raise ValueError(f"Month must be between 1 and {MONTHS_PER_YEAR}")
+        
+    week_of_year = (month - 1) * WEEKS_PER_MONTH + 1
+    return to_absolute(year, week_of_year)
+
+def get_month_range(absolute_week: int) -> Tuple[int, int]:
+    """Returns (start_absolute_week, end_absolute_week) for the month containing the given week."""
+    year, month, _ = to_month(absolute_week)
+    start_week = from_month(year, month)
+    end_week = start_week + WEEKS_PER_MONTH - 1
+    return start_week, end_week
 
 def is_new_year_roll_over(absolute_week: int) -> bool:
     """

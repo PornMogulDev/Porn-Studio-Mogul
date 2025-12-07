@@ -108,15 +108,22 @@ class TourCommandService:
         """
         Evaluates a batch of talents to see if they want to book their own tours.
         """
-        batch_size = self.config.batch_size
-        if batch_size <= 0: batch_size = 1
+        from utils import time_utils
+        _, month, week_in_month = time_utils.to_month(current_absolute_week)
+        
+        # Only process on the first week of the month
+        if week_in_month != 1:
+            return
 
-        target_remainder = current_absolute_week % batch_size
+        # 13 batches per year = 1 batch per month.
+        # We split talents into 13 groups based on ID.
+        batch_mod = 13
+        target_remainder = (month - 1) % batch_mod
         
         candidates_db = (
             session.query(TalentDB)
             .filter(
-                TalentDB.id % batch_size == target_remainder,
+                TalentDB.id % batch_mod == target_remainder,
                 TalentDB.is_on_tour == False
             )
             .all()

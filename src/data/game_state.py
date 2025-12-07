@@ -37,7 +37,7 @@ class Contract:
     allowed_concepts: List[str] = field(default_factory=list)
     max_dynamic: int = 3
     disposition: Optional[str] = None
-    max_scenes_per_week: int = 1
+    max_scenes_per_month: int = 4
 
 @dataclass_json
 @dataclass

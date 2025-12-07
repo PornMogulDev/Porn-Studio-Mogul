@@ -268,13 +268,14 @@ class TalentDemandCalculator:
         trait_multiplier = self.trait_resolver.get_composite_modifier(talent, "contract_salary_multiplier")
         adjusted_base *= trait_multiplier
 
-        max_scenes = conditions.get('max_scenes_per_week', 1)
+        max_scenes = conditions.get('max_scenes_per_month', 4)
         contract_premium = self.contract_config.lock_in_premium
         
-        weekly_salary = adjusted_base * max_scenes * contract_premium
+        # Adjusted for monthly limit (avg 4 weeks/month)
+        # More scenes per month = higher weekly salary
+        weekly_salary = adjusted_base * (max_scenes / 4.0) * contract_premium
         
         return int(max(self.hiring_config.minimum_talent_demand, weekly_salary))
-
 
     def calculate_bulk_hiring_costs(self, talent: Talent,
                                     roles_with_context: List[Dict[str, Any]],

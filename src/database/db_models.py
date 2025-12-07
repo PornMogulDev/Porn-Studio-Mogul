@@ -128,7 +128,7 @@ class ContractDB(Base, DataclassMapper):
     allowed_concepts = Column(JSON, default=list)
     max_dynamic = Column(Integer, default=3)
     disposition = Column(String, nullable=True)
-    max_scenes_per_week = Column(Integer, default=1)
+    max_scenes_per_month = Column(Integer, default=4)
     talent = relationship("TalentDB", back_populates="contract")
 
 class TalentDB(Base, DataclassMapper):

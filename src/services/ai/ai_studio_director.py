@@ -27,15 +27,32 @@ class AIStudioDirector:
         1. Checks for releases and applies market impact.
         2. Iterates studios to make production decisions.
         """
+        from utils import time_utils
+        
         # 1. Handle Releases (Scenes finishing production)
         self._process_scene_releases(session, current_absolute_week)
 
         # 2. Handle Production (Deciding to make new scenes)
-        active_studios = session.query(AIStudioDB).filter_by(active=True).all()
+        # Monthly batching: Logic runs only on the first week of the month.
+        _, _, week_in_month = time_utils.to_month(current_absolute_week)
         
-        for studio in active_studios:
-            if self._should_create_scene(studio, current_absolute_week):
-                self._create_scene(session, studio, current_absolute_week)
+        if week_in_month == 1:
+            active_studios = session.query(AIStudioDB).filter_by(active=True).all()
+            
+            for studio in active_studios:
+                # Distribute the monthly target across the 4 weeks of this month
+                target_count = studio.scenes_per_month_target
+                
+                # Simple randomization to not have exact number every month
+                actual_count = int(random.gauss(target_count, 1.0))
+                actual_count = max(0, actual_count)
+                
+                for _ in range(actual_count):
+                    # Randomly assign to one of the 4 weeks in this month
+                    week_offset = random.randint(0, 3)
+                    creation_week = current_absolute_week + week_offset
+                    
+                    self._create_scene(session, studio, creation_week)
 
     def _process_scene_releases(self, session: Session, current_week: int):
         """Finds scenes releasing this week and applies saturation to the market."""
@@ -63,23 +80,11 @@ class AIStudioDirector:
         if saturation_updates:
             self.market_service.update_saturation_from_release(session, saturation_updates)
 
-    def _should_create_scene(self, studio: AIStudioDB, current_week: int) -> bool:
-        """
-        Simple RNG logic to determine if a studio starts a project.
-        Based on scenes_per_month_target.
-        """
-        # E.g., target 4 per month = 1 per week avg.
-        # Chance = target / 4.0 weeks.
-        chance = studio.scenes_per_month_target / 4.0
-        
-        # Add random noise so they don't all shoot on the same weeks
-        roll = random.random()
-        return roll < chance
-
     def _create_scene(self, session: Session, studio: AIStudioDB, current_week: int):
         """Generates scene data and persists it."""
         
         # 1. Generate Name: "{StudioName} #{Count}"
+        # Note: We query count live, so multiple scenes in one batch get sequential numbers
         prev_count = self.command_service.get_studio_scene_count(session, studio.id)
         new_count = prev_count + 1
         title = f"{studio.name} #{new_count}"

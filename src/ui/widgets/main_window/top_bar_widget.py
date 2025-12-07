@@ -62,7 +62,7 @@ class TopBarWidget(QWidget):
         self.money_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.money_label)
 
-        self.time_label = QLabel("Week: --, Year: ----")
+        self.time_label = QLabel("Month: --, Week: --, Year: ----")
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.time_label)
 
@@ -93,5 +93,5 @@ class TopBarWidget(QWidget):
     def update_money_display(self, money: int):
         self.money_label.setText(f"Money: ${money:,}")
 
-    def update_time_display(self, week: int, year: int):
-        self.time_label.setText(f"Week {week}, Year {year}")
+    def update_time_display(self, month: int, week: int, year: int):
+        self.time_label.setText(f"Month {month}, Week {week}, Year {year}")

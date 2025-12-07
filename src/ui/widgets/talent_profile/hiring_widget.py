@@ -97,9 +97,9 @@ class HiringWidget(QWidget):
         
         # Max Scenes
         self.max_scenes_spin = QSpinBox()
-        self.max_scenes_spin.setRange(1, 7)
-        self.max_scenes_spin.setValue(1)
-        form_layout.addRow("Max Scenes/Week:", self.max_scenes_spin)
+        self.max_scenes_spin.setRange(1, 25)
+        self.max_scenes_spin.setValue(4)
+        form_layout.addRow("Max Scenes/Month:", self.max_scenes_spin)
         
         # Dynamic Limit
         self.max_dynamic_combo = QComboBox()
@@ -254,7 +254,7 @@ class HiringWidget(QWidget):
                 # Display cost breakdown for available roles.
                 total_cost = role_data.get('cost', 0)
                 if self._is_contracted and total_cost == 0:
-                    cost_text = "<b>Cost: $0 (Contract)</b>"
+                    cost_text = "Cost: $0 (Contract)"
                 else:
                     base_cost = role_data.get('base_cost', total_cost)
                     travel_fee = role_data.get('travel_fee', 0)
@@ -446,7 +446,7 @@ class HiringWidget(QWidget):
         
         return {
             'duration_weeks': self.duration_slider.value(),
-            'max_scenes_per_week': self.max_scenes_spin.value(),
+            'max_scenes_per_month': self.max_scenes_spin.value(),
             'max_dynamic': self.max_dynamic_combo.currentIndex(),
             'disposition': self.disposition_combo.currentText() if self.disposition_combo.currentIndex() > 0 else None,
             'allowed_concepts': allowed_concepts,
