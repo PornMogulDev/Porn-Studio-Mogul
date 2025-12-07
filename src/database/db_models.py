@@ -71,6 +71,7 @@ class AIStudioDB(Base, DataclassMapper):
     active = Column(Boolean, default=True)
     scenes_per_month_target = Column(Integer, default=4)
     preferred_market_groups = Column(JSON, default=list)
+    archetype_id = Column(String, nullable=True)
     
     dataclass_type = AIStudio
 
@@ -272,12 +273,19 @@ class AISceneDB(Base, DataclassMapper):
     created_absolute_week = Column(Integer, nullable=False)
     released_absolute_week = Column(Integer)
     
-    # Simple scene properties for market impact
-    target_market_group = Column(String, nullable=False)
-    quality_score = Column(Float, default=50.0)  # 0-100 scale
+    orientation = Column(String)
+    dom_sub_dynamic_level = Column(Integer)
+    revenue = Column(Integer, default=0)
+    global_tags = Column(JSON, default=list)
+    assigned_tags = Column(JSON, default=dict)
+    action_segments = Column(JSON, default=list)
+    viewer_group_interest = Column(JSON, default=dict)
+    revenue_modifier_details = Column(JSON, default=dict)
     
     # Relationship
     studio = relationship('AIStudioDB', backref='scenes')
+
+    dataclass_type = AIScene
 
 class VirtualPerformerDB(Base, DataclassMapper):
     __tablename__ = 'virtual_performers'

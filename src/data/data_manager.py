@@ -46,6 +46,7 @@ class DataManager:
         self.help_topics = self._load_help_topics(help_file_path)
         self.accommodation_tiers = self._load_accommodation_tiers()
         self.travel_matrix = self._load_travel_matrix()
+        self.ai_studio_archetypes = self._load_ai_studio_archetypes()
         
         logger.info("All game data loaded into memory.")
 
@@ -366,6 +367,16 @@ class DataManager:
         except json.JSONDecodeError:
             logger.warning(f"Failed to parse help topics file at '{file_path}'. It may be malformed.")
             return {}
+        
+    def _load_ai_studio_archetypes(self) -> List[Dict[str, Any]]:
+        """Loads AI studio archetypes from the SQLite database."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM ai_studio_archetypes")
+        archetypes = []
+        for row in cursor.fetchall():
+            data = self._rehydrate_json_fields(dict(row))
+            archetypes.append(data)
+        return archetypes
     
     def get_available_ethnicities(self) -> List[str]:
         """Returns a sorted list of primary ethnicity groups."""

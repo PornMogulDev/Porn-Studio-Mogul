@@ -1,22 +1,9 @@
-# AI Studio Archetypes Implementation
+# Implementation Plan: AI Studio Archetypes
 
-Replaces the hardcoded AI studio creation and simple quality-based saturation with a comprehensive archetype-based system that generates scenes with random tags, runs full revenue calculations, and generates saturation effects per viewer group based on interest scores.
+## 1. Data Layer
 
-## User Review Required
-
-> [!IMPORTANT]
-> **Database Schema Changes**: The `AISceneDB` model will need new fields to store tag data and revenue calculation results. This will require database migration handling.
-
-> [!WARNING]
-> **No Data Migration for Existing Saves**: Per user requirement, we will NOT migrate existing save files. Only the `migrate_to_sqlite.py` script will be updated to reference the new schema.
-
-## Proposed Changes
-
-### Data Layer
-
-#### [NEW] [ai_studio_archetypes.json](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/data/ai_studio_archetypes.json)
-
-Create AI studio archetype definitions similar to `talent_archetypes.json`:
+### [NEW] `data/ai_studio_archetypes.json`
+Use the specific structure provided.
 
 ```json
 [
@@ -24,22 +11,20 @@ Create AI studio archetype definitions similar to `talent_archetypes.json`:
     "id": "mainstream_hetero",
     "name": "Mainstream Straight Studio",
     "weight": 30,
-   "orientation": "Straight",
-    "focus_groups": ["Straight Men", "Straight Women"],
-    "locations": ["South West (US)", "South East (US)", "Midwest (US)"],
+    "orientation": "Straight",
+    "focus_groups": {"Straight Women": 0.2, "Straight Men": 0.8},
+    "locations": {"South West (US)": 0.8, "South East (US)": 0.3, "Spain": 0.2 },
     "scenes_per_month": {"min": 3, "max": 5},
-    "tag_quality_range": {"min": 50.0, "max": 85.0},
-    "tag_preferences": {
+    "tag_quality_range": {"min": 30.0, "max": 85.0},
+    "dom_sub_dynamic": {"0": 0.3, "1": 0.7, "2": 0.5, "3": 0.4 },
+    "tag_weights": {
       "action_tags": {
         "Blowjob": 1.5,
-        "Vaginal": 2.0,
-        "Anal": 1.2,
-        "Facial": 1.3
+        "Vaginal": 2.0
       },
       "physical_tags": {
         "Big Boobs": 1.5,
-        "Teen": 1.3,
-        "MILF": 1.2
+        "Teen": 1.3
       },
       "thematic_tags": {
         "Boobs Worship": 0.8
@@ -49,181 +34,137 @@ Create AI studio archetype definitions similar to `talent_archetypes.json`:
 ]
 ```
 
-Structure:
-- Basic info: `id`, `name`, `weight` for generation probability
-- `orientation`: Scene orientation (Straight, Gay, Lesbian, Bi) - all tags must match this
-- `focus_groups`: List of viewer groups this studio targets (pick one per scene)
-- `locations`: Possible studio locations (pick one)
-- `scenes_per_month`: Min/max range for monthly production
-- `tag_quality_range`: Min/max for generated tag quality scores
-- `tag_preferences`: Weighted probabilities for tag selection by category
+### 2. Core Generation Layer
 
-Tags with "Male" or "Female" pseudo-orientations can be selected for any scene if listed in the archetype.
+#### [NEW] `src/core/ai_studio_generator.py`
 
----
+Create a new generator class. Unlike `TalentGenerator` which takes unpacked dicts, pass `DataManager` to the constructor for cleaner access to tag definitions and market data.
 
-### Core Generation Layer
+*   **`__init__(self, data_manager: DataManager)`**:
+    *   Store `data_manager`.
+    *   Cache `tag_definitions` and `market_data` for quick access.
 
-#### [NEW] [ai_studio_generator.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/core/ai_studio_generator.py)
+*   **`generate_studios(self, count: int, start_id: int) -> List[AIStudio]`**:
+    *   Load `ai_studio_archetypes.json` from `data_manager` (you may need to add this loader to `DataManager` first).
+    *   Loop `count` times:
+        *   **Select Archetype**: Weighted random choice from the loaded archetypes.
+        *   **Resolve Location**: Weighted random choice from `archetype.locations`.
+        *   **Resolve Name**: Use `archetype.name` (or append a number/variation if desired).
+        *   **Resolve Focus**: Identify `preferred_market_groups` from `archetype.focus_groups`.
+        *   **Instantiate**: Create and return `AIStudio` dataclass (ensure `archetype_id` is populated).
 
-Create generator class following the pattern from `talent_generator.py`:
+*   **`generate_scene_parameters(self, archetype: dict, current_week: int) -> dict`**:
+    *   **Objective**: Return a dictionary of parameters required to build a `Scene` object (orientation, dynamic level, tags).
+    *   **Orientation**: Taken directly from `archetype['orientation']`.
+    *   **Dynamic Level**: Weighted choice from `archetype['dom_sub_dynamic']`.
+    *   **Target Market**: Weighted choice from `archetype['focus_groups']`.
+    *   **Tag Generation**:
+        *   Initialize an empty list `selected_tags`.
+        *   Determine target count (approx 5 total, or derived from `scenes_per_month` complexity logic if added).
+        *   Iterate through `archetype['tag_weights']` (which contains categories like `action_tags`, `physical_tags`, `thematic_tags`).
+        *   For each category, perform **Concept Resolution**:
+            *   Iterate the keys (e.g., "Blowjob", "Big Boobs").
+            *   Check `tag_definitions`:
+                *   **Is it a Concept?** (Check if any tag has this `concept` string). If yes, gather all tags with that concept that match the studio's `orientation`.
+                *   **Is it a Tag Name?** (Check if key exists as a specific tag name).
+            *   Add valid specific tags to a weighted pool based on the archetype's value.
+        *   Select tags from this pool until target count is reached.
+        *   **Quality Assignment**: For each selected tag, generate a quality score using `random.uniform` within `archetype['tag_quality_range']`.
+    *   **Return**: `{'orientation': str, 'dom_sub_level': int, 'target_market': str, 'tags': Dict[str, float]}`.
 
-- `__init__(self, archetype_data, tag_definitions, market_data, location_data)`: Initialize with data dependencies
-- `_weighted_choice(self, options)`: Utility for weighted random selection
-- `_select_archetype(self)`: Choose archetype based on weights
-- `generate_ai_studio(self, studio_id)`: Generate single AI studio from archetype
-- `generate_multiple_studios(self, count, start_id)`: Generate multiple studios
+#### [MODIFY] `src/core/talent_generator.py`
 
-Returns `AIStudio` dataclass instances ready to be converted to `AIStudioDB`.
+*   **No Code Changes needed inside the file**, but its **lifecycle** changes. It is no longer instantiated in `GameController`.
 
----
+## 3. Database Layer
 
-### Database Layer
+### `src/database/db_models.py`
 
-#### [MODIFY] [db_models.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/database/db_models.py)
+**Modify `AIStudioDB`**:
+*   Add `archetype_id` (String).
 
-Update `AIStudioDB` to add:
-- `archetype_id` (String, nullable): Reference to archetype used for this studio
+**Modify `AISceneDB`**:
+*   **Remove**: `target_market_group` (Legacy field removed).
+*   **Remove**: `quality_score` (Legacy field removed).
+*   **Add**: `orientation` (String).
+*   **Add**: `dom_sub_dynamic_level` (Integer).
+*   **Add**: `global_tags` (JSON List) - Thematic tags.
+*   **Add**: `assigned_tags` (JSON Dict) - Physical tags (Name -> Quality).
+*   **Add**: `action_segments` (JSON List) - Action tags.
+*   **Add**: `viewer_group_interest` (JSON Dict) - The calculated interest scores.
+*   **Add**: `revenue` (Integer) - Calculated synthetic revenue.
+*   **Add**: `revenue_modifier_details` (JSON Dict) - Saved for debugging/player insight (e.g. "Why did this rival movie do well?").
 
-Update `AISceneDB` to replace simple `quality_score` with full tag and revenue data:
-- Remove: `quality_score` field
-- Add: `orientation` (String): Scene orientation
-- Add: `global_tags` (JSON, list): Thematic tags
-- Add: `assigned_tags` (JSON, dict): Physical tags with quality
-Add: `action_segments` (JSON, list): Action tags with runtime and quality
-- Add: `tag_qualities` (JSON, dict): Quality scores per tag
-- Add: `viewer_group_interest` (JSON, dict): Interest scores per viewer group
-- Add: `revenue` (Integer, default=0): Total calculated revenue
-- Add: `revenue_modifier_details` (JSON, dict): Revenue modifiers for debugging
+### 4. Service Layer
 
-Keep `target_market_group` for backwards compatibility.
+#### [MODIFY] `src/core/service_container.py`
 
----
+Update the container to manage the lifecycle of the generators.
 
-### Service Layer - AI Director
+*   **Update `__init__`**:
+    *   Add `self.talent_generator: Optional[TalentGenerator] = None`
+    *   Add `self.ai_studio_generator: Optional[AIStudioGenerator] = None`
 
-#### [MODIFY] [ai_studio_director.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/ai/ai_studio_director.py)
+*   **Update `initialize_and_populate_services`**:
+    *   **Level 0 (No dependencies)**:
+        *   Instantiate `TalentGenerator`.
+            *   *Note:* Pass the specific dictionaries from `self.data_manager` as currently required by `TalentGenerator.__init__` (e.g., `game_constant`, `generator_data`, `affinity_data`, etc.).
+        *   Instantiate `AIStudioGenerator`.
+            *   Pass `self.data_manager`.
 
-Update `_create_scene()` method to:
+    *   **Injection (Level 2/3)**:
+        *   When instantiating `AIStudioDirector`, inject `self.ai_studio_generator`.
+        *   *Correction to GameSessionService:* The `GameSessionService` currently takes `talent_generator` in `__init__`. You must now update the instantiation of `GameSessionService` in `initialize_and_populate_services` (or wherever it is created) to pass these two generator instances.
 
-1. **Generate Scene Data**:
-   - Select orientation from studio's archetype
-   - Select focus group from archetype's `focus_groups`
-   - Generate 2-5 tags from each category (physical, action, thematic)
-   - Weight tag selection by archetype preferences
-   - Filter tags by orientation (tags must match scene orientation OR have "Male"/"Female" pseudo-orientation)
-   - Generate random quality for each tag within archetype's quality range
+*   **Update `_clear_container_services`**:
+    *   Set `self.talent_generator = None`.
+    *   Set `self.ai_studio_generator = None`.
 
-2. **Create Scene Mock Object**:
-   - Build minimal `Scene` dataclass with required fields for revenue calculation
-   - Populate: `global_tags`, `assigned_tags`, `action_segments`, `tag_qualities`, `focus_target`
-   - Create simple `action_segments` with runtime percentages (distribute evenly)
-   - Use default `dom_sub_dynamic_level` of 1
-   - Set `total_runtime_minutes` to a standard value (e.g., 30)
+#### [MODIFY] `src/services/game_session_service.py`
 
-3. **Calculate Revenue**:
-   - Call `revenue_calculator.calculate_revenue()` with mock Scene, empty cast list, current market states, resolved groups
-   - Extract `viewer_group_interest` and `total_revenue` from result
+*   **Update `__init__`**:
+    *   Add argument `ai_studio_generator: AIStudioGenerator`.
+    *   Store it as `self.ai_studio_generator`.
 
-4. **Persist**:
-   - Pass all generated data to `ai_studio_command_service.create_ai_scene()`
+*   **Update `start_new_game`**:
+    *   Remove the hardcoded AI studio generation logic (lines 74-89 in the provided snippet).
+    *   Call `studios = self.ai_studio_generator.generate_studios(count=3, start_id=1)`.
+    *   Iterate through `studios` and persist them: `session.add(AIStudioDB.from_dataclass(studio))`.
 
-Update `_process_scene_releases()` to:
-- Use `viewer_group_interest` scores instead of single `quality_score`
-- Apply saturation updates to ALL groups based on their interest scores
-- Scale saturation impact: `impact = (interest_score / max_possible_interest) * base_impact`
+#### [MODIFY] `src/services/ai/ai_studio_director.py`
 
----
+*   **Update `__init__`**:
+    *   Add argument `ai_studio_generator: AIStudioGenerator`.
+    *   Store it as `self.generator`.
 
-### Service Layer - Command Service
+*   **Update `_create_scene(self, session, studio_db, current_week)`**:
+    *   **Fetch Archetype**: Use `studio_db.archetype_id` to look up the full archetype definition from `self.data_manager.ai_studio_archetypes`.
+    *   **Generate Params**: Call `params = self.generator.generate_scene_parameters(archetype, current_week)`.
+    *   **Build Mock Scene**:
+        *   Create `Scene` dataclass.
+        *   Set `orientation`, `dom_sub_dynamic_level` from `params`.
+        *   Populate `global_tags` (Thematic) and `assigned_tags` (Physical) from `params['tags']`.
+        *   Create dummy `ActionSegment` objects for the Action tags in `params['tags']`.
+        *   Set `tag_qualities` using the scores from `params['tags']`.
+    *   **Calculate**: Pass mock scene to `self.revenue_calculator.calculate_revenue`.
+    *   **Persist**: Pass `params` and revenue results to `command_service.create_ai_scene`.
 
-#### [MODIFY] [ai_studio_command_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/ai_studio_command_service.py)
+## 5. Migration Script
 
-Update `create_ai_scene()` signature and logic:
-- Add parameters: `orientation`, `global_tags`, `assigned_tags`, `action_segments`, `tag_qualities`, `viewer_group_interest`, `revenue`
-- Create `AISceneDB` with all new fields populated
+### `data/scripts/migrate_to_sqlite.py`
+*   Since we are not keeping `target_market_group`, this is a breaking schema change.
+*   **Action**: Drop `ai_scenes` table and recreate it with the new columns.
+*   **Action**: Alter `ai_studios` to add `archetype_id`.
+*   *Note:* Since this is a dev/prototype phase, dropping the AI scene table is acceptable (player loses history of AI movies, but not their own).
 
----
+## 6. Implementation Steps
 
-### Game Session Service
+1.  **JSON**: Create `ai_studio_archetypes.json`.
+2.  **Model**: Update `db_models.py` (Drop columns, add JSON fields).
+3.  **Generator**: Implement `AIStudioGenerator` with the "Concept vs Tag" resolution logic.
+4.  **Container**: Wire generators into `ServiceContainer`.
+5.  **Logic**: Update `AIStudioDirector` to use `RevenueCalculator`.
+6.  **Command**: Update `AIStudioCommandService` signatures.
+7.  **Startup**: Update `GameSessionService` to use the generator.
+8.  **Run Migration**.
 
-#### [MODIFY] [game_session_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/game_session_service.py)
-
-In `start_new_game()` method:
-1. Remove hardcoded AI studio creation (lines 74-89)
-2. Add dependency injection for `AIStudioGenerator`
-3. Call `ai_studio_generator.generate_multiple_studios(count=3, start_id=1)` 
-4. Persist generated studios to database via `AIStudioDB.from_dataclass()`
-
-Set initial studio count to 3 (matching current behavior).
-
----
-
-### Data Manager Integration
-
-#### [MODIFY] [data_manager.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/data/data_manager.py)
-
-Add loading for AI studio archetypes:
-- Add `ai_studio_archetypes` property
-- Load from `data/ai_studio_archetypes.json` in `__init__()`
-- Handle file loading errors gracefully
-
----
-
-### Service Container
-
-#### [MODIFY] [service_container.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/core/service_container.py)
-
-Add `AIStudioGenerator` to dependency injection:
-- Instantiate with archetype data, tag definitions, market data, location data
-- Make available to `GameSessionService`
-- Wire up dependencies for `AIStudioDirector` (needs `revenue_calculator`)
-
----
-
-### Migration
-
-#### [MODIFY] [migrate_to_sqlite.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/data/scripts/migrate_to_sqlite.py)
-
-Update to reflect new schema:
-- Update `AIStudioDB` table creation to include `archetype_id`
-- Update `AISceneDB` table creation with new JSON fields
-- No need to handle old data migration per user requirement
-
----
-
-## Verification Plan
-
-### Automated Tests
-
-No existing automated tests were found for AI studios. We will verify manually.
-
-### Manual Verification
-
-1. **Start New Game**:
-   - Run `python src/main.py`
-   - Create a new game
-   - Verify 3 AI studios are created with varied archetypes, locations, and preferences
-   - Check database directly: should see AIStudioDB records with `archetype_id` populated
-
-2. **Advance Time to Trigger Scene Creation**:
-   - Advance to week 2 (first week of first month)
-   - Check logs for scene creation messages
-   - Verify scenes are created with tags and calculated revenue
-   - Check database: AISceneDB should have `global_tags`, `assigned_tags`, `action_segments`, `tag_qualities`, `viewer_group_interest`, and `revenue` fields populated
-
-3. **Verify Revenue Calculation**:
-   - Check that `viewer_group_interest` contains scores for multiple groups
-   - Verify `revenue` is non-zero and reasonable
-   - Check logs for saturation updates to multiple market groups
-
-4. **Verify Scene Release**:
-   - Advance time to scene release week (creation week + 2)
-   - Verify saturation is applied to market groups based on interest scores
-   - Check `MarketGroupStateDB` to see saturation changes
-
-5. **Verify Tag Selection Follows Archetype**:
-   - Examine generated scenes in database
-   - Verify all action/physical tags match the archetype's orientation
-   - Verify tags with weights in archetype appear more frequently
-   - Verify tag qualities fall within archetype's quality range

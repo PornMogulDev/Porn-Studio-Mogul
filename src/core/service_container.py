@@ -2,12 +2,14 @@ import logging
 from typing import Optional, TYPE_CHECKING
 
 from core.game_signals import GameSignals
+
 # Data
 from data.data_manager import DataManager
 from data.save_manager import SaveManager
 from data.game_state import GameState
 
 # Command
+from services.game_session_service import GameSessionService
 from services.command.email_service import EmailService
 from services.command.go_to_list_service import GoToListService
 from services.command.scene_command_service import SceneCommandService
@@ -55,6 +57,10 @@ from services.query.talent_location_service import TalentLocationService
 from services.builders.call_sheet_builder import ShootingBlocBuilder
 from services.builders.scene_state_editor import SceneStateEditor
 
+# Generators
+from core.talent_generator import TalentGenerator
+from core.ai_studio_generator import AIStudioGenerator
+
 from services.models.configs import (
     HiringConfig, MarketConfig, SceneCalculationConfig, ContractConfig,
     TourConfig, ProductionConfig
@@ -90,6 +96,11 @@ class ServiceContainer:
         self.production_config: Optional[ProductionConfig] = None
 
         # --- Service instances ---
+
+        # Generators & Lifecycle (Initialized in __init__)
+        self.talent_generator: TalentGenerator
+        self.ai_studio_generator: AIStudioGenerator
+        self.game_session_service: GameSessionService
 
         # Command
         self.talent_command_service: Optional[TalentCommandService] = None
@@ -140,6 +151,22 @@ class ServiceContainer:
         self.tour_sponsorship_service: Optional[TourSponsorshipPreviewService] = None
         self.time_service: Optional[TimeService] = None
         
+        # --- Create Configs ---
+        self._create_configs()
+
+        # --- Phase 1: App Startup (Generators & Lifecycle) ---
+        self.talent_generator = TalentGenerator(
+            self.data_manager.game_config, self.data_manager.generator_data, 
+            self.data_manager.affinity_data, self.data_manager.tag_definitions, 
+            self.data_manager.talent_archetypes, self.data_manager.traits_data
+        )
+        self.ai_studio_generator = AIStudioGenerator(self.data_manager)
+
+        self.game_session_service = GameSessionService(
+            self.save_manager, self.data_manager, self.signals,
+            self.talent_generator, self.ai_studio_generator
+        )
+
     def initialize_and_populate_services(self, controller: 'GameController', game_state: GameState):
         """
         Creates all service instances and injects them into the controller.
@@ -148,9 +175,6 @@ class ServiceContainer:
         logger.info("Initializing service layer...")
         # Get the session factory from the database manager
         session_factory = self.save_manager.db_manager.get_session_factory()
-        
-        # --- Create Configs ---
-        self._create_configs()
 
         # --- Create Services (Order Matters for Dependencies) ---
         # Level 0: No dependencies on other services
@@ -256,6 +280,7 @@ class ServiceContainer:
 
     def _populate_controller(self, controller: 'GameController'):
         """Injects the initialized services into the controller instance."""
+        controller.game_session_service = self.game_session_service
         controller.query_service = self.query_service
         controller.tag_query_service = self.tag_query_service
         controller.tag_validation_checker = self.tag_validation_checker
@@ -280,6 +305,7 @@ class ServiceContainer:
     
     def _clear_controller_services(self, controller: 'GameController'):
         """Sets all service references on the controller to None."""
+        # Do NOT clear controller.game_session_service here as it persists across sessions
         controller.query_service = None
         controller.tag_query_service = None
         controller.tag_validation_checker = None
@@ -344,6 +370,7 @@ class ServiceContainer:
         self.studio_command_service = None
         self.ai_studio_command_service = None
         self.ai_studio_director = None
+        # Do not clear generators or game_session_service
 
     # --- Builder Factories ---
     

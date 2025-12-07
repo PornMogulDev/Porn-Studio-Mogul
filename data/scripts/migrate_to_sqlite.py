@@ -300,9 +300,24 @@ def create_tables(cursor):
         description TEXT
     )
     """)
+
+    # ai_studio_archetypes
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS ai_studio_archetypes (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        weight INTEGER NOT NULL,
+        orientation TEXT NOT NULL,
+        focus_groups_json TEXT,
+        locations_json TEXT,
+        scenes_per_month_json TEXT,
+        tag_quality_range_json TEXT,
+        dom_sub_dynamic_json TEXT,
+        tag_weights_json TEXT
+    )
+    """)
     
     print("Tables created successfully.")
-
 
 def migrate_config(cursor, data):
     print("Migrating game_config.json...")
@@ -729,6 +744,31 @@ def migrate_accommodation_tiers(cursor, data):
         count += 1
     print(f"{count} accommodation tier entries migrated.")
 
+def migrate_ai_studio_archetypes(cursor, data):
+    print("Migrating ai_studios_archetypes.json...")
+    count = 0
+    for arch in data:
+        cursor.execute("""
+        INSERT OR REPLACE INTO ai_studio_archetypes (
+            id, name, weight, orientation, focus_groups_json, locations_json,
+            scenes_per_month_json, tag_quality_range_json, dom_sub_dynamic_json,
+            tag_weights_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            arch.get('id'),
+            arch.get('name'),
+            arch.get('weight'),
+            arch.get('orientation'),
+            json.dumps(arch.get('focus_groups', {})),
+            json.dumps(arch.get('locations', {})),
+            json.dumps(arch.get('scenes_per_month', {})),
+            json.dumps(arch.get('tag_quality_range', {})),
+            json.dumps(arch.get('dom_sub_dynamic', {})),
+            json.dumps(arch.get('tag_weights', {}))
+        ))
+        count += 1
+    print(f"{count} AI studio archetypes migrated.")
+
 def main():
     # Get the project root directory (parent of scripts/)
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -783,6 +823,7 @@ def main():
         migrate_talent_archetypes(cursor, load_json("talent_generation/talent_archetypes.json"))
         migrate_traits(cursor, load_json("talent_generation/traits.json"))
         migrate_accommodation_tiers(cursor, load_json("accommodation_tiers.json"))
+        migrate_ai_studio_archetypes(cursor, load_json("ai_studios_archetypes.json"))
 
     except FileNotFoundError as e:
         print(f"ERROR: Missing data file '{e.filename}'. Cannot continue migration.")

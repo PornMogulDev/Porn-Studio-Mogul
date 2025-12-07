@@ -239,6 +239,7 @@ class AIStudio:
     # Simple behavior parameters for prototype
     scenes_per_month_target: int = 4  # How many scenes they aim to create
     preferred_market_groups: List[str] = field(default_factory=list)  # Target audiences
+    archetype_id: str = None
 
 @dataclass_json
 @dataclass
@@ -248,8 +249,14 @@ class AIScene:
     title: str
     created_absolute_week: int
     released_absolute_week: int
-    target_market_group: str
-    quality_score: float
+    orientation: str
+    dom_sub_dynamic_level: int
+    revenue: int = 0
+    global_tags: List[str] = field(default_factory=list)
+    assigned_tags: Dict[str, float] = field(default_factory=dict)
+    action_segments: List[str] = field(default_factory=list)
+    viewer_group_interest: Dict[str, float] = field(default_factory=dict)
+    revenue_modifier_details: Dict[str, float] = field(default_factory=dict)
 
 @dataclass_json
 @dataclass

@@ -6,7 +6,6 @@ from core.service_container import ServiceContainer
 from core.game_signals import GameSignals
 from data.game_state import *
 from data.save_manager import SaveManager
-from core.talent_generator import TalentGenerator
 from data.data_manager import DataManager
 from data.settings_manager import SettingsManager
 from ui.managers.theme_manager import Theme, ThemeManager
@@ -52,6 +51,8 @@ class GameController(QObject):
         self.save_manager = save_manager
         self.signals = signals
         self.service_container = service_container
+        # Lifecycle service available immediately via container
+        self.game_session_service = self.service_container.game_session_service
         self.game_state = GameState(studio=StudioState())
         
         self.current_save_path = None 
@@ -61,14 +62,8 @@ class GameController(QObject):
         self.market_data = self.data_manager.market_data
         self.affinity_data = self.data_manager.affinity_data
         self.tag_definitions = self.data_manager.tag_definitions
-        self.generator_data = self.data_manager.generator_data
-        self.talent_archetypes = self.data_manager.talent_archetypes
         self.traits_data = self.data_manager.traits_data
         self.help_topics = self.data_manager.help_topics
-        
-        self.talent_generator = TalentGenerator(self.game_constant, self.generator_data, self.affinity_data, self.tag_definitions, self.talent_archetypes, self.traits_data)
-        
-        self.game_session_service = GameSessionService(self.save_manager, self.data_manager, self.signals, self.talent_generator)
 
        # --- Service Properties ---
         self.query_service: Optional[GameQueryService] = None

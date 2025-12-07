@@ -6,6 +6,7 @@ from database.db_models import (GameInfoDB, MarketGroupStateDB, TalentDB, AIStud
 from data.game_state import GameState, MarketGroupState, StudioState, AIStudio
 from data.save_manager import SaveManager, LIVE_SESSION_NAME, QUICKSAVE_NAME, EXITSAVE_NAME
 from core.talent_generator import TalentGenerator
+from core.ai_studio_generator import AIStudioGenerator
 from data.data_manager import DataManager
 from core.game_signals import GameSignals
 
@@ -17,11 +18,12 @@ class GameSessionService:
     Manages the game session lifecycle: new, save, load, quit.
     """
     def __init__(self, save_manager: SaveManager, data_manager: DataManager,
-        signals: GameSignals, talent_generator: TalentGenerator):
+        signals: GameSignals, talent_generator: TalentGenerator, ai_studio_generator: AIStudioGenerator):
         self.save_manager = save_manager
         self.data_manager = data_manager
         self.signals = signals
         self.talent_generator = talent_generator
+        self.ai_studio_generator = ai_studio_generator
         self.game_constant = self.data_manager.game_config
         self.market_data = self.data_manager.market_data
         
@@ -72,21 +74,10 @@ class GameSessionService:
             session.add(general_category)
 
             # --- Create Initial AI Studios ---
-            ai_studio_names = ["South West Studio", "South East Studio", "Czech Studio"]
-            ai_studio_locations = ["South West (US)", "South East (US)", "Czechia"]
-
-            for i, (name, location) in enumerate(zip(ai_studio_names, ai_studio_locations), start=1):
-                ai_studio = AIStudio(
-                    id=i,
-                    name=name,
-                    location=location,
-                    money=100000,
-                    scenes_per_month_target=4,
-                    preferred_market_groups=["Straight Men", "Gay Men"] 
-                )
-                
-                # Persist to database
-                session.add(AIStudioDB.from_dataclass(ai_studio))
+            generated_studios = self.ai_studio_generator.generate_studios(count=5, start_id=1)
+            for studio in generated_studios:
+                db_studio = AIStudioDB.from_dataclass(studio)
+                session.add(db_studio)
 
             # Create welcome email
             welcome_email = EmailMessageDB(
