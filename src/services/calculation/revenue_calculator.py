@@ -46,6 +46,8 @@ class RevenueCalculator:
             
             # 2. Calculate MULTIPLICATIVE Content Appeal
             multiplicative_appeal = 0.0
+            # Step 2a: Calculate Total Weight for Normalization
+            total_tag_weight = sum(t.weight for t in input_data.content_tags)
             phys_prefs = prefs.get('physical_sentiments', {})
             act_prefs = prefs.get('action_sentiments', {})
             orient_prefs = prefs.get('orientation_sentiments', {})
@@ -87,8 +89,10 @@ class RevenueCalculator:
                     
                     pref_multiplier *= (1.0 + bonus - penalty)
                 
-                # Weighted contribution: Quality * Preference * Weight
-                multiplicative_appeal += (tag_input.quality * pref_multiplier * tag_input.weight)
+                # Relative Weighted contribution: Quality * Preference * (Weight / TotalWeight)
+                # This creates a normalized score where 1.0 Quality = Preference Multiplier
+                relative_weight = tag_input.weight / total_tag_weight if total_tag_weight > 0 else 0
+                multiplicative_appeal += (tag_input.quality * pref_multiplier * relative_weight)
             
             # 3. Combine and Finalize Score
             group_interest_score = multiplicative_appeal + additive_appeal

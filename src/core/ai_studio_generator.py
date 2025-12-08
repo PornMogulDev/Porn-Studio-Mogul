@@ -3,6 +3,7 @@ import logging
 from typing import List, Dict, Optional, Any
 from data.game_state import AIStudio
 from data.data_manager import DataManager
+from services.models.inputs import RevenueInput, ContentTagInput
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,55 @@ class AIStudioGenerator:
         self.data_manager = data_manager
         self.archetypes = self.data_manager.ai_studio_archetypes
         self.tag_definitions = self.data_manager.tag_definitions
+
+    def create_revenue_input_from_params(self, title: str, params: Dict, data_manager: DataManager) -> RevenueInput:
+        """
+        Builds the standard RevenueInput DTO from a dictionary of AI-generated scene parameters.
+        """
+        global_tags = []
+        content_tags = []
+        tag_qualities = params.get('tags', {})
+        runtime = 20  # Default runtime for AI scenes
+
+        action_base_weight = data_manager.game_config.get("revenue_weight_default_action_appeal", 10.0)
+        physical_weight = data_manager.game_config.get("revenue_weight_focused_physical_tag", 5.0)
+
+        for tag_name, quality in tag_qualities.items():
+            tag_def = data_manager.tag_definitions.get(tag_name)
+            if not tag_def: continue
+
+            t_type = tag_def.get('type')
+            if t_type == 'Thematic':
+                global_tags.append(tag_name)
+            elif t_type == 'Physical':
+                content_tags.append(ContentTagInput(
+                    tag_name=tag_name,
+                    tag_type=t_type,
+                    quality=quality / 100.0,
+                    weight=physical_weight,
+                    orientation=params.get('orientation'),
+                    concept=tag_def.get('concept')
+                ))
+            elif t_type == 'Action':
+                # For AI, approximate action tag weight based on typical scene structure
+                content_tags.append(ContentTagInput(
+                    tag_name=tag_name,
+                    tag_type=t_type,
+                    quality=quality / 100.0,
+                    weight=action_base_weight * 0.5, # Assume 2 action tags split the focus
+                    orientation=params.get('orientation'),
+                    concept=tag_def.get('concept')
+                ))
+
+        return RevenueInput(
+            title=title,
+            focus_target=params.get('target_market', 'Straight Men'),
+            dom_sub_level=params.get('dom_sub_level', 0),
+            global_tags=global_tags,
+            total_runtime_minutes=runtime,
+            content_tags=content_tags,
+            star_power_scores={}  # AI scenes have no star power
+        )
 
     def generate_studios(self, count: int, start_id: int) -> List[AIStudio]:
         studios = []

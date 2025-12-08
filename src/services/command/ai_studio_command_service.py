@@ -32,8 +32,7 @@ class AIStudioCommandService:
         return session.query(func.count(AISceneDB.id)).filter_by(ai_studio_id=studio_id).scalar()
 
     def create_ai_scene(self, session: Session, studio_id: int, title: str,
-                        current_week: int, params: Dict[str, Any],
-                        revenue_result: Any) -> AISceneDB:
+                        current_week: int, params: Dict[str, Any]) -> AISceneDB:
         """
         Records a new AI scene in production.
         Note: Operates within an existing transaction (passed session).
@@ -46,14 +45,7 @@ class AIStudioCommandService:
             title=title,
             created_absolute_week=current_week,
             released_absolute_week=release_week,
-            orientation=params.get('orientation', 'Straight'),
-            dom_sub_dynamic_level=params.get('dom_sub_level', 0),
-            revenue=revenue_result.total_revenue,
-            global_tags=params.get('global_tags', []),
-            assigned_tags=params.get('assigned_tags', {}),
-            action_segments=params.get('action_segments', []),
-            viewer_group_interest=revenue_result.viewer_group_interest,
-            revenue_modifier_details=revenue_result.revenue_modifier_details
+            scene_parameters=params
        )
         session.add(scene)
         return scene
