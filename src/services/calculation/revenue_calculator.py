@@ -79,7 +79,7 @@ class RevenueCalculator:
                     
                     if count > (applies_after := rule.get("applies_after", 0)):
                         units = count - applies_after
-                        if "bonuses" in rule: 
+                        if "bonuses" in rule and rule["bonuses"]:
                             bonus = sum(rule["bonuses"][min(i, len(rule["bonuses"]) - 1)] for i in range(units))
                         elif "bonus_per_unit" in rule: 
                             bonus = units * rule["bonus_per_unit"]

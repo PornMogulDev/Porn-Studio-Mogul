@@ -1,6 +1,6 @@
 import random
 import logging
-from typing import List, Dict, Optional, Any
+from typing import List, Dict
 from data.game_state import AIStudio
 from data.data_manager import DataManager
 from services.models.inputs import RevenueInput, ContentTagInput
@@ -12,6 +12,7 @@ class AIStudioGenerator:
         self.data_manager = data_manager
         self.archetypes = self.data_manager.ai_studio_archetypes
         self.tag_definitions = self.data_manager.tag_definitions
+        self._archetype_tag_pools = self._cache_archetype_pools()
 
     def create_revenue_input_from_params(self, title: str, params: Dict, data_manager: DataManager) -> RevenueInput:
         """
@@ -24,6 +25,13 @@ class AIStudioGenerator:
 
         action_base_weight = data_manager.game_config.get("revenue_weight_default_action_appeal", 10.0)
         physical_weight = data_manager.game_config.get("revenue_weight_focused_physical_tag", 5.0)
+
+        # Dynamic weight calculation for Action tags based on actual count
+        action_tags_count = sum(
+            1 for t_name in tag_qualities 
+            if data_manager.tag_definitions.get(t_name, {}).get('type') == 'Action'
+        )
+        dynamic_action_weight = action_base_weight / max(1, action_tags_count)
 
         for tag_name, quality in tag_qualities.items():
             tag_def = data_manager.tag_definitions.get(tag_name)
@@ -42,12 +50,11 @@ class AIStudioGenerator:
                     concept=tag_def.get('concept')
                 ))
             elif t_type == 'Action':
-                # For AI, approximate action tag weight based on typical scene structure
                 content_tags.append(ContentTagInput(
                     tag_name=tag_name,
                     tag_type=t_type,
                     quality=quality / 100.0,
-                    weight=action_base_weight * 0.5, # Assume 2 action tags split the focus
+                    weight=dynamic_action_weight,
                     orientation=params.get('orientation'),
                     concept=tag_def.get('concept')
                 ))
@@ -141,10 +148,8 @@ class AIStudioGenerator:
 
         # Tags Generation
         selected_tags = {}
-        tag_config = archetype.get('tag_weights', {})
         
         # Process each category (Action, Physical, Thematic)
-        # We pick roughly 2 Action, 2 Physical, 1 Thematic tag.
         categories = [
             ('action_tags', 'Action', 2),
             ('physical_tags', 'Physical', 2),
@@ -152,10 +157,8 @@ class AIStudioGenerator:
         ]
 
         for cat_key, tag_type, pick_count in categories:
-            cat_weights = tag_config.get(cat_key, {})
-            if not cat_weights: continue
-            
-            pool = self._build_tag_pool(cat_weights, params['orientation'], tag_type)
+            # Retrieve pre-calculated pool from cache instead of building it every time
+            pool = self._archetype_tag_pools.get(archetype_id, {}).get(cat_key)
             
             if pool:
                 tags = list(pool.keys())
@@ -178,6 +181,26 @@ class AIStudioGenerator:
                     
         params['tags'] = selected_tags
         return params
+    
+    def _cache_archetype_pools(self) -> Dict[str, Dict[str, Dict[str, float]]]:
+        """Pre-calculates tag pools for all archetypes to avoid iterating definitions at runtime."""
+        cache = {}
+        categories = [
+            ('action_tags', 'Action'),
+            ('physical_tags', 'Physical'),
+            ('thematic_tags', 'Thematic')
+        ]
+
+        for arch in self.archetypes:
+            arch_id = arch['id']
+            orientation = arch.get('orientation', 'Straight')
+            tag_config = arch.get('tag_weights', {})
+            
+            cache[arch_id] = {}
+            for cat_key, tag_type in categories:
+                if weights := tag_config.get(cat_key):
+                    cache[arch_id][cat_key] = self._build_tag_pool(weights, orientation, tag_type)
+        return cache
 
     def _build_tag_pool(self, weights_config: dict, orientation: str, tag_type: str) -> Dict[str, float]:
         pool = {}

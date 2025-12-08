@@ -83,7 +83,7 @@ class StartScreenView(QWidget):
         # Note: ClickableSvgWidget handles its own opening of URLs, so no signals needed here
         discord_link = ClickableSvgWidget(DISCORD_LOGO, "https://discord.com/")
         github_link = ClickableSvgWidget(GITHUB_LOGO, "https://github.com/PornMogulDev/Porn-Studio-Mogul")
-        reddit_link = ClickableSvgWidget(REDDIT_LOGO, "https://reddit.com/")
+        reddit_link = ClickableSvgWidget(REDDIT_LOGO, "https://old.reddit.com/r/PornStudioMogul/")
         f95_link = ClickableSvgWidget(F95_LOGO, "https://f95zone.to")
 
         # Layout placement
