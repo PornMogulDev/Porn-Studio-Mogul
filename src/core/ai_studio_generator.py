@@ -187,7 +187,7 @@ class AIStudioGenerator:
             
             # Filter by Orientation (if tag is specific)
             t_orient = tag_def.get('orientation')
-            if t_orient and t_orient not in ["Universal", "Any"] and t_orient != orientation:
+            if t_orient and t_orient not in ["Male", "Female"] and t_orient != orientation:
                 continue
                 
             # Determine Priority: Specific Name > Concept

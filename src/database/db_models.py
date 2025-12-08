@@ -272,9 +272,19 @@ class AISceneDB(Base, DataclassMapper):
     title = Column(String, nullable=False)
     created_absolute_week = Column(Integer, nullable=False)
     released_absolute_week = Column(Integer)
-    
-    scene_parameters = Column(JSON, default=dict)
-    
+    # Metadata
+    orientation = Column(String)
+    focus_target = Column(String)
+    dom_sub_dynamic_level = Column(Integer)
+    global_tags = Column(JSON, default=list)
+    assigned_tags = Column(JSON, default=dict) # TagName -> Quality
+    action_segments = Column(JSON, default=list) # List of TagNames
+    # Results
+    revenue = Column(Integer, default=0)
+    viewer_group_interest = Column(JSON, default=dict)
+    revenue_modifier_details = Column(JSON, default=dict)
+    market_saturation_updates = Column(JSON, default=dict)
+
     # Relationship
     studio = relationship('AIStudioDB', backref='scenes')
 

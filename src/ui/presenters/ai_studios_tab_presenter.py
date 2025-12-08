@@ -60,12 +60,29 @@ class AIStudiosTabPresenter(QObject):
                 year, week = time_utils.from_absolute(scene.released_absolute_week)
                 date_str = f"Y{year} W{week}" if scene.released_absolute_week else "In Prod"
                 
+                # Format Tags: Collect Global, Action, and Physical (keys of assigned_tags)
+                # We filter assigned_tags to exclude Action tags since they are already in action_segments list if we want duplicates,
+                # but better to just show unique significant tags.
+                all_tags = []
+                if scene.global_tags: all_tags.extend(scene.global_tags)
+                if scene.action_segments: all_tags.extend(scene.action_segments)
+                
+                # Physical tags are in assigned_tags, but action tags might be there too (with qualities).
+                # We want physicals specifically.
+                # Since we don't have the tag defs here easily without querying, we'll just list 
+                # keys from assigned_tags that AREN'T in action_segments.
+                physical_tags = [t for t in scene.assigned_tags.keys() if t not in scene.action_segments]
+                all_tags.extend(physical_tags)
+
                 scene_vms.append(AISceneViewModel(
                     id=scene.id,
                     title=scene.title,
                     date_str=date_str,
-                    quality_score_str=f"{scene.quality_score:.1f}",
-                    market_group=scene.target_market_group
+                    orientation=scene.orientation,
+                    dynamic_level_str=str(scene.dom_sub_dynamic_level),
+                    tags_str=", ".join(all_tags),
+                    market_group=scene.focus_target,
+                    revenue_str=f"${scene.revenue:,}"
                 ))
             
             self.view.scenes_widget.set_scenes(scene_vms)

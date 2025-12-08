@@ -26,12 +26,10 @@ class StudioScenesWidget(QWidget):
         layout.addWidget(self.title_label)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Title", "Released", "Market", "Quality"])
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels(["Title", "Released", "Orient/Dyn", "Tags", "Market", "Revenue"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents) # Title
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch) # Tags gets the space
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -43,11 +41,16 @@ class StudioScenesWidget(QWidget):
         for row, scene in enumerate(scenes):
             self.table.setItem(row, 0, QTableWidgetItem(scene.title))
             self.table.setItem(row, 1, QTableWidgetItem(scene.date_str))
-            self.table.setItem(row, 2, QTableWidgetItem(scene.market_group))
+            # Combined Orientation + Dynamic
+            self.table.setItem(row, 2, QTableWidgetItem(f"{scene.orientation} ({scene.dynamic_level_str})"))
             
-            quality_item = QTableWidgetItem(scene.quality_score_str)
-            quality_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(row, 3, quality_item)
+            # Tags
+            tags_item = QTableWidgetItem(scene.tags_str)
+            tags_item.setToolTip(scene.tags_str) # Tooltip for long lists
+            self.table.setItem(row, 3, tags_item)
+            
+            self.table.setItem(row, 4, QTableWidgetItem(scene.market_group))
+            self.table.setItem(row, 5, QTableWidgetItem(scene.revenue_str))
 
     def clear(self):
         self.table.setRowCount(0)

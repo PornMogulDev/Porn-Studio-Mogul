@@ -253,6 +253,7 @@ class TalentTab(QWidget):
         self.talent_table_view.setSelectionMode(QTableView.SelectionMode.ExtendedSelection)
         self.talent_table_view.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
         self.talent_table_view.verticalHeader().setVisible(False)
+        self.talent_table_view.setAlternatingRowColors(True)
         self.talent_table_view.horizontalHeader().setStretchLastSection(True)
         self.talent_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.talent_table_view.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)

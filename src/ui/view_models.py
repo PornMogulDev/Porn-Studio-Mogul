@@ -180,5 +180,8 @@ class AISceneViewModel:
     id: int
     title: str
     date_str: str
-    quality_score_str: str
     market_group: str
+    orientation: str
+    dynamic_level_str: str
+    tags_str: str
+    revenue_str: str

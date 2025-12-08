@@ -249,14 +249,18 @@ class AIScene:
     title: str
     created_absolute_week: int
     released_absolute_week: int
+    # Content Metadata
     orientation: str
+    focus_target: str
     dom_sub_dynamic_level: int
-    revenue: int = 0
     global_tags: List[str] = field(default_factory=list)
     assigned_tags: Dict[str, float] = field(default_factory=dict)
     action_segments: List[str] = field(default_factory=list)
+    # Performance Results
+    revenue: int = 0
     viewer_group_interest: Dict[str, float] = field(default_factory=dict)
     revenue_modifier_details: Dict[str, float] = field(default_factory=dict)
+    market_saturation_updates: Dict[str, float] = field(default_factory=dict)
 
 @dataclass_json
 @dataclass

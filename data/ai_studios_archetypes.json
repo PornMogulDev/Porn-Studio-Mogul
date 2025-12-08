@@ -36,7 +36,7 @@
     "scenes_per_month": {"min": 3, "max": 5},
     "tag_quality_range": {"min": 30.0, "max": 85.0},
     "dom_sub_dynamic": {"0": 0.3, "1": 0.7, "2": 0.5, "3": 0.4 },
-    "tag_preferences": {
+    "tag_weights": {
       "action_tags": {
         "Blowjob": 0.9,
         "Anal": 0.9,
