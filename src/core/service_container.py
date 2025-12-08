@@ -189,6 +189,7 @@ class ServiceContainer:
         self.bloc_simulation_calculator = BlocSimulationCalculator(self.data_manager, self.production_config)
         self.studio_command_service = StudioCommandService(session_factory, self.signals, game_state)
         self.ai_studio_command_service = AIStudioCommandService(session_factory, self.signals, self.data_manager)
+        self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
 
         # Level 1: Depends on Level 0 services
         self.crew_skill_calculator = CrewSkillCalculator(self.data_manager, self.budget_efficiency_calculator, self.production_config)
@@ -211,7 +212,9 @@ class ServiceContainer:
         # Level 2: Depends on Level 1 services
         self.ai_studio_director = AIStudioDirector(
             session_factory=session_factory, ai_studio_command_service=self.ai_studio_command_service,
-            market_service=self.market_service, data_manager=self.data_manager
+            market_service=self.market_service, data_manager=self.data_manager, revenue_calculator=self.revenue_calculator,
+            generator=self.ai_studio_generator
+        
         )
         self.contract_command_service = ContractCommandService(session_factory, self.signals, self.query_service, self.contract_config)
         self.talent_demand_calculator = TalentDemandCalculator(
@@ -225,7 +228,6 @@ class ServiceContainer:
         self.talent_command_service = TalentCommandService(self.signals, self.scene_calc_config, self.talent_affinity_calculator)
         self.scene_quality_calculator = SceneQualityCalculator(self.data_manager, self.scene_calc_config, self.budget_efficiency_calculator)
         self.post_production_calculator = PostProductionCalculator(self.data_manager)
-        self.revenue_calculator = RevenueCalculator(self.data_manager, self.scene_calc_config)
         self.scene_processing_service = SceneProcessingService(
             self.data_manager, self.talent_command_service, self.scene_calc_config,
             self.tag_validation_checker, self.shoot_results_calculator, self.bloc_simulation_calculator,

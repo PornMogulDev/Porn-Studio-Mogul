@@ -358,9 +358,10 @@ class SceneCommandService:
             all_market_states = self.query_service.get_all_market_states()
             all_resolved_groups = self.market_service.get_all_resolved_group_data()
 
-            # --- 2. DELEGATE CALCULATION ---
+            # --- 2. PREPARE INPUT & DELEGATE CALCULATION ---
+            revenue_input = self.scene_processing_service.prepare_revenue_input(scene, cast_talents_dc)
             revenue_result = self.revenue_calculator.calculate_revenue(
-                scene, cast_talents_dc, all_market_states, all_resolved_groups
+                revenue_input, all_market_states, all_resolved_groups
             )
 
             # --- 3. APPLY RESULTS ---
@@ -380,7 +381,8 @@ class SceneCommandService:
             scene_db.status = 'released'
             scene_db.viewer_group_interest = revenue_result.viewer_group_interest
             scene_db.revenue_modifier_details = revenue_result.revenue_modifier_details
-    
+            scene_db.market_saturation_updates = revenue_result.market_saturation_updates
+
             studio_state = session.query(StudioStateDB).get(1)
             new_money = studio_state.money + revenue
             studio_state.money = new_money

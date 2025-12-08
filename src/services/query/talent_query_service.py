@@ -219,7 +219,18 @@ class TalentQueryService:
             if not vp: return []
 
             # Execute Query
-            potential_candidates_db = session.query(TalentDB).all()
+            if filters:
+                # Delegate parsing of UI filters (Age, Name, Location, etc.) to the GameQueryService
+                # to retrieve the list of candidates matching static attributes.
+                filtered_candidates = self.query_service.get_filtered_talents(filters)
+                candidate_ids = [t.id for t in filtered_candidates]
+                
+                if not candidate_ids:
+                    return []
+                
+                potential_candidates_db = session.query(TalentDB).filter(TalentDB.id.in_(candidate_ids)).all()
+            else:
+                potential_candidates_db = session.query(TalentDB).all()
 
             # --- 4. Orchestration: Pre-fetch weekly bookings for all candidates ---
             candidate_ids = [t.id for t in potential_candidates_db]

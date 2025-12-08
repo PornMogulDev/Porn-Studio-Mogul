@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Dict, List
 from sqlalchemy.orm import selectinload, Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -10,6 +10,7 @@ from database.db_models import (SceneDB, TalentDB, StudioStateDB, ShootingBlocDB
 from services.command.talent_command_service import TalentCommandService
 from services.models.configs import SceneCalculationConfig
 from services.models.results import ShootCalculationResult
+from services.models.inputs import RevenueInput, ContentTagInput
 from services.calculation.tag_validation_checker import TagValidationChecker
 from services.calculation.shoot_results_calculator import ShootResultsCalculator
 from services.calculation.scene_quality_calculator import SceneQualityCalculator
@@ -228,3 +229,78 @@ class SceneProcessingService:
             flag_modified(scene_db, "revenue_modifier_details")
 
         scene_db.status = 'ready_to_release'
+
+    def prepare_revenue_input(self, scene: Scene, cast_talents: List[Talent]) -> RevenueInput:
+        """
+        Converts a fully realized Player Scene into a simplified RevenueInput DTO
+        for calculation. Handles weighting logic based on scene structure.
+        """
+        global_tags = scene.global_tags
+        content_tags = []
+        star_power_scores = {}
+        
+        # 1. Calculate Weights for Action Tags
+        expanded_segments = scene.get_expanded_action_segments(self.data_manager.tag_definitions)
+        total_runtime = max(1, scene.total_runtime_minutes)
+        
+        for segment in expanded_segments:
+            tag_name = segment.tag_name
+            tag_def = self.data_manager.tag_definitions.get(tag_name, {})
+            quality = scene.tag_qualities.get(tag_name, 0.0)
+            
+            # Weight Formula: (Duration / Total Runtime) * Config Multiplier
+            duration = total_runtime * (segment.runtime_percentage / 100.0)
+            weight = (duration / total_runtime) * self.config.revenue_weight_default_action_appeal
+            
+            content_tags.append(ContentTagInput(
+                tag_name=tag_name,
+                tag_type='Action',
+                quality=quality / 100.0,
+                weight=weight,
+                orientation=tag_def.get('orientation'),
+                concept=tag_def.get('concept'),
+                scaling_params=segment.parameters
+            ))
+            
+        # 2. Calculate Weights for Physical Tags
+        # Focused Tags (Player assigned) vs Auto Tags (Discovered)
+        focused_tags = set(scene.assigned_tags.keys())
+        for tag_name, quality in scene.tag_qualities.items():
+            tag_def = self.data_manager.tag_definitions.get(tag_name, {})
+            if tag_def.get('type') != 'Physical': continue
+            
+            if tag_name in focused_tags:
+                weight = self.config.revenue_weight_focused_physical_tag
+            else:
+                weight = self.config.revenue_weight_auto_tag
+            
+            content_tags.append(ContentTagInput(
+                tag_name=tag_name,
+                tag_type='Physical',
+                quality=quality / 100.0,
+                weight=weight,
+                orientation=tag_def.get('orientation'),
+                concept=tag_def.get('concept')
+            ))
+            
+        # 3. Calculate Star Power Scores
+        # Aggregate popularity for all cast members per market group
+        if cast_talents:
+            market_groups = list(cast_talents[0].popularity.keys())
+            for group in market_groups:
+                # Sum of popularity of all cast members for this group
+                total_pop = sum(t.popularity.get(group, 0.0) for t in cast_talents)
+                # Use average or sum? 
+                # Config says 'star_power_revenue_scalar' multiplies avg_pop.
+                # Let's provide the average here.
+                star_power_scores[group] = total_pop / len(cast_talents)
+        
+        return RevenueInput(
+            title=scene.title,
+            focus_target=scene.focus_target,
+            dom_sub_level=scene.dom_sub_dynamic_level,
+            total_runtime_minutes=scene.total_runtime_minutes,
+            global_tags=global_tags,
+            content_tags=content_tags,
+            star_power_scores=star_power_scores
+        )
