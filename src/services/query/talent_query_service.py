@@ -218,22 +218,42 @@ class TalentQueryService:
             vp = next((v for v in scene_db.virtual_performers if v.id == vp_id), None)
             if not vp: return []
 
-            # Execute Query
-            if filters:
-                # Delegate parsing of UI filters (Age, Name, Location, etc.) to the GameQueryService
-                # to retrieve the list of candidates matching static attributes.
-                filtered_candidates = self.query_service.get_filtered_talents(filters)
-                candidate_ids = [t.id for t in filtered_candidates]
-                
-                if not candidate_ids:
-                    return []
-                
-                potential_candidates_db = session.query(TalentDB).filter(TalentDB.id.in_(candidate_ids)).all()
-            else:
-                potential_candidates_db = session.query(TalentDB).all()
+            # --- Filter Logic Construction ---
+            # Create a copy of user filters to safely modify with role requirements
+            query_filters = filters.copy() if filters else {}
 
-            # --- 4. Orchestration: Pre-fetch weekly bookings for all candidates ---
-            candidate_ids = [t.id for t in potential_candidates_db]
+            # 1. Strict Gender Override: The Role determines the gender, not the user filter.
+            query_filters['gender'] = vp.gender
+
+            # 2. Strict Ethnicity Override: 
+            # If the Role requires a specific ethnicity, it overrides user preference.
+            # If the Role is "Any", we respect the user's filter (allows casting a specific ethnicity for an 'Any' role).
+            if vp.ethnicity != "Any":
+                query_filters['ethnicity'] = vp.ethnicity
+                # Remove list-based 'ethnicities' if present so GameQueryService uses the strict 'ethnicity' key
+                query_filters.pop('ethnicities', None)
+
+            # 3. Contextual Cleanup: Remove filters irrelevant to the target gender
+            if vp.gender == "Male":
+                query_filters.pop('cup_sizes', None)
+                query_filters.pop('cup_size', None)
+            elif vp.gender == "Female":
+                query_filters.pop('dick_size_min', None)
+                query_filters.pop('dick_size_max', None)
+
+            # --- Execute Database Query ---
+            # Retrieve candidates matching the combined hard (Role) and soft (User) constraints
+            filtered_candidates = self.query_service.get_filtered_talents(query_filters)
+            candidate_ids = [t.id for t in filtered_candidates]
+            
+            if not candidate_ids:
+                return []
+            
+            # Re-fetch in current session context
+            potential_candidates_db = session.query(TalentDB).filter(TalentDB.id.in_(candidate_ids)).all()
+
+            # --- Availability & Logic Checks ---
+            # Pre-fetch weekly bookings for all candidates
             all_bookings = self._get_bookings_by_absolute_week(session, candidate_ids)
             
             scene_abs_week = scene.scheduled_absolute_week
