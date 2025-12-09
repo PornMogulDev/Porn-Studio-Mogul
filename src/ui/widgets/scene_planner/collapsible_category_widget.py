@@ -20,10 +20,28 @@ class CollapsibleCategoryWidget(QTreeWidget):
         self.setIndentation(20)
         self.setRootIsDecorated(True)
 
+        # Cache leaf items to allow filtering without rebuilding
+        # Key: tag full_name, Value: QTreeWidgetItem
+        self._leaf_items: Dict[str, QTreeWidgetItem] = {}
+
     def set_tags(self, tags: List[Dict[str, Any]]):
         """
-        Populates the tree grouping tags by their 'concept'.
-        """
+        Updates the tree. If the tree is empty, it builds it.
+        If the tree exists, it filters items based on the input list,
+        preserving expansion state and scroll position.
+         """
+        # If we already have items and this seems like a filter operation (subset of data),
+        # try to just hide/show items instead of rebuilding.
+        if self.topLevelItemCount() > 0:
+            visible_names = {t.get('full_name', t.get('name')) for t in tags}
+            
+            # Heuristic: If we have cached items matching the input, update visibility
+            # If we received new tags that we don't know about, fall through to rebuild.
+            if all(name in self._leaf_items for name in visible_names):
+                self._filter_items(visible_names)
+                return
+
+        # Full Build / Rebuild
         self.clear()
         
         # Group tags by concept
@@ -58,18 +76,41 @@ class CollapsibleCategoryWidget(QTreeWidget):
             root_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
             
             for tag in tag_list:
+                # Ensure we use the full name as the unique key
                 child_item = QTreeWidgetItem(root_item)
                 # Use full_name for display (contains stars, gender info from presenter)
                 display_text = tag.get('full_name', tag.get('name', 'Unknown'))
                 child_item.setText(0, display_text)
                 # Store full tag data for retrieval
                 child_item.setData(0, Qt.ItemDataRole.UserRole, tag)
+
+                # Cache for filtering
+                self._leaf_items[display_text] = child_item
                 
                 if tooltip := tag.get("tooltip"):
                     child_item.setToolTip(0, tooltip)
             
             # Expand all by default to show tags
             root_item.setExpanded(True)
+
+    def _filter_items(self, visible_names: set):
+        """Hides items not in visible_names, handles parent visibility."""
+        self.setUpdatesEnabled(False)
+        
+        for i in range(self.topLevelItemCount()):
+            root = self.topLevelItem(i)
+            visible_children = 0
+            for j in range(root.childCount()):
+                child = root.child(j)
+                should_hide = child.text(0) not in visible_names
+                child.setHidden(should_hide)
+                if not should_hide:
+                    visible_children += 1
+            
+            # Hide category if all children are hidden
+            root.setHidden(visible_children == 0)
+            
+        self.setUpdatesEnabled(True)
 
     def get_selected_tag_names(self) -> List[str]:
         """Returns the text of selected leaf nodes."""
@@ -87,9 +128,8 @@ class CollapsibleCategoryWidget(QTreeWidget):
         if not selected_names:
             return
             
-        # Emulate the behavior of DraggableListWidget which sends text.
-        # We send the first selected name.
-        text_to_drag = selected_names[0]
+        # Send all selected names joined by newlines to support multi-select drag
+        text_to_drag = "\n".join(selected_names)
             
         if text_to_drag:
             mime_data = QMimeData()

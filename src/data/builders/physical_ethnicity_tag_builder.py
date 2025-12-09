@@ -2,26 +2,38 @@ from typing import Dict, List, Any
 
 class PhysicalEthnicityTagBuilder:
     """
-    Generates ethnicity-based Physical tags (Individual and Pairs) 
-    based on the loaded ethnicity hierarchy.
+    Generates ethnicity-based Physical tags (Individual and Pairs).
+    Ensures pair tags are canonical (e.g. BM/WF is always generated, never WF/BM).
     """
     def __init__(self, ethnicity_hierarchy: Dict[str, List[str]], game_config: Dict[str, Any]):
         self.hierarchy = ethnicity_hierarchy
         self.config = game_config
         
-        # Mapping (Ethnicity, Gender) -> Custom Tag Name
-        # If an entry exists, it replaces the default "{Ethnicity}" name.
         self.custom_names = {
             ("Black", "Female"): "Ebony",
             ("Latin", "Female"): "Latina",
         }
         
-        # Short codes for generating compact pair names like (BM/WF)
+        # Predefined short codes. 
+        # Can be expanded via DB or Config in the future.
         self.short_codes = {
             "White": "W", "Black": "B", "Asian": "A", 
             "Latin": "L", "Arab": "Ar", "Amerindian": "Am",
             "Male": "M", "Female": "F"
         }
+
+    def _get_short_code(self, ethnicity: str) -> str:
+        """
+        Returns a short code for the ethnicity. 
+        Safe fallback to first 2 letters if unknown.
+        """
+        if ethnicity in self.short_codes:
+            return self.short_codes[ethnicity]
+        
+        # Fallback: First 2 letters, uppercase
+        if ethnicity and len(ethnicity) >= 2:
+            return ethnicity[:2].upper()
+        return (ethnicity or "??")[:2].upper()
 
     def generate_all_tags(self) -> List[Dict[str, Any]]:
         tags = []
@@ -108,15 +120,32 @@ class PhysicalEthnicityTagBuilder:
     def _create_pair_tag(self, eth1: str, gender1: str, eth2: str, gender2: str) -> Dict[str, Any]:
         is_same_ethnicity = (eth1 == eth2)
         
-        code1 = self.short_codes.get(eth1, eth1[0])
-        code2 = self.short_codes.get(eth2, eth2[0])
+        code1 = self._get_short_code(eth1)
+        code2 = self._get_short_code(eth2)
         
         g1 = "M" if gender1 == "Male" else "F"
         g2 = "M" if gender2 == "Male" else "F"
-        
-        # e.g. BM/WF or BM/WM
-        pair_code = f"{code1}{g1}/{code2}{g2}"
 
+        part1 = f"{code1}{g1}"
+        part2 = f"{code2}{g2}"
+        
+        # CANONICAL SORTING:
+        # We strictly order by the code string.
+        # This ensures that "Black Male + White Female" generates "BM/WF"
+        # And "White Female + Black Male" ALSO generates "BM/WF"
+        # This prevents duplicate tags in the system.
+        if part1 < part2:
+            pair_code = f"{part1}/{part2}"
+            # Keep track of which descriptive vars belong to which side for the tooltip
+            t_eth1, t_gen1 = eth1, gender1
+            t_eth2, t_gen2 = eth2, gender2
+        else:
+            pair_code = f"{part2}/{part1}"
+            # Swap vars for tooltip consistency
+            t_eth1, t_gen1 = eth2, gender2
+            t_eth2, t_gen2 = eth1, gender1
+
+        # Orientation Logic
         if gender1 != gender2:
             orientation = "Straight"
         elif gender1 == "Male":
@@ -131,7 +160,7 @@ class PhysicalEthnicityTagBuilder:
             concept = f"Interracial Pairs ({orientation})"
             base_name = f"Interracial ({pair_code})"
 
-        # Revenue Weights
+        # Configurable Weights
         focused_w = self.config.get("ethnic_tag_pair_focused", 15.0)
         auto_w = self.config.get("ethnic_tag_pair_auto", 3.0)
 
@@ -141,15 +170,18 @@ class PhysicalEthnicityTagBuilder:
             "type": "Physical",
             "concept": concept,
             "orientation": orientation,
+            # If they are same ethnicity, it's just Race. If different, it's Interracial.
             "categories": ["Race", "Interracial"] if not is_same_ethnicity else ["Race"],
             "is_auto_taggable": True,
-            "tooltip": f"{eth1} {gender1} & {eth2} {gender2}",
-            # Compositional validation rule
+            # Tooltip matches canonical order
+            "tooltip": f"{t_eth1} {t_gen1} & {t_eth2} {t_gen2}",
+            
+            # Validation Rule: Match all profiles
             "validation_rule": {
                 "mode": "match_all",
                 "profiles": [
-                    { "gender": gender1, "ethnicity": eth1 },
-                    { "gender": gender2, "ethnicity": eth2 }
+                    { "gender": t_gen1, "ethnicity": t_eth1 },
+                    { "gender": t_gen2, "ethnicity": t_eth2 }
                 ]
             },
              "quality_source": {
