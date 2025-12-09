@@ -182,5 +182,9 @@
         {"type": "refuses", "policy_id": "policy_std_test_required", "pro_level": 4, "comparison": "lte", "chance": 0.10}
     ],
     "ethnicity_self_affinity_score": 100
-  }
+  },
+  "ethnic_tag_individual_focused": 10.0,
+  "ethnic_tag_individual_auto": 2.5,
+  "ethnic_tag_pair_focused": 15.0,
+  "ethnic_tag_pair_auto": 3.0
 }

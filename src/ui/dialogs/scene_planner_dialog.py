@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
 QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox,
 QListWidget, QListWidgetItem, QPushButton, QLabel, QDialogButtonBox,
 QSpinBox, QGroupBox, QWidget, QScrollArea, QStackedWidget,
-QCheckBox, QMessageBox, QMenu, QTabWidget
+QCheckBox, QMessageBox, QMenu, QTabWidget, QTreeWidgetItem
 )
 from PyQt6.QtCore import (
 Qt, pyqtSignal, QTimer, QPoint,
@@ -18,6 +18,7 @@ from ui.widgets.scene_planner.draggable_list_widget import DraggableListWidget
 from ui.widgets.scene_planner.drop_enabled_list_widget import DropEnabledListWidget
 from ui.widgets.scene_planner.action_segment_widget import ActionSegmentItemWidget
 from ui.widgets.scene_planner.slot_assignment_widget import SlotAssignmentWidget
+from ui.widgets.scene_planner.collapsible_category_widget import CollapsibleCategoryWidget
 from ui.widgets.preset_widget import PresetWidget
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.buttons.help_button import HelpButton
@@ -201,8 +202,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         available_col = QVBoxLayout(); available_col.addWidget(QLabel("<h3>Available Physical Tags</h3>"))
         self.physical_search_input = QLineEdit(placeholderText="Search tags..."); available_col.addWidget(self.physical_search_input)
         self.physical_filter_btn = QPushButton("Advanced Filter..."); available_col.addWidget(self.physical_filter_btn)
-        self.available_physical_list = DraggableListWidget()
-        self.available_physical_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        self.available_physical_list = CollapsibleCategoryWidget()
         available_col.addWidget(self.available_physical_list)
         # Add/Remove
         add_remove_col = QVBoxLayout(); add_remove_col.addStretch()
@@ -386,8 +386,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         for tag_data in selected_tags_data: self.selected_thematic_list.addItem(self._create_list_item_with_tooltip(tag_data))
 
     def update_available_physical_tags(self, tags: List[Dict]):
-        self.available_physical_list.clear()
-        for tag_data in tags: self.available_physical_list.addItem(self._create_list_item_with_tooltip(tag_data))
+        self.available_physical_list.set_tags(tags)
 
     def update_selected_physical_tags(self, selected_tags_data: List[Dict], selection_name: str):
         self.selected_physical_list.clear()
@@ -531,7 +530,12 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         if list_widget is self.selected_actions_list:
             widget = self.selected_actions_list.itemWidget(item)
             if isinstance(widget, ActionSegmentItemWidget): tag_name = widget.segment.tag_name
-        else: tag_name = item.text()
+        elif isinstance(item, QTreeWidgetItem):
+            # For CollapsibleCategoryWidget: check if it's a category header (parent is None)
+            if item.parent() is None: return 
+            tag_name = item.text(0)
+        else:
+            tag_name = item.text()
         if not tag_name: return
         menu = QMenu(self); fav_action = menu.addAction("Toggle Favorite")
         if menu.exec(list_widget.mapToGlobal(pos)) == fav_action: self.toggle_favorite_requested.emit(tag_name, tag_type)
@@ -573,7 +577,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
         return [item.text() for item in self.selected_thematic_list.selectedItems()]
 
     def get_selected_available_physical_tags(self) -> List[str]:
-        return [item.text() for item in self.available_physical_list.selectedItems()]
+        return self.available_physical_list.get_selected_tag_names()
 
     def get_selected_assigned_physical_tags(self) -> List[str]:
         return [item.text() for item in self.selected_physical_list.selectedItems()]

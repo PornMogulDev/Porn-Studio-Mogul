@@ -5,6 +5,7 @@ from typing import Dict, Any, List
 from collections import defaultdict, OrderedDict
 
 from data.builders.action_tag_builder import ActionTagBuilder
+from data.builders.physical_ethnicity_tag_builder import PhysicalEthnicityTagBuilder
 from utils.paths import GAME_DATA, HELP_FILE
 
 # Set up a logger for this module
@@ -29,10 +30,11 @@ class DataManager:
 
         # Load all data into memory on initialization
         self.game_config = self._load_game_config()
+        # Generator data must be loaded before tags to provide ethnicity hierarchy for tag generation
+        self.generator_data = self._load_generator_data()
         self.tag_definitions = self._load_scene_tags()
         self.market_data = self._load_market_data()
         self.affinity_data = self._load_talent_affinities()
-        self.generator_data = self._load_generator_data()
         self.production_departments = self._load_production_departments()
         self.visual_styles = self._load_visual_styles()
         self.production_jobs = self._load_production_jobs()
@@ -119,6 +121,34 @@ class DataManager:
                 
                 tag_data['full_name'] = full_name
                 tags[full_name] = tag_data
+
+        # --- Dynamic Ethnicity Tag Generation ---
+        try:
+            hierarchy = self.get_ethnicity_hierarchy()
+            # Only proceed if hierarchy exists (generator_data loaded successfully)
+            if hierarchy:
+                builder = PhysicalEthnicityTagBuilder(hierarchy, self.game_config)
+                generated_tags = builder.generate_all_tags()
+                
+                for tag in generated_tags:
+                    base_name = tag.get('name')
+                    orientation = tag.get('orientation')
+                    
+                    # Determine full unique key using same logic as legacy tags
+                    # e.g. "White" (orientation="Male") -> "White (Male)"
+                    # e.g. "Ebony" (orientation="Female") -> "Ebony (Female)"
+                    # e.g. "Interracial (BM/WF)" (orientation=None) -> "Interracial (BM/WF)"
+                    full_name = f"{base_name} ({orientation})" if orientation else base_name
+                    
+                    tag['full_name'] = full_name
+                    
+                    # Add to tags map if not already defined in database/JSON
+                    # This allows JSON files to override code-generated defaults (e.g. for BBC)
+                    if full_name not in tags:
+                        tags[full_name] = tag
+                        
+        except Exception as e:
+            logger.error(f"Failed to generate dynamic ethnicity tags: {e}")
                 
         return tags
 

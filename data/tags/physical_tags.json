@@ -1,130 +1,5 @@
  [
   {
-    "name": "Interracial (BM/WF)",
-    "concept": "Interracial",
-    "type": "Physical",
-    "categories": ["Interracial"],
-    "is_auto_taggable": true,
-    "validation_rule": {
-      "mode": "match_all",
-      "profiles": [
-        { "gender": "Male", "ethnicity": "Black" },
-        { "gender": "Female", "ethnicity": "White" }
-      ]
-    },
-    "quality_source": {
-      "base": "acting",
-      "quality_blend": [
-        { "source": "static", "value": 100, "weight": 0.7 }, 
-        { "source": "base", "weight": 0.3 }                
-      ]
-    },
-    "revenue_weights": {  
-      "focused": 15.0,      
-      "auto": 2.5          
-    }
-  },
-  {
-    "name": "Interracial (BM/AF)",
-    "concept": "Interracial",
-    "type": "Physical",
-    "categories": ["Interracial"],
-    "is_auto_taggable": true,
-    "validation_rule": {
-      "mode": "match_all",
-      "profiles": [
-        { "gender": "Male", "ethnicity": "Black" },
-        { "gender": "Female", "ethnicity": "Asian" }
-      ]
-    },
-    "quality_source": {
-      "base": "acting",
-      "quality_blend": [
-        { "source": "static", "value": 100, "weight": 0.7 }, 
-        { "source": "base", "weight": 0.3 }                
-      ]
-    },
-    "revenue_weights": {  
-      "focused": 15.0,      
-      "auto": 2.0          
-    }
-  },
-  {
-    "name": "Interracial (WM/AF)",
-    "concept": "Interracial",
-    "type": "Physical",
-    "categories": ["Interracial"],
-    "is_auto_taggable": true,
-    "validation_rule": {
-      "mode": "match_all",
-      "profiles": [
-        { "gender": "Male", "ethnicity": "White" },
-        { "gender": "Female", "ethnicity": "Asian" }
-      ]
-    },
-    "quality_source": { 
-      "scope": "matched",
-      "base": "acting",
-      "quality_blend": [
-        { "source": "static", "value": 100, "weight": 0.7 }, 
-        { "source": "base", "weight": 0.3 }                
-      ] },
-      "revenue_weights": { 
-        "focused": 15.0, 
-        "auto": 2.0
-    }
-  },
-  {
-    "name": "Interracial (WM/LF)",
-    "concept": "Interracial",
-    "type": "Physical",
-    "categories": ["Interracial"],
-    "is_auto_taggable": true,
-    "validation_rule": {
-      "mode": "match_all",
-      "profiles": [
-        { "gender": "Male", "ethnicity": "White" },
-        { "gender": "Female", "ethnicity": "Latin" }
-      ]
-    },
-    "quality_source": { 
-      "scope": "matched",
-      "base": "acting",
-      "quality_blend": [
-        { "source": "static", "value": 100, "weight": 0.7 }, 
-        { "source": "base", "weight": 0.3 }                
-      ] },
-      "revenue_weights": { 
-        "focused": 15.0, 
-        "auto": 2.0
-    }
-  },
-  {
-    "name": "Interracial (AM/WF)",
-    "concept": "Interracial",
-    "type": "Physical",
-    "categories": ["Interracial"],
-    "is_auto_taggable": true,
-    "validation_rule": {
-      "mode": "match_all",
-      "profiles": [
-        { "gender": "Male", "ethnicity": "Asian" },
-        { "gender": "Female", "ethnicity": "White" }
-      ]
-    },
-    "quality_source": { 
-      "scope": "matched",
-      "base": "acting",
-      "quality_blend": [
-        { "source": "static", "value": 100, "weight": 0.7 }, 
-        { "source": "base", "weight": 0.3 }                
-      ] },
-      "revenue_weights": { 
-        "focused": 15.0, 
-        "auto": 2.0
-    }
-  },
-  {
     "name": "Age Gap (MILF/Teen)",
     "concept": "Age Gap",
     "type": "Physical",
@@ -173,7 +48,9 @@
       "auto": 2.5
     }
   },
-  { "name": "Small Dick", "type": "Physical",
+  { "name": "Small Dick",
+    "concept": "Body Part",
+    "type": "Physical",
     "orientation": "Male",
     "categories": "Dick",
     "is_auto_taggable": true,
@@ -195,7 +72,9 @@
       "auto": 5.0          
     }
   },
-  { "name": "Medium Dick", "type": "Physical",
+  { "name": "Medium Dick",
+    "concept": "Body Part",
+    "type": "Physical",
     "orientation": "Male",
     "categories": "Dick",
     "is_auto_taggable": true,
@@ -218,7 +97,9 @@
     },
     "tooltip": "It can talk to ghosts."
   },
-  { "name": "Big Dick", "type": "Physical",
+  { "name": "Big Dick",
+    "concept": "Body Part",
+    "type": "Physical",
     "orientation": "Male",
     "gender": "Male",
     "categories": "Dick",
@@ -241,7 +122,9 @@
       "auto": 3.5          
     }
   },
-  { "name": "Teen", "type": "Physical",
+  { "name": "Teen",
+    "concept": "Age Category",
+    "type": "Physical",
     "orientation": "Female",
     "gender": "Female",
     "categories": "Age",
@@ -265,6 +148,7 @@
     }
   },
   { "name": "MILF",
+    "concept": "Age Category",
     "type": "Physical",
     "orientation": "Female",
     "categories": ["Age"],
@@ -288,7 +172,9 @@
       "auto": 2.5          
     }
   },
-  { "name": "Granny", "type": "Physical", "categories": "Age",
+  { "name": "Granny",
+    "concept": "Age Category",
+    "type": "Physical", "categories": "Age",
     "orientation": "Female",
     "gender": "Female",
     "is_auto_taggable": true,
@@ -310,6 +196,7 @@
       "auto": 10.0          
     } },
   { "name": "Small Boobs",
+    "concept": "Body Part",
     "type": "Physical",
     "orientation": "Female",
     "categories": "Boobs",
@@ -334,6 +221,7 @@
     }
   },
   { "name": "Medium Boobs",
+    "concept": "Body Part",
     "type": "Physical",
     "orientation": "Female",
     "categories": "Boobs",
@@ -359,6 +247,7 @@
     "tooltip": "They can talk to ghosts."
   },
   { "name": "Big Boobs",
+    "concept": "Body Part",
     "type": "Physical",
     "orientation": "Female",
     "categories": "Boobs",
@@ -382,31 +271,8 @@
       "auto": 2.5
     }
   },
-  { "name": "Ebony",
-    "type": "Physical",
-    "orientation": "Female",
-    "categories": "Race",
-    "gender": "Female",
-    "is_auto_taggable": true,
-    "auto_detection_rule": {
-      "conditions": [
-        { "type": "affinity", "key": "Black", "comparison": "eq", "value": 100 }
-      ]
-    },
-    "ethnicity": "Black",
-    "quality_source": {
-      "base": "acting",
-      "quality_blend": [
-        { "source": "static", "value": 100, "weight": 0.7 }, 
-        { "source": "base", "weight": 0.3 }                
-      ]
-    },
-    "revenue_weights": { 
-      "focused": 10.0, 
-      "auto": 2.5
-    }
-  },
   { "name": "BBC",
+    "concept": "Complex",
     "type": "Physical",
     "orientation": "Male",
     "categories": "Race",
@@ -427,54 +293,6 @@
     },
     "revenue_weights": { 
       "focused": 10.0, 
-      "auto": 2.5
-    }
-  },
-  { "name": "Latina",
-    "type": "Physical",
-    "orientation": "Female",
-    "categories": "Race",
-    "gender": "Female",
-    "is_auto_taggable": true,
-    "auto_detection_rule": {
-      "conditions": [
-        { "type": "affinity", "key": "Latin", "comparison": "eq", "value": 100 }
-      ]
-    },
-    "ethnicity": "Latin",
-    "quality_source": {
-      "base": "acting",
-      "quality_blend": [
-        { "source": "static", "value": 100, "weight": 0.7 }, 
-        { "source": "base", "weight": 0.3 }                
-      ]
-    },
-    "revenue_weights": { 
-      "focused": 8.5, 
-      "auto": 2.5
-    }
-  },
-  { "name": "Asian",
-    "type": "Physical",
-    "orientation": "Female",
-    "categories": "Race",
-    "gender": "Female",
-    "is_auto_taggable": true,
-    "auto_detection_rule": {
-      "conditions": [
-        { "type": "affinity", "key": "Asian", "comparison": "eq", "value": 100 }
-      ]
-    },
-    "ethnicity": "Asian",
-    "quality_source": {
-      "base": "acting",
-      "quality_blend": [
-        { "source": "static", "value": 100, "weight": 0.7 }, 
-        { "source": "base", "weight": 0.3 }                
-      ]
-    },
-    "revenue_weights": { 
-      "focused": 8.5, 
       "auto": 2.5
     }
   }
