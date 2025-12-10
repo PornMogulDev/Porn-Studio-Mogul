@@ -410,6 +410,7 @@ class ServiceContainer:
             crew_skill_sigma=game_config.get("crew_skill_sigma", 5),
             bloc_base_momentum=game_config.get("bloc_base_momentum", 50.0),
             bloc_base_stress=game_config.get("bloc_base_stress", 5.0),
+            bloc_stress_impact_factor=game_config.get("bloc_stress_impact_factor", 0.2),
             momentum_bonus_threshold=game_config.get("bloc_momentum_bonus_threshold", 75.0),
             momentum_bonus_multiplier=game_config.get("bloc_momentum_bonus_multiplier", 0.8),
             momentum_penalty_threshold=game_config.get("bloc_momentum_penalty_threshold", 25.0),

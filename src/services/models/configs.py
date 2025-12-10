@@ -52,6 +52,7 @@ class ProductionConfig:
     # Bloc Simulation
     bloc_base_momentum: float
     bloc_base_stress: float
+    bloc_stress_impact_factor: float
     momentum_bonus_threshold: float
     momentum_bonus_multiplier: float
     momentum_penalty_threshold: float

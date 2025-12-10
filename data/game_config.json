@@ -17,6 +17,7 @@
   "crew_skill_sigma": 5,
   "bloc_base_momentum": 50.0,
   "bloc_base_stress": 5.0,
+  "bloc_stress_impact_factor": 0.2,
   "bloc_momentum_bonus_threshold": 75.0,
   "bloc_momentum_bonus_multiplier": 0.8,
   "bloc_momentum_penalty_threshold": 25.0,

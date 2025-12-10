@@ -60,6 +60,22 @@ This is a low-level, backend-only flow for a pure utility calculator.
 7.  It checks the `segment.parameters` to find the number of "peers" (performers in the same role) and "others" (performers in the opposing role).
 8.  It calculates a final modifier by adding the scaled bonuses to the base modifier and returns this `float` value to the calling service.
 
+## Calculation Flow (Production Quality & Skill)
+
+This backend flow determines the final quality of production departments (e.g., Wardrobe) and the skill of generic crew members when a new `ShootingBloc` is created. These values are "rolled" once and cached for the duration of the bloc.
+
+1.  User finalizes a `ShootingBloc` via the UI, which calls `SceneCommandService.create_shooting_bloc()`.
+2.  The `SceneCommandService` gathers all budget data (`department_budgets`, `crew_assignments`, `budget_per_scene`, etc.).
+3.  It calls `CrewSkillCalculator.generate_production_cache()`, passing in the budget information.
+4.  The `CrewSkillCalculator` iterates through each budgeted item (resource or generic crew).
+5.  For each item, it determines the **per-scene budget**.
+6.  It fetches the item's definition (from `production_departments.json`, `production_jobs.json`, or dynamically for the location).
+7.  It calls `BudgetEfficiencyCalculator.calculate_efficiency()` with the per-scene budget to get a raw efficiency multiplier (e.g., 1.15).
+8.  The `CrewSkillCalculator` converts this efficiency into a base score (e.g., 85) and applies a random variance (`random.gauss`) to get the final score.
+9.  The final score is clamped between 1 and 100.
+10. The calculator returns a complete `production_cache` dictionary (e.g., `{'wardrobe': 88, 'camera_a': 75}`).
+11. `SceneCommandService` stores this cache on the new `ShootingBlocDB` record in the database.
+
 ## Request Flow (Scene Quality Calculation)
 
 This is a backend-only flow that occurs when the game week is advanced. It calculates the final quality of a scene after it has been "shot".
@@ -76,3 +92,21 @@ This is a backend-only flow that occurs when the game week is advanced. It calcu
     *   Finally, it calculates a total **Production Modifier** from bloc settings (e.g., camera, location), which is then applied to all scores.
 7.  The calculator returns a `SceneQualityResult` dataclass containing all the calculated scores.
 8.  The `SceneProcessingService` receives this result and calls `apply_shoot_calculation_results` to write the final `tag_qualities` and `performer_contributions` into the `SceneDB` model, completing the process.
+
+## Calculation Flow (Shooting Bloc Cost)
+
+This flow details how the total upfront financial cost of a `ShootingBloc` is determined when a new bloc is created.
+
+1.  A user finalizes planning for a `ShootingBloc` (e.g., via a UI action), leading to a call to `SceneCommandService.create_shooting_bloc()`.
+2.  The `SceneCommandService` collects all budget-related data, including:
+    *   `location_id`
+    *   `department_budgets` (total dollar amounts allocated per department for the bloc)
+    *   `crew_assignments` (specific assignments, including freelancer budgets)
+    *   `picture_set_settings`
+3.  The service then calls `BlocCostCalculator.calculate_shooting_bloc_cost()` with this collected data.
+4.  The `BlocCostCalculator` performs the following steps:
+    *   It sums the total `dollar_amount` from all `department_budgets`.
+    *   It iterates through `crew_assignments` and adds the `budget` for any entries identified as `'freelancer'` type.
+    *   (Note: Costs related to `picture_set_settings` are currently not directly calculated by this method, but are assumed to be integrated into `department_budgets` or `crew_assignments` if applicable).
+5.  The `BlocCostCalculator` returns the grand `total_cost` for the entire shooting bloc.
+6.  The `SceneCommandService` then deducts this `total_cost` from the player's `StudioState` money and proceeds to create the `ShootingBlocDB` entry in the database.

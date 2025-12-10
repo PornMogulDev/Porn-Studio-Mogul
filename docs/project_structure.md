@@ -22,7 +22,9 @@ src/
     builders/
     calculation/
       bloc_cost_calculator.py      # Calculates cost of shooting blocs
+      bloc_simulation_calculator.py # Calculates initial conditions and post-shoot deltas for bloc simulation
       bulk_booking_validator.py    # Gatekeeper for hiring in bulk
+      crew_skill_calculator.py     # Rolls quality/skill for bloc resources and crew
       market_group_resolver.py     # Resolves market group inheritance
       post_production_calculator.py # Applies post-production quality effects
       revenue_calculator.py        # Calculates final scene revenue
