@@ -205,9 +205,10 @@ class ScenePlannerPresenter(QObject):
             status=status
         )
         self.view.update_selected_action_segments(segments, self.controller.tag_definitions, self.selected_segment_id, runtime_model)
-        # Also trigger a refresh of the details pane if a segment is selected, to ensure labels update after composition changes
-        if self.selected_segment_id:
-            self.on_selected_action_segment_changed(self.selected_segment_id)
+        # Refresh details pane. If nothing selected (e.g. last item deleted), pass 0/None to clear the pane.
+        # We use 0 (or -0) as the sentinel for "None" in this context.
+        segment_id_to_refresh = self.selected_segment_id if self.selected_segment_id else 0
+        self.on_selected_action_segment_changed(segment_id_to_refresh)
 
     def _refresh_lock_state(self):
         is_cast_locked = len(self.working_scene.final_cast) > 0
@@ -350,13 +351,13 @@ class ScenePlannerPresenter(QObject):
         self._update_summary()
 
     def on_selected_action_segment_changed(self, segment_id: int):
-        if segment_id == -0:
-            self.selected_segment_id = None; self.view.update_segment_details(None, {}, {}, False)
+        if segment_id == 0:
+            self.selected_segment_id = None; self.view.update_segment_details(None, {}, {}, {}, False)
             return
         
         segment = next((s for s in self.working_scene.action_segments if s.id == segment_id), None)
         self.selected_segment_id = segment_id
-        if not segment: self.view.update_segment_details(None, {}, {}, False); return
+        if not segment: self.view.update_segment_details(None, {}, {}, {}, False); return
 
         vp_options_by_slot = {}; tag_def = self.controller.tag_definitions.get(segment.tag_name)
         effective_genders_by_slot = {} # Store calculated gender requirements

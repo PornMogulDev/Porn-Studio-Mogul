@@ -41,8 +41,8 @@ class TagValidationChecker:
         assigned_genders = []
         for assignment in segment.slot_assignments:
             if assignment.virtual_performer_id and assignment.virtual_performer_id in performers:
-                vp = performers[assignment.virtual_performer_id]
-                assigned_genders.append(vp.gender)
+                if vp := performers.get(assignment.virtual_performer_id):
+                    assigned_genders.append(vp.gender)
         
         # If nobody is assigned yet, we can't invalidate it based on pairing
         if not assigned_genders:
@@ -96,24 +96,28 @@ class TagValidationChecker:
             return False
 
         # 2. Contextual Lock (Straight tag = Must not match existing genders of same type)
-        # e.g. If slot A has a Male, slot B cannot accept a Male.
         if orientation == "Straight":
-            # Check genders of peers ALREADY assigned to OTHER slots
-            existing_genders = set()
-            for assignment in segment.slot_assignments:
-                if assignment.slot_id != slot_id and assignment.virtual_performer_id:
-                    if peer := performers.get(assignment.virtual_performer_id):
-                        existing_genders.add(peer.gender)
+            target_role = self._extract_role_from_slot_id(slot_id, tag_def, segment.tag_name)
             
-            # If we are adding a Male, and there is already a Male, it's invalid.
-            # (Assuming Straight requires M/F pairing. M/M is invalid).
-            # Note: This logic assumes strict M/F. 
-            # It prevents M/M/F (Threesome) if strict pairing is enforced, 
-            # but for "Fluid Straight" (Any/Any), preventing M+M is the goal.
-            if candidate.gender == "Male" and "Male" in existing_genders:
-                return False
-            if candidate.gender == "Female" and "Female" in existing_genders:
-                return False
+            for assignment in segment.slot_assignments:
+                # Skip self if checking against an existing assignment (though usually we are adding new)
+                if assignment.slot_id == slot_id: 
+                    continue
+                if not assignment.virtual_performer_id:
+                    continue
+                    
+                peer = performers.get(assignment.virtual_performer_id)
+                if not peer: continue
+                
+                peer_role = self._extract_role_from_slot_id(assignment.slot_id, tag_def, segment.tag_name)
+                
+                # Rule 1: Consistency (Same Role -> Same Gender)
+                if peer_role == target_role and peer.gender != candidate.gender:
+                    return False
+                
+                # Rule 2: Opposition (Different Role -> Different Gender)
+                if peer_role != target_role and peer.gender == candidate.gender:
+                    return False
                 
         return True
 
@@ -294,3 +298,20 @@ class TagValidationChecker:
             if result: return result
         
         return None
+    
+    def _extract_role_from_slot_id(self, slot_id: str, tag_def: Dict, fallback_tag_name: str) -> str:
+        """
+        Helper to extract the Role name from a constructed slot_id string.
+        Format is: "{BaseName}_{Role}_{Index}"
+        """
+        base_name = tag_def.get('name', fallback_tag_name)
+        prefix = f"{base_name}_"
+        
+        if not slot_id.startswith(prefix):
+            return ""
+            
+        # Strip prefix
+        remainder = slot_id[len(prefix):]
+        # Strip suffix (_{index})
+        role = remainder.rsplit("_", 1)[0]
+        return role
