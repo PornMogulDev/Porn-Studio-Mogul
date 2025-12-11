@@ -1,4 +1,3 @@
-
 ## Request Flow (Scene Editing)
 
 1. User interacts with `ScenePlannerDialog` (UI)
@@ -110,3 +109,55 @@ This flow details how the total upfront financial cost of a `ShootingBloc` is de
     *   (Note: Costs related to `picture_set_settings` are currently not directly calculated by this method, but are assumed to be integrated into `department_budgets` or `crew_assignments` if applicable).
 5.  The `BlocCostCalculator` returns the grand `total_cost` for the entire shooting bloc.
 6.  The `SceneCommandService` then deducts this `total_cost` from the player's `StudioState` money and proceeds to create the `ShootingBlocDB` entry in the database.
+
+## Calculation Flow (Scene Revenue)
+
+This flow describes how final revenue is calculated for a released scene, typically after a `shoot_scene` process is complete.
+
+1.  A higher-level service (e.g., `SceneProcessingService` after a scene is shot) needs to calculate the revenue for a scene.
+2.  It constructs a `RevenueInput` DTO containing all necessary data: global thematic tags, weighted content tags with quality scores, star power scores for each market group, etc.
+3.  It calls `RevenueCalculator.calculate_revenue()`, passing the `RevenueInput` DTO, current `MarketGroupState` for all markets, and resolved market group preference data.
+4.  The `RevenueCalculator` iterates through each `viewer_group` defined in the market data.
+5.  For each group, it calculates a final `group_interest_score`:
+    *   It starts by summing **additive appeal** from thematic tags (e.g., `+0.05` for "Romantic").
+    *   It then calculates a **multiplicative content appeal**. This is a weighted average based on the quality and viewer preference for each physical and action tag. This score is normalized by the total weight of all content tags.
+        *   Tag preferences are modified by orientation sentiments (e.g., "Straight", "Lesbian").
+        *   Further adjustments are made based on `scaling_sentiments` rules, which can provide bonuses or penalties based on the count of performers in a specific role (e.g., diminishing returns for having too many "Givers" in a gangbang scene).
+    *   The score is then modified by Dom/Sub preference, star power bonuses, and any focus group bonus.
+6.  The `group_interest_score` is used to determine the revenue generated from that group, adjusted for market `saturation`, `market_share`, and `spending_power`. The calculator also determines the `saturation_cost` that will be applied to the market.
+7.  After calculating revenue from all viewer groups, it calculates and applies **global penalties**:
+    *   **Short Scene Penalty**: For scenes below a certain runtime.
+    *   **Monotony Penalty**: For long scenes that lack conceptual variety.
+    *   **Overstuffed Scene Penalty**: For scenes that have too many unique concepts per minute.
+8.  The calculator returns a `SceneRevenueResult` dataclass containing the final total revenue, a breakdown of interest per viewer group, details on revenue modifiers/penalties, and the market saturation updates to be applied.
+9.  The calling service uses this result to update the player's money and the market state.
+
+## Calculation Flow (Talent Shoot Outcomes)
+
+This is a backend-only flow that occurs as part of the `shoot_scene` process. It determines the impact of a shoot on the participating talent.
+
+1.  `SceneProcessingService.run_shoot_calculations` is called for a given scene.
+2.  It gathers all necessary data: the `Scene` dataclass, a list of all participating `Talent` dataclasses, active studio policies, and a `bloc_context` dictionary containing information about the shooting environment (e.g., `craft_services_efficiency`).
+3.  It calls `ShootResultsCalculator.calculate_talent_outcomes()` with this data.
+4.  The calculator first determines the total `stamina_cost` for each talent. This is done by iterating through the scene's (expanded) action segments and summing the costs for each role the talent performs, which are provided by the `RolePerformanceCalculator`.
+5.  Then, for each talent, it calculates a series of outcomes:
+    *   **Fatigue**: If the `stamina_cost` exceeds the talent's maximum stamina pool, a proportional fatigue gain is calculated.
+    *   **Skill Gains**: Gains for Performance, Acting, and Stamina are calculated based on scene runtime, with diminishing returns for higher skill levels.
+    *   **D/S Skill Gains**: If the scene has a Dom/Sub dynamic, gains are calculated based on the scene's focus, the talent's disposition (e.g., "Dom", "Sub"), and a disposition-based multiplier.
+    *   **Experience Gain**: Calculated based on scene runtime, also with diminishing returns.
+    *   **Stress & Burnout**: The calculator delegates to `StressCalculator` to determine stress gain. If the new total stress exceeds a threshold, a portion of the excess is converted into `burnout_gain`.
+6.  The calculator returns a list of `TalentShootOutcome` DTOs, one for each talent, containing all the calculated results.
+7.  `SceneProcessingService` then uses this DTO to build its own `ShootCalculationResult` DTO, which it passes to its caller, `SceneCommandService`.
+
+## Validation Flow (Fatigue Estimation)
+
+This is a "what-if" backend flow used to validate a potential role booking for a talent before it is confirmed. It is used to prevent booking a talent into a role that would immediately cause them to exceed their fatigue refusal threshold.
+
+1.  During bulk hiring (`BulkBookingValidator`) or when finding eligible roles (`TalentQueryService`), the system needs to check the potential fatigue impact of a role.
+2.  The calling service (e.g., `BulkBookingValidator.try_book_role()`) calls `ShootResultsCalculator.estimate_fatigue_gain()`.
+3.  It passes the `Talent` (or `TalentDB`), the `Scene`, and the specific `vp_id` of the role being considered.
+4.  `estimate_fatigue_gain` calculates the `stamina_cost` for that single role by calling its internal `_calculate_stamina_cost_for_role` helper. It does **not** consider the talent's current fatigue level.
+5.  It compares this `stamina_cost` to the talent's maximum stamina pool (their `stamina` skill multiplied by a config value).
+6.  If the cost exceeds the pool, it calculates a proportional `fatigue_gain` (an integer from 0-100) based on the size of the "overdraw".
+7.  This estimated integer gain is returned to the calling service.
+8.  The caller then adds this estimate to the talent's *current* fatigue to get a `projected_fatigue`, which it can then check against the `fatigue_refusal_threshold` from the game configuration.

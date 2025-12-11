@@ -27,10 +27,10 @@ src/
       crew_skill_calculator.py     # Rolls quality/skill for bloc resources and crew
       market_group_resolver.py     # Resolves market group inheritance
       post_production_calculator.py # Applies post-production quality effects
-      revenue_calculator.py        # Calculates final scene revenue
+      revenue_calculator.py        # Calculates scene revenue based on market preferences, quality, and penalties.
       role_performance_calculator.py # Calculates role-based performance modifiers
       scene_quality_calculator.py  # Final arbiter for scene quality
-      shoot_results_calculator.py  # Calculates talent outcomes after shoot
+      shoot_results_calculator.py  # Calculates post-shoot outcomes (fatigue, skills, stress) and estimates fatigue for pre-booking validation.
       tag_validation_checker.py    # Validates and discovers physical tags
       talent_affinity_calculator.py # Recalculates talent age affinities
       talent_availability_checker.py # Checks if talent will do a role

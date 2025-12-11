@@ -36,6 +36,13 @@ class TalentCommandService:
         )
         existing_pairs = {tuple(sorted(pair)) for pair in existing_pairs_query.all()}
 
+        # Check session for pending objects (created in this transaction but not flushed)
+        # This handles cases where multiple scenes with the same cast are processed in one turn
+        for obj in session.new:
+            if isinstance(obj, TalentChemistryDB):
+                if obj.talent_a_id is not None and obj.talent_b_id is not None:
+                    existing_pairs.add(tuple(sorted((obj.talent_a_id, obj.talent_b_id))))
+
         for t1, t2 in combinations(cast_talents, 2):
             id1, id2 = sorted((t1.id, t2.id))
             if (id1, id2) in existing_pairs:
@@ -44,6 +51,7 @@ class TalentCommandService:
             initial_score = 0
             new_chem = TalentChemistryDB(talent_a_id=id1, talent_b_id=id2, chemistry_score=initial_score)
             session.add(new_chem)
+            existing_pairs.add((id1, id2)) # Prevent duplicates within the same loop execution
 
     def _calculate_new_popularity_score(self, current_pop: float, interest_score: float) -> float:
         """Calculates the popularity gain with diminishing returns."""
