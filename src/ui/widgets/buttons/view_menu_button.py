@@ -54,6 +54,8 @@ class ViewMenuButton(QToolButton):
                    - 'visible' (bool): Checked state.
                    - 'enabled' (bool, optional): If False, item is grayed out.
                    - 'tooltip' (str, optional): Tooltip text for the menu item.
+                   - 'active_icon' (str, optional): Icon name to use when active/visible (default: 'tick_icon').
+                   - 'active_color_role' (str, optional): Color role for active icon (default: 'accent').
         """
         self._items = items
 
@@ -82,6 +84,10 @@ class ViewMenuButton(QToolButton):
             is_visible = item.get('visible', True)
             is_enabled = item.get('enabled', True)
             tooltip = item.get('tooltip')
+            
+            # Custom Icon Logic
+            active_icon_name = item.get('active_icon', 'tick_icon')
+            active_color_role = item.get('active_color_role', 'accent')
 
             if not key:
                 continue
@@ -91,7 +97,7 @@ class ViewMenuButton(QToolButton):
             
             # Use custom tick icon logic instead of native checkable
             if is_visible:
-                action.setIcon(self.icon_manager.get_icon("tick_icon", "accent"))
+                action.setIcon(self.icon_manager.get_icon(active_icon_name, active_color_role))
             else:
                 action.setIcon(QIcon()) # Empty icon for alignment
             
@@ -100,7 +106,7 @@ class ViewMenuButton(QToolButton):
                 action.setStatusTip(tooltip)
 
             # Define logic to handle immediate toggle without closing
-            def on_trigger(checked, k=key, act=action):
+            def on_trigger(checked, k=key, act=action, icon_name=active_icon_name, color_role=active_color_role):
                 # 1. Find the current state in the mutable items list
                 current_item = next((i for i in self._items if i['key'] == k), None)
                 if current_item:
@@ -110,7 +116,7 @@ class ViewMenuButton(QToolButton):
                     
                     # 3. Update UI immediately
                     if new_state:
-                        act.setIcon(self.icon_manager.get_icon("tick_icon", "accent"))
+                        act.setIcon(self.icon_manager.get_icon(icon_name, color_role))
                     else:
                         act.setIcon(QIcon())
                         

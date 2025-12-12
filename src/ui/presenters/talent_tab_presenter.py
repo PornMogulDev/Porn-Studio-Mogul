@@ -80,6 +80,7 @@ class TalentTabPresenter(QObject):
             go_to_categories=self.controller.get_go_to_list_categories(),
             current_filters={},
             settings_manager=self.controller.settings_manager,
+            icon_manager=self.icon_manager,
             parent=self.view
         )
         # Inject the widget into the view's layout

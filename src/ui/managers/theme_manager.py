@@ -175,6 +175,12 @@ class ThemeManager:
                 background-color: {theme.accent_hover};
                 border-color: {theme.accent_hover};
             }}
+            /* --- Collapsible GroupBox Indicator Hide --- */
+            QGroupBox[collapsible="true"]::indicator {{
+                border: none;
+                background: transparent;
+                image: none;
+            }}
 
             /* Specific state for tristate checkboxes (e.g., in TreeView) */
             QTreeView::indicator:indeterminate {{

@@ -1,4 +1,5 @@
-from PyQt6.QtWidgets import QGroupBox, QWidget
+from PyQt6.QtWidgets import QGroupBox, QWidget, QStylePainter, QStyleOptionGroupBox, QStyle
+from PyQt6.QtCore import Qt
 
 class CollapsibleGroupBox(QGroupBox):
     """
@@ -7,14 +8,19 @@ class CollapsibleGroupBox(QGroupBox):
     The initial state should be set by calling `set_collapsed()` *after* all child
     widgets and a layout have been added to the group box.
     """
-    def __init__(self, title: str, parent: QWidget = None):
+    def __init__(self, title: str, icon_manager=None, parent: QWidget = None):
         """
         Initializes the CollapsibleGroupBox.
 
         :param title: The title to display on the group box.
+        :param icon_manager: IconManager instance to retrieve chevron icons.
         :param parent: The parent widget.
         """
         super().__init__(title, parent)
+        self.icon_manager = icon_manager
+
+        # Mark as collapsible for Theme Manager styling (hides default indicator)
+        self.setProperty("collapsible", True)
 
         # Make the group box checkable, which adds a checkbox to the title.
         self.setCheckable(True)
@@ -27,6 +33,39 @@ class CollapsibleGroupBox(QGroupBox):
         # Connect the toggled signal (emitted when the checkbox is clicked)
         # to our internal method that shows/hides the contents.
         self.toggled.connect(self._toggle_contents)
+
+    def paintEvent(self, event):
+        """
+        Overrides the paint event to draw custom icons (chevrons).
+        """
+        # 1. Standard Painting (Border, Title)
+        # Using QStylePainter automatically handles stylesheets and basic drawing
+        painter = QStylePainter(self)
+        option = QStyleOptionGroupBox()
+        self.initStyleOption(option)
+        
+        # Draw the standard control (frame + title).
+        # The native indicator is hidden via theme stylesheet.
+        painter.drawComplexControl(QStyle.ComplexControl.CC_GroupBox, option)
+        
+        # 2. Custom Icon Painting
+        # Determine which icon to show:
+        # Checked = Expanded -> Chevron Up (to collapse)
+        # Unchecked = Collapsed -> Chevron Down (to expand)
+        icon_name = "chevron_up" if self.isChecked() else "chevron_down"
+        icon = self.icon_manager.get_icon(icon_name, "accent")
+            
+        # Retrieve the rectangle where the indicator normally sits
+        indicator_rect = self.style().subControlRect(
+            QStyle.ComplexControl.CC_GroupBox, 
+            option, 
+            QStyle.SubControl.SC_GroupBoxCheckBox, 
+            self
+        )
+            
+        # Paint the icon into that rectangle
+        if not icon.isNull():
+            icon.paint(painter, indicator_rect, Qt.AlignmentFlag.AlignCenter)
 
     def _toggle_contents(self, checked: bool):
         """
@@ -67,6 +106,9 @@ class CollapsibleGroupBox(QGroupBox):
                 else:  # Collapsing
                     parent_layout.setStretch(i, 0)
                 break
+        
+        # Trigger repaint to update the icon
+        self.update()
 
     def set_collapsed(self, collapsed: bool):
         """

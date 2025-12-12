@@ -30,9 +30,10 @@ class TalentFilterWidget(QWidget):
     scene_selected = pyqtSignal(int)
     role_selected = pyqtSignal(int, int) # scene_id, vp_id
 
-    def __init__(self, controller, ethnicities_hierarchy: dict, cup_sizes: list, nationalities: list, locations_by_region: dict, go_to_categories: list, current_filters: dict, settings_manager, parent=None):
+    def __init__(self, controller, ethnicities_hierarchy: dict, cup_sizes: list, nationalities: list, locations_by_region: dict, go_to_categories: list, current_filters: dict, settings_manager, icon_manager=None, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
+        self.icon_manager = icon_manager
         
         self.unit_system = self.settings_manager.get_setting("unit_system", "imperial")
         
@@ -60,7 +61,7 @@ class TalentFilterWidget(QWidget):
         main_layout.setSpacing(5)
 
         # 1. PRESETS (Fixed at Top)
-        presets_group = CollapsibleGroupBox("Filter Presets")
+        presets_group = CollapsibleGroupBox("Filter Presets", self.icon_manager)
         presets_layout = QHBoxLayout(presets_group)
         self.preset_widget = PresetWidget()
         presets_layout.addWidget(self.preset_widget)
@@ -77,7 +78,7 @@ class TalentFilterWidget(QWidget):
         self.scroll_layout.setSpacing(10)
 
         # --- Role Filter ---
-        self.role_filter_group = CollapsibleGroupBox("Role Filter")
+        self.role_filter_group = CollapsibleGroupBox("Role Filter", self.icon_manager)
         role_filter_layout = QVBoxLayout(self.role_filter_group) # Changed to VBox for narrow sidebar
         self.scene_combo = QComboBox()
         self.scene_combo.setPlaceholderText("Filter by Scene...")
@@ -91,7 +92,7 @@ class TalentFilterWidget(QWidget):
         self.scroll_layout.addWidget(self.role_filter_group)
         
         # --- Go-To List ---
-        go_to_group = CollapsibleGroupBox("Go-To List Filter")
+        go_to_group = CollapsibleGroupBox("Go-To List Filter", self.icon_manager)
         go_to_layout = QVBoxLayout(go_to_group)
         self.go_to_only_checkbox = QCheckBox("Show only talent in Go-To Lists")
         go_to_layout.addWidget(self.go_to_only_checkbox)
@@ -104,7 +105,7 @@ class TalentFilterWidget(QWidget):
         self.scroll_layout.addWidget(go_to_group)
         
         # --- Gender & Age ---
-        self.gender_group = CollapsibleGroupBox("Gender")
+        self.gender_group = CollapsibleGroupBox("Gender", self.icon_manager)
         gender_layout = QHBoxLayout(self.gender_group)
         self.gender_any_radio = QRadioButton("Any")
         self.gender_female_radio = QRadioButton("Female")
@@ -118,7 +119,7 @@ class TalentFilterWidget(QWidget):
         gender_layout.addWidget(self.gender_male_radio)
         self.scroll_layout.addWidget(self.gender_group)
 
-        age_group = CollapsibleGroupBox("Age Range")
+        age_group = CollapsibleGroupBox("Age Range", self.icon_manager)
         age_layout = QVBoxLayout(age_group)
         self.age_range = RangeFilterWidget()
         self.age_range.set_range(18, 99)
@@ -126,7 +127,7 @@ class TalentFilterWidget(QWidget):
         self.scroll_layout.addWidget(age_group)
         
         # --- Skills ---
-        skills_group = CollapsibleGroupBox("Core Skills")
+        skills_group = CollapsibleGroupBox("Core Skills", self.icon_manager)
         self.skills_layout = QFormLayout(skills_group)
         self.skills_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self.perf_range = RangeFilterWidget(); self.perf_range.set_range(0, 100)
@@ -142,7 +143,7 @@ class TalentFilterWidget(QWidget):
         self.scroll_layout.addWidget(skills_group)
         
         # --- Physical ---
-        self.phys_group = CollapsibleGroupBox("Physical Attributes")
+        self.phys_group = CollapsibleGroupBox("Physical Attributes", self.icon_manager)
         self.phys_layout = QFormLayout(self.phys_group)
         self.phys_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self.dick_range = RangeFilterWidget()
@@ -154,7 +155,7 @@ class TalentFilterWidget(QWidget):
         
         # --- Nationality ---
         from PyQt6.QtWidgets import QListWidget
-        self.nationality_group = CollapsibleGroupBox("Nationality")
+        self.nationality_group = CollapsibleGroupBox("Nationality", self.icon_manager)
         nationality_layout = QVBoxLayout(self.nationality_group)
         self.nationality_filter_input = QLineEdit()
         self.nationality_filter_input.setPlaceholderText("Filter nationalities...")
@@ -167,7 +168,7 @@ class TalentFilterWidget(QWidget):
         self.scroll_layout.addWidget(self.nationality_group)
 
         # --- Location Filters ---
-        self.location_group = CollapsibleGroupBox("Location")
+        self.location_group = CollapsibleGroupBox("Location", self.icon_manager)
         location_main_layout = QVBoxLayout(self.location_group) # Vertical for sidebar
         
         # Base Location
@@ -187,7 +188,7 @@ class TalentFilterWidget(QWidget):
         self.scroll_layout.addWidget(self.location_group)
 
         # --- Ethnicity ---
-        self.ethnicity_group = CollapsibleGroupBox("Ethnicity")
+        self.ethnicity_group = CollapsibleGroupBox("Ethnicity", self.icon_manager)
         ethnicity_layout = QVBoxLayout(self.ethnicity_group)
         self.ethnicity_tree = CheckableHierarchyTreeView()
         self.ethnicity_tree.populate_data(self.ethnicities_hierarchy)

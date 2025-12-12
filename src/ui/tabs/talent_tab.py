@@ -341,10 +341,13 @@ class TalentTab(QWidget):
             if header == "Demand":
                 user_pref = self.settings_manager.get_setting("demand_column_user_preference", True)
                 item['visible'] = user_pref
-                item['tooltip'] = "This column is only visible during Casting Mode."
+                item['tooltip'] = "This column is only visible during Casting Mode if checked."
+                # Custom icon for the Demand column
+                item['active_icon'] = "exclamation_mark"
+                item['active_color_role'] = "warning"
             else:
                 item['visible'] = not self.talent_table_view.isColumnHidden(i)
-                item['tooltip'] = f"Toggle visibility of the {header} column."
+                # item['tooltip'] = f"Toggle visibility of the {header} column." # I don't think this makes much sense to have
 
             items.append(item)
 

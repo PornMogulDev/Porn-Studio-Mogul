@@ -31,7 +31,6 @@ class TopBarWidget(QWidget):
         layout.addWidget(self.menu_btn)
 
         # --- Inbox Button ---
-        # Changed to QPushButton to match the style of Menu/Next Week
         self.inbox_btn = QToolButton()
         self.inbox_btn.setToolTip("Inbox")
         # Initial State: "text" (default)
