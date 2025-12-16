@@ -2,9 +2,18 @@
 """
 Script to fix double-encoded UTF-8 strings in text data.
 Handles common encoding issues from web scraping.
+
+Supported Modes:
+1. JSON Cleanup: Recursively traverses JSON structure and fixes encoding issues in all string values.
+2. CSV Extraction: Reads a CSV, fixes encoding in 'Name' and 'Aliases', and extracts/defaults
+   'Nationality' and 'Ethnicity' columns to a standard format.
+
+Usage:
+    python encoding_fixer.py <input_file> [output_file]
 """
 
 import json
+import csv
 import sys
 from typing import Any
 
@@ -92,42 +101,66 @@ def process_json_file(input_file: str, output_file: str = None) -> None:
         print(f"✗ Error: Invalid JSON in '{input_file}': {e}")
         sys.exit(1)
 
+def process_csv_file(input_file: str, output_file: str = None) -> None:
+    """
+    Process CSV: Fix names/aliases and extract specific demographics.
+    Defaults missing columns to 'Unknown'.
+    """
+    # Columns we want to output
+    TARGET_COLS = ['Name', 'Aliases', 'Nationality', 'Ethnicity']
+    # Columns that need encoding fixes
+    FIX_COLS = ['Name', 'Aliases']
 
-def demo():
-    """Demonstrate the fixing functionality with examples."""
-    test_cases = [
-        "D\u00c3\u00b3ra",  # Double-encoded "Dóra"
-        "D\u00c3\u0192\u00c2\u00b3ra",  # Triple-encoded "Dóra"
-        "DÃƒÂ³ra",  # Triple-encoded "Dóra" (alternate form)
-        "MÃƒÂ©szÃƒÂ¡ros",  # Triple-encoded "Mészáros"
-        "Jos\u00c3\u00a9",  # Double-encoded "José"
-        "M\u00c3\u00bcller",  # Double-encoded "Müller"
-        "Fran\u00c3\u00a7ois",  # Double-encoded "François"
-        "Normal text",  # Should remain unchanged
-    ]
-    
-    print("Demo: Fixing double-encoded strings\n")
-    print(f"{'Original':<30} {'Fixed':<20}")
-    print("-" * 50)
-    
-    for text in test_cases:
-        fixed = fix_double_encoding(text)
-        print(f"{text:<30} {fixed:<20}")
+    output_path = output_file or input_file
 
+    try:
+        with open(input_file, 'r', encoding='utf-8', newline='') as f_in:
+            reader = csv.DictReader(f_in)
+           
+            rows_out = []
+            for row in reader:
+                new_row = {}
+                for col in TARGET_COLS:
+                    # Get value, default to 'Unknown' if missing or empty
+                    val = row.get(col)
+                    if not val or val.strip() == '':
+                        val = 'Unknown'
+                    
+                    # Fix encoding if it's a name field
+                    if col in FIX_COLS:
+                        val = fix_double_encoding(val)
+                    
+                    new_row[col] = val
+                rows_out.append(new_row)
+
+        with open(output_path, 'w', encoding='utf-8', newline='') as f_out:
+            writer = csv.DictWriter(f_out, fieldnames=TARGET_COLS)
+            writer.writeheader()
+            writer.writerows(rows_out)
+
+        print(f"✓ Processed CSV {input_file}")
+        print(f"  - Fixed encoding in: {', '.join(FIX_COLS)}")
+        print(f"  - Extracted columns: {', '.join(TARGET_COLS)}")
+        if output_file:
+            print(f"  Saved to {output_file}")
+            
+    except FileNotFoundError:
+        print(f"✗ Error: File '{input_file}' not found")
+        sys.exit(1)
+    except Exception as e:
+        print(f"✗ Error processing CSV '{input_file}': {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        input_file = sys.argv[1]
-        output_file = sys.argv[2] if len(sys.argv) > 2 else None
-        process_json_file(input_file, output_file)
+    if len(sys.argv) < 2:
+        print("Usage: python encoding_fixer.py <input_file> [output_file]")
+        print("Supported formats: .json, .csv")
+        sys.exit(1)
+
+    input_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+
+    if input_file.lower().endswith('.csv'):
+        process_csv_file(input_file, output_file)
     else:
-        print("UTF-8 Double Encoding Fixer\n")
-        print("Usage:")
-        print("  python script.py input.json [output.json]")
-        print("  (If output.json is omitted, input.json will be updated in place)\n")
-        print("Or run without arguments to see a demo:\n")
-        demo()
-        print("\nExample for direct use in code:")
-        print("  from script import fix_double_encoding, fix_data_structure")
-        print('  fixed = fix_double_encoding("D\\u00c3\\u00b3ra")')
-        print('  # Returns: "Dóra"')
+        process_json_file(input_file, output_file)
