@@ -1,177 +1,214 @@
-# Implementation Plan: Ethnic Tag Builder & Collapsible Categories
+# Email Service Refactoring and Tour Booking Notifications
 
-## Overview
+This plan addresses two goals:
+1. Refactor the email service to eliminate hardcoded email content by using JSON-based templates
+2. Add email notifications when talents from the player's go_to_list are booked for tours
 
-Create a runtime tag builder system that generates ethnicity-gender physical tags dynamically, supporting hierarchical ethnicity validation, and enhance the Scene Planner UI with collapsible category support for better organization.
+## Background
 
-## Requirements Summary
+Currently, email content is hardcoded in three locations:
+- [`EmailService.create_market_discovery_email`](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/email_service.py#L64-L80) - Creates HTML-formatted market discovery emails
+- [`GameSessionService.start_new_game`](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/game_session_service.py#L82-L89) - Creates welcome email with hardcoded text
+- [`MarketService.process_discoveries_from_release`](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/market_service.py#L67-L110) - Handles discovery logic that feeds into email creation
 
-**Tag Generation:**
-- **Individual Tags:** Generate tags for *every* defined ethnicity (Primary groups AND Sub-groups).
-    - Example: "White Male", "Western European Male", "Eastern European Male".
-- **Pair Tags:** Generate tags only for *Primary* ethnicity combinations.
-    - Example: "Interracial (Black/White)", "White/White", but *not* "Western European/Southern European".
-- **Custom Names:** Replace specific generic names with industry terms (e.g., "Ebony" instead of "Black Female").
-- **Runtime Builder:** A new class `PhysicalEthnicityTagBuilder`.
+The go_to_list is a feature that allows players to track their favorite talents across categories. The system uses:
+- `GoToListCategoryDB` - Categories for organizing talents
+- `GoToListAssignmentDB` - Many-to-many relationship between talents and categories
+- Signals (`go_to_list_changed`) - For UI updates
 
-**Validation Logic:**
-- Primary ethnicity tags must match performers of that primary ethnicity *or* any of its sub-groups (e.g., "Asian Female" tag accepts a "Southeast Asian" performer).
-- Sub-group tags must match exact ethnicity (e.g., "Japanese Female" tag only accepts "Japanese").
-
-**UI Enhancement:**
-- Collapsible category headers for Physical tags in the Scene Planner.
-- Group tags by `concept` (e.g., "Individual Ethnic", "Interracial", "Same-Ethnicity Pairs").
-
----
+Tour bookings happen in two ways:
+- **Player-sponsored**: [`TourCommandService.sponsor_tour`](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/tour_command_service.py#L38-L105) - Player pays upfront to sponsor a tour
+- **Autonomous**: [`TourCommandService.process_autonomous_tour_decisions`](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/tour_command_service.py#L107-L172) - Talents decide to tour on their own
 
 ## Proposed Changes
 
-### 1. [NEW] [PhysicalEthnicityTagBuilder](file:///src/data/builders/physical_ethnicity_tag_builder.py)
+### Data Configuration
 
-A runtime builder class initialized with the ethnicity hierarchy.
+#### [NEW] [email_templates.json](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/data/email_templates.json)
 
-**Key Data Structure:**
-It requires `ethnicity_hierarchy` from `DataManager` (e.g., `{ "White": ["Western European", ...], "Black": [] }`).
+Create a new JSON file to store all email templates with support for variable substitution:
 
-**Core Methods:**
-
-1.  `generate_individual_tags()`:
-    *   Iterate through **Primary** keys. Create tags (e.g., "White Male").
-    *   Iterate through **Sub-group** lists. Create tags (e.g., "Western European Male").
-    *   Apply `_apply_custom_name` (e.g., "Black Female" -> "Ebony").
-    *   Set `concept` to `"Individual Ethnic"`.
-
-2.  `generate_pair_tags()`:
-    *   Iterate through **Primary** keys only.
-    *   Generate all combinations (A/B) and Same-Ethnicity pairs (A/A).
-    *   **Do not** descend into sub-groups for pairs.
-    *   Set `concept` based on comparison:
-        *   If A == B: `"Same-Ethnicity Pairs"`
-        *   If A != B: `"Interracial Pairs"`
-
-3.  `_create_tag_definition(name, gender, ethnicity, ...)`:
-    *   Constructs the dictionary.
-    *   **Validation Rule:** The builder simply sets the `ethnicity` field in the rule. The existing `TagValidationChecker` calling `DataManager.is_ethnicity_match` already handles the sub-group logic.
-
-**Tag Structure Example (Individual - Primary):**
-```python
-{
-    "name": "Asian Female",
-    "type": "Physical",
-    "concept": "Individual Ethnic",
-    "categories": ["Race"],
-    "gender": "Female",
-    "ethnicity": "Asian", # Validator will accept "Southeast Asian" performer here
-    "is_auto_taggable": True,
-    "auto_detection_rule": {
-        "conditions": [
-             # Check affinity OR exact ethnicity match logic handled by checker
-            {"type": "affinity", "key": "Asian", "comparison": "eq", "value": 100}
-        ]
-    },
-    ...
-}
-```
-
-**Tag Structure Example (Individual - Sub-group):**
-```python
-{
-    "name": "Western European Female",
-    "type": "Physical",
-    "concept": "Individual Ethnic",
-    "categories": ["Race"],
-    "gender": "Female",
-    "ethnicity": "Western European", # Validator requires exact match or match to self
-    ...
-}
-```
-
----
-
-### 2. [MODIFY] [data_manager.py](file:///src/data/data_manager.py)
-
-Integrate the builder into the data loading pipeline.
-
-**Changes:**
-- Import `PhysicalEthnicityTagBuilder`.
-- In `_load_scene_tags`:
-    1.  Retrieve `self.get_ethnicity_hierarchy()`.
-    2.  Instantiate builder.
-    3.  Call `builder.generate_all_tags()`.
-    4.  Update `tags` dictionary with results.
-- **Verification:** Ensure `is_ethnicity_match` (already implemented in provided files) is available and correct. It currently checks: `if specific in primary_to_sub[required]: return True`. This supports the requirement that "Asian" tag accepts "Southeast Asian" performer.
-
----
-
-### 3. [MODIFY] [game_config.json](file:///data/game_config.json)
-
-Add configuration for ethnic tag revenue weights.
-
-**New Config Keys:**
 ```json
 {
-  "ethnic_tag_individual_focused": 10.0,
-  "ethnic_tag_individual_auto": 2.5,
-  "ethnic_tag_pair_focused": 15.0,
-  "ethnic_tag_pair_auto": 3.0
+  "welcome": {
+    "subject": "Welcome to the Studio!",
+    "body": "<p>Welcome to your new studio! Your goal is to become a successful producer.</p><p>Design scenes, cast talent, and make a profit!</p><p>Good luck!</p>"
+  },
+  "market_discovery": {
+    "subject": "Market Research Results: '{scene_title}'",
+    "body_header": "<p>Our analysis of the release of your recent scene has yielded new market insights.</p>",
+    "body_group": "<p><b>{group_name}:</b></p>",
+    "body_tag_item": "<li>Discovered preference for '<b>{tag}</b>'</li>",
+    "body_footer": "<p>This information has been added to our market intelligence reports.</p>"
+  },
+  "tour_booked_player_sponsored": {
+    "subject": "Tour Booking Confirmation: {talent_name}",
+    "body": "<p>Your sponsored tour for <b>{talent_name}</b> has been confirmed!</p><p><b>Destination:</b> {destination}</p><p><b>Duration:</b> {duration} weeks</p><p><b>Start Date:</b> Week {start_week}</p><p>They will be available for casting in {destination} during this period.</p>"
+  },
+  "tour_booked_autonomous": {
+    "subject": "Tour Update: {talent_name}",
+    "body": "<p><b>{talent_name}</b> from your Go-To List has booked a tour!</p><p><b>Destination:</b> {destination}</p><p><b>Duration:</b> {duration} weeks</p><p><b>Start Date:</b> Week {start_week}</p><p>They decided to travel on their own to explore new opportunities. You can still cast them in {destination} during this time.</p>"
+  },
+  "tour_booked_ai_sponsored": {
+    "subject": "Tour Update: {talent_name}",
+    "body": "<p><b>{talent_name}</b> from your Go-To List has been sponsored for a tour by <b>{ai_studio_name}</b>!</p><p><b>Destination:</b> {destination}</p><p><b>Duration:</b> {duration} weeks</p><p><b>Start Date:</b> Week {start_week}</p><p>You can still cast them in {destination} during this time if needed.</p>"
+  }
 }
 ```
 
 ---
 
-### 4. [NEW] [CollapsibleCategoryWidget](file:///src/ui/widgets/collapsible_category_widget.py)
+### Core Services
 
-Reusable widget replacing the standard `QListWidget` for Physical Tags.
+#### [MODIFY] [email_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/email_service.py)
 
-**Logic:**
-- Takes a list of Tag Dictionaries.
-- Sorts them by `concept` field.
-- Creates a `QTreeWidget` (or simulated list) where `concept` values are root nodes/headers.
-- Individual tags are child items.
-- Root nodes are collapsible.
-- Supports drag-and-drop (mimicking `DraggableListWidget`).
+**Changes:**
+1. Add `DataManager` dependency to access email templates
+2. Add new generic `create_email_from_template` method that loads templates and performs variable substitution
+3. Refactor `create_market_discovery_email` to use the new template system
+4. Add new `create_tour_booking_email` method for tour notifications
+5. Keep the internal `_create_email` helper method unchanged
 
-**API:**
+**Key additions:**
 ```python
-class CollapsibleCategoryWidget(QTreeWidget): # Inherits QTreeWidget for native hierarchy support
-    itemSelectionChanged = pyqtSignal()
+def create_email_from_template(self, session, template_key: str, variables: dict, current_absolute_week: int):
+    """Creates an email using a template from email_templates.json"""
     
-    def set_tags(self, tags: List[Dict]) # Groups by 'concept'
-    def get_selected_items(self) -> List[QTreeWidgetItem]
+def create_tour_booking_email(self, session, talent_name: str, tour_details: dict, 
+                              sponsor_type: str, current_absolute_week: int, 
+                              ai_studio_name: str = None):
+    """Creates notification email for when a go_to_list talent books a tour"""
 ```
 
 ---
 
-### 5. [MODIFY] [scene_planner_dialog.py](file:///src/ui/dialogs/scene_planner_dialog.py)
-
-Replace the flat list for Physical Tags with the new collapsible widget.
+#### [MODIFY] [market_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/market_service.py)
 
 **Changes:**
-- Replace `self.available_physical_list` (DraggableListWidget) with `CollapsibleCategoryWidget`.
-- Update `update_available_physical_tags` to pass the full tag data (so the widget can read the `concept`).
-- Ensure `get_selected_available_physical_tags` works with the new widget API.
+1. No changes needed to the core logic
+2. The `EmailService.create_market_discovery_email` method signature remains the same
+3. Email content generation moves to templates, but the method interface is unchanged
+
+---
+
+#### [MODIFY] [game_session_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/game_session_service.py)
+
+**Changes:**
+1. Replace hardcoded welcome email in `start_new_game` with template-based approach
+2. Call `EmailService.create_email_from_template` instead of manually creating `EmailMessageDB`
+
+**Before:**
+```python
+welcome_email = EmailMessageDB(
+    subject="Welcome to the Studio!",
+    body="Welcome to your new studio!...",
+    absolute_week=game_state.absolute_week,
+    is_read=False
+)
+session.add(welcome_email)
+```
+
+**After:**
+```python
+email_service.create_email_from_template(
+    session, 'welcome', {}, game_state.absolute_week
+)
+```
+
+---
+
+#### [MODIFY] [tour_command_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/tour_command_service.py)
+
+**Changes:**
+1. Add `EmailService` and `GameQueryService` (for go_to_list lookups) as dependencies
+2. In `sponsor_tour`: Check if talent is in any go_to_list category, create email if so
+3. In `process_autonomous_tour_decisions`: Check each touring talent against go_to_list, create email if matched
+
+**Key integration points:**
+
+In `sponsor_tour` (after tour creation, before commit):
+```python
+# Check if talent is in go_to_list
+talent_categories = self.game_query_service.get_talent_categories(talent_id)
+if talent_categories:
+    # Create tour booking email
+    self.email_service.create_tour_booking_email(
+        session, talent_db.alias, tour_details, 'player', current_absolute_week
+    )
+```
+
+In `process_autonomous_tour_decisions` (inside the loop where tours are created):
+```python
+# After creating autonomous tour
+talent_categories = self.game_query_service.get_talent_categories(talent_db.id)
+if talent_categories:
+    tour_details = {
+        'destination_location': dest,
+        'duration_weeks': duration,
+        'start_absolute_week': start_absolute_week
+    }
+    self.email_service.create_tour_booking_email(
+        session, talent_db.alias, tour_details, 'self', current_absolute_week
+    )
+```
+
+---
+
+### Dependency Injection Updates
+
+#### [MODIFY] [game_controller.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/core/game_controller.py) *(likely location)*
+
+**Changes:**
+1. Update `EmailService` initialization to receive `DataManager` dependency
+2. Update `TourCommandService` initialization to receive `EmailService` and `GameQueryService` (if not already present)
+3. Update `GameSessionService` initialization to receive `EmailService` dependency
 
 ---
 
 ## Verification Plan
 
-### Tag Generation
-1.  **Check Primary:** Verify "Asian Male" exists.
-2.  **Check Sub:** Verify "East Asian Male" exists.
-3.  **Check Pairs:** Verify "Asian/White" exists.
-4.  **Check Invalid Pairs:** Verify "East Asian/Western European" does **NOT** exist (Sub/Sub pairs should be skipped).
+### Automated Tests
 
-### Validation Logic (Unit Test)
-1.  **Scenario A:** Cast a "Southeast Asian" performer.
-    *   Check eligibility for "Asian Female" tag. **Expect: True** (Sub matches Primary).
-    *   Check eligibility for "Southeast Asian Female" tag. **Expect: True** (Exact match).
-    *   Check eligibility for "East Asian Female" tag. **Expect: False** (Sibling sub-group mismatch).
-2.  **Scenario B:** Cast an "Asian" (Generic) performer.
-    *   Check eligibility for "Asian Female" tag. **Expect: True**.
-    *   Check eligibility for "Southeast Asian Female" tag. **Expect: False** (Parent does not match Sub).
+I'll verify the changes by:
 
-### UI Behavior
-1.  Open Scene Planner -> Physical Tags.
-2.  Verify headers: "Individual Ethnic", "Interracial Pairs", "Same-Ethnicity Pairs".
-3.  Expand "Individual Ethnic".
-4.  Verify list includes both generic (White) and specific (Western European) tags.
+1. **Start a new game** - Confirm welcome email uses template
+   ```
+   Check email inbox shows welcome email with proper formatting
+   ```
+
+2. **Trigger market discovery** - Release a scene and confirm discovery email uses template
+   ```
+   Create and release a scene
+   Verify market discovery email appears with proper formatting
+   ```
+
+3. **Test tour notifications**:
+   
+   a. **Player-sponsored tour for go_to_list talent:**
+   ```
+   - Add a talent to go_to_list
+   - Sponsor a tour for that talent
+   - Verify tour booking email appears with correct details
+   ```
+   
+   b. **Player-sponsored tour for non-go_to_list talent:**
+   ```
+   - Sponsor a tour for a talent NOT in go_to_list
+   - Verify NO tour booking email is created
+   ```
+   
+   c. **Autonomous tour for go_to_list talent:**
+   ```
+   - Add talents to go_to_list
+   - Advance time to trigger autonomous tour decisions
+   - Verify tour booking email appears when go_to_list talent books tour
+   ```
+
+4. **Verify template flexibility** - Edit `email_templates.json` and confirm changes appear in-game
+
+### Manual Verification
+
+- Visually inspect all email types in the game's email inbox
+- Confirm HTML formatting renders correctly
+- Verify variable substitution works properly (talent names, locations, dates)
+- Test edge cases (empty discoveries, missing template variables)

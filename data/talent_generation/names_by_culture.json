@@ -220,6 +220,9 @@
       "female_first": [
         "Anastasia", "Katarina", "Mira", "Natalia", "Nicole", "Olga", "Rissa", "Svetlana"
       ],
+      "female_last": [
+        "Chechick", "Chechik", "Malkova"
+      ],
       "last": [
         "Ivanov", "Kowalski", "Novak", "Petrov", "Popov"
       ],
@@ -260,29 +263,56 @@
     },
     "us_western_european": {
       "female_first": [
-        "Addison", "Adriana", "Adrianna", "Alex", "Ally", "Amber", "Amy", "Angel", "Angie", "Anna",
-        "Anne", "Annie", "Anya", "Aria", "Ashley", "Asteria", "Astria", "Aubrey", "Bella", "Bianca",
-        "Blake", "Britney", "Brittany", "Brittney", "Bunny", "Carla", "Carolina", "Cassiopeia", "Cecilia", "Chanel",
-        "Charlotte", "Chloe", "Clara", "Clarissa", "Coco", "Daisy", "Danielle", "Dee", "Delilah", "Della",
-        "Demi", "Dezarae", "Elana", "Elena", "Ellie", "Elsa", "Emily", "Emma", "Freya", "Gabbie",
-        "Gianna", "Gigi", "Haley", "Hazel", "Ivy", "Jade", "Jamie", "Jane", "Jen", "Jennifer",
-        "Jessica", "Juniper", "Kacey", "Kat", "Kate", "Katherine", "Katie", "Kaycee", "Keira", "Kelsey",
-        "Kendra", "Kiana", "Kiara", "Kitty", "Kristen", "Kristina", "Kyler", "Kylie", "Lacey", "Lacy",
-        "Lana", "Leana", "Lena", "Lexi", "Lexy", "Lilly", "Lily", "Linda", "Liz", "Madeline",
-        "Madi", "Madison", "Marie", "Mary", "Mary Jane", "Megan", "Melanie", "Melissa", "Melody", "Mia",
-        "Molly", "Myra", "Naomi", "Nicole", "Nikki", "Octavia", "Paige", "Princess", "Remi", "Remy",
-        "Riley", "Rissa", "River", "Romi", "Rose", "Ryan", "Sage", "Sara", "Sarah", "Sativa",
-        "Savanna", "Savannah", "Savvy", "Scarlet", "Sera", "Serena", "Sharon", "Sky", "Skye", "Skylar",
-        "Sophia", "Sophie", "Stella", "Stephanie", "Sweet", "Uma", "Vanna", "Whitney"
+        "Addison", "Adira", "Adria", "Adriana", "Adrianna", "Aidra", "Alex", "Alexis", "Alison", "Ally",
+        "Amber", "Amy", "Andie", "Angel", "Angie", "Anna", "Annalyn", "Anne", "Annie", "Anya",
+        "Aria", "Ashley", "Aspen", "Asteria", "Astria", "Aubrey", "Aviana", "Bayley", "Bella", "Bianca",
+        "Blake", "Braylin", "Britney", "Brittany", "Brittney", "Bunny", "Carla", "Carolina", "Cassiopeia", "Cecilia",
+        "Chanel", "Charlotte", "Chloe", "Clara", "Clarissa", "Coco", "Daisy", "Dani", "Danielle", "Dee",
+        "Delaney", "Delilah", "Della", "Demi", "Dezarae", "Dixie", "Elana", "Elena", "Ella", "Ellie",
+        "Elly", "Elsa", "Emily", "Emma", "Eva", "Evie", "Explicit", "Freya", "Gabbie", "Georgina",
+        "Gianna", "Gigi", "Haley", "Hazel", "Ivy", "Jade", "Jamie", "Jane", "Janice", "Jen",
+        "Jennifer", "Jessica", "Jillian", "Julia", "Julie", "Juniper", "Kacey", "Kali", "Kat", "Kate",
+        "Katherine", "Katie", "Katrina", "Kay", "Kaycee", "Keira", "Kelly", "Kelsey", "Kendra", "Khloe",
+        "Kiana", "Kiara", "Kimberly", "Kira", "Kitty", "Kristen", "Kristina", "Kyler", "Kylie", "Lacey",
+        "Lacy", "Lana", "Laney", "Leana", "Lena", "Lexi", "Lexy", "Lilly", "Lily", "Linda",
+        "Lisa", "Liz", "Maddy", "Madeline", "Madi", "Madison", "Marie", "Mary", "Mary Jane", "Megan",
+        "Melanie", "Melissa", "Melody", "Mia", "Molly", "Myra", "Naomi", "Natalie", "Nickey", "Nicky",
+        "Nicole", "Nikki", "Octavia", "Paige", "Penelope", "Penny", "Princess", "Remi", "Remy", "Reya",
+        "Riley", "Rissa", "River", "Romi", "Rose", "Sage", "Sara", "Sarah", "Sativa", "Savanna",
+        "Savannah", "Savvy", "Scarlet", "Selina", "Sera", "Serena", "Shanna", "Sharon", "Sky", "Skye",
+        "Skylar", "Sophia", "Sophie", "Stella", "Stephanie", "Sweet", "Theresa", "Uma", "Val", "Valerica",
+        "Valerie", "Vanessa", "Vanna", "Venus", "Violet", "Whitney", "Zina"
+      ],
+      "female_last": [
+        "Allure", "Amber", "Angel", "Ann", "Barber", "Bardot", "Bell", "Bentz", "Bliss", "Blossom",
+        "Brookes", "Brooks", "Bunnz", "Capri", "Caprice", "Cate", "Clouds", "Clover", "Dior", "Doux",
+        "Faith", "Fox", "Glasford", "Grace", "Granger", "Griffith", "Hawks", "Hicks", "Janson", "Jensen",
+        "Kapri", "Kay", "Lacroix", "Lennon", "Lenon", "Lore", "Love", "Lovelock", "Lovings", "Luna",
+        "Lune", "Lynn", "Madison", "Mae", "Marie", "Maris", "May", "Megan", "Moans", "Moore",
+        "Nicole", "Nova", "Olsen", "Palin", "Peach", "Piper", "Quinn", "Rae", "Rain", "Red",
+        "Reed", "Ren", "Rizzo", "Rose", "Roses", "Rosie", "Star", "Starr", "Swan", "Swann",
+        "Sweets", "Valentine", "Vandella", "Vixen", "Vox", "Wonderland"
       ],
       "female_single": [
         "Belicia", "Darling", "Mrs. Kitty", "Shrooms"
       ],
+      "first": [
+        "Alex", "Dylan", "Morgan", "Ryan", "Taylor"
+      ],
       "last": [
-        "Brown", "Johnson", "Jones", "Miller", "Smith", "Williams"
+        "Alexander", "Anderson", "Bang", "Blanco", "Blue", "Brown", "Cage", "Camryn", "Cane", "Carter",
+        "Christian", "Clutch", "Coal", "Cole", "Coleman", "Collins", "Colt", "Dolan", "Edge", "Gray",
+        "Grey", "Hunter", "Jackson", "Jade", "Jay", "Johnson", "Jones", "Jordan", "Kane", "Lee",
+        "Little", "Locke", "Marks", "Marx", "Maze", "Miller", "Morgan", "Notty", "Parker", "Paul",
+        "Phoenix", "Play", "Reese", "Reign", "River", "Rolland", "Ryans", "Ryder", "Scott", "Smalls",
+        "Smith", "Spade", "Spades", "Sterling", "Stone", "Summers", "Sunderland", "Taylor", "Texas", "Vodka",
+        "White", "Wild", "Wilde", "Williams", "Wright", "Youngs"
       ],
       "male_first": [
         "Chris", "David", "James", "John", "Michael", "Robert"
+      ],
+      "male_last": [
+        "Adonis", "Steel", "Steele"
       ],
       "male_single": [
         "Blade", "Chance", "Jett", "Rocco", "Vegas"
