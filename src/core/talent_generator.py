@@ -74,35 +74,68 @@ class TalentGenerator:
         return sub_ethnicity, primary_ethnicity
 
     def _get_name_list(self, culture_key: str, gender: str, part: str) -> List[str]:
+        """
+        Retrieves a specific list of names. Returns empty list if not found.
+        Does NOT fallback to default immediately, allowing logic to check availability.
+        """
         try:
-            names = self.name_data[culture_key][gender][part]
-            if names:
-                return names
+            return self.name_data[culture_key][gender][part]
         except KeyError:
-            pass 
-        return self.default_names.get(gender, {}).get(part, ["Default"])
+            return []
 
     def _generate_alias(self, gender: str, nationality: str, ethnicity: str) -> str:
-        nat_key_map = {'US': 'us', 'Japanese': 'japanese', 'Canadian': 'canadian', 'British': 'british',
-                       'French': 'french', 'Colombian': 'colombian', 'Brazilian': 'brazilian',
-                       'Russian': 'russian', 'German': 'german', 'Spanish': 'spanish', 'Italian': 'italian',
-                       'Czech': 'czech', 'Hungarian': 'hungarian'}
+        exception_map = {
+            # Placeholder
+        }
+
+        # 1. Resolve the prefix (e.g., "US" -> "us", "German" -> "german")
+        if nationality in exception_map:
+            nat_key = exception_map[nationality]
+        else:
+            # Fallback: lowercase and replace spaces with underscores
+            nat_key = nationality.lower().replace(" ", "_")
+
         eth_key = ethnicity.lower().replace(' ', '_')
-        nat_key = nat_key_map.get(nationality, 'default')
-        culture_key = f"{nat_key}_{eth_key}"
-        single_name_chance = self.gen_config.get("alias_single_name_chance", 0.15)
         
-        if random.random() < single_name_chance:
-            name_list = self._get_name_list(culture_key, gender, 'single')
-            return random.choice(name_list)
+        # 2. Determine Culture Keys to try (Specific -> Default)
+        # e.g. "us_western_european", then "default"
+        culture_keys = [f"{nat_key}_{eth_key}", "default"]
         
-        first_name_list = self._get_name_list(culture_key, gender, 'first')
-        last_name_list = self._get_name_list(culture_key, gender, 'last')
+        for culture_key in culture_keys:
+            # Check availability of name types for this specific culture
+            first_names = self._get_name_list(culture_key, gender, 'first')
+            last_names = self._get_name_list(culture_key, gender, 'last')
+            single_names = self._get_name_list(culture_key, gender, 'single')
+            
+            has_full_name = len(first_names) > 0 and len(last_names) > 0
+            has_single_name = len(single_names) > 0
+            
+            # If neither exist for this culture, try the next fallback (e.g., 'default')
+            if not has_full_name and not has_single_name:
+                continue
 
-        first_name = random.choice(first_name_list)
-        last_name = random.choice(last_name_list)
+            # 2. Decide Format
+            single_name_chance = self.gen_config.get("alias_single_name_chance", 0.15)
+            use_single = False
 
-        return f"{first_name} {last_name}"
+            if has_single_name and has_full_name:
+                # Both available, roll dice
+                use_single = random.random() < single_name_chance
+            elif has_single_name:
+                # Only single available
+                use_single = True
+            else:
+                # Only full available
+                use_single = False
+            
+            # 3. Generate
+            if use_single:
+                return random.choice(single_names)
+            else:
+                return f"{random.choice(first_names)} {random.choice(last_names)}"
+        
+        # Fallback if even 'default' is broken
+        return "Unknown Talent"
 
     def _generate_dick_size(self) -> int:
         dick_config = self.gen_config.get("dick_size", {"min": 2, "max": 15, "mode": 8})

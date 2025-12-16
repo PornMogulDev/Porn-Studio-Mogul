@@ -409,27 +409,51 @@ def migrate_names(cursor, data):
     print("Migrating names_by_culture.json...")
     count = 0
     names_data = data['names_by_culture']
-
+    
+    # Keys that apply to BOTH genders if no prefix is present
+    neutral_keys = ["first", "last", "single"]
+    
     for culture_key, parts_data in names_data.items():
-        for part_key, names in parts_data.items():
-            if part_key in ("last", "single"):
-                genders = ["Male", "Female"]
-                part = part_key
-                for gender in genders:
-                    for name in names:
-                        cursor.execute("INSERT OR REPLACE INTO cultural_names (culture_key, gender, part, name) VALUES (?, ?, ?, ?)",
-                                       (culture_key, gender, part, name))
-                        count += 1
-            elif "_" in part_key:
+        for raw_key, names in parts_data.items():
+            
+            target_genders = []
+            target_part = ""
+
+            # Case 1: Gender-neutral key (e.g., "last", "single", or even "first" if used generically)
+            if raw_key in neutral_keys:
+                target_genders = ["Male", "Female"]
+                target_part = raw_key
+                
+            # Case 2: Gendered key (e.g., "male_first", "female_last")
+            elif "_" in raw_key:
                 try:
-                    gender_str, part = part_key.split("_", 1)
-                    gender = gender_str.capitalize()
-                    for name in names:
-                        cursor.execute("INSERT OR REPLACE INTO cultural_names (culture_key, gender, part, name) VALUES (?, ?, ?, ?)",
-                                       (culture_key, gender, part, name))
-                        count += 1
+                    gender_prefix, part_suffix = raw_key.split("_", 1)
+                    # Normalize gender string
+                    if gender_prefix.lower() in ["male", "m"]:
+                        target_genders = ["Male"]
+                    elif gender_prefix.lower() in ["female", "f"]:
+                        target_genders = ["Female"]
+                    
+                    if part_suffix in neutral_keys:
+                        target_part = part_suffix
                 except ValueError:
-                    print(f"Warning: Could not parse part_key '{part_key}' in names_by_culture.json. Skipping.")
+                    pass
+
+            # If we successfully identified what this list is for
+            if target_genders and target_part:
+                for gender in target_genders:
+                    for name in names:
+                        # INSERT OR IGNORE handles cases where a name might appear in both
+                        # a neutral list AND a specific list (e.g. 'Jordan' in 'first' and 'male_first')
+                        cursor.execute("""
+                            INSERT OR IGNORE INTO cultural_names 
+                            (culture_key, gender, part, name) 
+                            VALUES (?, ?, ?, ?)
+                        """, (culture_key, gender, target_part, name))
+                        count += 1
+            else:
+                print(f"Warning: Could not parse key '{raw_key}' in culture '{culture_key}'. Skipping.")
+
     print(f"{count} cultural name entries migrated.")
 
 def migrate_talent_affinities(cursor, data):
