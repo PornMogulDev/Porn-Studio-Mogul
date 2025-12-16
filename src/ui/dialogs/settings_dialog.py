@@ -81,23 +81,24 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         
         main_layout.addWidget(display_group)
 
-        # --- Casting Mode Behavior Group ---
-        casting_group = QGroupBox("Casting Mode Behavior")
-        casting_v_layout = QVBoxLayout(casting_group)
+        # --- Talent Tab Behavior Group ---
+        talent_tab_group = QGroupBox("Talent Tab Behavior")
+        talent_tab_layout = QVBoxLayout(talent_tab_group)
 
+        self.cb_auto_hide_filter = QCheckBox("Auto-collapse Filter on Apply")
+        self.cb_auto_hide_filter.setToolTip("Automatically collapses the filter sidebar whenever 'Apply' is clicked.")
+        talent_tab_layout.addWidget(self.cb_auto_hide_filter)
+
+        talent_tab_layout.addWidget(QLabel("Casting Mode Behaviour:"))
         self.cb_show_role_details = QCheckBox("Show Role Details Panel")
         self.cb_show_role_details.setToolTip("Displays the role description and requirements in the sidebar when casting.")
-        casting_v_layout.addWidget(self.cb_show_role_details)
+        talent_tab_layout.addWidget(self.cb_show_role_details)
 
         self.cb_show_scene_summary = QCheckBox("Show Scene Summary Panel")
         self.cb_show_scene_summary.setToolTip("Displays the scene summary (performers, tags) in the sidebar when casting.")
-        casting_v_layout.addWidget(self.cb_show_scene_summary)
+        talent_tab_layout.addWidget(self.cb_show_scene_summary)
 
-        self.cb_auto_hide_filter = QCheckBox("Auto-collapse Filter on Apply")
-        self.cb_auto_hide_filter.setToolTip("Automatically collapses the filter sidebar after applying filters in casting mode.")
-        casting_v_layout.addWidget(self.cb_auto_hide_filter)
-
-        main_layout.addWidget(casting_group)
+        main_layout.addWidget(talent_tab_group)
         
         # --- Window Layout Group ---
         layout_group = QGroupBox("Window Layout")
@@ -185,7 +186,7 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         return {
             "casting_mode_show_role_details": self.cb_show_role_details.isChecked(),
             "casting_mode_show_scene_summary": self.cb_show_scene_summary.isChecked(),
-            "auto_hide_filter_on_casting": self.cb_auto_hide_filter.isChecked()
+            "auto_hide_filter_on_apply": self.cb_auto_hide_filter.isChecked()
         }
 
     # The accept and reject methods are now empty shells. The presenter's slots,

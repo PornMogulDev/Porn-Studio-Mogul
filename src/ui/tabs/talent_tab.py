@@ -218,6 +218,18 @@ class TalentTab(QWidget):
 
     def set_info_panel_visible(self, visible: bool):
         """Shows or hides the entire left sidebar."""
+        if visible and not self.info_panel_container.isVisible():
+            # If showing for the first time or restoring, ensure it has a usable width.
+            # Otherwise, the QSplitter might keep it at 0 or near 0 width.
+            sizes = self.main_splitter.sizes()
+            total_width = sum(sizes)
+            current_info_width = sizes[0]
+            
+            # If it's too small (collapsed), give it 20% of the total width
+            if current_info_width < 50 and total_width > 0:
+                target_width = int(total_width * 0.20)
+                remaining_width = total_width - target_width - sizes[2]
+                self.main_splitter.setSizes([target_width, remaining_width, sizes[2]])
         self.info_panel_container.setVisible(visible)
 
     def configure_info_panel(self, show_role: bool, show_summary: bool):
@@ -317,6 +329,9 @@ class TalentTab(QWidget):
     def on_filters_applied(self, filters: dict):
         self.advanced_filters = filters
         self.filter_talent_list()
+
+        if self.settings_manager.get_setting("auto_hide_filter_on_apply", True):
+            self.set_filter_panel_visible(False)
 
     def refresh_from_state(self):
         self.filter_talent_list()

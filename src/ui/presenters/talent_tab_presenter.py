@@ -148,10 +148,6 @@ class TalentTabPresenter(QObject):
                 summary_data = prepare_summary_data(scene, self.controller)
                 self.view.update_scene_summary(summary_data)
                 
-            # 3. Auto-Collapse Filter (if enabled)
-            if self.controller.settings_manager.get_setting("auto_hide_filter_on_casting", True):
-                self.view.set_filter_panel_visible(False)
-                
         else:
             # Reset to browsing mode
             self.view.set_info_panel_visible(False)

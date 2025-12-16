@@ -55,10 +55,10 @@ class SettingsManager:
             "scene_planner_presets": {},
             "ai_studio_panel_visibility": {},
             
-            # Casting Mode Preferences
+            # Talent Tab Preferences
             "casting_mode_show_role_details": True,
             "casting_mode_show_scene_summary": True,
-            "auto_hide_filter_on_casting": True,
+            "auto_hide_filter_on_apply": True,
             "demand_column_user_preference": True,
         }
         self.settings = self._load_settings()

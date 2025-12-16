@@ -31,7 +31,7 @@ class SettingsDialogPresenter(QObject):
         # Casting Mode Defaults
         self.initial_show_role = self.settings_manager.get_setting("casting_mode_show_role_details", True)
         self.initial_show_summary = self.settings_manager.get_setting("casting_mode_show_scene_summary", True)
-        self.initial_auto_hide = self.settings_manager.get_setting("auto_hide_filter_on_casting", True)
+        self.initial_auto_hide = self.settings_manager.get_setting("auto_hide_filter_on_apply", True)
 
         self._connect_signals()
         self._populate_initial_view()
