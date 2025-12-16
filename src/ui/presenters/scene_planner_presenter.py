@@ -386,7 +386,7 @@ class ScenePlannerPresenter(QObject):
                         orientation_ok = True
                         if gender_ok:
                              orientation_ok = self.controller.tag_validation_checker.is_assignment_valid_for_segment(
-                                 segment, tag_def, vp_map, slot_id, vp.id
+                                segment, tag_def, vp_map, slot_id, slot_def['role'], vp.id
                              )
 
                         if gender_ok and orientation_ok and vp.id not in vps_assigned_elsewhere:
@@ -402,9 +402,9 @@ class ScenePlannerPresenter(QObject):
         self.state_editor.update_action_segment_parameter(segment_id, role, value)
         self._refresh_action_segment_panel()
         self._update_summary()
-    def on_slot_assignment_changed(self, segment_id: int, slot_id: str, vp_id: int):
+    def on_slot_assignment_changed(self, segment_id: int, slot_id: str, role: str, vp_id: int):
         # The view emits 0 for "Unassigned"
-        self.state_editor.update_slot_assignment(segment_id, slot_id, vp_id if vp_id != 0 else None)
+        self.state_editor.update_slot_assignment(segment_id, slot_id, role, vp_id if vp_id != 0 else None)
         current_item = self.view.selected_actions_list.currentItem()
         current_segment_id = current_item.data(Qt.ItemDataRole.UserRole) if current_item else -1
         self.on_selected_action_segment_changed(current_segment_id)

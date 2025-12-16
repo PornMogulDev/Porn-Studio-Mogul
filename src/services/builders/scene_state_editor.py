@@ -170,7 +170,7 @@ class SceneStateEditor:
         for s in self.working_scene.action_segments:
             if s.id == segment_id: s.parameters[role] = value; break
 
-    def update_slot_assignment(self, segment_id: int, slot_id: str, vp_id: Optional[int]):
+    def update_slot_assignment(self, segment_id: int, slot_id: str, role: str, vp_id: Optional[int]):
         """
         Updates the assignment of a performer to a specific slot in an action segment.
         Removes any existing assignment for that slot before adding the new one.
@@ -179,7 +179,7 @@ class SceneStateEditor:
             if s.id == segment_id:
                 s.slot_assignments = [sa for sa in s.slot_assignments if sa.slot_id != slot_id]
                 if vp_id is not None:
-                    s.slot_assignments.append(SlotAssignment(slot_id=slot_id, virtual_performer_id=vp_id))
+                    s.slot_assignments.append(SlotAssignment(slot_id=slot_id, role=role, virtual_performer_id=vp_id))
                 break
     
     def set_protagonist_status(self, vp_id: int, is_protagonist: bool):

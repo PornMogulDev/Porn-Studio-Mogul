@@ -391,7 +391,7 @@ class UIManager:
     def show_game_menu(self):
         def factory():
             # Dumb View
-            dialog = GameMenuDialog(parent=self.parent_widget)
+            dialog = GameMenuDialog(self.settings_manager, parent=self.parent_widget)
             # Logic Wiring
             presenter = GameMenuPresenter(dialog, self, parent=dialog)
             # (Optional) if you want to attach it explicitly, though presenter signals handle it

@@ -320,6 +320,7 @@ class SlotAssignmentDB(Base, DataclassMapper):
     id = Column(Integer, primary_key=True, autoincrement=True)
     segment_id = Column(Integer, ForeignKey('action_segments.id'), nullable=False)
     slot_id = Column(String)
+    role = Column(String)
     virtual_performer_id = Column(Integer)
     segment = relationship("ActionSegmentDB", back_populates="slot_assignments")
 

@@ -16,8 +16,9 @@ class GameMenuDialog(GeometryManagerMixin, QDialog):
     return_to_menu_clicked = pyqtSignal()
     quit_clicked = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, settings_manager, parent=None):
         super().__init__(parent)
+        self.settings_manager = settings_manager
         self.setWindowTitle("Game Menu")
         self.setup_ui()
         self._restore_geometry()

@@ -76,7 +76,7 @@ class TagValidationChecker:
     
     def is_assignment_valid_for_segment(self, segment: ActionSegment, tag_def: Dict, 
                                       performers: Dict[int, VirtualPerformer], 
-                                      slot_id: str, candidate_vp_id: int) -> bool:
+                                      slot_id: str, target_role: str, candidate_vp_id: int) -> bool:
         """
         Checks if assigning a specific candidate to a specific slot would violate
         orientation rules, considering who is ALREADY assigned to other slots.
@@ -97,7 +97,6 @@ class TagValidationChecker:
 
         # 2. Contextual Lock (Straight tag = Must not match existing genders of same type)
         if orientation == "Straight":
-            target_role = self._extract_role_from_slot_id(slot_id, tag_def, segment.tag_name)
             
             for assignment in segment.slot_assignments:
                 # Skip self if checking against an existing assignment (though usually we are adding new)
@@ -109,7 +108,7 @@ class TagValidationChecker:
                 peer = performers.get(assignment.virtual_performer_id)
                 if not peer: continue
                 
-                peer_role = self._extract_role_from_slot_id(assignment.slot_id, tag_def, segment.tag_name)
+                peer_role = assignment.role
                 
                 # Rule 1: Consistency (Same Role -> Same Gender)
                 if peer_role == target_role and peer.gender != candidate.gender:
@@ -298,20 +297,3 @@ class TagValidationChecker:
             if result: return result
         
         return None
-    
-    def _extract_role_from_slot_id(self, slot_id: str, tag_def: Dict, fallback_tag_name: str) -> str:
-        """
-        Helper to extract the Role name from a constructed slot_id string.
-        Format is: "{BaseName}_{Role}_{Index}"
-        """
-        base_name = tag_def.get('name', fallback_tag_name)
-        prefix = f"{base_name}_"
-        
-        if not slot_id.startswith(prefix):
-            return ""
-            
-        # Strip prefix
-        remainder = slot_id[len(prefix):]
-        # Strip suffix (_{index})
-        role = remainder.rsplit("_", 1)[0]
-        return role

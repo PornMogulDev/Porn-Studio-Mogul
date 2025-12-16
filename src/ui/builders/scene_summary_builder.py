@@ -90,13 +90,12 @@ def prepare_summary_data(scene: Scene, controller: IGameController) -> Dict:
 
         # Populate assignments
         for assignment in segment.slot_assignments:
-            # e.g., slot_id is "ActionName_RoleName_1"
-            try:
-                role = assignment.slot_id.rsplit('_', 2)[-2]
-                _, display_name = get_talent_info(assignment.virtual_performer_id)
+            role = assignment.role
+            if not role: continue
+            
+            _, display_name = get_talent_info(assignment.virtual_performer_id)
+            if role in all_slots:
                 all_slots[role]["assigned"].append(display_name)
-            except (IndexError, ValueError):
-                continue # Skip malformed slot IDs
 
         # Format for display
         for role, data in sorted(all_slots.items()):

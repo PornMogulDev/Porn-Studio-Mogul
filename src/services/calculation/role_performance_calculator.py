@@ -35,19 +35,9 @@ class RolePerformanceCalculator:
         if not tag_def:
             return None
         
-        possible_roles = {s['role'] for s in tag_def.get('slots', [])}
-        
-        try:
-            # Assumes format "TagName_RoleName_Index"
-            _, role, _ = assignment.slot_id.rsplit('_', 2)
-            
-            # Validate that the parsed role is valid for this tag
-            if role not in possible_roles:
-                return None
-
-        except ValueError:
-            # slot_id does not conform to the expected format
-            return None
+        role = assignment.role
+        if not role:
+             return None
 
         slots = scene._get_slots_for_segment(segment, tag_definitions)
         slot_def = next((s for s in slots if s['role'] == role), None)

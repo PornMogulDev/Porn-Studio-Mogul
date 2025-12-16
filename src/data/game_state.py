@@ -93,8 +93,8 @@ class VirtualPerformer:
 @dataclass_json
 @dataclass
 class SlotAssignment:
-    # TODO: Store the role explicitly for the places that need it (Scene Planner, RolePerformanceCalculator)
     slot_id: str
+    role: str
     virtual_performer_id: int
     id: Optional[int] = None
 
@@ -169,13 +169,15 @@ class Scene:
                 role_map = rule.get('role_map', {})
                 remapped_assignments = []
                 for parent_assignment in segment.slot_assignments:
-                    try: _, parent_role, slot_index = parent_assignment.slot_id.rsplit('_', 2)
-                    except ValueError: continue
+                    parent_role = parent_assignment.role
                     child_role = role_map.get(parent_role, parent_role)
                     child_tag_def = tag_definitions.get(child_tag_name, {})
                     child_base_name = child_tag_def.get('name', child_tag_name)
+                    # We assume index 1 for remapping logic simplification unless parsed from slot_id for legacy reasons
+                    try: slot_index = parent_assignment.slot_id.rsplit('_', 1)[-1]
+                    except: slot_index = "1"
                     child_slot_id = f"{child_base_name}_{child_role}_{slot_index}"
-                    remapped_assignments.append(SlotAssignment(slot_id=child_slot_id, virtual_performer_id=parent_assignment.virtual_performer_id))
+                    remapped_assignments.append(SlotAssignment(slot_id=child_slot_id, role=child_role, virtual_performer_id=parent_assignment.virtual_performer_id))
                 
                 child_params = rule.get('parameters', {}).copy()
                 for parent_role, parent_value in segment.parameters.items():

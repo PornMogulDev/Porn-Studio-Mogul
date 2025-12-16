@@ -64,7 +64,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
     selected_action_segment_changed = pyqtSignal(int) # segment_id or -1
     segment_runtime_changed = pyqtSignal(int, int) # segment_id, new_value
     segment_parameter_changed = pyqtSignal(int, str, int) # segment_id, role, new_value
-    slot_assignment_changed = pyqtSignal(int, str, int) # segment_id, slot_id, vp_id or 0 for None
+    slot_assignment_changed = pyqtSignal(int, str, str, int) # segment_id, slot_id, role, vp_id or 0 for None
 
     def __init__(self, settings_manager, icon_manager, ui_manager: 'UIManager' = None, parent=None):
         super().__init__(parent)
@@ -463,7 +463,7 @@ class ScenePlannerDialog(GeometryManagerMixin, QDialog):
                 effective_gender_req = effective_genders.get(slot_id)
                 slot_widget = SlotAssignmentWidget(segment.id, slot_id, slot_def, effective_gender_req=effective_gender_req)
                 slot_widget.assignment_changed.connect(
-                    lambda sid, slid, vpid: self.slot_assignment_changed.emit(sid, slid, vpid if vpid is not None else 0)
+                    lambda sid, slid, role, vpid: self.slot_assignment_changed.emit(sid, slid, role, vpid if vpid is not None else 0)
                 )
                 slot_widget.setEnabled(is_editable)
                 widget_options = vp_options_by_slot.get(slot_id, [])

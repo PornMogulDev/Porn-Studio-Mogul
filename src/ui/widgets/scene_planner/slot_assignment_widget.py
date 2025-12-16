@@ -3,7 +3,7 @@ from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QComboBox, QLabel
 
 class SlotAssignmentWidget(QWidget):
-    assignment_changed = pyqtSignal(int, str, object) # object allows for None
+    assignment_changed = pyqtSignal(int, str, str, object) # segment_id, slot_id, role, vp_id
 
     def __init__(self, segment_id: int, slot_id: str, slot_def: dict, effective_gender_req: str = None, parent=None):
         super().__init__(parent)
@@ -39,4 +39,4 @@ class SlotAssignmentWidget(QWidget):
 
     def _on_selection_change(self):
         vp_id = self.performer_combo.currentData()
-        self.assignment_changed.emit(self.segment_id, self.slot_id, vp_id if vp_id != -1 else None)
+        self.assignment_changed.emit(self.segment_id, self.slot_id, self.slot_def['role'], vp_id if vp_id != -1 else None)

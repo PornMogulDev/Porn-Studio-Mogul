@@ -38,7 +38,7 @@ class ShootingBlocBuilder:
         self.cost_calculator = bloc_cost_calculator
 
         # State Variables
-        self.budget_per_scene: int = 5000
+        self.budget_per_scene: int = 2000
         self.num_scenes: int = 2
         
         self.region_id: str = "South West (US)"
