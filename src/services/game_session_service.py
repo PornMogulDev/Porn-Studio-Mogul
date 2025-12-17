@@ -79,10 +79,11 @@ class GameSessionService:
                 db_studio = AIStudioDB.from_dataclass(studio)
                 session.add(db_studio)
 
-            # Create welcome email
+            # Create welcome email from template
+            welcome_tmpl = self.data_manager.emails.get('welcome', {})
             welcome_email = EmailMessageDB(
-                subject="Welcome to the Studio!", 
-                body="Welcome to your new studio! Your goal is to become a successful producer.\n\nDesign scenes, cast talent, and make a profit!\n\nGood luck!",
+                subject=welcome_tmpl.get('subject', 'Welcome to the Studio!'),
+                body=welcome_tmpl.get('body', 'Welcome!'),
                 absolute_week=game_state.absolute_week,
                 is_read=False
             )
@@ -96,6 +97,7 @@ class GameSessionService:
             return None
         finally:
             session.close()
+
 
     def load_game(self, save_name: str) -> Optional[Tuple[GameState, str]]:
         """

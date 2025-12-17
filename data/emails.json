@@ -1,0 +1,25 @@
+{
+  "welcome": {
+    "subject": "Welcome to the Studio!",
+    "body": "<p>Welcome to your new studio! Your goal is to become a successful producer.</p><p>Design scenes, cast talent, and make a profit!</p>"
+  },
+  "market_discovery": {
+    "subject": "Market Research Results: '{scene_title}'",
+    "body_header": "<p>Our analysis of the release of your recent scene has yielded new market insights.</p>",
+    "body_group": "<p><b>{group_name}:</b></p>",
+    "body_tag_item": "<li>Discovered preference for '<b>{tag}</b>'</li>",
+    "body_footer": "<p>This information has been added to our market intelligence reports.</p>"
+  },
+  "tour_booked_player_sponsored": {
+    "subject": "Tour Booking Confirmation: {talent_name}",
+    "body": "<p>Your sponsored tour for <b><a href='talent:{talent_id}'>{talent_name}</a></b> has been confirmed!</p><p><b>Destination:</b> {destination}</p><p><b>Duration:</b> {duration} weeks</p><p>They will be available for casting in {destination} during this period.</p>"
+  },
+  "tour_booked_autonomous": {
+    "subject": "Tour Update: {talent_name}",
+    "body": "<p><b><a href='talent:{talent_id}'>{talent_name}</a></b> from your Go-To List has booked a tour!</p><p><b>Destination:</b> {destination}</p><p><b>Start Date:</b> Week {start_week}</p>"
+  },
+  "tour_booked_ai_sponsored": {
+    "subject": "Tour Update: {talent_name}",
+    "body": "<p><b><a href='talent:{talent_id}'>{talent_name}</a></b> from your Go-To List has been sponsored for a tour by <b>{ai_studio_name}</b>!</p>"
+  }
+}

@@ -6,7 +6,7 @@ from collections import defaultdict, OrderedDict
 
 from data.builders.action_tag_builder import ActionTagBuilder
 from data.builders.physical_ethnicity_tag_builder import PhysicalEthnicityTagBuilder
-from utils.paths import GAME_DATA, HELP_FILE
+from utils.paths import GAME_DATA, HELP_FILE, EMAIL_FILE
 
 # Set up a logger for this module
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ class DataManager:
     Handles loading all static game data from the SQLite database at startup.
     This class is instantiated once and passed to the controller.
     """
-    def __init__(self, db_path: str = GAME_DATA, help_file_path: str = HELP_FILE):
+    def __init__(self, db_path: str = GAME_DATA, help_file_path: str = HELP_FILE, emails: str = EMAIL_FILE):
         self.conn = None
         
         try:
@@ -46,6 +46,7 @@ class DataManager:
         self.talent_archetypes = self._load_talent_archetypes()
         self.traits_data = self._load_traits()
         self.help_topics = self._load_help_topics(help_file_path)
+        self.emails = self._load_emails(emails)
         self.accommodation_tiers = self._load_accommodation_tiers()
         self.travel_matrix = self._load_travel_matrix()
         self.ai_studio_archetypes = self._load_ai_studio_archetypes()
@@ -396,6 +397,18 @@ class DataManager:
             return {}
         except json.JSONDecodeError:
             logger.warning(f"Failed to parse help topics file at '{file_path}'. It may be malformed.")
+            return {}
+        
+    def _load_emails(self, emails: str) -> Dict[str, Any]:
+        """Loads help topic data from a JSON file."""
+        try:
+            with open(emails, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            logger.warning(f"Help topics file not found at '{emails}'. Help feature will fail when trying to access it.")
+            return {}
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse help topics file at '{emails}'. It may be malformed.")
             return {}
         
     def _load_ai_studio_archetypes(self) -> List[Dict[str, Any]]:

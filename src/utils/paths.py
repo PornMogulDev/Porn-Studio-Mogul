@@ -70,6 +70,7 @@ HELP_DIR = DATA_DIR / "help_content"
  
 # Data files (read-only)
 GAME_DATA = DATA_DIR / "game_data.sqlite"
+EMAIL_FILE = DATA_DIR / "emails.json"
 HELP_FILE = DATA_DIR / "help_topics.json"
 ACKNOWLEDGEMENTS_FILE = DATA_DIR / "acknowledgements.md"
  

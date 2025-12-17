@@ -1,38 +1,23 @@
-# Email Service Refactoring and Tour Booking Notifications
+# Implementation Plan: Email Refactoring & Smart Entity Linking
 
-This plan addresses two goals:
-1. Refactor the email service to eliminate hardcoded email content by using JSON-based templates
-2. Add email notifications when talents from the player's go_to_list are booked for tours
+This plan addresses three goals:
+1.  **Refactor** the email service to eliminate hardcoded email content by using JSON-based templates.
+2.  **Add** tour booking notifications when talents from the `go_to_list` are booked.
+3.  **Enhance** the Email UI to support "Smart Links" (Alt-Click to open profile, Hover for summary card) within the email body.
 
-## Background
+## 1. Data Configuration
 
-Currently, email content is hardcoded in three locations:
-- [`EmailService.create_market_discovery_email`](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/email_service.py#L64-L80) - Creates HTML-formatted market discovery emails
-- [`GameSessionService.start_new_game`](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/game_session_service.py#L82-L89) - Creates welcome email with hardcoded text
-- [`MarketService.process_discoveries_from_release`](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/market_service.py#L67-L110) - Handles discovery logic that feeds into email creation
+### [NEW] `data/email_templates.json`
 
-The go_to_list is a feature that allows players to track their favorite talents across categories. The system uses:
-- `GoToListCategoryDB` - Categories for organizing talents
-- `GoToListAssignmentDB` - Many-to-many relationship between talents and categories
-- Signals (`go_to_list_changed`) - For UI updates
-
-Tour bookings happen in two ways:
-- **Player-sponsored**: [`TourCommandService.sponsor_tour`](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/tour_command_service.py#L38-L105) - Player pays upfront to sponsor a tour
-- **Autonomous**: [`TourCommandService.process_autonomous_tour_decisions`](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/tour_command_service.py#L107-L172) - Talents decide to tour on their own
-
-## Proposed Changes
-
-### Data Configuration
-
-#### [NEW] [email_templates.json](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/data/email_templates.json)
-
-Create a new JSON file to store all email templates with support for variable substitution:
+Create a JSON file to store email templates.
+*   **Change:** Use HTML tags to format text.
+*   **New Convention:** Use `<a>` tags with a specific schema (e.g., `talent:ID`) to denote interactive entities.
 
 ```json
 {
   "welcome": {
     "subject": "Welcome to the Studio!",
-    "body": "<p>Welcome to your new studio! Your goal is to become a successful producer.</p><p>Design scenes, cast talent, and make a profit!</p><p>Good luck!</p>"
+    "body": "<p>Welcome to your new studio! Your goal is to become a successful producer.</p><p>Design scenes, cast talent, and make a profit!</p>"
   },
   "market_discovery": {
     "subject": "Market Research Results: '{scene_title}'",
@@ -43,172 +28,98 @@ Create a new JSON file to store all email templates with support for variable su
   },
   "tour_booked_player_sponsored": {
     "subject": "Tour Booking Confirmation: {talent_name}",
-    "body": "<p>Your sponsored tour for <b>{talent_name}</b> has been confirmed!</p><p><b>Destination:</b> {destination}</p><p><b>Duration:</b> {duration} weeks</p><p><b>Start Date:</b> Week {start_week}</p><p>They will be available for casting in {destination} during this period.</p>"
+    "body": "<p>Your sponsored tour for <b><a href='talent:{talent_id}'>{talent_name}</a></b> has been confirmed!</p><p><b>Destination:</b> {destination}</p><p><b>Duration:</b> {duration} weeks</p><p>They will be available for casting in {destination} during this period.</p>"
   },
   "tour_booked_autonomous": {
     "subject": "Tour Update: {talent_name}",
-    "body": "<p><b>{talent_name}</b> from your Go-To List has booked a tour!</p><p><b>Destination:</b> {destination}</p><p><b>Duration:</b> {duration} weeks</p><p><b>Start Date:</b> Week {start_week}</p><p>They decided to travel on their own to explore new opportunities. You can still cast them in {destination} during this time.</p>"
+    "body": "<p><b><a href='talent:{talent_id}'>{talent_name}</a></b> from your Go-To List has booked a tour!</p><p><b>Destination:</b> {destination}</p><p><b>Start Date:</b> Week {start_week}</p>"
   },
   "tour_booked_ai_sponsored": {
     "subject": "Tour Update: {talent_name}",
-    "body": "<p><b>{talent_name}</b> from your Go-To List has been sponsored for a tour by <b>{ai_studio_name}</b>!</p><p><b>Destination:</b> {destination}</p><p><b>Duration:</b> {duration} weeks</p><p><b>Start Date:</b> Week {start_week}</p><p>You can still cast them in {destination} during this time if needed.</p>"
+    "body": "<p><b><a href='talent:{talent_id}'>{talent_name}</a></b> from your Go-To List has been sponsored for a tour by <b>{ai_studio_name}</b>!</p>"
   }
 }
 ```
 
----
+## 2. Core Services
 
-### Core Services
+### [MODIFY] `src/services/command/email_service.py`
 
-#### [MODIFY] [email_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/email_service.py)
+*   **Dependency:** Inject `DataManager` to access `email_templates.json`.
+*   **Method:** Add `create_email_from_template(session, template_key, variables, ...)`
+    *   This method loads the JSON template.
+    *   It performs generic string substitution (e.g., `{talent_name}`, `{talent_id}`).
+*   **Method:** Add `create_tour_booking_email(...)`.
+    *   Prepares the variables (including extracting `talent.id` for the smart link).
+    *   Calls `create_email_from_template`.
 
-**Changes:**
-1. Add `DataManager` dependency to access email templates
-2. Add new generic `create_email_from_template` method that loads templates and performs variable substitution
-3. Refactor `create_market_discovery_email` to use the new template system
-4. Add new `create_tour_booking_email` method for tour notifications
-5. Keep the internal `_create_email` helper method unchanged
+### [MODIFY] `src/services/command/tour_command_service.py`
 
-**Key additions:**
-```python
-def create_email_from_template(self, session, template_key: str, variables: dict, current_absolute_week: int):
-    """Creates an email using a template from email_templates.json"""
-    
-def create_tour_booking_email(self, session, talent_name: str, tour_details: dict, 
-                              sponsor_type: str, current_absolute_week: int, 
-                              ai_studio_name: str = None):
-    """Creates notification email for when a go_to_list talent books a tour"""
-```
+*   **Logic:**
+    *   In `sponsor_tour` and `process_autonomous_tour_decisions`:
+    *   Check `GameQueryService` to see if the talent is in a `go_to_list`.
+    *   If yes, call `EmailService.create_tour_booking_email`.
+    *   *Constraint:* Ensure `talent_id` is passed to the email service to populate the `<a>` tag.
 
----
+### [MODIFY] `src/services/game_session_service.py`
 
-#### [MODIFY] [market_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/market_service.py)
+*   Refactor `start_new_game` to use `EmailService.create_email_from_template` for the welcome email instead of hardcoding text.
 
-**Changes:**
-1. No changes needed to the core logic
-2. The `EmailService.create_market_discovery_email` method signature remains the same
-3. Email content generation moves to templates, but the method interface is unchanged
+## 3. UI Implementation (Smart Links)
 
----
+### [NEW] `src/ui/widgets/smart_text_browser.py`
 
-#### [MODIFY] [game_session_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/game_session_service.py)
+Create a specialized text widget to replace the standard `QTextEdit` in the Email Dialog. This adapts the logic found in `LinkHoverDelegate`.
 
-**Changes:**
-1. Replace hardcoded welcome email in `start_new_game` with template-based approach
-2. Call `EmailService.create_email_from_template` instead of manually creating `EmailMessageDB`
+*   **Inherits:** `QTextBrowser` (provides better HTML/Link support than `QTextEdit`).
+*   **Signals:**
+    *   `link_hover_entered(int, QPoint)`: Emits ID and global mouse position.
+    *   `link_hover_left()`: Emits when mouse leaves a link.
+    *   `link_alt_clicked(int)`: Emits ID when Alt+Clicked.
+*   **Implementation Details:**
+    *   Set `setOpenExternalLinks(False)` to prevent opening the browser.
+    *   Override `mouseMoveEvent`: Use `self.anchorAt(event.pos())`. If the anchor string starts with `talent:`, parse the ID and emit `link_hover_entered`.
+    *   Override `mousePressEvent`: Check for `Qt.AltModifier`. If true and clicking an anchor, emit `link_alt_clicked`.
 
-**Before:**
-```python
-welcome_email = EmailMessageDB(
-    subject="Welcome to the Studio!",
-    body="Welcome to your new studio!...",
-    absolute_week=game_state.absolute_week,
-    is_read=False
-)
-session.add(welcome_email)
-```
+### [MODIFY] `src/ui/dialogs/email_dialog.py`
 
-**After:**
-```python
-email_service.create_email_from_template(
-    session, 'welcome', {}, game_state.absolute_week
-)
-```
+*   **Imports:** Import the new `SmartTextBrowser`.
+*   **UI Setup:** Replace `self.body_text = QTextEdit()` with `self.body_text = SmartTextBrowser()`.
+*   **Signals:**
+    *   Expose the browser's signals at the Dialog level (e.g., define `smart_link_hovered` signal in `EmailDialog`).
+    *   Connect `self.body_text` signals to these dialog-level signals.
 
----
+### [MODIFY] `src/ui/ui_manager.py`
 
-#### [MODIFY] [tour_command_service.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/services/command/tour_command_service.py)
+*   **Method:** `show_inbox()`
+*   **Wiring:**
+    *   When creating `EmailDialog`, connect its new signals to the `TooltipManager` and `TalentProfile` logic.
+    *   *Example Pattern:*
+        ```python
+        # inside show_inbox factory
+        dialog.smart_link_hovered.connect(self.show_talent_summary)
+        dialog.smart_link_left.connect(self.hide_talent_summary)
+        dialog.smart_link_clicked.connect(self.show_talent_profile_by_id)
+        ```
 
-**Changes:**
-1. Add `EmailService` and `GameQueryService` (for go_to_list lookups) as dependencies
-2. In `sponsor_tour`: Check if talent is in any go_to_list category, create email if so
-3. In `process_autonomous_tour_decisions`: Check each touring talent against go_to_list, create email if matched
+## 4. Dependency Injection
 
-**Key integration points:**
+### [MODIFY] `src/core/game_controller.py`
 
-In `sponsor_tour` (after tour creation, before commit):
-```python
-# Check if talent is in go_to_list
-talent_categories = self.game_query_service.get_talent_categories(talent_id)
-if talent_categories:
-    # Create tour booking email
-    self.email_service.create_tour_booking_email(
-        session, talent_db.alias, tour_details, 'player', current_absolute_week
-    )
-```
+*   Update initialization of `EmailService` to include `DataManager`.
+*   Update `TourCommandService` to include `EmailService`.
 
-In `process_autonomous_tour_decisions` (inside the loop where tours are created):
-```python
-# After creating autonomous tour
-talent_categories = self.game_query_service.get_talent_categories(talent_db.id)
-if talent_categories:
-    tour_details = {
-        'destination_location': dest,
-        'duration_weeks': duration,
-        'start_absolute_week': start_absolute_week
-    }
-    self.email_service.create_tour_booking_email(
-        session, talent_db.alias, tour_details, 'self', current_absolute_week
-    )
-```
+## 5. Verification Plan
 
----
-
-### Dependency Injection Updates
-
-#### [MODIFY] [game_controller.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/core/game_controller.py) *(likely location)*
-
-**Changes:**
-1. Update `EmailService` initialization to receive `DataManager` dependency
-2. Update `TourCommandService` initialization to receive `EmailService` and `GameQueryService` (if not already present)
-3. Update `GameSessionService` initialization to receive `EmailService` dependency
-
----
-
-## Verification Plan
-
-### Automated Tests
-
-I'll verify the changes by:
-
-1. **Start a new game** - Confirm welcome email uses template
-   ```
-   Check email inbox shows welcome email with proper formatting
-   ```
-
-2. **Trigger market discovery** - Release a scene and confirm discovery email uses template
-   ```
-   Create and release a scene
-   Verify market discovery email appears with proper formatting
-   ```
-
-3. **Test tour notifications**:
-   
-   a. **Player-sponsored tour for go_to_list talent:**
-   ```
-   - Add a talent to go_to_list
-   - Sponsor a tour for that talent
-   - Verify tour booking email appears with correct details
-   ```
-   
-   b. **Player-sponsored tour for non-go_to_list talent:**
-   ```
-   - Sponsor a tour for a talent NOT in go_to_list
-   - Verify NO tour booking email is created
-   ```
-   
-   c. **Autonomous tour for go_to_list talent:**
-   ```
-   - Add talents to go_to_list
-   - Advance time to trigger autonomous tour decisions
-   - Verify tour booking email appears when go_to_list talent books tour
-   ```
-
-4. **Verify template flexibility** - Edit `email_templates.json` and confirm changes appear in-game
-
-### Manual Verification
-
-- Visually inspect all email types in the game's email inbox
-- Confirm HTML formatting renders correctly
-- Verify variable substitution works properly (talent names, locations, dates)
-- Test edge cases (empty discoveries, missing template variables)
+1.  **Test Template Loading:**
+    *   Start a new game. Verify the Welcome Email loads with correct text.
+2.  **Test Variable Substitution:**
+    *   Force a Tour Event (or use debug tools).
+    *   Verify the email contains the Talent's name and that the name is styled as a link (blue/underlined usually, or per theme).
+3.  **Test Smart Interactions:**
+    *   **Hover:** Move mouse over the talent name in the email. Verify `EntitySummaryCard` appears at the correct position. Move mouse away; verify it disappears.
+    *   **Alt+Click:** Hold Alt and Click the name. Verify `TalentProfileWindow` opens for that specific talent.
+    *   **Normal Click:** Verify clicking without Alt does nothing (or follows standard behavior if we decide to allow simple clicks later).
+4.  **Test Go-To-List Logic:**
+    *   Sponsor a tour for a talent *not* in the list -> No Email.
+    *   Add talent to list -> Sponsor tour -> Receive Email.

@@ -199,6 +199,7 @@ class GameController(QObject):
         if result.scenes_shot > 0 or result.scenes_edited > 0: self.signals.scenes_changed.emit()
         if result.market_changed: self.signals.market_changed.emit()
         if result.talent_pool_changed: self.signals.talent_pool_changed.emit()
+        if result.emails_changed: self.signals.emails_changed.emit()
 
     def create_shooting_bloc(self, scheduled_absolute_week: int, num_scenes: int, name: str, logistics: Dict, budget_data: Dict) -> bool:
         """

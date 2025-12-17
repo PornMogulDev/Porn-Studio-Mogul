@@ -86,6 +86,7 @@ class WeekAdvancementResult:
     scenes_edited: int = 0
     market_changed: bool = False
     talent_pool_changed: bool = False
+    emails_changed: bool = False
 
 @dataclass(frozen=True)
 class TourFeasibilityResult:

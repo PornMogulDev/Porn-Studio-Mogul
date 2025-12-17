@@ -258,6 +258,12 @@ class UIManager:
             dialog = EmailDialog(self.settings_manager, self.icon_manager, parent=self.parent_widget)
             presenter = EmailPresenter(self.controller, dialog, parent=dialog)
             dialog.set_presenter(presenter)
+            
+            # --- Wiring Smart Links ---
+            dialog.smart_link_hover_entered.connect(self.show_talent_summary)
+            dialog.smart_link_hover_left.connect(self.hide_talent_summary)
+            dialog.smart_link_alt_clicked.connect(self.show_talent_profile_by_id)
+
             logger.info(f"[UIManager] EmailDialog created: {id(dialog)}, EmailPresenter created: {id(presenter)}")
             return dialog
 

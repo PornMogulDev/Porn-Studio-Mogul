@@ -71,12 +71,15 @@ class TimeService:
             is_new_year = time_utils.is_new_year_roll_over(next_absolute_week)
 
             talent_pool_changed = self.talent_command_service.process_weekly_updates(session, is_new_year, talents_who_worked_ids)
-            
-            self.tour_command_service.process_autonomous_tour_decisions(session, current_absolute_week)
 
+            # Capture if emails were changed
+            emails_changed = self.tour_command_service.process_autonomous_tour_decisions(session, current_absolute_week)
+            
             # --- Process AI Studio Actions ---
             if self.ai_studio_director:
                 self.ai_studio_director.process_weekly_ai_decisions(session, current_absolute_week)
+                # NOTE: If AI Director starts generating emails (e.g. sponsorship offers), 
+                # we should capture a return value here too. For now assuming False.
 
             # --- 2. Persist the new time ---
             abs_week_info.value = str(next_absolute_week)
@@ -85,10 +88,10 @@ class TimeService:
             session.commit()
             
             return WeekAdvancementResult(
-                new_absolute_week=next_absolute_week,
-                new_money=studio_state.money,
+                new_absolute_week=next_absolute_week, new_money=studio_state.money,
                 scenes_shot=scenes_shot_count, scenes_edited=len(edited_scenes),
-                market_changed=market_changed, talent_pool_changed=talent_pool_changed
+                market_changed=market_changed, talent_pool_changed=talent_pool_changed,
+                emails_changed=emails_changed
             )
         except Exception as e:
             logger.error(f"Error during week advancement: {e}", exc_info=True)

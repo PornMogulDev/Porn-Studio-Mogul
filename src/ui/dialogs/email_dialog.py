@@ -1,13 +1,14 @@
 from typing import List, Optional
 from PyQt6.QtWidgets import (
     QDialog, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
-    QTextEdit, QLabel, QPushButton, QDialogButtonBox
+    QLabel, QPushButton, QDialogButtonBox
 )
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, QTimer, QPoint
 
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.widgets.buttons.help_button import HelpButton
 from ui.widgets.revert_geometry_button import RestoreGeometryButton
+from ui.widgets.entity_card.smart_text_browser import SmartTextBrowser
 from ui.view_models import EmailListItemViewModel, EmailContentViewModel
 from ui.presenters.email_presenter import EmailPresenter
 import logging
@@ -19,6 +20,11 @@ class EmailDialog(GeometryManagerMixin, QDialog):
     email_selected = pyqtSignal(object) # object allows None
     delete_requested = pyqtSignal(list)
     help_requested = pyqtSignal(str)
+
+    # Forwarded signals from SmartTextBrowser
+    smart_link_hover_entered = pyqtSignal(int, QPoint)
+    smart_link_hover_left = pyqtSignal()
+    smart_link_alt_clicked = pyqtSignal(int)
 
     def __init__(self, settings_manager, icon_manager, parent=None):
         super().__init__(parent)
@@ -48,6 +54,12 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         # Trigger the initial data load after the event loop starts, ensuring
         # the view is fully constructed and visible.
         QTimer.singleShot(0, self.presenter.load_initial_data)
+
+    def showEvent(self, event):
+        """Ensure data is refreshed whenever the dialog is shown."""
+        super().showEvent(event)
+        if self.presenter:
+            QTimer.singleShot(0, self.presenter.load_initial_data)
 
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
@@ -84,8 +96,7 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         # Assign an object name for QSS targeting
         self.date_label.setObjectName("emailDateLabel")
         
-        self.body_text = QTextEdit()
-        self.body_text.setReadOnly(True)
+        self.body_text = SmartTextBrowser()
         
         right_panel.addWidget(self.subject_label)
         right_panel.addWidget(self.date_label)
@@ -104,6 +115,11 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         self.email_list_widget.selectionModel().selectionChanged.connect(self.update_button_state)
         self.delete_btn.clicked.connect(self._on_delete_clicked)
         self.help_btn.help_requested.connect(self.help_requested)
+
+        # Forward Smart Browser signals
+        self.body_text.smart_link_hover_entered.connect(self.smart_link_hover_entered)
+        self.body_text.smart_link_hover_left.connect(self.smart_link_hover_left)
+        self.body_text.smart_link_alt_clicked.connect(self.smart_link_alt_clicked)
 
     def update_email_list(self, emails: List[EmailListItemViewModel], selected_id: Optional[int]):
         """
@@ -141,7 +157,7 @@ class EmailDialog(GeometryManagerMixin, QDialog):
         """Updates the details pane with data from a view model."""
         self.subject_label.setText(vm.subject)
         self.date_label.setText(vm.date_str)
-        self.body_text.setMarkdown(vm.body)
+        self.body_text.setHtml(vm.body)
 
     def update_button_state(self):
         """Updates the enabled state of buttons based on UI state."""

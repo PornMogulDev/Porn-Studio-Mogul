@@ -6,6 +6,7 @@ from data.game_state import Talent
 from database.db_models import TalentDB, TourDB, GameInfoDB, StudioStateDB
 from services.models.configs import TourConfig
 from services.command.casting_command_service import CastingCommandService
+from services.command.email_service import EmailService
 from services.query.game_query_service import GameQueryService
 from services.query.talent_query_service import TalentQueryService
 from services.query.talent_location_service import TalentLocationService
@@ -23,7 +24,8 @@ class TourCommandService:
                  casting_command_service: CastingCommandService, game_query_service: GameQueryService,
                  talent_query_service: TalentQueryService, talent_location_service: TalentLocationService,
                  demand_calculator: TalentDemandCalculator, trait_resolver: TraitModifierResolver,
-                 interest_calculator: TourInterestCalculator, config: TourConfig):
+                 interest_calculator: TourInterestCalculator, email_service: EmailService,
+                config: TourConfig):
         self.session_factory = session_factory
         self.signals = signals
         self.casting_command_service = casting_command_service
@@ -33,6 +35,7 @@ class TourCommandService:
         self.demand_calculator = demand_calculator
         self.trait_resolver = trait_resolver
         self.interest_calculator = interest_calculator
+        self.email_service = email_service
         self.config = config
 
     def sponsor_tour(self, talent_id: int, roles_to_cast: list, tour_details: dict, total_upfront_cost: int) -> bool:
@@ -90,12 +93,24 @@ class TourCommandService:
             # --- 4. Delegate Casting to CastingCommandService ---
             self.casting_command_service.cast_roles_with_precalculated_salaries(session, talent_id, hiring_data)
  
-            # --- 5. Commit & Signal ---
+            # --- 5. Notifications & Email ---
+            if talent_db.go_to_list_assignments:
+                # If the player is sponsoring a talent they have bookmarked, verify the confirmation email via template
+                self.email_service.create_tour_booking_email(
+                    session, talent_id, talent_db.alias,
+                    tour_details['destination_location'], tour_details['duration_weeks'], 
+                    new_tour.start_absolute_week, 'player'
+                )
+
+            # --- 6. Commit & Signal ---
             session.commit()
             self.signals.money_changed.emit(new_money)
             self.signals.notification_posted.emit(f"Sponsored tour and hired {talent_db.alias} for {len(roles_to_cast)} roles. Upfront cost: ${total_upfront_cost:,}")
             self.signals.scenes_changed.emit()
             self.signals.roster_changed.emit()
+            if talent_db.go_to_list_assignments:
+                self.signals.emails_changed.emit()
+                
             return True
         except Exception as e:
             logger.error(f"Error in sponsoring tour for talent {talent_id}: {e}", exc_info=True)
@@ -104,19 +119,20 @@ class TourCommandService:
         finally:
             session.close()
 
-    def process_autonomous_tour_decisions(self, session: Session, current_absolute_week: int):
+    def process_autonomous_tour_decisions(self, session: Session, current_absolute_week: int) -> bool:
         """
         Evaluates a batch of talents to see if they want to book their own tours.
+        Returns True if any emails were generated for the player.
         """
         from utils import time_utils
         _, month, week_in_month = time_utils.to_month(current_absolute_week)
         
         # Only process on the first week of the month
         if week_in_month != 1:
-            return
+            return False
 
         # 13 batches per year = 1 batch per month.
-        # We split talents into 13 groups based on ID.
+        # We split talent in 13 groups based on ID.
         batch_mod = 13
         target_remainder = (month - 1) % batch_mod
         
@@ -126,11 +142,12 @@ class TourCommandService:
                 TalentDB.id % batch_mod == target_remainder,
                 TalentDB.is_on_tour == False
             )
+            .options(selectinload(TalentDB.go_to_list_assignments))
             .all()
         )
 
         if not candidates_db:
-            return
+            return False
 
         candidate_ids = [t.id for t in candidates_db]
         
@@ -139,6 +156,8 @@ class TourCommandService:
         )
 
         tours_created = 0
+        emails_sent = False
+
         for talent_db in candidates_db:
             talent_dc = talent_db.to_dataclass(Talent)
             workload = workloads.get(talent_db.id, 0)
@@ -166,10 +185,23 @@ class TourCommandService:
                 talent_db.tour_end_absolute_week = end_absolute_week
 
                 tours_created += 1
-                self.signals.notification_posted.emit(f"Autonomous Tour: {talent_db.alias} decided to go to {dest} for {duration} weeks.")
+                
+                # Check for Go-To List notification
+                if talent_db.go_to_list_assignments:
+                    year, week = time_utils.from_absolute(start_absolute_week)
+                    week_str = f"{week} (Year {year})"
+                    
+                    self.email_service.create_tour_booking_email(
+                        session, talent_db.id, talent_db.alias,
+                        dest, duration, week_str, 'self'
+                    )
+                    emails_sent = True
+                    self.signals.notification_posted.emit(f"Autonomous Tour: {talent_db.alias} decided to go to {dest} for {duration} weeks.")
 
         if tours_created > 0:
-            self.signals.notification_posted.emit(f"{tours_created} talents have booked their own tours.")
+            logger.info(f"{tours_created} talents have booked their own tours.")
+            
+        return emails_sent
 
     def process_weekly_tour_updates(self, session: Session, current_absolute_week: int):
         """

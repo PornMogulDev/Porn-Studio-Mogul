@@ -1,80 +1,94 @@
 import logging
-from typing import List, Dict
-
+from typing import List, Dict, Any, Optional
+from sqlalchemy.orm import Session
+from database.db_models import EmailMessageDB, GameInfoDB
+from data.data_manager import DataManager
 from core.game_signals import GameSignals
-from database.db_models import EmailMessageDB
 
 logger = logging.getLogger(__name__)
 
 class EmailService:
-    """Manages all database operations related to emails."""
-
-    def __init__(self, session_factory, signals: GameSignals):
+    """
+    Handles operations related to the email system, including creating new emails
+    from templates and managing read/delete states.
+    """
+    def __init__(self, session_factory, signals: GameSignals, data_manager: DataManager):
         self.session_factory = session_factory
         self.signals = signals
+        self.data_manager = data_manager
 
-    def _create_email(self, session, subject: str, body: str, absolute_week: int):
-        """Internal helper that adds an email to the session without committing."""
+    def mark_email_as_read(self, email_id: int):
+        with self.session_factory() as session:
+            email = session.query(EmailMessageDB).get(email_id)
+            if email:
+                email.is_read = True
+                session.commit()
+                self.signals.emails_changed.emit()
+
+    def delete_emails(self, email_ids: List[int]):
+         with self.session_factory() as session:
+            session.query(EmailMessageDB).filter(EmailMessageDB.id.in_(email_ids)).delete(synchronize_session=False)
+            session.commit()
+            self.signals.emails_changed.emit()
+
+    def create_email_from_template(self, session: Session, template_key: str, variables: Dict[str, Any] = None):
+        """
+        Creates an email record in the current session using a JSON template.
+        Does NOT commit the session (allows caller to bundle with other changes).
+        """
+        if variables is None:
+            variables = {}
+
+        template = self.data_manager.emails.get(template_key)
+        if not template:
+            logger.error(f"Email template '{template_key}' not found.")
+            return
+
+        try:
+            subject = template.get('subject', '').format(**variables)
+            body = template.get('body', '').format(**variables)
+        except KeyError as e:
+            logger.error(f"Missing variable for email template '{template_key}': {e}")
+            return
+
+        # Determine current week
+        abs_week_info = session.query(GameInfoDB).filter_by(key='absolute_week').first()
+        current_week = int(abs_week_info.value) if abs_week_info else 1
+
         new_email = EmailMessageDB(
             subject=subject,
             body=body,
-            absolute_week=absolute_week,
+            absolute_week=current_week,
             is_read=False
         )
         session.add(new_email)
 
-    def mark_email_as_read(self, email_id: int):
-        """Marks a single email as read."""
-        logger.info(f"[EmailService] mark_email_as_read({email_id}) called")
-        session = self.session_factory()
-        try:
-            email_db = session.query(EmailMessageDB).get(email_id)
-            logger.info(f"[EmailService] Email {email_id} found: {email_db is not None}, was_read: {email_db.is_read if email_db else 'N/A'}")
-            if email_db and not email_db.is_read:
-                email_db.is_read = True
-                session.commit()
-                logger.info(f"[EmailService] Email {email_id} marked as read, emitting emails_changed.")
-                self.signals.emails_changed.emit()
-            else:
-                logger.info(f"[EmailService] Email {email_id} not marked (already read or not found)")
-        except Exception as e:
-            logger.error(f"Failed to mark email {email_id} as read: {e}")
-            session.rollback()
-        finally:
-            session.close()
-
-    def delete_emails(self, email_ids: list[int]):
-        """Deletes a list of emails by their IDs."""
-        if not email_ids:
-            return
-        session = self.session_factory()
-        try:
-            session.query(EmailMessageDB).filter(
-                EmailMessageDB.id.in_(email_ids)
-            ).delete(synchronize_session=False)
-            session.commit()
-            logger.info(f"Emitting emails_changed from {__name__} after deleting emails.")
-            self.signals.emails_changed.emit()
-        except Exception as e:
-            logger.error(f"Failed to delete emails: {e}")
-            session.rollback()
-        finally:
-            session.close()
-
-    def create_market_discovery_email(self, session, scene_title: str, discoveries: Dict[str, List[str]], current_absolute_week: int):
+    def create_tour_booking_email(self, session: Session, talent_id: int, talent_name: str, 
+                                  destination: str, duration: int, start_week: int, 
+                                  sponsor_type: str, ai_studio_name: Optional[str] = None):
         """
-        Creates a formatted email for market discoveries within an existing transaction.
-        This is an Orchestrated Method. The caller is responsible for the commit.
+        Convenience method to create tour notification emails.
         """
-        if not discoveries:
-            return
+        # Convert absolute start week to relative (or just year/week format if preferred by template)
+        # For now, we pass the absolute or relative week as provided.
+        # Ideally, we might format this to "Year X, Week Y" inside the variables if needed.
+        
+        variables = {
+            'talent_id': talent_id,
+            'talent_name': talent_name,
+            'destination': destination,
+            'duration': duration,
+            'start_week': start_week,
+            'ai_studio_name': ai_studio_name or "Unknown Studio"
+        }
 
-        subject = f"Market Research Results: '{scene_title}'"
-        body = "<p>Our analysis of the release of your recent scene has yielded new market insights.</p>"
-        for group_name, tags in discoveries.items():
-            body += f"<p><b>{group_name}:</b></p>"
-            tag_list = "".join([f"<li>Discovered preference for '<b>{tag}</b>'</li>" for tag in sorted(tags)])
-            body += f"<ul>{tag_list}</ul>"
-        body += "<p>This information has been added to our market intelligence reports.</p>"
-
-        self._create_email(session, subject, body, current_absolute_week)
+        template_key = ""
+        if sponsor_type == 'player':
+            template_key = "tour_booked_player_sponsored"
+        elif sponsor_type == 'self':
+            template_key = "tour_booked_autonomous"
+        elif sponsor_type == 'ai_studio':
+             template_key = "tour_booked_ai_sponsored"
+        
+        if template_key:
+            self.create_email_from_template(session, template_key, variables)

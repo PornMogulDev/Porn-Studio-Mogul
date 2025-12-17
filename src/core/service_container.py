@@ -206,7 +206,7 @@ class ServiceContainer:
         )
         self.player_settings_service = PlayerSettingsService(session_factory, self.signals)
         self.go_to_list_service = GoToListService(session_factory, self.signals)
-        self.email_service = EmailService(session_factory, self.signals)
+        self.email_service = EmailService(session_factory, self.signals, self.data_manager)
         self.tag_validation_checker = TagValidationChecker(self.data_manager)
         
         # Level 2: Depends on Level 1 services
@@ -246,7 +246,7 @@ class ServiceContainer:
         self.tour_command_service = TourCommandService(
             session_factory, self.signals, self.casting_command_service, self.query_service,
             self.talent_query_service, self.talent_location_service, self.talent_demand_calculator,
-            self.trait_modifier_resolver, self.tour_interest_calculator, self.tour_config
+            self.trait_modifier_resolver, self.tour_interest_calculator, self.email_service, self.tour_config
         )
         self.scene_command_service = SceneCommandService(
             session_factory, self.signals, self.data_manager, self.query_service, self.talent_command_service,
