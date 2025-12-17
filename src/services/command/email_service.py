@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from database.db_models import EmailMessageDB, GameInfoDB
 from data.data_manager import DataManager
 from core.game_signals import GameSignals
+from utils import time_utils
 
 logger = logging.getLogger(__name__)
 
@@ -64,21 +65,21 @@ class EmailService:
         session.add(new_email)
 
     def create_tour_booking_email(self, session: Session, talent_id: int, talent_name: str, 
-                                  destination: str, duration: int, start_week: int, 
+                                  destination: str, duration: int, start_absolute_week: int, 
                                   sponsor_type: str, ai_studio_name: Optional[str] = None):
         """
         Convenience method to create tour notification emails.
+        Formats the absolute week into a readable string (Week X, Year Y).
         """
-        # Convert absolute start week to relative (or just year/week format if preferred by template)
-        # For now, we pass the absolute or relative week as provided.
-        # Ideally, we might format this to "Year X, Week Y" inside the variables if needed.
-        
+        year, week = time_utils.from_absolute(start_absolute_week)
+        date_str = f"Week {week}, Year {year}"
+
         variables = {
             'talent_id': talent_id,
             'talent_name': talent_name,
             'destination': destination,
             'duration': duration,
-            'start_week': start_week,
+            'start_date': date_str,
             'ai_studio_name': ai_studio_name or "Unknown Studio"
         }
 
@@ -92,3 +93,50 @@ class EmailService:
         
         if template_key:
             self.create_email_from_template(session, template_key, variables)
+
+    def create_market_discovery_email(self, session: Session, scene_title: str, discoveries: Dict[str, List[str]]):
+        """
+        Creates an email summarizing new market discoveries.
+        """
+        template = self.data_manager.emails.get('market_discovery')
+        if not template:
+            logger.error("Email template 'market_discovery' not found.")
+            return
+
+        # Start with the header
+        body_parts = [template.get('body_header', '<p>New discoveries:</p>')]
+
+        # Iterate through discoveries and build the list
+        for group_name, tags in discoveries.items():
+            # Add group header
+            group_header = template.get('body_group', '<p><b>{group_name}:</b></p>').format(group_name=group_name)
+            body_parts.append(group_header)
+            
+            # Add tags list
+            body_parts.append("<ul>")
+            for tag in tags:
+                item_str = template.get('body_tag_item', '<li>{tag}</li>').format(tag=tag)
+                body_parts.append(item_str)
+            body_parts.append("</ul>")
+
+        # Add footer
+        body_parts.append(template.get('body_footer', ''))
+
+        # Combine into a single body string
+        final_body = "".join(body_parts)
+
+        # Create variable dict just for the subject line
+        variables = {'scene_title': scene_title}
+        subject = template.get('subject', 'Market Research Results').format(**variables)
+
+        # Save to DB
+        abs_week_info = session.query(GameInfoDB).filter_by(key='absolute_week').first()
+        current_week = int(abs_week_info.value) if abs_week_info else 1
+
+        new_email = EmailMessageDB(
+            subject=subject,
+            body=final_body,
+            absolute_week=current_week,
+            is_read=False
+        )
+        session.add(new_email)

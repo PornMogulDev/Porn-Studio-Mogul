@@ -388,9 +388,7 @@ class SceneCommandService:
             studio_state.money = new_money
 
             if discoveries:
-                abs_week_info = session.query(GameInfoDB).filter_by(key='absolute_week').one()
-                current_absolute_week = int(abs_week_info.value)
-                self.email_service.create_market_discovery_email(session, scene.title, discoveries, current_absolute_week)
+                self.email_service.create_market_discovery_email(session, scene.title, discoveries)
 
             session.commit()
             if discoveries:

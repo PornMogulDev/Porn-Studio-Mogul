@@ -188,12 +188,9 @@ class TourCommandService:
                 
                 # Check for Go-To List notification
                 if talent_db.go_to_list_assignments:
-                    year, week = time_utils.from_absolute(start_absolute_week)
-                    week_str = f"{week} (Year {year})"
-                    
                     self.email_service.create_tour_booking_email(
                         session, talent_db.id, talent_db.alias,
-                        dest, duration, week_str, 'self'
+                        dest, duration, start_absolute_week, 'self'
                     )
                     emails_sent = True
                     self.signals.notification_posted.emit(f"Autonomous Tour: {talent_db.alias} decided to go to {dest} for {duration} weeks.")
