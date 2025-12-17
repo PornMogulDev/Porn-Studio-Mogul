@@ -3,12 +3,12 @@ import json
 import logging
 from typing import Dict, Any, List
 from collections import defaultdict, OrderedDict
+from jinja2 import Environment, FileSystemLoader
 
 from data.builders.action_tag_builder import ActionTagBuilder
 from data.builders.physical_ethnicity_tag_builder import PhysicalEthnicityTagBuilder
-from utils.paths import GAME_DATA, HELP_FILE, EMAIL_FILE
+from utils.paths import GAME_DATA, HELP_FILE, EMAIL_FILE, EMAIL_TEMPLATES_DIR
 
-# Set up a logger for this module
 logger = logging.getLogger(__name__)
 
 class DataManager:
@@ -27,6 +27,18 @@ class DataManager:
             logger.critical(f"FATAL: Could not connect to database at '{db_path}'.")
             logger.critical("Please ensure 'game_data.sqlite' exists in the 'data' folder and that the migration script has been run.")
             raise e
+        
+        # --- Initialize Jinja2 Environment ---
+        try:
+            self.jinja_env = Environment(
+                loader=FileSystemLoader(str(EMAIL_TEMPLATES_DIR)),
+                autoescape=True
+            )
+            logger.info(f"Jinja2 environment initialized. Templates dir: {EMAIL_TEMPLATES_DIR}")
+        except Exception as e:
+            logger.error(f"Failed to initialize Jinja2 environment: {e}")
+            # Fallback to avoid crash, though emails will fail to render
+            self.jinja_env = None
 
         # Load all data into memory on initialization
         self.game_config = self._load_game_config()
@@ -405,10 +417,10 @@ class DataManager:
             with open(emails, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except FileNotFoundError:
-            logger.warning(f"Help topics file not found at '{emails}'. Help feature will fail when trying to access it.")
+            logger.warning(f"Email templates not found at '{emails}'. Email feature will fail when trying to access it.")
             return {}
         except json.JSONDecodeError:
-            logger.warning(f"Failed to parse help topics file at '{emails}'. It may be malformed.")
+            logger.warning(f"Failed to parse email templates file at '{emails}'. It may be malformed.")
             return {}
         
     def _load_ai_studio_archetypes(self) -> List[Dict[str, Any]]:

@@ -9,9 +9,6 @@ class TooltipManager:
     """
     Manages the lifecycle and positioning of the EntitySummaryCard (Smart Hover).
     Decouples visual tooltip logic from the main UIManager.
-
-    FIXME: Known Issue - The summary card persists on screen when Alt-Tabbing/losing focus
-    while hovering a delegate link. Attempts to catch ApplicationDeactivate events were unsuccessful.
     """
     def __init__(self, controller, icon_manager, parent_widget: QWidget = None):
         self.controller = controller

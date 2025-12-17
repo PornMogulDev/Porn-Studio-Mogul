@@ -87,6 +87,9 @@ class UIManager:
         self.main_presenter = None
         self.tab_presenters = []
 
+        # Listen for Alt-Tab events to hide tooltips
+        QApplication.instance().applicationStateChanged.connect(self._on_app_state_changed)
+
 # -------------------------------------------------------------------------
 # Core Window Creation (For Application.py)
 # -------------------------------------------------------------------------
@@ -227,6 +230,11 @@ class UIManager:
     def hide_talent_summary(self):
         """Hides the summary card."""
         self.tooltip_manager.hide_summary()
+
+    def _on_app_state_changed(self, state):
+        """Forces tooltips to hide if the application loses focus (Alt-Tab)."""
+        if state != Qt.ApplicationState.ApplicationActive:
+            self.hide_talent_summary()
 
     # -------------------------------------------------------------------------
     # Specific Dialog Show Methods

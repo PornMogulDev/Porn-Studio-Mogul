@@ -67,6 +67,7 @@ SETTINGS_FILE = USER_DATA_ROOT / "settings.json"
 
 # Data sub-directories (read-only)
 HELP_DIR = DATA_DIR / "help_content"
+EMAIL_TEMPLATES_DIR = DATA_DIR / "email_templates"
  
 # Data files (read-only)
 GAME_DATA = DATA_DIR / "game_data.sqlite"

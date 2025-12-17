@@ -1,5 +1,6 @@
 import logging
 from typing import List, Dict, Any, Optional
+from jinja2 import TemplateError
 from sqlalchemy.orm import Session
 from database.db_models import EmailMessageDB, GameInfoDB
 from data.data_manager import DataManager
@@ -33,26 +34,34 @@ class EmailService:
             self.signals.emails_changed.emit()
 
     def create_email_from_template(self, session: Session, template_key: str, variables: Dict[str, Any] = None):
-        """
-        Creates an email record in the current session using a JSON template.
-        Does NOT commit the session (allows caller to bundle with other changes).
-        """
         if variables is None:
             variables = {}
 
-        template = self.data_manager.emails.get(template_key)
-        if not template:
-            logger.error(f"Email template '{template_key}' not found.")
+        # 1. Look up metadata in emails.json
+        meta = self.data_manager.emails.get(template_key)
+        if not meta:
+            logger.error(f"Email metadata '{template_key}' not found in emails.json.")
             return
+
+        template_file = meta.get('template')
+        subject_str = meta.get('subject', 'No Subject')
 
         try:
-            subject = template.get('subject', '').format(**variables)
-            body = template.get('body', '').format(**variables)
-        except KeyError as e:
-            logger.error(f"Missing variable for email template '{template_key}': {e}")
+            # 2. Render Body via Jinja2
+            # The DataManager holds the env configured to the templates directory
+            jinja_template = self.data_manager.jinja_env.get_template(template_file)
+            body = jinja_template.render(**variables)
+            
+            # 3. Render Subject (Jinja allows logic in subjects too, e.g. "Alert: {{ name }}")
+            # We create a temporary string template for the subject line
+            subject_template = self.data_manager.jinja_env.from_string(subject_str)
+            subject = subject_template.render(**variables)
+
+        except TemplateError as e:
+            logger.error(f"Jinja2 rendering error for '{template_key}': {e}")
             return
 
-        # Determine current week
+        # 4. Save to DB
         abs_week_info = session.query(GameInfoDB).filter_by(key='absolute_week').first()
         current_week = int(abs_week_info.value) if abs_week_info else 1
 
@@ -96,47 +105,13 @@ class EmailService:
 
     def create_market_discovery_email(self, session: Session, scene_title: str, discoveries: Dict[str, List[str]]):
         """
-        Creates an email summarizing new market discoveries.
+        Refactored to simply pass data to the Jinja template.
+        All manual HTML construction has been deleted.
         """
-        template = self.data_manager.emails.get('market_discovery')
-        if not template:
-            logger.error("Email template 'market_discovery' not found.")
-            return
-
-        # Start with the header
-        body_parts = [template.get('body_header', '<p>New discoveries:</p>')]
-
-        # Iterate through discoveries and build the list
-        for group_name, tags in discoveries.items():
-            # Add group header
-            group_header = template.get('body_group', '<p><b>{group_name}:</b></p>').format(group_name=group_name)
-            body_parts.append(group_header)
-            
-            # Add tags list
-            body_parts.append("<ul>")
-            for tag in tags:
-                item_str = template.get('body_tag_item', '<li>{tag}</li>').format(tag=tag)
-                body_parts.append(item_str)
-            body_parts.append("</ul>")
-
-        # Add footer
-        body_parts.append(template.get('body_footer', ''))
-
-        # Combine into a single body string
-        final_body = "".join(body_parts)
-
-        # Create variable dict just for the subject line
-        variables = {'scene_title': scene_title}
-        subject = template.get('subject', 'Market Research Results').format(**variables)
-
-        # Save to DB
-        abs_week_info = session.query(GameInfoDB).filter_by(key='absolute_week').first()
-        current_week = int(abs_week_info.value) if abs_week_info else 1
-
-        new_email = EmailMessageDB(
-            subject=subject,
-            body=final_body,
-            absolute_week=current_week,
-            is_read=False
-        )
-        session.add(new_email)
+        variables = {
+            'scene_title': scene_title,
+            'discoveries': discoveries # Pass the dictionary directly!
+        }
+        
+        # 'market_discovery' in emails.json now points to 'market_discovery.html'
+        self.create_email_from_template(session, 'market_discovery', variables)

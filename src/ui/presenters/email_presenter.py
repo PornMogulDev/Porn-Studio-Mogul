@@ -34,6 +34,7 @@ class EmailPresenter(QObject):
 
         # --- Internal State ---
         self.current_selected_id: Optional[int] = None
+        self._email_cache: dict[int, object] = {}
 
         # --- Signal Connections ---
         self.controller.signals.emails_changed.connect(self.load_initial_data)
@@ -50,6 +51,7 @@ class EmailPresenter(QObject):
         logger.info(f"[EmailPresenter #{self._instance_id}] cleanup() called.")
         try:
             self.controller.signals.emails_changed.disconnect(self.load_initial_data)
+            self._email_cache.clear()
             logger.info(f"[EmailPresenter #{self._instance_id}] Successfully disconnected from emails_changed")
         except (RuntimeError, TypeError) as e:
             logger.warning(f"[EmailPresenter #{self._instance_id}] Failed to disconnect from emails_changed: {e}")
@@ -66,6 +68,8 @@ class EmailPresenter(QObject):
             
         logger.info(f"[EmailPresenter #{self._instance_id}] load_initial_data() called.")
         all_emails = self.controller.get_all_emails()
+        # Cache the full objects for O(1) lookup in on_email_selected
+        self._email_cache = {e.id: e for e in all_emails}
 
         # Build the view model for the list
         list_vms = [
@@ -103,8 +107,7 @@ class EmailPresenter(QObject):
             return
 
         # Fetch the full email object to get its details
-        # Note: We refetch here to ensure we have the most current data.
-        email_obj = next((e for e in self.controller.get_all_emails() if e.id == email_id), None)
+        email_obj = self._email_cache.get(email_id)
         logger.info(f"[EmailPresenter #{self._instance_id}] Found email: {email_obj.id if email_obj else 'None'}, is_read: {email_obj.is_read if email_obj else 'N/A'}")
 
 
