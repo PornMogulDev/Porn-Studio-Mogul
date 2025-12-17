@@ -161,3 +161,38 @@ This is a "what-if" backend flow used to validate a potential role booking for a
 6.  If the cost exceeds the pool, it calculates a proportional `fatigue_gain` (an integer from 0-100) based on the size of the "overdraw".
 7.  This estimated integer gain is returned to the calling service.
 8.  The caller then adds this estimate to the talent's *current* fatigue to get a `projected_fatigue`, which it can then check against the `fatigue_refusal_threshold` from the game configuration.
+
+## Request Flow (Email System)
+
+This flow covers both the creation of emails by backend services and the player's interaction with them through the UI.
+
+### 1. Email Creation (Backend)
+
+This is a backend-only flow triggered by various game events (e.g., releasing a scene, a talent booking a tour).
+
+1.  A command service (e.g., `SceneCommandService`, `TourCommandService`) performs an action that needs to notify the player.
+2.  The service calls a dedicated convenience method on `EmailService` (e.g., `create_market_discovery_email()`, `create_tour_booking_email()`). This call is made within the service's active database transaction.
+3.  The convenience method gathers and formats all the necessary variables for the email template.
+4.  It calls the core `create_email_from_template()` method, providing the `template_key` (e.g., `"market_discovery"`) and the variables dictionary.
+5.  `EmailService` looks up the `template_key` in `data/emails.json` to get the subject line and the HTML template filename.
+6.  It uses the `DataManager`'s Jinja2 environment to render the subject and the body, substituting the variables.
+7.  A new `EmailMessageDB` object is created with the rendered content and saved to the database.
+8.  The calling service commits its transaction. If the service also emits `signals.emails_changed`, the UI will be notified.
+
+### 2. Email Interaction (UI)
+
+This flow describes how the user reads and manages emails.
+
+1.  User opens the `EmailDialog` from the main UI.
+2.  The `EmailPresenter`, upon view initialization (or via the `emails_changed` signal), calls `controller.get_all_emails()` to fetch all `EmailMessageDB` objects.
+3.  The presenter creates a cache of these objects and formats them into a list of `EmailListItemViewModel`s.
+4.  The view (`EmailDialog`) is updated with this list. The currently selected email is shown in the content pane.
+5.  **Marking as Read**: When the user selects an unread email, `EmailPresenter.on_email_selected()` is triggered. It sees the email is unread and calls `controller.mark_email_as_read(email_id)`.
+    - The `GameController` delegates this to `EmailService.mark_email_as_read()`.
+    - The service updates the `is_read` flag in the database and emits `signals.emails_changed`.
+    - The presenter's `load_initial_data` slot, connected to the signal, re-runs, and the view is updated to show the email with non-bold text.
+6.  **Deleting**: The user selects one or more emails and clicks "Delete".
+    - `EmailDialog` emits `delete_requested` with a list of email IDs.
+    - `EmailPresenter` receives this, shows a confirmation box, and on "Yes", calls `controller.delete_emails(email_ids)`.
+    - `GameController` delegates to `EmailService.delete_emails()`.
+    - The service deletes the records from the database and emits `signals.emails_changed`, which triggers a view refresh.

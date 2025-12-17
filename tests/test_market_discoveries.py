@@ -4,10 +4,10 @@ from sqlalchemy.orm import sessionmaker, Session
 from collections import defaultdict
 
 # --- Import all necessary components from your project ---
-from src.database.db_models import Base, MarketGroupStateDB, SceneDB, GameInfoDB, StudioStateDB
-from src.data.game_state import MarketGroupState
-from src.services.market_service import MarketService
-from src.services.command.scene_command_service import SceneCommandService
+from database.db_models import Base, MarketGroupStateDB, SceneDB, GameInfoDB, StudioStateDB
+from data.game_state import MarketGroupState
+from services.market_service import MarketService
+from services.command.scene_command_service import SceneCommandService
 
 # --- Mock Dependencies that aren't under test ---
 # We create simple placeholder classes to satisfy the constructor of SceneCommandService

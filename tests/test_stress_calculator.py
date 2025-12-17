@@ -1,10 +1,10 @@
 import pytest
 from unittest.mock import MagicMock
 
-from src.services.calculation.stress_calculator import StressCalculator
-from src.services.calculation.trait_modifier_resolver import TraitModifierResolver
-from src.services.models.configs import SceneCalculationConfig
-from src.data.game_state import Talent
+from services.calculation.stress_calculator import StressCalculator
+from services.calculation.trait_modifier_resolver import TraitModifierResolver
+from services.models.configs import SceneCalculationConfig
+from data.game_state import Talent
 
 
 def talent_factory(traits: list[str]) -> Talent:

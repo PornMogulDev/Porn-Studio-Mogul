@@ -1,8 +1,9 @@
 dataclasses_json==0.6.7
 debugpy==1.8.17
+Jinja2==3.1.6
 numpy==2.3.5
 platformdirs==4.5.1
-PyQt6==6.10.0
+PyQt6==6.10.1
 pyqt6_sip==13.10.2
-SQLAlchemy==2.0.44
+SQLAlchemy==2.0.45
 superqt==0.7.6

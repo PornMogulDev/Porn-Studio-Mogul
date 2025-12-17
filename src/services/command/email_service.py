@@ -15,11 +15,25 @@ class EmailService:
     from templates and managing read/delete states.
     """
     def __init__(self, session_factory, signals: GameSignals, data_manager: DataManager):
+        """
+        Initializes the EmailService.
+
+        Args:
+            session_factory: A factory function to create new database sessions.
+            signals: The global GameSignals object for event communication.
+            data_manager: The central DataManager that holds game data and Jinja2 environment.
+        """
         self.session_factory = session_factory
         self.signals = signals
         self.data_manager = data_manager
 
     def mark_email_as_read(self, email_id: int):
+        """
+        Marks a single email as read in the database.
+
+        Args:
+            email_id: The ID of the email to mark as read.
+        """
         with self.session_factory() as session:
             email = session.query(EmailMessageDB).get(email_id)
             if email:
@@ -28,12 +42,32 @@ class EmailService:
                 self.signals.emails_changed.emit()
 
     def delete_emails(self, email_ids: List[int]):
-         with self.session_factory() as session:
+        """
+        Deletes one or more emails from the database.
+
+        Args:
+            email_ids: A list of IDs of the emails to delete.
+        """
+        if not email_ids:
+            return
+        with self.session_factory() as session:
             session.query(EmailMessageDB).filter(EmailMessageDB.id.in_(email_ids)).delete(synchronize_session=False)
             session.commit()
             self.signals.emails_changed.emit()
 
     def create_email_from_template(self, session: Session, template_key: str, variables: Dict[str, Any] = None):
+        """
+        Creates a new email by rendering a Jinja2 template with provided variables.
+
+        This is the core email creation method. It looks up metadata from
+        `data/emails.json` using the template_key, renders the corresponding
+        HTML template and subject line, and saves the new email to the database.
+
+        Args:
+            session: The active SQLAlchemy session.
+            template_key: The key corresponding to an entry in `data/emails.json`.
+            variables: A dictionary of data to be rendered into the template.
+        """
         if variables is None:
             variables = {}
 

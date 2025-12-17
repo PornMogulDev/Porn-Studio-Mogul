@@ -39,6 +39,7 @@ src/
     events/
     models/
     query/
+    email_service.py             # Renders and saves email notifications
     game_session_service.py      # Manages game save/load lifecycle
     market_service.py            # Handles market saturation/discovery
     player_settings_service.py   # Manages player-specific settings
