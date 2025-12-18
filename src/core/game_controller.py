@@ -169,6 +169,14 @@ class GameController(QObject):
     def get_ai_studio_scenes(self, studio_id: int) -> List[AIScene]:
         if not self.query_service: return []
         return self.query_service.get_ai_studio_scenes(studio_id)
+    
+    def get_contracted_talents(self) -> List[TalentDB]:
+        if not self.talent_query_service: return []
+        return self.talent_query_service.get_contracted_talents()
+    
+    def get_contracted_scene_count_for_month(self, talent_id: int) -> int:
+        if not self.talent_query_service or not self.query_service or not self.game_state: return 0
+        return self.talent_query_service.get_contracted_scene_count_for_month(talent_id, self.game_state.absolute_week)
 
     # --- Game Logic ---
     def advance_week(self):

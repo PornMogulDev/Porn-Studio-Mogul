@@ -54,6 +54,11 @@ def from_month(year: int, month: int) -> int:
     week_of_year = (month - 1) * WEEKS_PER_MONTH + 1
     return to_absolute(year, week_of_year)
 
+def format_year_month_week(absolute_week: int) -> str:
+    """Returns a string formatted as YYYY/MM/W# (e.g. 2021/05/W2)."""
+    year, month, week_in_month = to_month(absolute_week)
+    return f"{year}/{month:02d}/W{week_in_month}"
+
 def get_month_range(absolute_week: int) -> Tuple[int, int]:
     """Returns (start_absolute_week, end_absolute_week) for the month containing the given week."""
     year, month, _ = to_month(absolute_week)
