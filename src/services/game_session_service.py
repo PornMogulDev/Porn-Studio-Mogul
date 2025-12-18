@@ -79,16 +79,6 @@ class GameSessionService:
                 db_studio = AIStudioDB.from_dataclass(studio)
                 session.add(db_studio)
 
-            # Create welcome email from template
-            welcome_tmpl = self.data_manager.emails.get('welcome', {})
-            welcome_email = EmailMessageDB(
-                subject=welcome_tmpl.get('subject', 'Welcome to the Studio!'),
-                body=welcome_tmpl.get('body', 'Welcome!'),
-                absolute_week=game_state.absolute_week,
-                is_read=False
-            )
-            session.add(welcome_email)
-
             session.commit()
             return game_state, save_path
         except Exception as e:

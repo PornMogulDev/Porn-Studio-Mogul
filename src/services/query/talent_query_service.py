@@ -8,7 +8,7 @@ from data.game_state import Scene, Tour
 from data.data_manager import DataManager
 from database.db_models import (
     TalentDB, SceneDB, ActionSegmentDB, StudioStateDB,
-    ShootingBlocDB, SceneCastDB, TourDB
+    ShootingBlocDB, SceneCastDB, TourDB, ContractDB
 )
 from services.query.game_query_service import GameQueryService
 from services.query.talent_location_service import TalentLocationService
@@ -398,3 +398,64 @@ class TalentQueryService:
             return {}
         finally:
             session.close()
+
+    # --- Exclusive Contracts ---
+
+    def get_contracted_talents(self) -> List[TalentDB]:
+        """Fetches all talents that currently have a signed contract."""
+        with self.session_factory() as session:
+            talents = session.query(TalentDB)\
+                .join(ContractDB)\
+                .options(
+                    selectinload(TalentDB.contract),
+                    selectinload(TalentDB.tours),
+                    selectinload(TalentDB.popularity_scores),
+                    selectinload(TalentDB.chemistry_a),
+                    selectinload(TalentDB.chemistry_b)
+                )\
+                .all()
+            return talents
+        
+    def get_contracted_scene_counts_bulk(self, talent_ids: List[int], current_abs_week: int) -> Dict[int, int]:
+        """
+        Returns a dictionary mapping talent_id -> count of active scenes for the current month.
+        Executes a single aggregation query.
+        """
+        if not talent_ids:
+            return {}
+            
+        start_week, end_week = time_utils.get_month_range(current_abs_week)
+        
+        with self.session_factory() as session:
+            results = session.query(
+                SceneCastDB.talent_id, 
+                func.count(SceneCastDB.id)
+            ).join(SceneDB).filter(
+                SceneCastDB.talent_id.in_(talent_ids),
+                SceneDB.scheduled_absolute_week >= start_week,
+                SceneDB.scheduled_absolute_week <= end_week,
+                SceneDB.status.in_(['scheduled', 'casting', 'shooting', 'post_production', 'completed', 'released'])
+            ).group_by(SceneCastDB.talent_id).all()
+            
+            return {r[0]: r[1] for r in results}
+
+    def get_contracted_scene_count_for_month(self, talent_id: int, current_abs_week: int) -> int:
+        """
+        Counts scenes scheduled, shot, or released for a talent within the current month range.
+        Used for checking contract limits (e.g., 2/4 scenes used).
+        """
+        start_week, end_week = time_utils.get_month_range(current_abs_week)
+        
+        with self.session_factory() as session:
+            count = session.query(func.count(SceneCastDB.id))\
+                .join(SceneDB)\
+                .filter(
+                    SceneCastDB.talent_id == talent_id,
+                    SceneDB.scheduled_absolute_week >= start_week,
+                    SceneDB.scheduled_absolute_week <= end_week,
+                    # We exclude cancelled scenes, but count everything else that "uses up" a slot
+                    SceneDB.status.in_(['scheduled', 'casting', 'shooting', 'post_production', 'completed', 'released'])
+                )\
+                .scalar()
+            
+            return count or 0

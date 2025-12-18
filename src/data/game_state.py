@@ -39,6 +39,10 @@ class Contract:
     disposition: Optional[str] = None
     max_scenes_per_month: int = 4
 
+    @property
+    def end_absolute_week(self) -> int:
+        return self.start_absolute_week + self.duration_weeks
+
 @dataclass_json
 @dataclass
 class Talent:  # type: ignore

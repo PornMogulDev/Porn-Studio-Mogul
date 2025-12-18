@@ -132,6 +132,10 @@ class ContractDB(Base, DataclassMapper):
     max_scenes_per_month = Column(Integer, default=4)
     talent = relationship("TalentDB", back_populates="contract")
 
+    @property
+    def end_absolute_week(self) -> int:
+        return self.start_absolute_week + self.duration_weeks
+
 class TalentDB(Base, DataclassMapper):
     __tablename__ = 'talents'
     id = Column(Integer, primary_key=True)

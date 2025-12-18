@@ -43,6 +43,7 @@ from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.game_menu_dialog import GameMenuDialog, ExitDialog
 from ui.dialogs.call_sheet_dialog import CallSheetDialog
 from ui.dialogs.policy_dialog import PolicyDialog
+from ui.dialogs.roster_window import RosterWindow
 
 # Presenters
 from ui.presenters.start_screen_presenter import StartScreenPresenter
@@ -55,6 +56,7 @@ from ui.presenters.shot_scene_details_presenter import ShotSceneDetailsPresenter
 from ui.presenters.game_menu_presenter import GameMenuPresenter
 from ui.presenters.call_sheet_presenter import CallSheetPresenter
 from ui.presenters.policy_presenter import PolicyPresenter
+from ui.presenters.roster_presenter import RosterPresenter
 
 logger = logging.getLogger(__name__)
 
@@ -290,6 +292,18 @@ class UIManager:
             return dialog
 
         dialog = self._get_or_create_singleton_dialog(PolicyDialog, factory)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def show_roster(self):
+        def factory():
+            dialog = RosterWindow(self.settings_manager, self.icon_manager, self.controller.theme_manager, parent=self.parent_widget)
+            presenter = RosterPresenter(self.controller, dialog, self, parent=dialog)
+            dialog.set_presenter(presenter)
+            return dialog
+
+        dialog = self._get_or_create_singleton_dialog(RosterWindow, factory)
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()

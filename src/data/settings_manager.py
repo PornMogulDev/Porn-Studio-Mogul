@@ -54,6 +54,7 @@ class SettingsManager:
             "talent_filter_presets": {},
             "scene_planner_presets": {},
             "ai_studio_panel_visibility": {},
+            "roster_visible_columns": {},
             
             # Talent Tab Preferences
             "casting_mode_show_role_details": True,
