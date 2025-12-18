@@ -238,7 +238,7 @@
   ],
   "Argentinian": [
     { "name": "Latin", "weight": 55 },
-    { "name": "Western European", "weight": 40 },
+    { "name": "Southern European", "weight": 40 },
     { "name": "Amerindian", "weight": 5 }
   ],
   "Mexican": [
@@ -264,8 +264,7 @@
     { "name": "Black", "weight": 5 }
   ],
   "Hungarian": [
-    { "name": "Eastern European", "weight": 50 },
-    { "name": "Western European", "weight": 45 },
+    { "name": "Eastern European", "weight": 95 },
     { "name": "Black", "weight": 5 }
   ],
   "Spanish": [

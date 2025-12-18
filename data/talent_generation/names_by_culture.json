@@ -1,5 +1,29 @@
 {
   "names_by_culture": {
+    "argentinian_latin": {
+      "female_first": [
+        "Alicia", "Elena", "Laura", "Manuela", "Valentina", "Fabiana", "Mariana", "Divina", 
+        "Tami", "Tabatha", "Niky", "Julia"
+      ],
+      "single_female": [
+        "Divina"
+      ],
+      "last_female": [
+        "Maru", "Lust", "Love", "Fruit"
+      ]
+    },
+    "argentinian_southern_european": {
+      "female_first": [
+        "Alicia", "Elena", "Laura", "Valentina", "Tabatha", "Niky", "Tami", "Sandy", "Sabrina", "Daniela",
+        "Lorena", "Julia"
+      ],
+      "last_female": [
+        "Maru", "Lust", "Love", "Fruit", "Sabrok", "Bellucci"
+      ],
+      "last": [
+        "Bernal"
+      ]
+    },
     "brazilian_latin": {
       "female_first": [
         "Alice", "Helena", "Laura", "Manuela", "Valentina"
@@ -114,10 +138,14 @@
     },
     "hungarian_eastern_european": {
       "female_first": [
-        "Anna", "Emma", "Hanna", "Luca", "Zoe"
+        "Anna", "Emma", "Hanna", "Luca", "Zoe", "Lily", "Tiffany", "Liz", "Amirah", "Amira", "Zazie",
+        "Naomi", "Sharon"
+      ],
+      "female_last": [
+        "Blossom", "Tatum", "Ocean", "Adara", "Skymm", "Sky"
       ],
       "last": [
-        "Horvath", "Kovacs", "Nagy", "Szabo", "Toth"
+        "Horvath", "Kovacs", "Nagy", "Szabo", "Toth", "Ricci", "White"
       ],
       "male_first": [
         "Adam", "Bence", "Dominik", "Levente", "Mate"
@@ -170,16 +198,45 @@
     },
     "spanish_southern_european": {
       "female_first": [
-        "Lucia", "Maria", "Martina", "Paula", "Sofia"
+        "Lucía", "María", "Paula", "Sofia", "Andrea", "Andy", "Bridgette", "Apolonia", "Sania", "Samia", "Rebeca",
+        "Verónica", "Angelique", "Mary", "Nuria", "Chloe", "Naiara", "Paola", "Sandra", "Nekane",
+        "Yolanda", "Susi", "Susy", "Ginebra", "Apra", "Ramona", "Alexandra", "Ana", "Anita", "Luci",
+        "Diana", "Jennifer", "Liz", "Luz", "Marta", "Martha", "Lia", "Charlotte", "Bella", "Rubi",
+        "Carolina", "Lolly", "Valeria", "Rosy"
+      ],
+      "female_last": [
+        "Star", "Gala", "Bellucci", "Rainbow", "Storm", "Abril"
+      ],
+      "female_single": [
+        "Spanish Doll", "Muñequita"
       ],
       "last": [
-        "Fernandez", "Garcia", "Gonzalez", "Lopez", "Rodriguez"
+        "Fernandez", "Garcia", "Gonzalez", "Lopez", "Rodriguez", "Lapiedra", "Duarte", "Linares", "Hidalgo",
+        "Millán", "Ribes", "Ribelles", "Hard", "Hernández", "Ribera", "Rivera", "Fernández", "Rius", "Villalobos",
+        "Rico", "Fuentes"
       ],
       "male_first": [
         "Hugo", "Leo", "Lucas", "Martin", "Mateo"
       ],
-      "single": [
+      "male_single": [
         "El Toro", "Matador", "Nacho"
+      ]
+    },
+    "spanish_latin": {
+      "female_first": [
+        "Lucía", "María", "Paula", "Sofia", "Martina", "Andrea", "Andy", "Ohana", "Lorena", "Ada",
+        "Cindy", "Mina", "Claudia", "Paola", "Sapphire", "Safira", "Briseida", "Ramona",
+        "Ana", "Anita", "Bella", "Mina", "Gina", "Natasha"
+      ],
+      "female_last": [
+        "Petite", "Secret", "Teen"
+      ],
+      "female_single": [
+        "Sapphire"
+      ],
+      "last": [
+        "Lapiedra", "Duarte", "Hidalgo", "Bevel", "Bavel", "Aguilera", "Hard", "Hernández",
+        "Lopis", "Ribera", "Rivera", "Moreno"
       ]
     },
     "us_black": {
