@@ -18,10 +18,11 @@ class RosterWindow(BaseGameWindow):
     smart_hover_left = pyqtSignal()
     profile_requested = pyqtSignal(int) # Emits talent_id
 
-    def __init__(self, settings_manager, icon_manager, parent=None):
+    def __init__(self, settings_manager, icon_manager, theme_manager, parent=None):
         self.defaultSize = QSize(1000, 600)
         super().__init__(settings_manager, parent)
         self.icon_manager = icon_manager
+        self.theme_manager = theme_manager
         
         # Set window properties
         self.setWindowTitle("Exclusive Roster")
@@ -59,7 +60,7 @@ class RosterWindow(BaseGameWindow):
 
         # --- Main Table ---
         self.table_view = SmartTableView(parent=self)
-        self.table_model = RosterTableModel(parent=self)
+        self.table_model = RosterTableModel(self.theme_manager, self.settings_manager, parent=self)
         self.table_view.setModel(self.table_model)
         
         # Table Styling
@@ -68,12 +69,34 @@ class RosterWindow(BaseGameWindow):
         self.table_view.setSelectionMode(SmartTableView.SelectionMode.SingleSelection)
         self.table_view.verticalHeader().setVisible(False)
         self.table_view.horizontalHeader().setStretchLastSection(False)
-        self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
         # Enable sorting
         self.table_view.setSortingEnabled(True)
 
+        # Configure Header Sizes
+        self._configure_header_sizes()
+
         main_layout.addWidget(self.table_view)
+
+    def _configure_header_sizes(self):
+        """Sets the default widths for columns."""
+        header = self.table_view.horizontalHeader()
+        
+        # Allow user to resize columns by default
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        
+        # Set specific pixel widths for data columns
+        header.resizeSection(RosterTableModel.COL_ALIAS, 175)
+        header.resizeSection(RosterTableModel.COL_SALARY, 120)
+        header.resizeSection(RosterTableModel.COL_DURATION, 60)
+        header.resizeSection(RosterTableModel.COL_COMPLIANCE, 75)
+        header.resizeSection(RosterTableModel.COL_START_DATE, 100)
+        header.resizeSection(RosterTableModel.COL_END_DATE, 100)
+        header.resizeSection(RosterTableModel.COL_USAGE, 120)
+        header.resizeSection(RosterTableModel.COL_ORIENTATIONS, 150)
+        header.resizeSection(RosterTableModel.COL_CONCEPTS, 150)
+        header.resizeSection(RosterTableModel.COL_DYN_DISP, 100)
 
     def _setup_table_behavior(self):
         """Wires up the smart table interactions."""

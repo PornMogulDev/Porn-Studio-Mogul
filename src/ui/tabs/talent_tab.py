@@ -148,7 +148,7 @@ class TalentTab(QWidget):
         
         self.main_splitter.addWidget(self.filter_sidebar_container)
         main_layout.addWidget(self.main_splitter)
-
+        
         # --- Layout Priorities ---
         self.main_splitter.setStretchFactor(0, 0) # Info Panel
         self.main_splitter.setStretchFactor(1, 1) # Table (grows)

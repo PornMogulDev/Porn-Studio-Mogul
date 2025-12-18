@@ -298,7 +298,7 @@ class UIManager:
 
     def show_roster(self):
         def factory():
-            dialog = RosterWindow(self.settings_manager, self.icon_manager, parent=self.parent_widget)
+            dialog = RosterWindow(self.settings_manager, self.icon_manager, self.controller.theme_manager, parent=self.parent_widget)
             presenter = RosterPresenter(self.controller, dialog, self, parent=dialog)
             dialog.set_presenter(presenter)
             return dialog

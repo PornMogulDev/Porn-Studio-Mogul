@@ -22,9 +22,12 @@ class RosterViewModel:
     compliance_display: str
     compliance_sort: int # 0-100
     
-    dates_display: str # "Start - End"
+    start_date_display: str
     start_week_sort: int # For sorting by date
-    
+
+    end_date_display: str
+    end_week_sort: int
+
     allowed_orientations: str
     allowed_concepts: str
     

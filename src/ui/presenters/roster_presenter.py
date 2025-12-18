@@ -44,6 +44,9 @@ class RosterPresenter(BasePresenter):
         self.connect_signal(self.controller.signals.time_changed, self.refresh_data)
         self.connect_signal(self.controller.signals.talent_pool_changed, self.refresh_data)
 
+        # Listen for theme changes to update text colors in the table
+        self.controller.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
+
     @pyqtSlot(object, QPoint)
     def _on_table_hover(self, data_obj, pos: QPoint):
         """Extracts the ID from the table model's data object and shows summary."""
@@ -61,7 +64,8 @@ class RosterPresenter(BasePresenter):
             "salary": (RosterTableModel.COL_SALARY, True, "Salary"),
             "duration": (RosterTableModel.COL_DURATION, True, "Duration Left"),
             "compliance": (RosterTableModel.COL_COMPLIANCE, True, "Compliance"),
-            "dates": (RosterTableModel.COL_DATES, False, "Start/End Dates"),
+            "start_date": (RosterTableModel.COL_START_DATE, False, "Start Date"),
+            "end_date": (RosterTableModel.COL_END_DATE, False, "End Date"),
             "usage": (RosterTableModel.COL_USAGE, True, "Monthly Usage"),
             "orientations": (RosterTableModel.COL_ORIENTATIONS, False, "Orientations"),
             "concepts": (RosterTableModel.COL_CONCEPTS, False, "Concepts"),
@@ -142,8 +146,11 @@ class RosterPresenter(BasePresenter):
                 compliance_display=f"{contract.compliance}%",
                 compliance_sort=contract.compliance,
                 
-                dates_display=f"{start_str} - {end_str}",
+                start_date_display=start_str,
                 start_week_sort=contract.start_absolute_week,
+
+                end_date_display=end_str,
+                end_week_sort=contract.end_absolute_week,
                 
                 usage_display=usage_str,
                 usage_sort=usage_ratio,
@@ -171,3 +178,9 @@ class RosterPresenter(BasePresenter):
     @pyqtSlot(int)
     def _on_profile_requested(self, talent_id: int):
         self.ui_manager.show_talent_profile_by_id(talent_id)
+
+    @pyqtSlot(str)
+    def _on_setting_changed(self, key: str):
+        """Refreshes data if the theme changes, to update color-coded cells."""
+        if key == "theme":
+            self.refresh_data()

@@ -1,5 +1,7 @@
 from typing import List, Any
 from PyQt6.QtCore import Qt, QAbstractTableModel, QModelIndex
+from PyQt6.QtGui import QColor
+
 from ui.models.roster_view_model import RosterViewModel
 
 class RosterTableModel(QAbstractTableModel):
@@ -13,26 +15,30 @@ class RosterTableModel(QAbstractTableModel):
     COL_SALARY = 1
     COL_DURATION = 2
     COL_COMPLIANCE = 3
-    COL_DATES = 4
-    COL_USAGE = 5
-    COL_ORIENTATIONS = 6
-    COL_CONCEPTS = 7
-    COL_DYN_DISP = 8
+    COL_START_DATE = 4
+    COL_END_DATE = 5
+    COL_USAGE = 6
+    COL_ORIENTATIONS = 7
+    COL_CONCEPTS = 8
+    COL_DYN_DISP = 9
     
     HEADERS = [
         "Alias", 
         "Weekly Salary", 
-        "Duration Left", 
+        "Remaining", 
         "Compliance", 
-        "Contract Dates", 
-        "Scenes This Month",
+        "Start Date",
+        "End Date", 
+        "Scenes/Month",
         "Orientations", 
         "Concepts", 
         "Dyn / Disp"
     ]
 
-    def __init__(self, parent=None):
+    def __init__(self, theme_manager, settings_manager, parent=None):
         super().__init__(parent)
+        self.theme_manager = theme_manager
+        self.settings_manager = settings_manager
         self._data: List[RosterViewModel] = []
 
     def set_data(self, data: List[RosterViewModel]):
@@ -69,8 +75,10 @@ class RosterTableModel(QAbstractTableModel):
                 return row_item.duration_left_display
             elif col == self.COL_COMPLIANCE:
                 return row_item.compliance_display
-            elif col == self.COL_DATES:
-                return row_item.dates_display
+            elif col == self.COL_START_DATE:
+                return row_item.start_date_display
+            elif col == self.COL_END_DATE:
+                return row_item.end_date_display
             elif col == self.COL_USAGE:
                 return row_item.usage_display
             elif col == self.COL_ORIENTATIONS:
@@ -94,8 +102,25 @@ class RosterTableModel(QAbstractTableModel):
         
         # Color Formatting (Optional: Highlight low compliance)
         elif role == Qt.ItemDataRole.ForegroundRole:
-            if col == self.COL_COMPLIANCE and row_item.compliance_sort < 80:
-                 return Qt.GlobalColor.red
+            if col == self.COL_COMPLIANCE:
+                val = row_item.compliance_sort
+                current_theme_name = self.settings_manager.get_setting("theme", "light")
+                theme = self.theme_manager.get_theme(current_theme_name)
+                
+                if val >= 70:
+                    return QColor(theme.color_good)
+                elif val >= 35:
+                    return QColor(theme.color_warning)
+                else:
+                    return QColor(theme.color_bad)
+            
+        # Tooltip Role: Show full content for potentially truncated columns
+        elif role == Qt.ItemDataRole.ToolTipRole:
+            if col == self.COL_ORIENTATIONS:
+                return row_item.allowed_orientations
+            elif col == self.COL_CONCEPTS:
+                return row_item.allowed_concepts
+            # For other columns, default behavior is usually fine, or return None
 
         return None
 
@@ -114,8 +139,10 @@ class RosterTableModel(QAbstractTableModel):
             key_func = lambda x: x.duration_left_sort
         elif column == self.COL_COMPLIANCE:
             key_func = lambda x: x.compliance_sort
-        elif column == self.COL_DATES:
+        elif column == self.COL_START_DATE:
             key_func = lambda x: x.start_week_sort
+        elif column == self.COL_END_DATE:
+            key_func = lambda x: x.end_week_sort    
         elif column == self.COL_USAGE:
             key_func = lambda x: x.usage_sort
         elif column == self.COL_ORIENTATIONS:
