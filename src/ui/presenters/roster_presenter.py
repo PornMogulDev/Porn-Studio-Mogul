@@ -3,6 +3,7 @@ import logging
 from PyQt6.QtCore import pyqtSlot, QPoint
 
 from core.interfaces import IGameController
+from data.game_state import Talent
 from ui.presenters.base_presenter import BasePresenter
 from ui.models.roster_view_model import RosterViewModel
 from ui.models.roster_table_model import RosterTableModel
@@ -90,6 +91,11 @@ class RosterPresenter(BasePresenter):
              return
 
         talents_db = self.controller.get_contracted_talents()
+        talent_ids = [t.id for t in talents_db]
+        
+        # Single query
+        usage_map = self.controller.get_contracted_scene_counts_bulk(talent_ids)
+
         view_models = []
         current_week = self.controller.game_state.absolute_week
         
@@ -106,7 +112,7 @@ class RosterPresenter(BasePresenter):
             weeks_left = max(0, contract.end_absolute_week - current_week)
             
             # Usage
-            used_count = self.controller.get_contracted_scene_count_for_month(talent.id)
+            used_count = usage_map.get(talent.id, 0) 
             max_count = contract.max_scenes_per_month
             usage_str = f"{used_count}/{max_count}"
             usage_ratio = used_count / max_count if max_count > 0 else 0
@@ -124,7 +130,7 @@ class RosterPresenter(BasePresenter):
 
             vm = RosterViewModel(
                 talent_id=talent.id,
-                talent_obj=talent, # Used for Entity Card
+                talent_obj=talent.to_dataclass(Talent), 
                 alias=talent.alias,
                 
                 salary_display=f"${contract.weekly_salary:,}",

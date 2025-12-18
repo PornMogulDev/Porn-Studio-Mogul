@@ -406,9 +406,38 @@ class TalentQueryService:
         with self.session_factory() as session:
             talents = session.query(TalentDB)\
                 .join(ContractDB)\
-                .options(selectinload(TalentDB.contract))\
+                .options(
+                    selectinload(TalentDB.contract),
+                    selectinload(TalentDB.tours),
+                    selectinload(TalentDB.popularity_scores),
+                    selectinload(TalentDB.chemistry_a),
+                    selectinload(TalentDB.chemistry_b)
+                )\
                 .all()
             return talents
+        
+    def get_contracted_scene_counts_bulk(self, talent_ids: List[int], current_abs_week: int) -> Dict[int, int]:
+        """
+        Returns a dictionary mapping talent_id -> count of active scenes for the current month.
+        Executes a single aggregation query.
+        """
+        if not talent_ids:
+            return {}
+            
+        start_week, end_week = time_utils.get_month_range(current_abs_week)
+        
+        with self.session_factory() as session:
+            results = session.query(
+                SceneCastDB.talent_id, 
+                func.count(SceneCastDB.id)
+            ).join(SceneDB).filter(
+                SceneCastDB.talent_id.in_(talent_ids),
+                SceneDB.scheduled_absolute_week >= start_week,
+                SceneDB.scheduled_absolute_week <= end_week,
+                SceneDB.status.in_(['scheduled', 'casting', 'shooting', 'post_production', 'completed', 'released'])
+            ).group_by(SceneCastDB.talent_id).all()
+            
+            return {r[0]: r[1] for r in results}
 
     def get_contracted_scene_count_for_month(self, talent_id: int, current_abs_week: int) -> int:
         """

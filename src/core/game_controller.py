@@ -174,6 +174,10 @@ class GameController(QObject):
         if not self.talent_query_service: return []
         return self.talent_query_service.get_contracted_talents()
     
+    def get_contracted_scene_counts_bulk(self, talent_ids: List[int]) -> Dict[int, int]:
+        if not self.talent_query_service: return []
+        return self.talent_query_service.get_contracted_scene_counts_bulk(talent_ids, self.game_state.absolute_week)
+    
     def get_contracted_scene_count_for_month(self, talent_id: int) -> int:
         if not self.talent_query_service or not self.query_service or not self.game_state: return 0
         return self.talent_query_service.get_contracted_scene_count_for_month(talent_id, self.game_state.absolute_week)
@@ -277,6 +281,9 @@ class GameController(QObject):
         result = self.game_session_service.start_new_game()
         self._on_session_loaded(result)
         if result:
+            # Send welcome email after services are initialized
+            if self.email_service:
+                self.email_service.send_welcome_email()
             self.signals.new_game_started.emit()
 
     def load_game(self, save_name: str):

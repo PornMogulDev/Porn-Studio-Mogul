@@ -69,9 +69,6 @@ class RosterWindow(BaseGameWindow):
         self.table_view.verticalHeader().setVisible(False)
         self.table_view.horizontalHeader().setStretchLastSection(False)
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        
-        # Set Alias column (index 0) to Stretch so it fills gap
-        self.table_view.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
 
         # Enable sorting
         self.table_view.setSortingEnabled(True)

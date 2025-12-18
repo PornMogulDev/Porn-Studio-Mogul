@@ -149,3 +149,13 @@ class EmailService:
         
         # 'market_discovery' in emails.json now points to 'market_discovery.html'
         self.create_email_from_template(session, 'market_discovery', variables)
+
+    def send_welcome_email(self):
+        """
+        Sends the welcome email to the player when starting a new game.
+        This should be called after the game session and services are initialized.
+        """
+        with self.session_factory() as session:
+            self.create_email_from_template(session, 'welcome', {})
+            session.commit()
+            self.signals.emails_changed.emit()
