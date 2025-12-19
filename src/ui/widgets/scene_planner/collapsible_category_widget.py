@@ -29,68 +29,77 @@ class CollapsibleCategoryWidget(QTreeWidget):
         Updates the tree. If the tree is empty, it builds it.
         If the tree exists, it filters items based on the input list,
         preserving expansion state and scroll position.
-         """
-        # If we already have items and this seems like a filter operation (subset of data),
-        # try to just hide/show items instead of rebuilding.
+        """
+        # Optimization: If we already have items and this is a filter (subset),
+        # just hide/show instead of rebuilding.
         if self.topLevelItemCount() > 0:
             visible_names = {t.get('full_name', t.get('name')) for t in tags}
-            
-            # Heuristic: If we have cached items matching the input, update visibility
-            # If we received new tags that we don't know about, fall through to rebuild.
             if all(name in self._leaf_items for name in visible_names):
                 self._filter_items(visible_names)
                 return
 
         # Full Build / Rebuild
         self.clear()
+        self._leaf_items.clear()
         
-        # Group tags by concept
+        # Group tags by concept + orientation
         groups = {}
         # Special group for tags without a concept
         groups["Uncategorized"] = []
         
         for tag in tags:
             concept = tag.get('concept', "Uncategorized")
-            if concept not in groups:
-                groups[concept] = []
-            groups[concept].append(tag)
+            orientation = tag.get('orientation')
             
-        # Sort concepts: Standard alphabetical, but Uncategorized last
-        sorted_concepts = sorted([k for k in groups.keys() if k != "Uncategorized"])
+            # Dynamic Header: "Concept (Orientation)" or just "Concept"
+            if concept != "Uncategorized" and orientation:
+                group_name = f"{concept} ({orientation})"
+            else:
+                group_name = concept
+
+            if group_name not in groups:
+                groups[group_name] = []
+            groups[group_name].append(tag)
+            
+        # Sort headers: Alphabetical, but Uncategorized always last
+        sorted_group_names = sorted([k for k in groups.keys() if k != "Uncategorized"])
         if groups["Uncategorized"]:
-            sorted_concepts.append("Uncategorized")
+            sorted_group_names.append("Uncategorized")
             
-        for concept in sorted_concepts:
-            tag_list = groups[concept]
+        for group_name in sorted_group_names:
+            tag_list = groups[group_name]
             if not tag_list:
                 continue
                 
-            # Create Category Root
+            # Create Category Root (Header)
             root_item = QTreeWidgetItem(self)
-            root_item.setText(0, concept)
+            root_item.setText(0, group_name)
+            
             # Style root item
             font = root_item.font(0)
             font.setBold(True)
             root_item.setFont(0, font)
-            # Root items are enabled (for expansion) but not selectable for dragging
+            # Headers are enabled (for expansion) but not selectable for dragging
             root_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
             
-            for tag in tag_list:
-                # Ensure we use the full name as the unique key
+            # Sort tags within the group alphabetically
+            sorted_tags = sorted(tag_list, key=lambda t: t.get('full_name', t.get('name', '')))
+            
+            for tag in sorted_tags:
                 child_item = QTreeWidgetItem(root_item)
-                # Use full_name for display (contains stars, gender info from presenter)
                 display_text = tag.get('full_name', tag.get('name', 'Unknown'))
                 child_item.setText(0, display_text)
-                # Store full tag data for retrieval
+                
+                # Store full tag data for retrieval in presenter
                 child_item.setData(0, Qt.ItemDataRole.UserRole, tag)
 
-                # Cache for filtering
+                # Cache for filtering and lookups
                 self._leaf_items[display_text] = child_item
                 
                 if tooltip := tag.get("tooltip"):
                     child_item.setToolTip(0, tooltip)
             
-            # Expand all by default to show tags
+            # Expand headers by default
             root_item.setExpanded(True)
 
     def _filter_items(self, visible_names: set):

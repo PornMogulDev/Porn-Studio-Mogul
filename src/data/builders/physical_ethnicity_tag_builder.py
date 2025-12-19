@@ -154,10 +154,10 @@ class PhysicalEthnicityTagBuilder:
             orientation = "Lesbian"
         
         if is_same_ethnicity:
-            concept = f"Same-Ethnicity Pairs ({orientation})"
-            base_name = f"({pair_code})"
+            concept = f"Same-Ethnicity"
+            base_name = f"Same-Ethnicity ({pair_code})"
         else:
-            concept = f"Interracial Pairs ({orientation})"
+            concept = f"Interracial"
             base_name = f"Interracial ({pair_code})"
 
         # Configurable Weights
