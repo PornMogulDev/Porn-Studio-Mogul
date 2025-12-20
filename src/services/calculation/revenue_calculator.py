@@ -100,7 +100,7 @@ class RevenueCalculator:
                 market_share = resolved_group_data.get('market_share_percent', 0) / 100.0
                 spending_power = resolved_group_data.get('spending_power', 1.0)
 
-                total_revenue += (base_revenue * market_share) * group_interest_score * spending_power * saturation
+                total_revenue += (base_revenue * market_share) * group_interest_score * spending_power # * saturation Don't know if we should keep this or not. While we balance AI studios, let's take it out.
 
                 if dynamic_state:
                     saturation_cost = group_interest_score * self.config.saturation_spend_rate
