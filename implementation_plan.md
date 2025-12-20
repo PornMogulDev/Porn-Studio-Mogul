@@ -1,182 +1,276 @@
-\### Implementation Plan
+# TalentProfileWindow Refactoring Plan
 
+Refactor the `TalentProfileWindow` to use splitter-based layouts instead of dock widgets, and adopt a coordinator pattern for the presenter architecture.
 
+## Design Decisions (Resolved)
 
-\#### 1. Core Architecture (New Base Classes)
+- **Layout Preset Migration**: Clear silently (early development, no users to migrate)
+- **Fixed Layout**: Acceptable trade-off for predictability  
+- **Bottom Panel**: Remains tabbed (`QTabWidget`)
 
-We will create reusable base classes to enforce the architecture defined in your documentation.
+---
 
+## Phase 1: Layout Migration (Docks → Splitters)
 
+Replace `QDockWidget`-based layout with a nested `QSplitter` structure for predictable sizing and simpler persistence.
 
-\*   \*\*`src/ui/presenters/base\_presenter.py`\*\*
+### Component: View Layer
 
-&nbsp;   \*   \*\*Class:\*\* `BasePresenter(QObject)`
+#### [MODIFY] [talent_profile_view.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/views/talent_profile_view.py)
 
-&nbsp;   \*   \*\*Responsibilities:\*\* 
+Major changes:
+1. **Change base class to `BaseGameWindow`** (inherits from `QDialog` + `GeometryManagerMixin`, provides min/max buttons)
+2. Remove all dock widget infrastructure:
+   - Remove `setDockNestingEnabled(True)`
+   - Remove `_add_dock()` helper
+   - Remove `view_menu` (no toggle actions needed)
+   - Remove `self.saveState()`/`restoreState()` calls
+3. Add splitter-based layout:
 
-&nbsp;       \*   Implements the standard `cleanup()` method to disconnect signals.
+```python
+# New layout structure (pseudocode):
+main_layout = QVBoxLayout(self)
+main_layout.addWidget(self.tab_toolbar)
+main_layout.addWidget(self.layout_toolbar)
 
-&nbsp;       \*   Provides `connect\_signal(signal, slot)` helper to track connections.
+# Content area: Three-way vertical split
+self.main_splitter = QSplitter(Qt.Orientation.Vertical)
 
-&nbsp;       \*   Standardizes the `view` and `controller` injection.
+# Top section: Two-way horizontal split
+self.top_splitter = QSplitter(Qt.Orientation.Horizontal)
+self.left_splitter = QSplitter(Qt.Orientation.Vertical)
+self.right_splitter = QSplitter(Qt.Orientation.Vertical)
 
+self.left_splitter.addWidget(self.details_widget)
+self.left_splitter.addWidget(self.preferences_widget)
 
+self.right_splitter.addWidget(self.schedule_widget)
+self.right_splitter.addWidget(self.hiring_widget)
 
-\*   \*\*`src/ui/dialogs/base\_game\_window.py`\*\*
+self.top_splitter.addWidget(self.left_splitter)
+self.top_splitter.addWidget(self.right_splitter)
 
-&nbsp;   \*   \*\*Class:\*\* `BaseGameWindow(QDialog, GeometryManagerMixin)`
+# Bottom section: Tabbed History/Chemistry
+self.bottom_tabs = QTabWidget()
+self.bottom_tabs.addTab(self.history_widget, "Scene History")
+self.bottom_tabs.addTab(self.chemistry_widget, "Chemistry")
 
-&nbsp;   \*   \*\*Responsibilities:\*\*
+self.main_splitter.addWidget(self.top_splitter)
+self.main_splitter.addWidget(self.bottom_tabs)
 
-&nbsp;       \*   Sets standard Window Flags (Minimize, Maximize, Close).
+main_layout.addWidget(self.main_splitter)
+```
 
-&nbsp;       \*   Sets `WA\_DeleteOnClose` attribute.
+4. Replace layout save/load with splitter size persistence:
 
-&nbsp;       \*   Handles `show()` to restore geometry automatically.
+```python
+def _save_layout(self) -> dict:
+    return {
+        'main': self.main_splitter.sizes(),
+        'top': self.top_splitter.sizes(),
+        'left': self.left_splitter.sizes(),
+        'right': self.right_splitter.sizes(),
+    }
 
-&nbsp;       \*   Handles `closeEvent` to save geometry automatically.
+def _load_layout(self, data: dict):
+    if sizes := data.get('main'): self.main_splitter.setSizes(sizes)
+    if sizes := data.get('top'): self.top_splitter.setSizes(sizes)
+    if sizes := data.get('left'): self.left_splitter.setSizes(sizes)
+    if sizes := data.get('right'): self.right_splitter.setSizes(sizes)
+```
 
+5. Update toolbar: Change "Save Layout" to save splitter sizes dict (JSON-serializable).
 
+#### No changes to [geometry_manager_mixin.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/mixins/geometry_manager_mixin.py)
 
-\#### 2. Data \& Service Layer Updates
+Already bundled into `BaseGameWindow`.
 
-\*   \*\*`src/utils/time\_utils.py`\*\*
+---
 
-&nbsp;   \*   Add `format\_year\_month\_week(absolute\_week: int) -> str`.
+### Component: Settings Layer
 
-&nbsp;       \*   Uses existing `to\_month` to return string format "YYYY/MM/W".
+#### [MODIFY] [settings_manager.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/data/settings_manager.py)
 
+The existing `get_talent_profile_layouts()` / `set_talent_profile_layouts()` methods can stay. The stored format changes from:
+- **Old**: `{"layout_name": "<base64 QMainWindow state>"}`  
+- **New**: `{"layout_name": {"main": [h1, h2], "top": [w1, w2], ...}}`
 
+This is a breaking change (existing layouts become invalid), but no code changes needed in `SettingsManager`—the view handles the format.
 
-\*   \*\*`src/data/game\_state.py`\*\*
+---
 
-&nbsp;   \*   Update `Contract` dataclass to include `end\_absolute\_week` property (calculated from start + duration).
+### Component: Integration
 
+#### [MODIFY] [ui_manager.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/managers/ui_manager.py)
 
+Update `show_talent_profile()`:
+- Change type annotation from `TalentProfileWindow` (was `QMainWindow`) to `QWidget`
+- No functional changes needed—method already treats it as a generic window
 
-\*   \*\*`src/services/query/talent\_query\_service.py`\*\*
+---
 
-&nbsp;   \*   Add `get\_contracted\_talents() -> List\[Talent]`: Fetches all talents that have an active contract.
+## Phase 2: Presenter Coordinator Pattern
 
-&nbsp;   \*   Add `get\_contracted\_scene\_count\_for\_month(talent\_id: int, current\_abs\_week: int) -> int`:
+Extract widget-specific logic from the monolithic `TalentProfilePresenter` into specialized sub-presenters, with the main presenter acting as a coordinator.
 
-&nbsp;       \*   Calculates start/end week of the current month using `time\_utils`.
+### Base Class Strategy
 
-&nbsp;       \*   Queries `SceneCastDB` joined with `SceneDB` to count scenes where status is not 'cancelled' within that range.
+| Presenter Type | Base Class | Rationale |
+|---------------|------------|----------|
+| **Coordinator** (`TalentProfilePresenter`) | `BasePresenter` | Connects to `controller.signals.*` (roster_changed, scenes_changed, setting_changed). Needs `cleanup()` for proper lifecycle. |
+| **Sub-presenters** (Details, Schedule, etc.) | Plain `QObject` | Do NOT connect to controller signals directly. They receive data from coordinator via `set_talent()`. No cleanup needed. |
 
+> [!NOTE]
+> Sub-presenters are owned by the coordinator (passed as `parent`). When the coordinator is cleaned up, Qt automatically destroys child QObjects. Sub-presenters only connect to their widget's local signals, which are destroyed with the widget.
 
+### Component: New Presenter Files
 
-\#### 3. View Models
+#### [NEW] [hiring_presenter.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/presenters/talent_profile/hiring_presenter.py)
 
-\*   \*\*`src/ui/models/roster\_view\_model.py`\*\*
+Extracted from `TalentProfilePresenter`. Handles:
+- `HiringWidget` signals: `hire_confirmed`, `preview_cost_requested`, `sponsor_tour_requested`, `contract_*`
+- Methods: `refresh_available_roles()`, `_calculate_bulk_hiring_preview()`, `_on_hire_confirmed()`, `_on_contract_*` 
+- Tour sponsorship flow (`get_tour_sponsorship_preview()`, `_on_tour_sponsorship_confirmed()`)
 
-&nbsp;   \*   \*\*Class:\*\* `RosterViewModel` (Dataclass)
+```python
+class HiringPresenter(QObject):
+    """Handles hiring, contracts, and tour sponsorship for a talent."""
+    
+    def __init__(self, controller: IGameController, widget: HiringWidget, parent=None):
+        super().__init__(parent)
+        self.controller = controller
+        self.widget = widget
+        self._current_talent: Optional[Talent] = None
+        self._connect_signals()
+    
+    def set_talent(self, talent: Optional[Talent]):
+        """Called by coordinator when the active talent changes."""
+        self._current_talent = talent
+        if talent:
+            self._refresh_available_roles()
+            self._update_contract_options()
+```
 
-&nbsp;   \*   \*\*Fields:\*\* 
+#### [NEW] [details_presenter.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/presenters/talent_profile/details_presenter.py)
 
-&nbsp;       \*   `talent\_obj` (For UserRole/EntityCard).
+Handles `DetailsWidget`. Minimal—mostly data formatting:
+- Method: `_load_and_display_details(talent)`
 
-&nbsp;       \*   `alias`, `salary` (formatted), `compliance` (e.g., "95%"), `dates` (formatted string "Start - End"), `duration\_left` (e.g., "12w"), `usage` (e.g., "2/4").
+#### [NEW] [schedule_presenter.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/presenters/talent_profile/schedule_presenter.py)
 
-&nbsp;       \*   `allowed\_orientations`, `allowed\_concepts`, `limits` (dynamic/disposition).
+Handles `ScheduleWidget`:
+- Method: `_load_and_display_schedule()` (includes ViewModel mapping)
 
-&nbsp;   \*   \*\*Sort Keys:\*\* Integer/Float values for sorting the formatted strings.
+#### [NEW] [preferences_presenter.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/presenters/talent_profile/preferences_presenter.py)
 
+Handles `PreferencesWidget`:
+- Method: `_load_and_display_preferences(talent)` (calls builder)
 
+#### [NEW] [history_presenter.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/presenters/talent_profile/history_presenter.py)
 
-\*   \*\*`src/ui/models/roster\_table\_model.py`\*\*
+Handles `HistoryWidget`:
+- Signal routing: `open_scene_dialog_requested`
+- Method: Load and display scene history
 
-&nbsp;   \*   \*\*Class:\*\* `RosterTableModel(QAbstractTableModel)`
+#### [NEW] [chemistry_presenter.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/presenters/talent_profile/chemistry_presenter.py)
 
-&nbsp;   \*   \*\*Responsibilities:\*\*
+Handles `ChemistryWidget`:
+- Signals: `talent_profile_requested`, `smart_hover_*`, `smart_alt_clicked`
+- Needs reference to `UIManager` for navigation
 
-&nbsp;       \*   Holds list of `RosterViewModel`.
+#### [NEW] [__init__.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/presenters/talent_profile/__init__.py)
 
-&nbsp;       \*   Implements `data()` handling `DisplayRole` (text), `UserRole` (talent obj), and potentially `ForegroundRole` (coloring compliance red if low).
+Package init exporting all presenters.
 
-&nbsp;       \*   Implements `sort()`.
+---
 
+### Component: Refactored Coordinator
 
+#### [MODIFY] [talent_profile_presenter.py](file:///c:/Users/Gen/Documents/PSM/Game/hire_talent/0.4.6/src/ui/presenters/talent_profile_presenter.py)
 
-\#### 4. UI Implementation (The View)
+Transform into coordinator role (~150 lines down from ~345):
 
-\*   \*\*`src/ui/dialogs/roster\_window.py`\*\*
+```python
+class TalentProfilePresenter(QObject):
+    """Coordinates sub-presenters for the TalentProfileWindow."""
+    open_talent_profile_requested = pyqtSignal(int)
 
-&nbsp;   \*   \*\*Inherits:\*\* `BaseGameWindow`.
+    def __init__(self, controller, view, uimanager, parent=None):
+        super().__init__(parent)
+        self.controller = controller
+        self.view = view
+        self.uimanager = uimanager
+        
+        self.open_talents = {}  # Shared state
+        self.current_talent_id = None
+        
+        # Initialize sub-presenters
+        self._details_presenter = DetailsPresenter(controller, view.details_widget, self)
+        self._schedule_presenter = SchedulePresenter(controller, view.schedule_widget, self)
+        self._preferences_presenter = PreferencesPresenter(controller, view.preferences_widget, self)
+        self._history_presenter = HistoryPresenter(controller, view.history_widget, uimanager, self)
+        self._chemistry_presenter = ChemistryPresenter(controller, view.chemistry_widget, uimanager, self)
+        self._hiring_presenter = HiringPresenter(controller, view.hiring_widget, self)
+        
+        self._connect_coordinator_signals()
+    
+    def _load_data_for_current_talent(self):
+        """Notifies all sub-presenters of the new active talent."""
+        talent = self.open_talents.get(self.current_talent_id)
+        for presenter in self._sub_presenters:
+            presenter.set_talent(talent)
+```
 
-&nbsp;   \*   \*\*Layout:\*\*
+Key changes:
+- Remove all widget-specific signal connections (delegated to sub-presenters)
+- Remove all `_load_and_display_*` methods (delegated)
+- Keep: `open_talent()`, `switch_to_talent()`, `close_talent()`, `_on_setting_changed()` (theme coordination)
+- Add: Broadcast mechanism to notify sub-presenters of talent/theme changes
 
-&nbsp;       \*   \*\*Top Bar:\*\* `HelpButton` ("overview"), `ViewMenuButton` (Column Toggler).
+---
 
-&nbsp;       \*   \*\*Main:\*\* `SmartTableView`.
+## Verification Plan
 
-&nbsp;   \*   \*\*Components:\*\*
+### Automated Tests
 
-&nbsp;       \*   Instance of `RosterTableModel`.
+No existing automated tests cover UI components (`tests/` contains only business logic tests like `test_revenue_calculator.py`). Writing meaningful UI tests for PyQt6 requires `pytest-qt` which isn't in the project.
 
-&nbsp;       \*   Instance of `SmartTableView`.
+**Recommendation**: Skip new automated tests for this refactoring. The changes are structural and best verified manually.
 
-&nbsp;   \*   \*\*Signals:\*\* `visibility\_changed` (from ViewMenuButton), `smart\_hover`, `double\_clicked`.
+### Manual Verification
 
+> [!NOTE]
+> All manual testing should be done by launching the application and navigating to a talent profile.
 
+#### Phase 1 Verification (Layout)
 
-\#### 5. Presenter Implementation
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Launch app, open any talent profile | Window opens with new splitter layout (Details + Preferences left, Schedule + Hiring right, History/Chemistry tabbed bottom) |
+| 2 | Resize panels by dragging splitter handles | Handles respond, panels resize smoothly |
+| 3 | Click "Save" button with a layout name | Layout saves without error |
+| 4 | Resize panels differently, click "Load" with saved name | Panels return to saved proportions |
+| 5 | Close and reopen the profile window | Last-used layout is restored |
+| 6 | Open a second talent tab, switch between tabs | Both tabs share the same layout, data updates correctly per talent |
 
-\*   \*\*`src/ui/presenters/roster\_presenter.py`\*\*
+#### Phase 2 Verification (Presenters)
 
-&nbsp;   \*   \*\*Inherits:\*\* `BasePresenter`.
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Open talent profile, verify all 6 widgets load data | Details, Skills, Schedule, Preferences, History, Chemistry all populated |
+| 2 | Switch to a different talent tab | All widgets refresh with new talent's data |
+| 3 | In Hiring widget, select a role and click "Assign" | Casting flow works, signals route correctly |
+| 4 | In Chemistry widget, click another talent's name | Second talent's profile opens (cross-widget navigation works) |
+| 5 | Change theme in settings | All widgets recolor correctly (theme broadcast works) |
+| 6 | Change unit system in settings | Physical attributes label in Details updates (settings broadcast works) |
 
-&nbsp;   \*   \*\*Responsibilities:\*\*
+---
 
-&nbsp;       \*   \*\*Init:\*\* Load column visibility settings from `SettingsManager`. Configure `ViewMenuButton`.
+## Implementation Order
 
-&nbsp;       \*   \*\*Data Loading:\*\* 
+**Recommended sequence**:
 
-&nbsp;           \*   Call `TalentQueryService` for talents.
+1. **Phase 1 first** (layout changes are isolated to view layer)
+2. **Phase 2 after Phase 1 is verified** (presenter changes touch more files but are lower risk)
 
-&nbsp;           \*   Loop through talents, calc usage, format dates via `time\_utils`.
-
-&nbsp;           \*   Populate `RosterTableModel`.
-
-&nbsp;       \*   \*\*Events:\*\*
-
-&nbsp;           \*   Listen to `roster\_changed` signal (from `ContractCommandService`) to refresh data.
-
-&nbsp;           \*   Handle column visibility toggles -> Update Table \& Save to Settings.
-
-&nbsp;           \*   Handle Table Double Click -> `ui\_manager.show\_talent\_profile`.
-
-
-
-\#### 6. Integration \& Wiring
-
-\*   \*\*`src/ui/managers/ui\_manager.py`\*\*
-
-&nbsp;   \*   Add `show\_roster()`.
-
-&nbsp;   \*   Instantiates `RosterWindow` and `RosterPresenter`.
-
-&nbsp;   \*   Links them using `window.set\_presenter(presenter)`.
-
-
-
-\*   \*\*`src/ui/widgets/main\_window/bottom\_bar\_widget.py`\*\*
-
-&nbsp;   \*   Add `Roster` button.
-
-
-
-\*   \*\*`src/ui/presenters/main\_window\_presenter.py`\*\*
-
-&nbsp;   \*   Connect Bottom Bar signal to `ui\_manager.show\_roster`.
-
-
-
-\*   \*\*`src/data/settings\_manager.py`\*\*
-
-&nbsp;   \*   Add default `roster\_visible\_columns` to `\_default\_settings`.
-
-
-
-This plan ensures a clean separation of concerns, leverages your existing systems (TimeUtils, SmartTable, ThemeManager), and introduces the requested base classes to streamline future dialog creation.
-
+This ordering minimizes the debugging surface at each step.
