@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QHeaderView, QLabel
+from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QHeaderView, QLineEdit
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QSize
 
 from ui.dialogs.base_game_window import BaseGameWindow
@@ -17,6 +17,7 @@ class RosterWindow(BaseGameWindow):
     smart_hover_entered = pyqtSignal(object, QPoint)
     smart_hover_left = pyqtSignal()
     profile_requested = pyqtSignal(int) # Emits talent_id
+    filter_text_changed = pyqtSignal(str)
 
     def __init__(self, settings_manager, icon_manager, theme_manager, parent=None):
         self.defaultSize = QSize(1000, 600)
@@ -39,22 +40,19 @@ class RosterWindow(BaseGameWindow):
         top_bar_layout = QHBoxLayout()
         top_bar_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Title
-        title_label = QLabel("Active Contracts")
-        title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
-        top_bar_layout.addWidget(title_label)
-        
-        top_bar_layout.addStretch()
-        
-        # View Menu (Column Toggler)
-        self.view_menu_btn = ViewMenuButton(self.icon_manager, self)
-        # We forward the signal to the presenter
-        self.view_menu_btn.visibility_changed.connect(self.column_visibility_changed.emit)
-        top_bar_layout.addWidget(self.view_menu_btn)
-        
         # Help Button
         self.help_btn = HelpButton("overview", self.icon_manager, self)
         top_bar_layout.addWidget(self.help_btn)
+
+        # View Menu (Column Toggler)
+        self.view_menu_btn = ViewMenuButton(self.icon_manager, self)
+        self.view_menu_btn.visibility_changed.connect(self.column_visibility_changed.emit)
+        top_bar_layout.addWidget(self.view_menu_btn)
+
+        # Name Filter
+        self.name_filter_input = QLineEdit(placeholderText="Filter by name...")
+        self.name_filter_input.textChanged.connect(self.filter_text_changed.emit)
+        top_bar_layout.addWidget(self.name_filter_input)
 
         main_layout.addLayout(top_bar_layout)
 

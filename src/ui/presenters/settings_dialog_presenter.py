@@ -27,6 +27,7 @@ class SettingsDialogPresenter(QObject):
         self.initial_theme = self.settings_manager.get_setting("theme")
         self.initial_font_family = self.settings_manager.font_family
         self.initial_font_size = self.settings_manager.font_size
+        self.initial_resolution = self.settings_manager.get_setting("window_resolution_preset", "1920x1080")
         
         # Casting Mode Defaults
         self.initial_show_role = self.settings_manager.get_setting("casting_mode_show_role_details", True)
@@ -42,6 +43,7 @@ class SettingsDialogPresenter(QObject):
         self.view.theme_preview_changed.connect(self.on_theme_preview)
         self.view.font_family_preview_changed.connect(self.on_font_family_preview)
         self.view.font_size_preview_changed.connect(self.on_font_size_preview)
+        self.view.resolution_preview_changed.connect(self.on_resolution_preview)
 
         # Action signals
         self.view.reset_geometries_requested.connect(self.on_reset_geometries_requested)
@@ -57,6 +59,7 @@ class SettingsDialogPresenter(QObject):
             theme=self.initial_theme,
             font_family=self.initial_font_family,
             font_size=self.initial_font_size,
+            window_resolution_preset=self.initial_resolution,
             casting_mode_show_role_details=self.initial_show_role,
             casting_mode_show_scene_summary=self.initial_show_summary,
             auto_hide_filter_on_casting=self.initial_auto_hide
@@ -77,6 +80,11 @@ class SettingsDialogPresenter(QObject):
     def on_font_size_preview(self, size: int):
         """Applies the selected font size as a live preview."""
         self.settings_manager.set_setting("font_size", size)
+
+    @pyqtSlot(str)
+    def on_resolution_preview(self, resolution: str):
+        """Applies the selected resolution as a live preview."""
+        self.settings_manager.set_setting("window_resolution_preset", resolution)
 
     @pyqtSlot()
     def on_reset_geometries_requested(self):
@@ -105,6 +113,10 @@ class SettingsDialogPresenter(QObject):
         self.settings_manager.set_setting("font_family", final_font.family())
         self.settings_manager.set_setting("font_size", self.view.get_selected_font_size())
         
+        # Save Resolution
+        final_res = self.view.get_selected_resolution()
+        self.settings_manager.set_setting("window_resolution_preset", final_res)
+
         # Save Casting Mode Settings
         casting_settings = self.view.get_casting_mode_settings()
         for key, value in casting_settings.items():
@@ -126,3 +138,7 @@ class SettingsDialogPresenter(QObject):
         # Revert font size if it was changed
         if self.settings_manager.font_size != self.initial_font_size:
             self.settings_manager.set_setting("font_size", self.initial_font_size)
+
+        # Revert resolution if it was changed
+        if self.settings_manager.get_setting("window_resolution_preset") != self.initial_resolution:
+            self.settings_manager.set_setting("window_resolution_preset", self.initial_resolution)

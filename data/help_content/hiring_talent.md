@@ -1,6 +1,6 @@
-\### Hiring
+### Hiring
 
-\*\*• Per-Scene\*\*  
+**• Per-Scene**  
 
 For every role, the performer name (either custom or default), the action tags and the talent's demand are visible at a glance.  
 
@@ -12,7 +12,7 @@ Bulk hiring is possible (Shift+Left Click several roles in the list), as long as
 
 
 
-\*\*• Exclusive Contract\*\*  
+**• Exclusive Contract**  
 
 The Talent can also be contracted long-time. The contract has specifications about the duration, the salary, the amount of monthly scenes that they are expected to participate in, as well as the types of tags and roles (D/s Dynamic) they will perform.  
 
@@ -22,15 +22,15 @@ They will also not be able to be hired per-scene, even if they would agree to pe
 
 
 
-\*\*• Sponsoring Tours\*\*  
+**• Sponsoring Tours**  
 
 Players can sponsor Tours for Talent, which at the moment\*\*\*\*
 
 
 
-\### Demand
+### Demand
 
-\*\*• Base\*\*  
+**• Base**  
 
 The total demand that a talent has for a certain role is determined as follows:  
 
@@ -46,7 +46,7 @@ Finally, the preference multiplier averages the preference of the talent for eve
 
 
 
-\*\*• Extra Fees\*\*  
+**• Extra Fees**  
 
 There are several other 'clauses' that might come into play: travel, rush, and 'hazard pay'.  
 
@@ -54,11 +54,6 @@ Travel fees will be demanded when the location of the shot (the regional one, no
 
 If a Talent is hired to several scenes within the same Block, they will only demand one travel fee. I.e. they will only demand this travel fee per Block, not per Scene.  
 
-
-
 The rush fee does work per scene, and it is currently fixed, meaning that every talent demands the same rush fee no matter their attributes. It will kick in when the Talent is hired on the same week that the shooting will take place.  
 
-
-
 The hazard pay is for scenes that have a D/s dynamic: the higher the dynamic, the higher the demand, but Talent that enjoys a higher Dynamic will have a lower hazard pay demand that one that hates it.
-

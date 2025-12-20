@@ -121,6 +121,7 @@ class SettingsViewModel:
     theme: str
     font_family: str
     font_size: int
+    window_resolution_preset: str
     casting_mode_show_role_details: bool = True
     casting_mode_show_scene_summary: bool = True
     auto_hide_filter_on_casting: bool = True

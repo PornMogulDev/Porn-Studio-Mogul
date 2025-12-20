@@ -15,6 +15,7 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
     theme_preview_changed = pyqtSignal(str)
     font_family_preview_changed = pyqtSignal(QFont)
     font_size_preview_changed = pyqtSignal(int)
+    resolution_preview_changed = pyqtSignal(str)
     reset_geometries_requested = pyqtSignal()
     
     def __init__(self, controller, parent=None):
@@ -49,6 +50,18 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         unit_layout.addWidget(unit_label)
         unit_layout.addWidget(self.unit_combo)
         display_v_layout.addLayout(unit_layout)
+
+        # Resolution layout
+        res_layout = QHBoxLayout()
+        res_label = QLabel("Window Resolution:")
+        self.res_combo = QComboBox()
+        resolutions = ["1280x720", "1366x768", "1600x900", "1920x1080", "2560x1440", "3840x2160"]
+        for res in resolutions:
+            self.res_combo.addItem(res)
+        res_layout.addWidget(res_label)
+        res_layout.addWidget(self.res_combo)
+        display_v_layout.addLayout(res_layout)
+        self.res_combo.setToolTip("Sets the main window size. Only takes effect for the main application window.")
 
         # Theme layout
         theme_layout = QHBoxLayout()
@@ -127,6 +140,7 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         self.theme_combo.currentTextChanged.connect(self._on_theme_text_changed)
         self.font_combo.currentFontChanged.connect(self.font_family_preview_changed)
         self.font_size_spinbox.valueChanged.connect(self.font_size_preview_changed)
+        self.res_combo.currentTextChanged.connect(self.resolution_preview_changed)
         reset_button.clicked.connect(self.reset_geometries_requested)
     
     def _on_theme_text_changed(self, text: str):
@@ -142,6 +156,7 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         self.theme_combo.blockSignals(True)
         self.font_combo.blockSignals(True)
         self.font_size_spinbox.blockSignals(True)
+        self.res_combo.blockSignals(True)
 
         # Load unit system
         index = self.unit_combo.findData(vm.unit_system)
@@ -157,6 +172,11 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         self.font_combo.setCurrentFont(QFont(vm.font_family))
         self.font_size_spinbox.setValue(vm.font_size)
 
+        # Load resolution
+        res_index = self.res_combo.findText(vm.window_resolution_preset)
+        if res_index != -1:
+            self.res_combo.setCurrentIndex(res_index)
+
         # Load Casting Mode settings
         self.cb_show_role_details.setChecked(vm.casting_mode_show_role_details)
         self.cb_show_scene_summary.setChecked(vm.casting_mode_show_scene_summary)
@@ -167,6 +187,7 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
         self.theme_combo.blockSignals(False)
         self.font_combo.blockSignals(False)
         self.font_size_spinbox.blockSignals(False)
+        self.res_combo.blockSignals(False)
 
     # --- Data Access Methods for Presenter ---
     def get_selected_unit_system(self) -> str:
@@ -180,6 +201,10 @@ class SettingsDialog(GeometryManagerMixin, QDialog):
     def get_selected_font_size(self) -> int:
         """Allows the presenter to get the final selected font size."""
         return self.font_size_spinbox.value()
+    
+    def get_selected_resolution(self) -> str:
+        """Allows the presenter to get the final selected resolution string."""
+        return self.res_combo.currentText()
     
     def get_casting_mode_settings(self) -> dict:
         """Returns a dict of the casting mode boolean settings."""

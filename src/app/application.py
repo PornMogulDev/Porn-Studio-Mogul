@@ -127,12 +127,40 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         self.ui_manager.refresh_main_window_data()
         self.stacked_widget.setCurrentWidget(self.main_window)
 
+    def _apply_resolution_preset(self, preset_str: str):
+        """Parses 'WxH' string and resizes/centers the window."""
+        try:
+            w_str, h_str = preset_str.split('x')
+            width, height = int(w_str), int(h_str)
+            
+            # Update the default size for the GeometryMixin
+            self.defaultSize = QSize(width, height)
+            
+            # Apply the size
+            self.resize(self.defaultSize)
+            
+            # Re-center on the current screen
+            if screen := self.screen():
+                screen_geom = screen.availableGeometry()
+                self.move(
+                    screen_geom.center().x() - width // 2,
+                    screen_geom.center().y() - height // 2
+                )
+            
+            # Save this new geometry immediately as the "reset" point
+            self._save_geometry()
+        except ValueError:
+            logger.error(f"Invalid resolution format: {preset_str}")
+
     @pyqtSlot(str)
     def _on_setting_changed(self, key: str):
-        if key in ("theme", "font_family", "font_size"):
+        if key in ("theme", "font_family", "font_size", "window_resolution_preset"):
             apply_theme(self.settings_manager, self.theme_manager)
             if key == "theme":
                 self.icon_manager.refresh_theme() # Refresh icons on theme change
+            if key == "window_resolution_preset":
+                preset = self.settings_manager.get_setting(key)
+                self._apply_resolution_preset(preset)
 
     def closeEvent(self, event: QCloseEvent):
         self._save_geometry()

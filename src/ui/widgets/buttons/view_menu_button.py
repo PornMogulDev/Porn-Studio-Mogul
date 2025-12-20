@@ -1,6 +1,6 @@
 from typing import List, Dict
 from PyQt6.QtWidgets import QToolButton, QMenu
-from PyQt6.QtCore import pyqtSignal, QPoint
+from PyQt6.QtCore import pyqtSignal, QPoint, Qt
 from PyQt6.QtGui import QAction, QIcon, QMouseEvent
 
 from ui.managers.icon_manager import IconManager
@@ -28,11 +28,48 @@ class ViewMenuButton(QToolButton):
         super().__init__(parent)
         self.icon_manager = icon_manager
         self._items: List[Dict] = []
+
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
         
         self._setup_ui()
         
         # We handle the menu manually to allow dynamic regeneration on every click
         self.clicked.connect(self._show_menu)
+
+    def _show_context_menu(self, pos: QPoint):
+        """Right-click menu for batch operations."""
+        if not self._items:
+            return
+
+        ctx_menu = QMenu(self)
+        
+        select_all = QAction("Show All Columns", self)
+        select_all.triggered.connect(lambda: self._batch_set_visibility(True))
+        
+        deselect_all = QAction("Hide All Columns", self)
+        deselect_all.triggered.connect(lambda: self._batch_set_visibility(False))
+        
+        ctx_menu.addAction(select_all)
+        ctx_menu.addAction(deselect_all)
+        ctx_menu.exec(self.mapToGlobal(pos))
+
+    def _batch_set_visibility(self, visible: bool):
+        """Updates all items and notifies the application."""
+        for item in self._items:
+            key = item.get('key')
+            if not key:
+                continue
+            
+            # Optional: Add a check if the item is 'enabled' or 'required' 
+            # to prevent hiding essential columns if desired.
+            if item.get('enabled', True):
+                if item['visible'] != visible:
+                    item['visible'] = visible
+                    self.visibility_changed.emit(key, visible)
+        
+        # No need to manually refresh the view; the parent (e.g., TalentTab) 
+        # handles the visibility_changed signal to update the UI.
 
     def _setup_ui(self):
         """Sets the default appearance of the button."""

@@ -31,7 +31,8 @@ class RosterPresenter(BasePresenter):
         # Navigation
         self.view.profile_requested.connect(self._on_profile_requested)
         self.view.help_btn.help_requested.connect(self.controller.signals.show_help_requested.emit)
-         
+        self.view.filter_text_changed.connect(self.refresh_data)
+
         # Hover / Smart Table
         self.view.smart_hover_entered.connect(self._on_table_hover)
         self.view.smart_hover_left.connect(self.ui_manager.hide_talent_summary)
@@ -99,11 +100,15 @@ class RosterPresenter(BasePresenter):
         
         # Single query
         usage_map = self.controller.get_contracted_scene_counts_bulk(talent_ids)
+        filter_text = self.view.name_filter_input.text().lower()
 
         view_models = []
         current_week = self.controller.game_state.absolute_week
         
         for talent in talents_db:
+            # Apply Name Filter
+            if filter_text and filter_text not in talent.alias.lower():
+                continue
             if not talent.contract:
                 continue
                 

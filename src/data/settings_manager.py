@@ -49,12 +49,15 @@ class SettingsManager:
             "theme": "light",  # 'dark', 'light', 'system'
             "font_family": "Roboto",
             "font_size": 12,
+            "window_resolution_preset": "1920x1080",
             "talent_profile_layouts": {},
             "talent_profile_last_layout": None,
             "talent_filter_presets": {},
             "scene_planner_presets": {},
             "ai_studio_panel_visibility": {},
-            "roster_visible_columns": {},
+            # TODO: Standardize column behaviour, management and settings storage accross all tables 
+            "talent_tab_visible_columns": [],
+            "roster_visible_columns": [],
             
             # Talent Tab Preferences
             "casting_mode_show_role_details": True,
