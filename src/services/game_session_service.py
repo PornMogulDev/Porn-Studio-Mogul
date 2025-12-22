@@ -74,7 +74,7 @@ class GameSessionService:
             session.add(general_category)
 
             # --- Create Initial AI Studios ---
-            generated_studios = self.ai_studio_generator.generate_studios(count=5, start_id=1)
+            generated_studios = self.ai_studio_generator.generate_studios(count=4, start_id=1)
             for studio in generated_studios:
                 db_studio = AIStudioDB.from_dataclass(studio)
                 session.add(db_studio)

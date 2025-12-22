@@ -34,6 +34,8 @@ class GoToListPresenter(QObject):
         self.controller.signals.go_to_categories_changed.connect(self._on_categories_changed)
         self.controller.signals.go_to_list_changed.connect(self._on_list_assignments_changed)
 
+        self.view.help_btn.help_requested.connect(self.controller.signals.show_help_requested.emit)
+
     def disconnect_signals(self):
         """Disconnects from global signals to prevent memory leaks."""
         try:

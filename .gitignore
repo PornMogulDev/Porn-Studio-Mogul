@@ -98,6 +98,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# AI Stuff
+.agent/
+
 # Spyder project settings
 .spyderproject
 .spyderworkspace

@@ -63,6 +63,59 @@ class MainWindowView(QWidget):
         self.action_quick_load = QAction("Quick Load", self)
         self.action_quick_load.setShortcut(QKeySequence(Qt.Key.Key_F9))
         self.addAction(self.action_quick_load)
+    
+    def _create_actions(self):
+        """Creates standard actions. The Presenter will connect them."""
+        self.action_menu = QAction("Menu", self)
+        self.action_menu.setShortcut(QKeySequence(Qt.Key.Key_Escape))
+        self.addAction(self.action_menu)
+
+        self.action_advance_week = QAction("Advance Week", self)
+        self.action_advance_week.setShortcut(QKeySequence(Qt.Key.Key_P))
+        self.addAction(self.action_advance_week)
+
+        self.action_quick_save = QAction("Quick Save", self)
+        self.action_quick_save.setShortcut(QKeySequence(Qt.Key.Key_F5))
+        self.addAction(self.action_quick_save)
+
+        self.action_quick_load = QAction("Quick Load", self)
+        self.action_quick_load.setShortcut(QKeySequence(Qt.Key.Key_F9))
+        self.addAction(self.action_quick_load)
+
+        # Tab Navigation Shortcuts
+        self.action_next_tab = QAction("Next Tab", self)
+        self.action_next_tab.setShortcuts([
+            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_PageDown),
+            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Tab)
+        ])
+        self.action_next_tab.triggered.connect(self.next_tab)
+        self.addAction(self.action_next_tab)
+
+        self.action_prev_tab = QAction("Previous Tab", self)
+        self.action_prev_tab.setShortcuts([
+            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_PageUp),
+            QKeySequence(Qt.Modifier.CTRL | Qt.Modifier.SHIFT | Qt.Key.Key_Tab)
+        ])
+        self.action_prev_tab.triggered.connect(self.prev_tab)
+        self.addAction(self.action_prev_tab)
+
+    def next_tab(self):
+        """Cycles to the next available tab."""
+        count = self.tabs.count()
+        if count <= 1:
+            return
+        current = self.tabs.currentIndex()
+        next_index = (current + 1) % count
+        self.tabs.setCurrentIndex(next_index)
+
+    def prev_tab(self):
+        """Cycles to the previous available tab."""
+        count = self.tabs.count()
+        if count <= 1:
+            return
+        current = self.tabs.currentIndex()
+        prev_index = (current - 1) % count
+        self.tabs.setCurrentIndex(prev_index)
 
     # --- Public API for Presenter/Assembler ---
 

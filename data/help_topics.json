@@ -34,5 +34,9 @@
   "email": {
     "title": "The Inbox",
     "content_file": "email_inbox.md"
+  },
+  "go_to_list": {
+    "title": "The Go-To List",
+    "content_file": "go_to_list.md"
   }
 }

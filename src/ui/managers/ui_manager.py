@@ -250,7 +250,7 @@ class UIManager:
 
     def show_go_to_list(self):
         def factory():
-            dialog = GoToTalentDialog(self.settings_manager, parent=self.parent_widget)
+            dialog = GoToTalentDialog(self.settings_manager, self.icon_manager, parent=self.parent_widget)
             presenter = GoToListPresenter(self.controller, dialog, self, parent=dialog)
             dialog.set_presenter(presenter)
             return dialog

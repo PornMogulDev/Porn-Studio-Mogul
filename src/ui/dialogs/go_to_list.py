@@ -1,12 +1,14 @@
 from PyQt6.QtCore import Qt, QAbstractListModel, QModelIndex, QPoint, QSize
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QListView, QListWidget, QListWidgetItem,
-    QAbstractItemView, QDialogButtonBox, QInputDialog, QMessageBox, QWidget, QMenu
+    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QListView,
+    QListWidget, QListWidgetItem, QAbstractItemView, QDialogButtonBox,
+    QInputDialog, QMessageBox, QWidget, QMenu
 )
 from data.game_state import Talent
 from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.presenters.go_to_list_presenter import GoToListPresenter, ALL_TALENTS_ID
+from ui.widgets.buttons.help_button import HelpButton
 
 class GoToTalentListModel(QAbstractListModel):
     """A model for displaying a list of talents."""
@@ -40,10 +42,11 @@ class GoToTalentListModel(QAbstractListModel):
 
 class GoToTalentDialog(GeometryManagerMixin, QDialog):
     """A dialog to view and manage Go-To talent list categories."""
-    def __init__(self, settings_manager, parent=None):
+    def __init__(self, settings_manager, icon_manager, parent=None):
         super().__init__(parent)
         self.presenter: GoToListPresenter | None = None # Initialize to None
         self.settings_manager = settings_manager # Mixin needs this
+        self.icon_manager = icon_manager # HelpButton needs this
         
         self.setWindowTitle("Go-To Talent Categories")
         self.setMinimumSize(600, 500)
@@ -68,6 +71,10 @@ class GoToTalentDialog(GeometryManagerMixin, QDialog):
         left_pane = QWidget()
         left_layout = QVBoxLayout(left_pane)
         left_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Help Button
+        self.help_btn = HelpButton("go_to_list", self.icon_manager, self)
+        left_layout.addWidget(self.help_btn)
         
         self.category_list = QListWidget()
         left_layout.addWidget(self.category_list)
