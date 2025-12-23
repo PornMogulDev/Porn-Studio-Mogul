@@ -1,9 +1,12 @@
 import logging
 from typing import Dict, Optional
+from PyQt6.QtCore import QCoreApplication, pyqtSignal
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLabel, QComboBox,
-    QDialogButtonBox, QWidget, QSpinBox
+     QDialog, QVBoxLayout, QFormLayout, QLabel, QComboBox,
+     QDialogButtonBox, QWidget, QSpinBox
 )
+
+from utils import time_utils
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +14,10 @@ class SponsorTourDialog(QDialog):
     """
     A dialog for negotiating the terms of a player-sponsored tour.
     """
+
+    # Emitted when the user clicks OK, before the dialog closes, to allow for processing.
+    tour_confirmed = pyqtSignal()
+
     def __init__(self, talent_alias: str, tour_data: Dict, parent: QWidget = None):
         super().__init__(parent)
         self.talent_alias = talent_alias
@@ -65,8 +72,9 @@ class SponsorTourDialog(QDialog):
         main_layout.addWidget(button_box)
         self.ok_button = button_box.button(QDialogButtonBox.StandardButton.Ok)
 
-        # Connections for the button box
-        button_box.accepted.connect(self.accept)
+        # Connections
+        # We handle OK manually to show a "Processing" state
+        self.ok_button.clicked.connect(self._on_confirm_clicked)
         button_box.rejected.connect(self.reject)
 
     def _populate_data(self):
@@ -119,13 +127,41 @@ class SponsorTourDialog(QDialog):
         cost_breakdown = f"(Travel: ${travel_cost:,} + Accommodation: ${accommodation_cost:,})"
         self.total_cost_label.setText(f"${total_cost:,} {cost_breakdown}")
 
+    def _on_confirm_clicked(self):
+        """
+        Updates UI to show processing state, executes logic, then closes.
+        """
+        if not self.selected_accommodation_id:
+            return
+
+        # 1. Update UI to show busy state
+        self.ok_button.setEnabled(False)
+        self.duration_spinbox.setEnabled(False)
+        self.accommodation_combo.setEnabled(False)
+        self.total_cost_label.setText("Finalizing tour details... This may take a moment.")
+        self.total_cost_label.setStyleSheet("color: #2980b9; font-weight: bold;") # Use a visible color (blue-ish)
+        
+        # 2. Force the UI to repaint so the user sees the message
+        QCoreApplication.processEvents()
+
+        # 3. Emit signal to trigger the heavy synchronous work in the Controller
+        self.tour_confirmed.emit()
+
+        # 4. Work is done, close the dialog
+        self.accept()
+
     def get_selected_tour_details(self) -> Optional[Dict]:
         """Returns the final negotiated details of the tour."""
-        if self.result() == QDialog.DialogCode.Accepted and self.selected_accommodation_id:
+        if self.selected_accommodation_id:
+
+            # Convert the UI-friendly start date back to absolute week for the database
+            start_year = self.tour_data.get('start_year')
+            start_week = self.tour_data.get('start_week')
+            start_absolute_week = time_utils.to_absolute(start_year, start_week)
+
             return {
                 "destination_location": self.tour_data.get('destination_location'),
-                "start_week": self.tour_data.get('start_week'),
-                "start_year": self.tour_data.get('start_year'),
+                "start_absolute_week": start_absolute_week,
                 "duration_weeks": self.duration_spinbox.value(),
                 "accommodation_tier_id": self.selected_accommodation_id
             }

@@ -216,8 +216,9 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         talent_alias = self.presenter.open_talents[self.presenter.current_talent_id].alias
         dialog = SponsorTourDialog(talent_alias, preview_data_dict, self)
 
-        # 4. If the user confirms, emit a high-level signal with the final details.
-        if dialog.exec():
+        # 4. Connect logic to the dialog's confirmation signal.
+        # This runs synchronously while the dialog is visible but in "Processing" state.
+        def on_tour_confirmed():
             final_tour_details = dialog.get_selected_tour_details()
             if final_tour_details:
                 total_cost = dialog.get_final_cost()
@@ -225,6 +226,11 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
                     self.presenter.current_talent_id, roles_for_tour,
                     final_tour_details, total_cost
                 )
+        
+        dialog.tour_confirmed.connect(on_tour_confirmed)
+
+        # 5. Show the dialog.
+        dialog.exec()
 
     # --- Layout Management ---
     def _populate_layouts_combobox(self):

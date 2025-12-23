@@ -218,19 +218,20 @@ class TalentTab(QWidget):
 
     def set_info_panel_visible(self, visible: bool):
         """Shows or hides the entire left sidebar."""
-        if visible and not self.info_panel_container.isVisible():
-            # If showing for the first time or restoring, ensure it has a usable width.
-            # Otherwise, the QSplitter might keep it at 0 or near 0 width.
+        was_visible = self.info_panel_container.isVisible()
+        self.info_panel_container.setVisible(visible)
+
+        if visible and not was_visible:
+            # We just showed the panel. Check if it defaulted to a collapsed state (width ~0).
             sizes = self.main_splitter.sizes()
             total_width = sum(sizes)
             current_info_width = sizes[0]
             
-            # If it's too small (collapsed), give it 20% of the total width
+            # If it's too small (collapsed), force it to take up space (e.g., 20% or min 280px)
             if current_info_width < 50 and total_width > 0:
-                target_width = int(total_width * 0.20)
+                target_width = max(280, int(total_width * 0.20))
                 remaining_width = total_width - target_width - sizes[2]
                 self.main_splitter.setSizes([target_width, remaining_width, sizes[2]])
-        self.info_panel_container.setVisible(visible)
 
     def configure_info_panel(self, show_role: bool, show_summary: bool):
         """Configures which widgets are visible inside the info panel."""
