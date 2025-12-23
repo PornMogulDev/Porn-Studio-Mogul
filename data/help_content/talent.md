@@ -8,7 +8,9 @@ At the moment, they don't fulfil either obligation very well. Their skills and a
 
 Still, the next implementations I am planning are both for them: relationships (between themselves and with studios), and an actual nationality system that interacts with the naming system and that allows for a deeper system when it comes to hiring thanks to a 'based off location' feature, more on that in the hiring section of Help.
 
-At the moment, the talent generation only happens when a new game is started. This obviously shouldn't work like that, as the talent pool should be highly dynamic, with many of the characters having relatively short careers and new ones popping up all the time. I am thinking casting calls, 'talent hunters' and talent agencies for populating the pool with new talent, and some combination of deaths and retirements, stemming from the talent's success and personality, for the opposite.
+At the moment, the talent generation only happens when a new game is started. This obviously shouldn't work like that, as the talent pool should be highly dynamic, with many of the characters having relatively short careers and new ones popping up all the time. I am thinking casting calls, 'talent hunters' and talent agencies for populating the pool with new talent, and some combination of deaths and retirements, stemming from the talent's success and personality, for the opposite.  
+
+The database is auto-generated at the moment. Perhaps there will be a 'custom universe' at some point, but never a database using real people.
 
 ---
 

@@ -1,3 +1,7 @@
+<span style="color:grey"><i>Written on version ???. Updated on version 0.6.0</i></span>  
+
+---
+
 ### Hiring
 
 **• Per-Scene**  
@@ -10,23 +14,21 @@ It might appear, but be greyed-out, which means that they fulfil said requiremen
 
 Bulk hiring is possible (Shift+Left Click several roles in the list), as long as none of the roles they are to be hired for are part of the same scene. Realistically, a talent could perform several roles in the same scene, but this is so rare and it would be such a headache to implement, that I don't think it is worth it.  
 
-
-
 **• Exclusive Contract**  
 
 The Talent can also be contracted long-time. The contract has specifications about the duration, the salary, the amount of monthly scenes that they are expected to participate in, as well as the types of tags and roles (D/s Dynamic) they will perform.  
 
 Once hired like this, the Talent will not get paid for scenes individually, and can be assigned to any role that fits the clauses of the contract. Although they will still refuse due to Fatigue reasons, and their Compliance will go down (or up) depending on how much they like the roles they are assigned to, no matter what was agreed to, possibly leading to them unilaterally terminating the contract. The player cannot terminate an ongoing contract yet.  
+There should be another 'negotiation field' to determine whether the talent is supposed to move to the studio's base location, in case their effective location isn't the same already, and who pays the travelling costs if not.  
 
 They will also not be able to be hired per-scene, even if they would agree to performing a role if not in the contract. It could be made so they agree to those roles as long as a bonus is paid to them.
 
-
-
 **• Sponsoring Tours**  
 
-Players can sponsor Tours for Talent, which at the moment\*\*\*\*
+Players can sponsor Tours for Talent, which requires selecting a few roles, similar to the per-scene hiring. The player will have to pay for their travel and accommodation. The duration of the tour cannot be less than the difference between the first scene they are hired for and the last one, but it can be longer, and the player might hire them for extra roles during their stay with no extra travelling fees.  
+Perhaps making some talent less willing to be hired for single blocks while having to travel could be a good idea to make sponsoring tours more desirable for the player.  
 
-
+---
 
 ### Demand
 
@@ -43,8 +45,6 @@ Ambition and Popularity multipliers are self-explanatory: the highest a talent's
 Every Action tag has a 'demand multiplier', with the highest one from the ones that the role is composed of being the only one taken into account for this. I should probably add these multipliers to Thematic and Physical tags too.
 
 Finally, the preference multiplier averages the preference of the talent for everything the would have to perform in the scene, with a high average preference leading to a lower demand, and otherwise.
-
-
 
 **• Extra Fees**  
 

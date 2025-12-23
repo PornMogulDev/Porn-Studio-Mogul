@@ -14,7 +14,7 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
         self.settings_manager = settings_manager
         self.icon_manager = icon_manager
         self.setWindowTitle("Production Call Sheet")
-        self.defaultSize = QSize(1200, 500)
+        self.defaultSize = QSize(1250, 500)
         
         self.presenter = None
         
