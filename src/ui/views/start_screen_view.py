@@ -1,7 +1,7 @@
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QUrl
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QGridLayout, 
-    QDialog, QTextEdit, QDialogButtonBox
+    QDialog, QTextBrowser, QDialogButtonBox
 )
 
 from ui.widgets.clickable_svg_widget import ClickableSvgWidget
@@ -16,6 +16,7 @@ class StartScreenView(QWidget):
     settings_clicked = pyqtSignal()
     editor_clicked = pyqtSignal()
     acknowledgements_clicked = pyqtSignal()
+    acknowledgements_link_clicked = pyqtSignal(QUrl) 
     quit_clicked = pyqtSignal()
 
     def __init__(self, parent=None):
@@ -119,10 +120,17 @@ class StartScreenView(QWidget):
         dialog.setMinimumSize(600, 400)
 
         layout = QVBoxLayout(dialog)
-        text_edit = QTextEdit(dialog)
-        text_edit.setReadOnly(True)
-        text_edit.setMarkdown(text_content)
-        layout.addWidget(text_edit)
+        
+        text_browser = QTextBrowser(dialog)
+        text_browser.setOpenExternalLinks(False) 
+        text_browser.setOpenLinks(False) 
+        
+        text_browser.setMarkdown(text_content)
+        
+        # Forward the signal to the Presenter via our custom signal
+        text_browser.anchorClicked.connect(self.acknowledgements_link_clicked.emit)
+        
+        layout.addWidget(text_browser)
 
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
         button_box.accepted.connect(dialog.accept)

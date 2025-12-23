@@ -48,6 +48,11 @@ def get_user_data_root(app_name="PSM Saves & Config"):
 
 USER_DATA_ROOT = get_user_data_root()
 
+# --- ROOT LEVEL DOCUMENTATION ---
+ACKNOWLEDGEMENTS_FILE = APP_ROOT / "acknowledgements.md"
+NOTICE_FILE = APP_ROOT / "NOTICE.md"
+LICENSE_FILE = APP_ROOT / "THIRD_PARTY_LICENSES.md"
+
 # --- Base directories for read-only assets and data ---
 # These must use resource_path to handle being bundled inside an executable.
 ASSETS_DIR = resource_path("assets")
@@ -73,8 +78,7 @@ EMAIL_TEMPLATES_DIR = DATA_DIR / "email_templates"
 GAME_DATA = DATA_DIR / "game_data.sqlite"
 EMAIL_FILE = DATA_DIR / "emails.json"
 HELP_FILE = DATA_DIR / "help_topics.json"
-ACKNOWLEDGEMENTS_FILE = DATA_DIR / "acknowledgements.md"
- 
+
 # Log files (writable)
 LOG_FILE = LOG_DIR / "app.log"
  

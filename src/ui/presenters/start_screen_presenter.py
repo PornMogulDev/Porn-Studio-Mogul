@@ -1,19 +1,13 @@
 import logging
-from PyQt6.QtCore import QObject
+from PyQt6.QtCore import QObject, QUrl
+from PyQt6.QtGui import QDesktopServices
 
-from utils.paths import ACKNOWLEDGEMENTS_FILE
+from utils.paths import ACKNOWLEDGEMENTS_FILE, APP_ROOT
 
 logger = logging.getLogger(__name__)
 
 class StartScreenPresenter(QObject):
     def __init__(self, controller, view, ui_manager, parent=None):
-        """
-        Args:
-            controller: The GameController
-            view: StartScreenView
-            ui_manager: UIManager
-            parent: Should be the View (StartScreenView) to ensure lifecycle coupling.
-        """
         super().__init__(parent)
         self.controller = controller
         self.view = view
@@ -34,9 +28,11 @@ class StartScreenPresenter(QObject):
         self.view.load_clicked.connect(self._on_load_clicked)
         self.view.settings_clicked.connect(self.ui_manager.show_settings_dialog)
         self.view.acknowledgements_clicked.connect(self._on_acknowledgements_clicked)
+        
+        # Connect the new link handler
+        self.view.acknowledgements_link_clicked.connect(self._on_acknowledgements_link_clicked)
 
     def refresh_state(self):
-        """Checks for saves and updates the view's button states."""
         has_saves = self.controller.check_for_saves()
         self.view.set_continue_enabled(has_saves)
         self.view.set_load_enabled(has_saves)
@@ -45,7 +41,6 @@ class StartScreenPresenter(QObject):
         self.ui_manager.show_save_load('load')
 
     def _on_acknowledgements_clicked(self):
-        """Reads the markdown file and tells the view to display it."""
         try:
             with open(ACKNOWLEDGEMENTS_FILE, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -53,3 +48,35 @@ class StartScreenPresenter(QObject):
         except FileNotFoundError:
             logger.error(f"The acknowledgements file could not be found at: {ACKNOWLEDGEMENTS_FILE}")
             self.view.show_acknowledgements_dialog("Error: Acknowledgements file not found.")
+
+    def _on_acknowledgements_link_clicked(self, url: QUrl):
+        """
+        Handles logic for links clicked inside the acknowledgements dialog.
+        Distinguishes between web URLs and local file paths.
+        """
+        scheme = url.scheme()
+
+        # If it's a web link (http/https), open it directly
+        if scheme in ['http', 'https']:
+            QDesktopServices.openUrl(url)
+            return
+
+        # Handle local files
+        path_str = url.toString()
+        
+        # 1. Clean up "file:" prefix if PyQt added it
+        if path_str.startswith("file:"):
+            path_str = path_str[5:]
+            # Remove leading slashes often added by file:/// on Windows
+            if path_str.startswith("///"): 
+                path_str = path_str[3:]
+        
+        # 2. Resolve the path relative to the APP_ROOT
+        # In Markdown: [Link](NOTICE.md) -> url is "NOTICE.md"
+        # We join APP_ROOT + "NOTICE.md"
+        full_path = APP_ROOT / path_str
+
+        logger.debug(f"Opening external file: {full_path}")
+        
+        # 3. Open the file using the OS default application
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(full_path)))
