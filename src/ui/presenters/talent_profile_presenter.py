@@ -69,8 +69,31 @@ class TalentProfilePresenter(QObject):
         self.controller.signals.roster_changed.connect(self._refresh_current_talent_data_on_change)
         self.controller.settings_manager.signals.setting_changed.connect(self._on_setting_changed)
 
+        # Ensure cleanup when view is destroyed to prevent zombie presenter calls
+        self.view.destroyed.connect(self.cleanup)
+
+    def cleanup(self):
+        """Disconnects global signals to prevent zombie callbacks."""
+        try:
+            self.controller.signals.scenes_changed.disconnect(self._refresh_current_talent_data_on_change)
+        except (RuntimeError, TypeError):
+            pass
+            
+        try:
+            self.controller.signals.roster_changed.disconnect(self._refresh_current_talent_data_on_change)
+        except (RuntimeError, TypeError):
+            pass
+
+        try:
+            self.controller.settings_manager.signals.setting_changed.disconnect(self._on_setting_changed)
+        except (RuntimeError, TypeError):
+            pass
+
     def _refresh_current_talent_data_on_change(self):
         """A single slot to reload all relevant data for the current talent when game state changes."""
+        if not self.view or sip.isdeleted(self.view):
+            return
+
         if self.current_talent_id:
             updated_talent = self.controller.get_talent_by_id(self.current_talent_id)
             if updated_talent:
@@ -304,6 +327,9 @@ class TalentProfilePresenter(QObject):
 
     @pyqtSlot(str)
     def _on_setting_changed(self, key: str):
+        if not self.view or sip.isdeleted(self.view):
+            return
+
         if key == "unit_system":
             if self.current_talent_id:
                 talent = self.open_talents[self.current_talent_id]
