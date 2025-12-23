@@ -1,0 +1,62 @@
+[
+  {
+    "id": "warehouse_cheap",
+    "name": "Shady Warehouse",
+    "recommended_budget": 200,
+    "min_budget": 50,
+    "curve_type": "linear",
+    "tags": ["Gritty", "Spacious", "Noisy", "Unregulated", "Dirty", "Public"],
+    "simulation_modifiers": {
+      "base_stress": 20,
+      "base_momentum": 0,
+      "risk_event_chance": 1.5
+    },
+    "synergy_bonuses": ["verite"],
+    "synergy_penalties": ["glossy"]
+  },
+  {
+    "id": "apartment_rented",
+    "name": "Rented Apartment",
+    "recommended_budget": 600,
+    "min_budget": 200,
+    "curve_type": "linear",
+    "tags": ["Domestic", "Standard", "Private"],
+    "simulation_modifiers": {
+      "base_stress": 10,
+      "base_momentum": 0,
+      "risk_event_chance": 1.1
+    },
+    "synergy_bonuses": ["glossy"],
+    "synergy_penalties": []
+  },
+  { 
+    "id": "studio_stage",
+    "name": "Sound Stage",
+    "recommended_budget": 1200,
+    "min_budget": 500,
+    "curve_type": "logarithmic",
+    "tags": ["Standard", "Controlled"],
+    "simulation_modifiers": {
+      "base_stress": 5,
+      "base_momentum": 5,
+      "risk_event_chance": 1.0
+    },
+    "synergy_bonuses": ["cinematic", "glossy"],
+    "synergy_penalties": ["verite"]
+  },
+  {
+    "id": "luxury_villa",
+    "name": "Luxury Villa",
+    "recommended_budget": 3000,
+    "min_budget": 1000,
+    "curve_type": "step",
+    "tags": ["Glossy", "Scenic", "Private", "Opulent"],
+     "simulation_modifiers": {
+      "base_stress": -10,
+      "base_momentum": 10,
+      "risk_event_chance": 0.5
+    },
+    "synergy_bonuses": ["cinematic", "glossy"],
+    "synergy_penalties": ["verite"]
+  }
+]

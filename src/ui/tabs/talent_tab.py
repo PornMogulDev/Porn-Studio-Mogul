@@ -316,13 +316,6 @@ class TalentTab(QWidget):
 
     # --- Public Methods for Presenter ---
 
-    def set_role_details_panel_visible(self, visible: bool):
-        # Deprecated: logic moved to configure_info_panel / set_info_panel_visible
-        # Kept temporarily if presenter still calls it directly
-        self.role_details_widget.setVisible(visible)
-        if visible and not self.info_panel_container.isVisible():
-             self.info_panel_container.setVisible(True)
-
     def update_talent_list(self, talents: list):
         self.talent_model.update_data(talents)
 
@@ -386,23 +379,23 @@ class TalentTab(QWidget):
             
     def _save_column_visibility_settings(self):
         if not self.talent_model: return
-        visible_columns = [
-            self.talent_model.headers[i]
-            for i in range(len(self.talent_model.headers))
-            if not self.talent_table_view.isColumnHidden(i)
-        ]
-        self.talent_model.settings_manager.set_setting("talent_tab_visible_columns", visible_columns)
+        # Standardizing to dictionary storage (header_name: bool) for now, but we should simply use lists for it
+        settings = {}
+        for i, header in enumerate(self.talent_model.headers):
+            settings[header] = not self.talent_table_view.isColumnHidden(i)
+        self.settings_manager.set_setting("talent_tab_visible_columns", settings)
         
     def _load_and_apply_column_visibility(self):
         if not self.talent_model: return
-        visible_columns = self.talent_model.settings_manager.get_setting(
-            "talent_tab_visible_columns", self.talent_model.headers
-        )
-        visible_set = set(visible_columns)
+        settings = self.settings_manager.get_setting("talent_tab_visible_columns", {})
+        if not isinstance(settings, dict):
+            settings = {}
         for i, header_text in enumerate(self.talent_model.headers):
             # Special case: Demand column visibility is strictly controlled by logic + pref, not just saved state
             if header_text == "Demand": continue 
-            self.talent_table_view.setColumnHidden(i, header_text not in visible_set)
+            # Default to True if not explicitly saved as False
+            is_visible = settings.get(header_text, True)
+            self.talent_table_view.setColumnHidden(i, not is_visible)
 
     def show_talent_profile(self, index: QModelIndex):
         if talent := self.talent_model.data(index, Qt.ItemDataRole.UserRole):

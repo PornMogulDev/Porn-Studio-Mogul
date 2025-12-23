@@ -56,8 +56,8 @@ class SettingsManager:
             "scene_planner_presets": {},
             "ai_studio_panel_visibility": {},
             # TODO: Standardize column behaviour, management and settings storage accross all tables 
-            "talent_tab_visible_columns": [],
-            "roster_visible_columns": [],
+            "talent_tab_visible_columns": {},
+            "roster_visible_columns": {},
             
             # Talent Tab Preferences
             "casting_mode_show_role_details": True,

@@ -1,0 +1,43 @@
+<span style="color:grey"><i>Written on version ???. Updated on version 0.6.0</i></span>  
+
+---
+
+The Market tab shows all the different "viewer groups" that exist in the game.  
+
+The current "market discovery" mechanic is not something I am too happy with. Aside from its shaky implementation (there are values, like those of Orientations and Dispositions, that cannot be discovered at the moment), the implication (made explicit by the AI-generated email related to this) is that there will be some kind of 'market research' department, which I am not a fan of.  
+
+The purpose of the current implementation, like with the Talent skills fuzzing, is simply to obfuscate numbers and make it harder for the player to min-max scenes. But, while this is something I enjoy, I don't think most players of this kind of games share my enjoyment, since most seem to remove the skill fuzzing when given a chance. And in any case, hiding stuff already when the point is to both get feedback and develop is probably not very smart. Setting toggle should not be hard to do for now.
+
+The final purpose of every scene is to get an appeal calculation for every one of these groups, which will determine how much revenue it generates. Maybe at some point, there will be awards and the like that could take into account a scene's total quality, but for now the quality of a tag only matters insofar as it makes a group 'like' (i.e. have a higher interest score) a scene more.
+
+At this point, the interest in a scene for every group is calculated like this:  
+
+total_revenue += (base_revenue \* market_share) \* group_interest_score \* spending_power
+
+These all have their own characteristics, preferences for the different tag types, and talent popularity spill-over to other groups.
+
+### Attributes
+
+⦁	**Market Share**: Just what percent of the total, balancing number, of revenue generation belongs to the group.  
+
+⦁	**Focus Bonus**: How much the group likes a scene being catered towards them. If most scenes are directed at a certain group, they won't appreciate it much when a scene wants them to watch it. On the other hand, usually neglected groups will appreciate it more. This is fixed at this point, which probably shouldn't be. Implementation could be done by lowering it when their Spending Willingness is consistently low, and otherwise. The main purpose of this is to make groups with lower Market Share still have the potential to be profitable targets.  
+
+⦁	**Spending Power**: Similarly, this is how much every Market Share point is actually worth. The goal of this is to simulate how some groups are more willing to spend on porn than others, in principle based in reality. I don't see how this could dynamically change during the course of a save. Maybe it is redundant?  
+
+⦁	**Spending Willingness**: How much a group has been 'drained' by the total scenes on the market. If a group is consistently getting scenes that they want to spend money on, their 'wallet' gets emptier. At the moment, every point is worth the same until it reaches 0, maybe it should behave differently and lower the potential revenue a group provides with every point lost.  
+
+### Tag Sentiments
+
+Divided by every tag category. Just how much a group likes a certain tag. If it isn't shown, it means that it has the default preference for it, which is 1 in every case right now, but that might not always be the case, if there are tags that almost every group should like or dislike.  
+
+All these sentiments get either added straight to the total interest (in the case of thematic tags), or multiplied to the particular tag quality (for physical and action ones) to get the total interest generated.  
+
+These are fixed for now, but in the future I would like them to fluctuate according to the state of the market (how many scenes contains a certain tag, and what quality they are pulling).  
+
+The scaling sentiments get added to the preference the groups has for a particular tag. So if the preference for a tag is 1.20, and the scaling tag is 0.2, that means that if the tag fulfils its scaling requirement, the new group preference for that tag would be 1.40. If there are more than one values, the first one means the bonus for the first performer, the next ones for every subsequent one, and the last one the fixed bonus for each after those.  
+
+### Popularity Spillover  
+
+Every talent has a different Popularity value depending on viewer group, to simulate how some talent will be more popular with some audiences than others, depending on how successful the scenes they've participated in have been with the particular group.  
+
+I guess what the spill-over represents is just how much a group that is seen someone perform in successful scenes for other groups would like to see them do the type of scenes they like, and how aware would they even be of the talent's existence. I.e. a successful actress with the Straight Men group that has only done vanilla stuff would still be relatively popular with an Anal Lover subset of Straight Men, but a successful actor for Gay Men wouldn't be on their radar.  

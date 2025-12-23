@@ -95,6 +95,19 @@ class TalentTabPresenter(QObject):
             self.controller.get_available_cup_sizes()
         )
 
+        # HACK: Patch to ensure columns are visible until standardized column management is implemented
+        self._apply_initial_column_visibility()
+
+    def _apply_initial_column_visibility(self):
+        """HACK: Ensures columns are visible. Ideally handled via a ViewMenu similar to Roster."""
+        # This ensures that on the first run, or if settings are cleared, columns default to shown.
+        settings = self.controller.settings_manager.get_setting("talent_tab_visible_columns", {})
+        if not isinstance(settings, dict) or not settings:
+            for i in range(self.view.talent_model.columnCount()):
+                header = self.view.talent_model.headers[i]
+                if header != "Demand":
+                    self.view.talent_table_view.setColumnHidden(i, False)
+
     def _connect_signals(self):
         self.controller.signals.talent_pool_changed.connect(self._invalidate_filter_cache)
         self.controller.signals.go_to_categories_changed.connect(self.view.refresh_from_state)

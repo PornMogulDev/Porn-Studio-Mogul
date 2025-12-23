@@ -1,0 +1,45 @@
+[
+  {
+      "id": "verite",
+      "name": "Gonzo / Verité",
+      "description": "Raw, handheld, authentic. Low budget ceiling, high realism. Penalizes 'fake' polish.",
+      "budget_efficiency_modifier": 1.2,
+      "department_multipliers": {
+        "set_design": 0.5,
+        "makeup": 0.5,
+        "camera_equipment": 0.8
+      },
+      "allocation_targets": {
+        "set_design": { "max_percent": 0.05, "penalty_factor": 2.5 }, 
+        "makeup": { "max_percent": 0.05, "penalty_factor": 2.0 },
+        "camera_equipment": { "min_percent": 0.15, "penalty_factor": 1.0 }
+      }
+    },
+    {
+      "id": "glossy",
+      "name": "Standard Glossy",
+      "description": "The industry standard. Bright, clean, reliable scaling.",
+      "budget_efficiency_modifier": 1.0,
+      "department_multipliers": {
+        "wardrobe": 1.2,
+        "makeup": 1.2,
+        "camera_equipment": 1.0
+      }
+    },
+    {
+      "id": "cinematic",
+      "name": "Cinematic / High Art",
+      "description": "Moody lighting and composition. Exponential scaling. Punishing if underfunded.",
+      "budget_efficiency_modifier": 0.8,
+      "department_multipliers": {
+        "set_design": 1.5,
+        "camera_equipment": 1.5,
+        "audio_equipment": 1.5
+      },
+      "allocation_targets": {
+        "set_design": { "min_percent": 0.15, "penalty_factor": 1.5 },
+        "camera_equipment": { "min_percent": 0.20, "penalty_factor": 2.0 },
+        "audio_equipment": { "min_percent": 0.10, "penalty_factor": 1.5 }
+      }
+    }
+]

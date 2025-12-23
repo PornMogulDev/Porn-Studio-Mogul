@@ -1,0 +1,379 @@
+{
+  "names_by_culture": {
+    "argentinian_latin": {
+      "female_first": [
+        "Alicia", "Elena", "Laura", "Manuela", "Valentina", "Fabiana", "Mariana", "Divina", 
+        "Tami", "Tabatha", "Niky", "Julia"
+      ],
+      "single_female": [
+        "Divina"
+      ],
+      "last_female": [
+        "Maru", "Lust", "Love", "Fruit"
+      ]
+    },
+    "argentinian_southern_european": {
+      "female_first": [
+        "Alicia", "Elena", "Laura", "Valentina", "Tabatha", "Niky", "Tami", "Sandy", "Sabrina", "Daniela",
+        "Lorena", "Julia"
+      ],
+      "last_female": [
+        "Maru", "Lust", "Love", "Fruit", "Sabrok", "Bellucci"
+      ],
+      "last": [
+        "Bernal"
+      ]
+    },
+    "brazilian_latin": {
+      "female_first": [
+        "Alice", "Helena", "Laura", "Manuela", "Valentina"
+      ],
+      "last": [
+        "Oliveira", "Pereira", "da Silva", "de Souza", "dos Santos"
+      ],
+      "male_first": [
+        "Arthur", "Davi", "Gabriel", "Heitor", "Miguel"
+      ],
+      "single": [
+        "Carioca", "Gostoso", "Moreno"
+      ]
+    },
+    "british_western_european": {
+      "female_first": [
+        "Amelia", "Ava", "Freya", "Grace", "Isla"
+      ],
+      "last": [
+        "Brown", "Jones", "Smith", "Taylor", "Wilson"
+      ],
+      "male_first": [
+        "Arthur", "George", "Harry", "Jack", "Oliver"
+      ],
+      "single": [
+        "Brick", "Milo", "Sterling"
+      ]
+    },
+    "canadian_western_european": {
+      "female_first": [
+        "Charlotte", "Chloe", "Emma", "Olivia", "Sophia"
+      ],
+      "last": [
+        "Gagnon", "Lee", "Martin", "Roy", "Tremblay"
+      ],
+      "male_first": [
+        "Ethan", "Liam", "Lucas", "Noah", "William"
+      ],
+      "single": [
+        "Hunter", "Maverick", "Wolf"
+      ]
+    },
+    "colombian_latin": {
+      "female_first": [
+        "Isabella", "Luciana", "Mariana", "Salome"
+      ],
+      "last": [
+        "Gomez", "Gonzalez", "Perez", "Rodriguez"
+      ],
+      "male_first": [
+        "Alejandro", "Matias", "Santiago", "Sebastian"
+      ],
+      "single": [
+        "Caliente", "Chulo", "Papi"
+      ]
+    },
+    "czech_western_european": {
+      "female_first": [
+        "Adela", "Anna", "Eliska", "Sofie", "Tereza"
+      ],
+      "last": [
+        "Cerny", "Dvorak", "Novak", "Novotny", "Svoboda"
+      ],
+      "male_first": [
+        "Filip", "Jakub", "Jan", "Lukas", "Tomas"
+      ],
+      "single": [
+        "Marek", "Pavel"
+      ]
+    },
+    "default": {
+      "female_first": [
+        "Jane"
+      ],
+      "last": [
+        "Doe"
+      ],
+      "male_first": [
+        "John"
+      ],
+      "single": [
+        "Performer"
+      ]
+    },
+    "french_western_european": {
+      "female_first": [
+        "Alice", "Chloe", "Emma", "Jade", "Louise"
+      ],
+      "last": [
+        "Bernard", "Dubois", "Martin", "Robert", "Thomas"
+      ],
+      "male_first": [
+        "Adam", "Gabriel", "Leo", "Louis", "Lucas"
+      ],
+      "single": [
+        "LeBlanc", "Pascal", "Pierre"
+      ]
+    },
+    "german_western_european": {
+      "female_first": [
+        "Emilia", "Hannah", "Lina", "Mia", "Sofia"
+      ],
+      "last": [
+        "Fischer", "Müller", "Schmidt", "Schneider", "Weber"
+      ],
+      "male_first": [
+        "Ben", "Felix", "Jonas", "Leon", "Paul"
+      ],
+      "single": [
+        "Gunther", "Kaiser", "Wolf"
+      ]
+    },
+    "hungarian_eastern_european": {
+      "female_first": [
+        "Anna", "Emma", "Hanna", "Luca", "Zoe", "Lily", "Tiffany", "Liz", "Amirah", "Amira", "Zazie",
+        "Naomi", "Sharon"
+      ],
+      "female_last": [
+        "Blossom", "Tatum", "Ocean", "Adara", "Skymm", "Sky"
+      ],
+      "last": [
+        "Horvath", "Kovacs", "Nagy", "Szabo", "Toth", "Ricci", "White"
+      ],
+      "male_first": [
+        "Adam", "Bence", "Dominik", "Levente", "Mate"
+      ],
+      "single": [
+        "Gabor", "Zoltan"
+      ]
+    },
+    "italian_southern_european": {
+      "female_first": [
+        "Alice", "Aurora", "Ginevra", "Giulia", "Sofia"
+      ],
+      "last": [
+        "Bianchi", "Esposito", "Ferrari", "Rossi", "Russo"
+      ],
+      "male_first": [
+        "Alessandro", "Francesco", "Leonardo", "Lorenzo", "Mattia"
+      ],
+      "single": [
+        "Enzo", "Gianni", "Vito"
+      ]
+    },
+    "japanese_east_asian": {
+      "female_first": [
+        "Aoi", "Hina", "Rin", "Sakura", "Yui"
+      ],
+      "last": [
+        "Sato", "Suzuki", "Takahashi", "Tanaka", "Watanabe"
+      ],
+      "male_first": [
+        "Haruto", "Hiroshi", "Kenji", "Takeru", "Yuki"
+      ],
+      "single": [
+        "Jiro", "Kazuya", "Shin"
+      ]
+    },
+    "russian_eastern_european": {
+      "female_first": [
+        "Anna", "Eva", "Maria", "Sofia", "Victoria"
+      ],
+      "last": [
+        "Ivanov", "Kuznetsov", "Petrov", "Popov", "Smirnov"
+      ],
+      "male_first": [
+        "Alexander", "Artem", "Dmitry", "Ivan", "Maxim"
+      ],
+      "single": [
+        "Ivan", "Rasputin", "Stalin"
+      ]
+    },
+    "spanish_southern_european": {
+      "female_first": [
+        "Lucía", "María", "Paula", "Sofia", "Andrea", "Andy", "Bridgette", "Apolonia", "Sania", "Samia", "Rebeca",
+        "Verónica", "Angelique", "Mary", "Nuria", "Chloe", "Naiara", "Paola", "Sandra", "Nekane",
+        "Yolanda", "Susi", "Susy", "Ginebra", "Apra", "Ramona", "Alexandra", "Ana", "Anita", "Luci",
+        "Diana", "Jennifer", "Liz", "Luz", "Marta", "Martha", "Lia", "Charlotte", "Bella", "Rubi",
+        "Carolina", "Lolly", "Valeria", "Rosy"
+      ],
+      "female_last": [
+        "Star", "Gala", "Bellucci", "Rainbow", "Storm", "Abril"
+      ],
+      "female_single": [
+        "Spanish Doll", "Muñequita"
+      ],
+      "last": [
+        "Fernandez", "Garcia", "Gonzalez", "Lopez", "Rodriguez", "Lapiedra", "Duarte", "Linares", "Hidalgo",
+        "Millán", "Ribes", "Ribelles", "Hard", "Hernández", "Ribera", "Rivera", "Fernández", "Rius", "Villalobos",
+        "Rico", "Fuentes"
+      ],
+      "male_first": [
+        "Hugo", "Leo", "Lucas", "Martin", "Mateo"
+      ],
+      "male_single": [
+        "El Toro", "Matador", "Nacho"
+      ]
+    },
+    "spanish_latin": {
+      "female_first": [
+        "Lucía", "María", "Paula", "Sofia", "Martina", "Andrea", "Andy", "Ohana", "Lorena", "Ada",
+        "Cindy", "Mina", "Claudia", "Paola", "Sapphire", "Safira", "Briseida", "Ramona",
+        "Ana", "Anita", "Bella", "Mina", "Gina", "Natasha"
+      ],
+      "female_last": [
+        "Petite", "Secret", "Teen"
+      ],
+      "female_single": [
+        "Sapphire"
+      ],
+      "last": [
+        "Lapiedra", "Duarte", "Hidalgo", "Bevel", "Bavel", "Aguilera", "Hard", "Hernández",
+        "Lopis", "Ribera", "Rivera", "Moreno"
+      ]
+    },
+    "us_black": {
+      "female_first": [
+        "Aaliyah", "Ebony", "Jada", "Latoya", "Nia", "Shanice"
+      ],
+      "last": [
+        "Freeman", "Jackson", "Jefferson", "Washington", "Williams"
+      ],
+      "male_first": [
+        "Andre", "Darnell", "Jamal", "Malik", "Marcus", "Tyrone"
+      ],
+      "single": [
+        "Cash", "King", "Lexx", "Prince"
+      ]
+    },
+    "us_east_asian": {
+      "female_first": [
+        "Allie", "Angelina", "Asa", "Asia", "Ava", "Dana", "Gianna", "Jade", "Jessica", "Kazumi",
+        "Kim", "Kimmy", "Kimora", "Lana", "Lenna", "Lilly", "Lily", "Linda", "London", "Lucy",
+        "Mei", "Mia", "Mila", "Mina", "Mochi", "Sakura", "Salee", "Sami", "Tera", "Tokyo",
+        "Tracy", "Vina", "Yuki", "Yumi"
+      ],
+      "last": [
+        "Akira", "Alexis", "Asia", "Bloom", "Chen", "Grey", "Han", "Keith", "Keys", "Kim",
+        "Kimm", "Koi", "Lan", "Lee", "Li", "Little", "Lou", "Lux", "Luxx", "Mercury",
+        "Mochi", "Mona", "Moon", "Nguyen", "Parker", "Rose", "Sin", "Sky", "Skye", "Skyy",
+        "Spade", "Sparks", "Takigami", "Tanaka", "Tang", "Videl", "Wong"
+      ],
+      "male_first": [
+        "Daniel", "Jin", "Kenji", "Shin", "Wei"
+      ],
+      "single": [
+        "Dragon", "Hiro", "Ken"
+      ]
+    },
+    "us_eastern_european": {
+      "female_first": [
+        "Anastasia", "Katarina", "Mira", "Natalia", "Nicole", "Olga", "Rissa", "Svetlana"
+      ],
+      "female_last": [
+        "Chechick", "Chechik", "Malkova"
+      ],
+      "last": [
+        "Ivanov", "Kowalski", "Novak", "Petrov", "Popov"
+      ],
+      "male_first": [
+        "Alexei", "Dimitri", "Ivan", "Mikhail", "Nikolai"
+      ],
+      "single": [
+        "Misha", "Nikita", "Pasha", "Sasha"
+      ]
+    },
+    "us_latin": {
+      "female_first": [
+        "Camila", "Isabella", "Maria", "Sofia", "Valentina"
+      ],
+      "last": [
+        "Garcia", "Hernandez", "Lopez", "Martinez", "Rodriguez"
+      ],
+      "male_first": [
+        "Carlos", "Diego", "Jose", "Juan", "Luis", "Manuel"
+      ],
+      "single": [
+        "Bandido", "Diablo", "Loco", "Santos"
+      ]
+    },
+    "us_south_asian": {
+      "female_first": [
+        "Anjali", "Asha", "Lakshmi", "Priya", "Sunita"
+      ],
+      "last": [
+        "Khan", "Kumar", "Patel", "Shah", "Singh"
+      ],
+      "male_first": [
+        "Amit", "Raj", "Rohan", "Sanjay", "Vikram"
+      ],
+      "single": [
+        "Dev", "Raja"
+      ]
+    },
+    "us_western_european": {
+      "female_first": [
+        "Addison", "Adira", "Adria", "Adriana", "Adrianna", "Aidra", "Alex", "Alexis", "Alison", "Ally",
+        "Amber", "Amy", "Andie", "Angel", "Angie", "Anna", "Annalyn", "Anne", "Annie", "Anya",
+        "Aria", "Ashley", "Aspen", "Asteria", "Astria", "Aubrey", "Aviana", "Bayley", "Bella", "Bianca",
+        "Blake", "Braylin", "Britney", "Brittany", "Brittney", "Bunny", "Carla", "Carolina", "Cassiopeia", "Cecilia",
+        "Chanel", "Charlotte", "Chloe", "Clara", "Clarissa", "Coco", "Daisy", "Dani", "Danielle", "Dee",
+        "Delaney", "Delilah", "Della", "Demi", "Dezarae", "Dixie", "Elana", "Elena", "Ella", "Ellie",
+        "Elly", "Elsa", "Emily", "Emma", "Eva", "Evie", "Explicit", "Freya", "Gabbie", "Georgina",
+        "Gianna", "Gigi", "Haley", "Hazel", "Ivy", "Jade", "Jamie", "Jane", "Janice", "Jen",
+        "Jennifer", "Jessica", "Jillian", "Julia", "Julie", "Juniper", "Kacey", "Kali", "Kat", "Kate",
+        "Katherine", "Katie", "Katrina", "Kay", "Kaycee", "Keira", "Kelly", "Kelsey", "Kendra", "Khloe",
+        "Kiana", "Kiara", "Kimberly", "Kira", "Kitty", "Kristen", "Kristina", "Kyler", "Kylie", "Lacey",
+        "Lacy", "Lana", "Laney", "Leana", "Lena", "Lexi", "Lexy", "Lilly", "Lily", "Linda",
+        "Lisa", "Liz", "Maddy", "Madeline", "Madi", "Madison", "Marie", "Mary", "Mary Jane", "Megan",
+        "Melanie", "Melissa", "Melody", "Mia", "Molly", "Myra", "Naomi", "Natalie", "Nickey", "Nicky",
+        "Nicole", "Nikki", "Octavia", "Paige", "Penelope", "Penny", "Princess", "Remi", "Remy", "Reya",
+        "Riley", "Rissa", "River", "Romi", "Rose", "Sage", "Sara", "Sarah", "Sativa", "Savanna",
+        "Savannah", "Savvy", "Scarlet", "Selina", "Sera", "Serena", "Shanna", "Sharon", "Sky", "Skye",
+        "Skylar", "Sophia", "Sophie", "Stella", "Stephanie", "Sweet", "Theresa", "Uma", "Val", "Valerica",
+        "Valerie", "Vanessa", "Vanna", "Venus", "Violet", "Whitney", "Zina"
+      ],
+      "female_last": [
+        "Allure", "Amber", "Angel", "Ann", "Barber", "Bardot", "Bell", "Bentz", "Bliss", "Blossom",
+        "Brookes", "Brooks", "Bunnz", "Capri", "Caprice", "Cate", "Clouds", "Clover", "Dior", "Doux",
+        "Faith", "Fox", "Glasford", "Grace", "Granger", "Griffith", "Hawks", "Hicks", "Janson", "Jensen",
+        "Kapri", "Kay", "Lacroix", "Lennon", "Lenon", "Lore", "Love", "Lovelock", "Lovings", "Luna",
+        "Lune", "Lynn", "Madison", "Mae", "Marie", "Maris", "May", "Megan", "Moans", "Moore",
+        "Nicole", "Nova", "Olsen", "Palin", "Peach", "Piper", "Quinn", "Rae", "Rain", "Red",
+        "Reed", "Ren", "Rizzo", "Rose", "Roses", "Rosie", "Star", "Starr", "Swan", "Swann",
+        "Sweets", "Valentine", "Vandella", "Vixen", "Vox", "Wonderland"
+      ],
+      "female_single": [
+        "Belicia", "Darling", "Mrs. Kitty", "Shrooms"
+      ],
+      "first": [
+        "Alex", "Dylan", "Morgan", "Ryan", "Taylor"
+      ],
+      "last": [
+        "Alexander", "Anderson", "Bang", "Blanco", "Blue", "Brown", "Cage", "Camryn", "Cane", "Carter",
+        "Christian", "Clutch", "Coal", "Cole", "Coleman", "Collins", "Colt", "Dolan", "Edge", "Gray",
+        "Grey", "Hunter", "Jackson", "Jade", "Jay", "Johnson", "Jones", "Jordan", "Kane", "Lee",
+        "Little", "Locke", "Marks", "Marx", "Maze", "Miller", "Morgan", "Notty", "Parker", "Paul",
+        "Phoenix", "Play", "Reese", "Reign", "River", "Rolland", "Ryans", "Ryder", "Scott", "Smalls",
+        "Smith", "Spade", "Spades", "Sterling", "Stone", "Summers", "Sunderland", "Taylor", "Texas", "Vodka",
+        "White", "Wild", "Wilde", "Williams", "Wright", "Youngs"
+      ],
+      "male_first": [
+        "Chris", "David", "James", "John", "Michael", "Robert"
+      ],
+      "male_last": [
+        "Adonis", "Steel", "Steele"
+      ],
+      "male_single": [
+        "Blade", "Chance", "Jett", "Rocco", "Vegas"
+      ]
+    }
+  }
+}
