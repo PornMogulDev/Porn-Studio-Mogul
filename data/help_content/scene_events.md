@@ -1,2 +1,8 @@
-I think I added this way too soon. Without talent and studio relationships, the consequences that an event can have are quite limited, mainly coming down to economic penalties at this time. So now most are placeholders to check that the requirements are being checked properly.
-Only one event can trigger per scene, and every event's chance is the same, just for testing's sake. The base chance for an event triggering is also much higher than it should, for the same reason.
+<span style="color:grey"><i>Written on version ???. Updated on version 0.6.0</i></span>  
+
+---
+
+I think I added this way too soon. Without talent and studio relationships, the consequences that an event can have are quite limited, mainly coming down to economic penalties at this time.  
+And now even more, since the change to the Shooting Block/Call Sheet behaviour, the checks for the events are out-of-date, since they rely on production setting category and on the good/bad split.  
+
+It's supposed to be similar to TEW or Paradox events, there should be also global events. Still very much on square one for this one.

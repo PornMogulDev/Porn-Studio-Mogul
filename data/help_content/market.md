@@ -1,3 +1,7 @@
+<span style="color:grey"><i>Written on version ???. Updated on version 0.6.0</i></span>  
+
+---
+
 The Market tab shows all the different "viewer groups" that exist in the game.  
 
 The current "market discovery" mechanic is not something I am too happy with. Aside from its shaky implementation (there are values, like those of Orientations and Dispositions, that cannot be discovered at the moment), the implication (made explicit by the AI-generated email related to this) is that there will be some kind of 'market research' department, which I am not a fan of.  

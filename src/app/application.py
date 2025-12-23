@@ -20,6 +20,8 @@ from utils.paths import LOG_DIR, LOG_FILE
 logger = logging.getLogger(__name__)
 
 def handle_exception(exc_type, exc_value, exc_traceback):
+    # TODO: Make the logger handle this? A dedicated exception service?
+    # More detailed error messages. Insta-crash ones
     """
     Catches unhandled exceptions, logs them using the logging system, 
     and shows a user-friendly dialog.
@@ -38,9 +40,9 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     error_dialog.setIcon(QMessageBox.Icon.Critical)
     error_dialog.setText("A critical error occurred.")
     error_dialog.setInformativeText(
-        f"The application has encountered a serious error and cannot continue.\n\nA detailed report has been saved to:\n\n"
+        f"The application has encountered a serious error.\n\nA detailed report has been saved to:\n\n"
         f"{log_file_path}\n\n"
-        "Please provide this file alongside your bug report. Thank you."
+        "Please, provide that file alongside your bug report. Thank you."
     )
     error_dialog.setWindowTitle("Application Error")
     error_dialog.setStandardButtons(QMessageBox.StandardButton.Ok)

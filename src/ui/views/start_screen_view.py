@@ -96,9 +96,10 @@ class StartScreenView(QWidget):
         menu_layout.addWidget(new_game_btn, 2, 1)
         menu_layout.addWidget(quit_game_btn, 3, 1)
 
-        menu_layout.addWidget(discord_link, 0, 2)
+        # TODO: Create a Discord server and subreddit when/if appropriate
+        # menu_layout.addWidget(discord_link, 0, 2)
         menu_layout.addWidget(github_link, 1, 2)
-        menu_layout.addWidget(reddit_link, 2, 2)
+        # menu_layout.addWidget(reddit_link, 2, 2)
         menu_layout.addWidget(f95_link, 3, 2)
 
         # Set initial disabled state

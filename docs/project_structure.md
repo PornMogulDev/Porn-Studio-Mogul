@@ -33,7 +33,7 @@ src/
       shoot_results_calculator.py  # Calculates post-shoot outcomes (fatigue, skills, stress) and estimates fatigue for pre-booking validation.
       tag_validation_checker.py    # Validates and discovers physical tags
       talent_affinity_calculator.py # Recalculates talent age affinities
-      talent_availability_checker.py # Checks if talent will do a role
+      talent_availability_checker.py # Checks if a Talent is willing to do a Role
       talent_demand_calculator.py  # Calculates talent hiring costs
       upfront_tour_cost_calculator.py # Calculates upfront tour costs
     events/

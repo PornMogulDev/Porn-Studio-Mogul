@@ -196,3 +196,40 @@ This flow describes how the user reads and manages emails.
     - `EmailPresenter` receives this, shows a confirmation box, and on "Yes", calls `controller.delete_emails(email_ids)`.
     - `GameController` delegates to `EmailService.delete_emails()`.
     - The service deletes the records from the database and emits `signals.emails_changed`, which triggers a view refresh.
+
+## Validation Flow (Talent Availability)
+
+This backend flow is the core "will they do it?" check for a talent. It is used in two primary ways: to find roles for a talent, and to find talent for a role. It is orchestrated by the `TalentQueryService` and executed by the `TalentAvailabilityChecker`.
+
+### Flow 1: Finding Available Roles for a Talent (Annotation)
+
+This flow is used in the `TalentProfilePresenter` to populate the "Available Roles" list in the `HiringWidget`. It checks every open role and *annotates* it with the talent's availability.
+
+1.  The `TalentProfilePresenter.refresh_available_roles()` method is called.
+2.  It calls `controller.find_available_roles_for_talent(talent_id)`.
+3.  The `GameController` delegates this to `TalentQueryService.find_available_roles_for_talent()`.
+4.  The `TalentQueryService` fetches all uncast scenes (`status='casting'`).
+5.  For each potential role (`vp_id`) in each scene that matches the talent's basic attributes (e.g., gender):
+    *   It fetches all required context: the talent's bookings for the surrounding weeks, the shooting bloc (for budget checks), and active studio policies.
+    *   It pre-calculates the `estimated_fatigue_gain` for the role using `ShootResultsCalculator`.
+    *   It calls `TalentAvailabilityChecker.check()` with the talent, scene, role, and all contextual data.
+    *   The `TalentAvailabilityChecker` runs its full sequence of checks (schedule, fatigue, hard limits, preferences, contracts, budget, etc.).
+6.  The `TalentQueryService` receives an `AvailabilityResult` for each potential role.
+7.  It creates a list of dictionaries, each containing the role info, cost, and crucially, the `is_available` status and `refusal_reason` from the result.
+8.  This annotated list is returned to the `TalentProfilePresenter`, which pushes it to the `HiringWidget`. The widget then displays all roles, graying out the unavailable ones and showing the refusal reason in the string.
+
+### Flow 2: Finding Eligible Talent for a Role (Filtering)
+
+This flow is used in the `TalentTabPresenter` when in "Casting Mode". It is used to find all talent who are available for a *single, specific role*, acting as a hard filter.
+
+1.  The `TalentTabPresenter.on_filters_changed()` method detects it is in casting mode (a `scene_id` and `vp_id` are set).
+2.  It calls `controller.get_eligible_talent_for_role(scene_id, vp_id, attribute_filters)`.
+3.  The `GameController` delegates to `TalentQueryService.get_eligible_talent_for_role()`.
+4.  The `TalentQueryService` first performs a pre-filter on the database to find all talents who match the role's hard requirements (gender, ethnicity) and any user-supplied filters.
+5.  For each of these `potential_candidates_db`:
+    *   It gathers the same context as in Flow 1 (bookings, bloc, policies).
+    *   It estimates fatigue via `ShootResultsCalculator.estimate_fatigue_gain()`.
+    *   It calls `TalentAvailabilityChecker.check()` with the candidate talent and the role context.
+6.  **Crucially, it only proceeds if `result.is_available` is `True`**. If the checker returns `False`, the candidate is discarded.
+7.  A list containing only the `TalentDB` objects that passed the availability check is returned to the `TalentTabPresenter`.
+8.  The presenter updates the talent table view, showing only the fully eligible and willing candidates.
