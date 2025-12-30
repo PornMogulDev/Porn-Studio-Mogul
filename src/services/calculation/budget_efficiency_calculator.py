@@ -107,81 +107,79 @@ class BudgetEfficiencyCalculator:
 
     # --- Curve Strategies ---
 
+    def _get_bonus_from_excess_budget(self, soft_cap: float, budget: int) -> float:
+        """
+        Calculates a bonus efficiency score for budgets that exceed the soft cap.
+        Uses a power curve for more predictable, but still diminishing, returns.
+        An exponent of 0.6 is more generous than 0.75.
+        """
+        excess_ratio = (budget - soft_cap) / soft_cap
+        bonus = excess_ratio ** 0.6
+        return bonus / self.config.linear_curve_divisor
+
     def _calc_linear_with_diminishing_returns(self, soft_cap: float, budget: int) -> float:
         """
-        A linear growth curve up to the soft cap, with logarithmic diminishing returns beyond it.
-
+        A linear growth curve up to the soft cap, with diminishing returns beyond it.
         - Below cap: Efficiency grows 1:1 with budget (budget / soft_cap).
         - At cap: Efficiency is 1.0.
-        - Above cap: Efficiency is 1.0 + a small, logarithmically-scaled bonus.
-
-        Use case: Core departments where extra funding helps, but at a reduced rate.
+        - Above cap: Efficiency is 1.0 + a bonus from the excess budget.
         """
         if soft_cap <= 0: return 1.0
         if budget <= soft_cap:
             return budget / soft_cap
-        # Diminishing returns after cap
-        excess = budget - soft_cap
-        return 1.0 + (math.log(1 + excess) / self.config.linear_curve_divisor)
+        
+        bonus = self._get_bonus_from_excess_budget(soft_cap, budget)
+        return 1.0 + bonus
 
     def _calc_logarithmic(self, soft_cap: float, budget: int) -> float:
         """
-        A logarithmic growth curve, reaching 1.0 efficiency at the soft cap.
-
-        Gains are very front-loaded; it's cheap to get to 50% efficiency but
-        exponentially more expensive to approach 100%.
-
-        Use case: Departments where a basic investment is crucial, but further
-        investment has minimal impact.
+        A logarithmic growth curve, reaching ~1.0 efficiency at the soft cap.
+        Gains are front-loaded. Budgets over the cap provide a smaller bonus.
         """
         if budget <= 0: return 0.0
         
-        # Math Safety: Ensure we don't divide by zero (log(1)=0)
-        # and don't take log of <= 0.
-        safe_cap = max(1.01, float(soft_cap))
-        safe_budget = max(1.0, float(budget))
-        
-        # Calculate log base (soft_cap) of (budget)
-        # Result is 1.0 when budget == soft_cap
-        return math.log(safe_budget) / math.log(safe_cap)
+        # Original logarithmic growth for budgets up to the soft cap.
+        if budget <= soft_cap:
+            safe_cap = max(1.01, float(soft_cap))
+            safe_budget = max(1.0, float(budget))
+            # Calculate log base (soft_cap) of (budget)
+            # Result is ~1.0 when budget is near soft_cap
+            return math.log(safe_budget) / math.log(safe_cap)
+
+        # For budgets over the cap, start at 1.0 and add the standard bonus.
+        bonus = self._get_bonus_from_excess_budget(soft_cap, budget)
+        return 1.0 + bonus
+
 
     def _calc_step(self, soft_cap: float, budget: int) -> float:
         """
         A step function where efficiency jumps at configured budget thresholds.
-
-        Efficiency is a fixed value based on which 'step' the budget falls into,
-        relative to the soft cap. Reaching the soft cap grants 1.0 efficiency.
-
-        Use case: Simulating quality tiers, like 'amateur', 'professional',
-        'master', where quality doesn't improve smoothly.
+        Reaching the soft cap grants 1.0 efficiency, with bonuses for exceeding it.
         """
         if soft_cap <= 0: return 1.0
         ratio = budget / soft_cap
         
+        if ratio >= 1.0:
+            bonus = self._get_bonus_from_excess_budget(soft_cap, budget)
+            return 1.0 + bonus
+            
         # Config thresholds are float ratios (e.g. 0.5) mapped to efficiency (e.g. 0.2)
-        # We assume they are sorted for this logic to work correctly.
         sorted_thresholds = sorted(self.config.step_curve_thresholds.items())
         
-        # If budget covers the soft cap, we are at least 1.0
-        if ratio >= 1.0:
-            return 1.0
-            
+        # Find the highest threshold this budget meets
+        current_value = 0.0
         for threshold, value in sorted_thresholds:
-            if ratio < threshold:
-                return value
-                
-        # If ratio is greater than all defined thresholds but less than 1.0
-        return 1.0
+            if ratio >= threshold:
+                current_value = value
+            else:
+                break # Ratios are sorted, no need to check further
+        return current_value
+
 
     def _calc_exponential(self, soft_cap: float, budget: int) -> float:
         """
         An exponential growth curve.
-
-        Efficiency grows slowly at first and then rapidly accelerates as the budget
-        approaches the soft cap.
-
-        Use case: Departments with high barriers to entry, where underfunding is
-        severely punishing and full funding is required to see results.
+        Efficiency grows slowly and then rapidly accelerates as budget approaches the cap.
         """
         if soft_cap <= 0: return 1.0
         ratio = budget / soft_cap

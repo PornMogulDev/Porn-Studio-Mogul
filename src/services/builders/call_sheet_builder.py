@@ -293,6 +293,14 @@ class ShootingBlocBuilder:
                     def_dict, scene_amt, self.budget_per_scene, self.visual_style_id
                 )
                 
+                # NOTE: The following estimation logic is for UI display only.
+                # It differs from the final calculation in `CrewSkillCalculator`
+                # to provide the player with more transparent feedback.
+
+                # For "Quality" (Resources/Departments), we show the uncapped
+                # score to demonstrate the full potential of a high budget.
+                # For "Skill" (Crew), we show a capped range (1-100) because
+                # the final rolled skill is also strictly capped at 100.
                 if dept.type == 'crew':
                     # Skill Estimate (0-100)
                     base_skill = min(100, val * self.config.crew_skill_baseline_multiplier)

@@ -75,6 +75,19 @@ This backend flow determines the final quality of production departments (e.g., 
 10. The calculator returns a complete `production_cache` dictionary (e.g., `{'wardrobe': 88, 'camera_a': 75}`).
 11. `SceneCommandService` stores this cache on the new `ShootingBlocDB` record in the database.
 
+## Calculation Flow (UI Quality Estimation)
+
+This flow occurs in the `ShootingBlocBuilder` (and associated UI) to provide the player with a real-time *estimate* of the quality or skill they can expect from their budget allocations. This flow is for immediate UI feedback and differs slightly from the final calculation.
+
+1.  The `ShootingBlocBuilder.get_ui_data()` method is called whenever the UI needs to be refreshed.
+2.  It iterates through each department (e.g., Wardrobe) and crew slot (e.g., Director).
+3.  For each item, it calculates the **per-scene budget** based on the user's allocation percentage.
+4.  It calls `CrewSkillCalculator.calculate_efficiency_raw()` to get the raw, uncapped efficiency multiplier from the `BudgetEfficiencyCalculator`.
+5.  **Crucially, it then calculates the estimated score differently for resources vs. crew:**
+    *   **For Resources (Departments):** It calculates an uncapped quality score (`score = int(efficiency * baseline_multiplier)`). This allows the UI to show values over 100 (e.g., "Quality: 153"), demonstrating the full potential of a high budget.
+    *   **For Crew:** It calculates a skill range that is capped at 100 (`min_s = max(1, ...)` and `max_s = min(100, ...)`). This aligns with the fact that the final "rolled" crew skill in the `production_cache` is also capped at 100.
+6.  This provides the player with an accurate-but-distinct preview: "Quality" for departments can exceed 100, while "Skill" for crew members respects the 1-100 mechanic.
+
 ## Request Flow (Scene Quality Calculation)
 
 This is a backend-only flow that occurs when the game week is advanced. It calculates the final quality of a scene after it has been "shot".
