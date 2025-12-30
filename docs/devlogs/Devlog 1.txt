@@ -1,0 +1,45 @@
+I don't believe this to be such an issue at the moment having the option to name the role and also seeing the action tags that the performer will take part in on the hiring side, but seeing as how 100% of the testers have brought the issue up, and a better implementation might be necessary once both the scene and talent complexity have increased, with more types of tags, types of performer, and talent skills and attributes.
+
+I had already thought about possibly implementing a hire from scene planner feature back when the scene planner was first being implemented, but discarded the idea as to not have several places that did the same (same reason I ended up removing the scenes being visible on the schedule tab after they had been shot, and vice versa on the scenes tab). 
+I also would like to keep the option of hiring one talent for several roles in different scenes at the same time, I think particularly useful when you create roles with a certain talent in mind.
+
+This new 'hire for role' view would need to have the following information readily visible: Role Information, List of Talents, Talent Filter Button (which brings up the regular Talent Filter), Talent Information, Talent Demand for the Role (or reasons for why they refuse it, giving an easy way of going back and modifying something if you really want that talent for that role). Additionally, to make this easier (say you have already cast someone, modifying anything in the scene is not possible anymore), we could add a quick shortlist that stores the candidates for particular roles in the scene and is automatically deleted once the scene is shot.
+
+As it stands, this new view would step on the toes of the talent tab, and with this shortlist, on the go-to list.
+This hire for role view would need to be sortable by skill, which means spreadsheet-like, but also would benefit from having the likes and dislikes. We can maybe rely on the talent profile view for that.
+The go-to list might then benefit from actually being implemented with the talent filter, allowing to filter by category. But then, what is even the point of the go-to list view? It might be simply a way to manage all the different categories and the talent there.
+Still, that new shortlist feature seems redundant, as you could simply create a new category in the go-to list.
+
+Besides, this hire for role view would be quite restrictive, as it would most likely need to be modal, blocking the player from doing anything else.
+
+Making the scene planner modeless might alleviate some of the issues, but if the scene is in its casting phase, you are blocked from checking everything, which means that you'd need to go back and forth between casting and design, which isn't a very good experience.
+It could be made it so everything is still interactable while in the casting phase, but any attempt at changing something would be blocked and a message shown. This also doesn't sound good, because the player could very easily forget in which phase they are at the moment, and getting a warning message isn't a great experience.
+Creating a new tab or view inside the scene planner might be the solution: here you can see all the details about the scene in a more informative and structured way than checking every element of the scene planner. This view could later be inherited by the shot scene details panel, which itself needs a revamp. 
+
+The main issue with this implementation is that it forces the player to manage several views opened at the same time, which might not be comfortable for everyone, and implementing both options would mean that some information would have to be repeated (like role details and scene details, or the sortable filterable talent view). 
+
+Another option is to remake how the 'filter for role' widget in the talent tab works. At the moment, it simply filters out everyone who doesn't fulfil the gender and ethnicity requirements, and everyone of those who would refuse the role. Instead, it could let the player select a role from a scene in casting, then show all the details about said role.
+Additionally, a checkbox could be added to this role selector that filters by requirements, and another that filters by refusal, in case the player wants to see talent that wouldn't be shown with those active.
+ 
+The talent tab would then be remade as the sortable and filterable spreadsheet, the talent info would need to be checked in the talent profile view, to which I would add a new tab for hiring.
+
+It could be a good idea to remake the talent profile view into something similar to Football Manager's, where the player can select which parts of the view they see at any moment, by activating and deactivating them, and possibly customize how they are arranged.
+
+We can try everything at once, the role for hire view could simply be our new design for the talent tab.
+
+Additionally, the font and font size selection addition seems to have completely broken the implementation of the pyqtdarktheme themes. So an extra goal will be to add a custom dark theme if there's time.
+
+So for the next week, the dev goals are:
+Primary:
+- Make the scene planner window modeless and able to open several instances at the same time, as long as none of them are of the same scene. Clicking on a scene that is already opened should instead bring that view up.
+- Revamp the talent tab with a spreadsheet-like view. Keeping the advanced filter and the role details view on top, removing everything about hiring and talent info.
+- Move hiring and talent info to the talent profile, making both a tab and removing the current left panel that shows the talent info.
+- Add a hire button to each performer row in the scene planner that brings up a version of the talent tab, this view should probably be modal, to prevent conflicts with the actual talent tab.
+
+Secondary Goals:
+- Remake the talent profile following the FM style.
+- Add the detailed scene view to the scene planner.
+
+Tertiary Goals:
+- Add a way to save custom filters.
+- Create a custom dark theme.
