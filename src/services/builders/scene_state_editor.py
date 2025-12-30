@@ -168,7 +168,32 @@ class SceneStateEditor:
     def update_action_segment_parameter(self, segment_id: int, role: str, value: int):
         """Updates a parameter (e.g., count of a role) for a specific action segment."""
         for s in self.working_scene.action_segments:
-            if s.id == segment_id: s.parameters[role] = value; break
+            if s.id == segment_id: 
+                s.parameters[role] = value
+
+                # Cleanup: Remove slot assignments that exceed the new count.
+                # Slot assignments are stored with IDs typically formatted as "{BaseName}_{Role}_{Index}".
+                # If we reduce the count, we must remove assignments for indices that no longer exist
+                # to prevent them from counting towards concurrency limits or being saved as orphans.
+                new_assignments = []
+                for assignment in s.slot_assignments:
+                    keep = True
+                    if assignment.role == role:
+                        try:
+                            # Extract index from the end of the slot_id (e.g., "Anal_Giver_3" -> 3)
+                            parts = assignment.slot_id.rsplit('_', 1)
+                            if len(parts) > 1 and parts[-1].isdigit():
+                                index = int(parts[-1])
+                                if index > value:
+                                    keep = False
+                        except ValueError:
+                            pass # If parsing fails, default to keeping it to be safe
+                    
+                    if keep:
+                        new_assignments.append(assignment)
+                
+                s.slot_assignments = new_assignments
+                break
 
     def update_slot_assignment(self, segment_id: int, slot_id: str, role: str, vp_id: Optional[int]):
         """

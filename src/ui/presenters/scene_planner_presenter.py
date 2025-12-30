@@ -362,17 +362,18 @@ class ScenePlannerPresenter(QObject):
         vp_options_by_slot = {}; tag_def = self.controller.tag_definitions.get(segment.tag_name)
         effective_genders_by_slot = {} # Store calculated gender requirements
         if tag_def:
-            current_assignments = {sa.slot_id: sa.virtual_performer_id for sa in segment.slot_assignments}
+            assignments_map = {sa.slot_id: sa for sa in segment.slot_assignments}
+            current_assignments_ids = {sa.slot_id: sa.virtual_performer_id for sa in segment.slot_assignments}
             for slot_def in tag_def.get('slots', []):
                 count = segment.parameters.get(slot_def['role'], slot_def.get('count', 1))
                 for i in range(count):
                     slot_id = f"{tag_def.get('name', segment.tag_name)}_{slot_def['role']}_{i+1}"
                     # Calculate Effective Gender Label
                     effective_genders_by_slot[slot_id] = self._calculate_effective_gender_req(
-                        tag_def, slot_def, slot_id, current_assignments
+                        tag_def, slot_def, slot_id, assignments_map
                     )
                     
-                    vps_assigned_elsewhere = {vp_id for sid, vp_id in current_assignments.items() if sid != slot_id and vp_id is not None}
+                    vps_assigned_elsewhere = {vp_id for sid, vp_id in current_assignments_ids.items() if sid != slot_id and vp_id is not None}
                     eligible_vps = []
 
                     # Create a map for the validator
@@ -586,12 +587,17 @@ class ScenePlannerPresenter(QObject):
     def on_favorites_changed(self): self.update_favorites(); self._refresh_thematic_panel(); self._refresh_physical_panel(); self._refresh_action_segment_panel()
     def on_toggle_favorite_requested(self, tag_name: str, tag_type: str): self.toggle_favorite_tag(tag_name, tag_type)
 
-    def _calculate_effective_gender_req(self, tag_def: Dict, slot_def: Dict, current_slot_id: str, current_assignments: Dict[str, int]) -> str:
+    def _calculate_effective_gender_req(self, tag_def: Dict, slot_def: Dict, current_slot_id: str, assignments_map: Dict[str, SlotAssignment]) -> str:
         """
         Determines the 'runtime' gender requirement for a slot.
         e.g. If a Straight tag has a Male in slot A, slot B becomes 'Female' (instead of Any).
         """
         base_gender = slot_def.get('gender', 'Any')
+
+        # If the slot has a fixed gender (not Any or Dependent), that's the requirement.
+        if base_gender not in ['Any', 'Dependent']:
+            return base_gender
+
         orientation = tag_def.get('orientation')
 
         # If the tag is explicitly strictly gendered by definition, return that.
@@ -600,24 +606,28 @@ class ScenePlannerPresenter(QObject):
 
         # If it's Straight (Fluid), determine context
         if orientation == 'Straight':
-            # 1. Look at peers (Constraints from others)
-            for slot_id, vp_id in current_assignments.items():
-                if slot_id == current_slot_id or vp_id is None: continue
+            # 1. Look at peers to find constraints
+            for sa in assignments_map.values():
+                if sa.slot_id == current_slot_id or not sa.virtual_performer_id:
+                    continue
                 
-                vp = next((v for v in self.working_scene.virtual_performers if v.id == vp_id), None)
-                if vp:
+                vp = next((v for v in self.working_scene.virtual_performers if v.id == sa.virtual_performer_id), None)
+                if not vp: continue
+
+                # Check peer role vs my role
+                # Same Role -> Same Gender. Different Role -> Opposite Gender.
+                if sa.role == slot_def['role']:
+                    if vp.gender == 'Male': return 'Male'
+                    if vp.gender == 'Female': return 'Female'
+                else:
                     if vp.gender == 'Male': return 'Female'
                     if vp.gender == 'Female': return 'Male'
 
-            # 2. Look at self (Constraint from current selection)
-            # If no peers forced a gender, does the current assignment imply one?
-            # (e.g., I picked a Male for Slot A, so Slot A is now the "Male" slot)
-            my_vp_id = current_assignments.get(current_slot_id)
-            if my_vp_id:
-                my_vp = next((v for v in self.working_scene.virtual_performers if v.id == my_vp_id), None)
+            # 2. Look at self (If I am already assigned, I take that gender)
+            if my_assignment := assignments_map.get(current_slot_id):
+                my_vp = next((v for v in self.working_scene.virtual_performers if v.id == my_assignment.virtual_performer_id), None)
                 if my_vp:
-                    if my_vp.gender == 'Male': return 'Male'
-                    if my_vp.gender == 'Female': return 'Female'
+                    return my_vp.gender
         return base_gender
 
     # --- Data Access & Helpers ---
