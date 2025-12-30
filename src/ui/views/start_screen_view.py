@@ -42,7 +42,7 @@ class StartScreenView(QWidget):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("font-size: 30pt; font-weight: bold;")
         
-        version_label = QLabel("0.6.0")
+        version_label = QLabel("0.6.1")
         version_label.setAlignment(Qt.AlignmentFlag.AlignAbsolute | Qt.AlignmentFlag.AlignBottom)
         version_label.setStyleSheet("font-size: 12pt;")
 
@@ -85,7 +85,7 @@ class StartScreenView(QWidget):
         discord_link = ClickableSvgWidget(DISCORD_LOGO, "https://discord.com/")
         github_link = ClickableSvgWidget(GITHUB_LOGO, "https://github.com/PornMogulDev/Porn-Studio-Mogul")
         reddit_link = ClickableSvgWidget(REDDIT_LOGO, "https://old.reddit.com/")
-        f95_link = ClickableSvgWidget(F95_LOGO, "https://f95zone.to")
+        f95_link = ClickableSvgWidget(F95_LOGO, "https://f95zone.to/threads/porn-studio-mogul-development-thread.281541/")
 
         # Layout placement
         menu_layout.addWidget(settings_btn, 1, 0)

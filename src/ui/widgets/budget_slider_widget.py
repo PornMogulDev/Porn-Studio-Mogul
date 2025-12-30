@@ -93,7 +93,7 @@ class BudgetSliderWidget(QWidget):
         self.btn_lock.toggled.connect(self._on_lock_toggled)
         
         # Initial Icon (Unlocked, Normal Color)
-        self.icon_manager.apply_icon(self.btn_lock, "unlocked_icon", "text")
+        self.icon_manager.apply_icon(self.btn_lock, "unlocked_icon", "accent")
         
         bot_layout.addWidget(self.btn_lock)
         
@@ -137,7 +137,7 @@ class BudgetSliderWidget(QWidget):
                 self.icon_manager.apply_icon(self.btn_lock, "locked_icon", "disabled")
             else:
                 # Unlocked: Unlocked Icon + Text Color (Normal)
-                self.icon_manager.apply_icon(self.btn_lock, "unlocked_icon", "text")
+                self.icon_manager.apply_icon(self.btn_lock, "unlocked_icon", "accent")
             
             self.slider.setEnabled(not is_user_locked)
             self.btn_lock.setEnabled(True) 
@@ -157,6 +157,6 @@ class BudgetSliderWidget(QWidget):
             if checked:
                 self.icon_manager.apply_icon(self.btn_lock, "locked_icon", "disabled")
             else:
-                self.icon_manager.apply_icon(self.btn_lock, "unlocked_icon", "text")
+                self.icon_manager.apply_icon(self.btn_lock, "unlocked_icon", "accent")
             
             self.lockToggled.emit(self.dept_id, checked)
