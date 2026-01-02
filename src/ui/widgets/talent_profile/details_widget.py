@@ -9,15 +9,24 @@ from utils.formatters import format_orientation, format_physical_attribute
 
 class DetailsWidget(QWidget):
     """A widget to display a talent's core details and skills."""
-    def __init__(self, settings_manager, icon_manager, parent=None):
+    def __init__(self, settings_manager, icon_manager, use_horizontal_layout=False, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.icon_manager = icon_manager
+        self.use_horizontal_layout = use_horizontal_layout
         self._setup_ui()
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Container for Details and Skills
+        top_container = QWidget()
+        if self.use_horizontal_layout:
+            top_layout = QHBoxLayout(top_container)
+        else:
+            top_layout = QVBoxLayout(top_container)
+        top_layout.setContentsMargins(0, 0, 0, 0)
 
         details_group = QGroupBox("Details")
         details_layout = QFormLayout(details_group)
@@ -53,7 +62,7 @@ class DetailsWidget(QWidget):
         details_layout.addRow(self.physical_attr_name_label, self.physical_attr_value_label)
         details_layout.addRow("<b>Popularity:</b>", self.popularity_label)
         details_layout.addRow("<b>Fatigue:</b>", self.fatigue_label)
-        main_layout.addWidget(details_group)
+        top_layout.addWidget(details_group)
 
         skills_group = QGroupBox("Skills and Attributes")
         skills_layout = QFormLayout(skills_group)
@@ -69,13 +78,16 @@ class DetailsWidget(QWidget):
         skills_layout.addRow("<b>Sub Skill:</b>", self.sub_skill_label)
         skills_layout.addRow("<b>Stamina:</b>", self.stamina_label)
         skills_layout.addRow("<b>Experience:</b>", self.experience_label)
-        main_layout.addWidget(skills_group)
+        top_layout.addWidget(skills_group)
+
+        # Add the top container to the main layout
+        main_layout.addWidget(top_container)
 
         # Traits Section
-        details_layout.addRow(QLabel("<b>Traits:</b>"))
+        main_layout.addWidget(QLabel("<b>Traits:</b>"))
         self.traits_list = QListWidget()
-        self.traits_list.setMaximumHeight(100) # Keep it compact
-        details_layout.addRow(self.traits_list)
+        self.traits_list.setMaximumHeight(150) # Keep it compact
+        main_layout.addWidget(self.traits_list)
 
         main_layout.addStretch()
 

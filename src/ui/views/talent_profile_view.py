@@ -1,11 +1,12 @@
 import logging
 from PyQt6.QtWidgets import ( 
-    QMainWindow, QWidget, QMenuBar, QDockWidget, QToolBar, QTabBar,
-    QLabel, QComboBox, QPushButton, QMessageBox
+    QToolBar, QTabBar, QLabel, QMessageBox,
+    QSplitter, QVBoxLayout, QTabWidget
 )
-from PyQt6.QtCore import Qt, pyqtSlot, QEvent, QByteArray, QSize, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSlot, QEvent, QSize, pyqtSignal
 
-from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
+from ui.dialogs.base_game_window import BaseGameWindow
+from ui.widgets.preset_widget import PresetWidget
 from ui.widgets.talent_profile.details_widget import DetailsWidget
 from ui.widgets.talent_profile.schedule_widget import ScheduleWidget
 from ui.widgets.talent_profile.preferences_widget import PreferencesWidget
@@ -16,28 +17,25 @@ from ui.dialogs.sponsor_tour_dialog import SponsorTourDialog
 
 logger = logging.getLogger(__name__)
 
-class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
+class TalentProfileWindow(BaseGameWindow):
     """
     The main window for displaying talent profiles.
-    Uses a QMainWindow to support a dockable, customizable layout.
+    Refactored to use BaseGameWindow and a nested QSplitter layout.
     """
     # Emitted after the user confirms the tour details in the dialog.
     tour_sponsorship_confirmed = pyqtSignal(int, list, dict, int) # talent_id, roles_to_cast, tour_details, total_cost
 
     def __init__(self, settings_manager, icon_manager, parent=None):
-        super().__init__(parent)
-        self.settings_manager = settings_manager
+        super().__init__(settings_manager, parent)
         self.icon_manager = icon_manager
         self.presenter = None # Will be set by UIManager
         self._is_loading_layout = False # Flag to prevent signal loops
 
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.defaultSize = QSize(1360, 1200)
         self.setWindowTitle("Talent Profile")
 
         self._setup_ui()
         self._connect_signals()
-        self._restore_geometry()
         self._load_last_used_layout()
 
     def _get_window_name(self) -> str:
@@ -45,24 +43,20 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         return self.__class__.__name__
 
     def closeEvent(self, event: QEvent):
-        """Overridden to save both geometry and layout state before closing."""
+        """Overridden to save geometry before closing."""
         self._save_geometry() # From GeometryManagerMixin
+        # Note: Layout state saving logic removed here; will be handled manually or via splitters in Step 3
         super().closeEvent(event)
 
     def _setup_ui(self):
-        """Initializes the core UI components of the main window."""
-
-        # The dockNestingEnabled property allows dock widgets to be tabbed together.
-        self.setDockNestingEnabled(True)
+        """Initializes the core UI components using a generic layout and splitters."""
         
-        # Create the main menu bar
-        menu_bar = QMenuBar(self)
-        self.setMenuBar(menu_bar)
-        
-        # Add a "View" menu, which will later hold actions to show/hide docks.
-        self.view_menu = menu_bar.addMenu("&View")
+        # 1. Main Layout
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
 
-        # Add the tab bar for switching between open talents
+        # 2. Tab Toolbar
         self.tab_toolbar = QToolBar("Talent Tabs")
         self.tab_toolbar.setObjectName("TalentTabToolBar") # For state saving
         self.tab_bar = QTabBar()
@@ -70,83 +64,77 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
         self.tab_bar.setTabsClosable(True)
         self.tab_bar.setMovable(True)
         self.tab_toolbar.addWidget(self.tab_bar)
-        self.addToolBar(self.tab_toolbar)
 
-        # Layout management toolbar
+        self.main_layout.addWidget(self.tab_toolbar)
+
+        # 3. Layout Management Toolbar
         self.layout_toolbar = QToolBar("Layout Management")
         self.layout_toolbar.setObjectName("LayoutManagementToolBar")
         
-        self.layout_toolbar.addWidget(QLabel(" Layout: "))
-        self.layout_combobox = QComboBox()
-        self.layout_combobox.setEditable(True)
-        self.layout_combobox.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        self.layout_combobox.setToolTip("Select a saved layout or type a new name to save.")
-        self.layout_toolbar.addWidget(self.layout_combobox)
+        self.layout_preset_widget = PresetWidget(label_text="Layout:")
+        self.layout_toolbar.addWidget(self.layout_preset_widget)
 
-        self.load_layout_button = QPushButton("Load")
-        self.layout_toolbar.addWidget(self.load_layout_button)
+        self.main_layout.addWidget(self.layout_toolbar)
 
-        self.save_layout_button = QPushButton("Save")
-        self.layout_toolbar.addWidget(self.save_layout_button)
+        # 4. Instantiate Widgets
+        # Use horizontal layout for the main profile window
+        self.details_widget = DetailsWidget(self.settings_manager, self.icon_manager, use_horizontal_layout=True)
+        self.preferences_widget = PreferencesWidget()
+        self.schedule_widget = ScheduleWidget()
+        self.hiring_widget = HiringWidget()
+        self.history_widget = HistoryWidget()
+        self.chemistry_widget = ChemistryWidget()
 
-        self.delete_layout_button = QPushButton("Delete")
-        self.layout_toolbar.addWidget(self.delete_layout_button)
-        self.addToolBarBreak()
-        self.addToolBar(self.layout_toolbar)
+        # 5. Splitter Hierarchy
+        
+        # Left Splitter (Vertical): Details | Preferences
+        self.left_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.left_splitter.setObjectName("LeftSplitter")
+        self.left_splitter.addWidget(self.details_widget)
+        self.left_splitter.addWidget(self.preferences_widget)
+        # Initial sizes: details larger
+        self.left_splitter.setSizes([600, 300])
 
-        self._create_dock_widgets()
+        # Right Splitter (Vertical): Schedule | Hiring
+        self.right_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.right_splitter.setObjectName("RightSplitter")
+        self.right_splitter.addWidget(self.schedule_widget)
+        self.right_splitter.addWidget(self.hiring_widget)
+        # Initial sizes: schedule larger
+        self.right_splitter.setSizes([600, 300])
+
+        # Top Splitter (Horizontal): Left Splitter | Right Splitter
+        self.top_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.top_splitter.setObjectName("TopSplitter")
+        self.top_splitter.addWidget(self.left_splitter)
+        self.top_splitter.addWidget(self.right_splitter)
+        self.top_splitter.setSizes([680, 680])
+
+        # Bottom Tabs: History | Chemistry
+        self.bottom_tabs = QTabWidget()
+        self.bottom_tabs.setObjectName("BottomTabWidget")
+        self.bottom_tabs.addTab(self.history_widget, "Scene History")
+        self.bottom_tabs.addTab(self.chemistry_widget, "Chemistry")
+
+        # Main Splitter (Vertical): Top Splitter | Bottom Tabs
+        self.main_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.main_splitter.setObjectName("MainSplitter")
+        self.main_splitter.addWidget(self.top_splitter)
+        self.main_splitter.addWidget(self.bottom_tabs)
+        self.main_splitter.setSizes([900, 300])
+
+        # Add main splitter to layout
+        self.main_layout.addWidget(self.main_splitter)
+
         self._populate_layouts_combobox()
 
     def _connect_signals(self):
         self.tab_bar.currentChanged.connect(self._on_tab_changed)
         self.tab_bar.tabCloseRequested.connect(self._on_tab_close_requested)
-        self.save_layout_button.clicked.connect(self._on_save_layout)
-        self.delete_layout_button.clicked.connect(self._on_delete_layout)
         self.hiring_widget.sponsor_tour_requested.connect(self._on_sponsor_tour_requested)
-        self.load_layout_button.clicked.connect(self._on_load_button_clicked)
-
-    def _create_dock_widgets(self):
-        """Creates and arranges all the dockable panel widgets."""
-        self.details_widget = DetailsWidget(self.settings_manager, self.icon_manager)
-        self._add_dock("Details & Skills", self.details_widget, Qt.DockWidgetArea.LeftDockWidgetArea)
-
-        self.preferences_widget = PreferencesWidget()
-        self._add_dock("Preferences", self.preferences_widget, Qt.DockWidgetArea.LeftDockWidgetArea)
-
-        self.schedule_widget = ScheduleWidget()
-        self._add_dock("Schedule", self.schedule_widget, Qt.DockWidgetArea.RightDockWidgetArea)
-
-        self.hiring_widget = HiringWidget()
-        self._add_dock("Hiring", self.hiring_widget, Qt.DockWidgetArea.RightDockWidgetArea)
-        
-        self.history_widget = HistoryWidget()
-        history_dock = self._add_dock("Scene History", self.history_widget, Qt.DockWidgetArea.BottomDockWidgetArea)
-        
-        self.chemistry_widget = ChemistryWidget()
-        chem_dock = self._add_dock("Chemistry", self.chemistry_widget, Qt.DockWidgetArea.BottomDockWidgetArea)
-        
-        # Tabify the history and chemistry docks by default
-        self.tabifyDockWidget(history_dock, chem_dock)
-        history_dock.raise_() # Make history the default visible tab
-
-        self.details_widget.setMinimumSize(1,1)
-        self.preferences_widget.setMinimumSize(1,1)
-        self.schedule_widget.setMinimumSize(1,1)
-        self.hiring_widget.setMinimumSize(1,1)
-        self.history_widget.setMinimumSize(1,1)
-        self.chemistry_widget.setMinimumSize(1,1)
-
-    def _add_dock(self, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
-        """Helper function to create, add, and connect a QDockWidget."""
-        dock = QDockWidget(title, self)
-        # Create a safe object name by removing special characters like '&'
-        safe_name = title.replace(' & ', 'And').replace(' ', '')
-        # Set a unique object name for state saving. e.g., "Details&SkillsDockWidget"
-        dock.setObjectName(f"{safe_name}DockWidget")
-        dock.setWidget(widget)
-        self.addDockWidget(area, dock)
-        self.view_menu.addAction(dock.toggleViewAction())
-        return dock
+        self.layout_preset_widget.load_requested.connect(self._load_layout_by_name)
+        self.layout_preset_widget.save_requested.connect(self._on_save_layout)
+        self.layout_preset_widget.delete_requested.connect(self._on_delete_layout)
 
     # --- Public methods for Presenter ---
     def add_talent_tab(self, talent_id: int, alias: str):
@@ -235,67 +223,50 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
     # --- Layout Management ---
     def _populate_layouts_combobox(self):
         """Loads saved layout names into the combobox."""
-        self._is_loading_layout = True # Prevent load signal while populating
-        self.layout_combobox.clear()
         layouts = self.settings_manager.get_talent_profile_layouts()
-        if layouts:
-            self.layout_combobox.addItems(sorted(layouts.keys()))
-        self.layout_combobox.setCurrentIndex(-1) # No selection
-        self._is_loading_layout = False
+        current_layout = self.settings_manager.get_setting("talent_profile_last_layout")
+        preset_list = list(layouts.keys()) if layouts else []
+        self.layout_preset_widget.populate_presets(preset_list, current_selection=current_layout)
+        
 
     def _load_last_used_layout(self):
         """Loads the last layout that was active in the previous session."""
         last_layout_name = self.settings_manager.get_setting("talent_profile_last_layout")
         if last_layout_name:
-            index = self.layout_combobox.findText(last_layout_name)
-            # If the layout name from settings exists in our combobox...
-            if index != -1:
-                # ...load it directly without triggering signals.
-                self._load_layout_by_name(last_layout_name)
-                
-                # Then, update the combobox to reflect the loaded layout.
-                # We block signals to prevent a redundant load attempt.
-                self.layout_combobox.blockSignals(True)
-                self.layout_combobox.setCurrentIndex(index)
-                self.layout_combobox.blockSignals(False)
+            # Logic: We attempt to load it. The UI (combobox) is already updated 
+            # via _populate_layouts_combobox called in _setup_ui -> init.
+            self._load_layout_by_name(last_layout_name)
 
-    @pyqtSlot()
-    def _on_load_button_clicked(self):
-        """Slot for the 'Load' button. Loads the currently selected layout."""
-        layout_name = self.layout_combobox.currentText()
-        if layout_name:
-            self._load_layout_by_name(layout_name)
- 
-    @pyqtSlot()
-    def _on_save_layout(self):
-        """Saves the current dock layout to the settings."""
-        layout_name = self.layout_combobox.currentText()
-        # Allow using the placeholder text of an editable combobox as a new name
-        if not layout_name and self.layout_combobox.lineEdit():
-            layout_name = self.layout_combobox.lineEdit().text()
+    @pyqtSlot(str)
+    def _on_save_layout(self, layout_name: str):
+        """Saves the current splitter configuration to the settings."""
+        # layout_name comes directly from the widget signal
+        
         if not layout_name:
             QMessageBox.warning(self, "Save Layout", "Please enter a name for the layout.")
             return
 
-        state_bytes = self.saveState().toBase64()
-        state_str = state_bytes.data().decode('ascii')
+        # Capture layout state
+        layout_data = {
+            "main": self.main_splitter.sizes(),
+            "top": self.top_splitter.sizes(),
+            "left": self.left_splitter.sizes(),
+            "right": self.right_splitter.sizes(),
+            "bottom_tab": self.bottom_tabs.currentIndex()
+        }
 
         layouts = self.settings_manager.get_talent_profile_layouts()
-        layouts[layout_name] = state_str
+        layouts[layout_name] = layout_data
         self.settings_manager.set_talent_profile_layouts(layouts)
         
-        self.layout_combobox.blockSignals(True)
+        # Refresh list and re-select the saved layout
         self._populate_layouts_combobox()
-        # Restore the text after repopulating
-        self.layout_combobox.setCurrentText(layout_name)
-        self.layout_combobox.blockSignals(False)
 
         QMessageBox.information(self, "Layout Saved", f"Layout '{layout_name}' has been saved.")
 
-    @pyqtSlot()
-    def _on_delete_layout(self):
+    @pyqtSlot(str)
+    def _on_delete_layout(self, layout_name: str):
         """Deletes the currently selected layout from settings."""
-        layout_name = self.layout_combobox.currentText()
         if not layout_name:
             return
 
@@ -315,21 +286,31 @@ class TalentProfileWindow(GeometryManagerMixin, QMainWindow):
     def _load_layout_by_name(self, layout_name: str):
         """
         Loads and applies a layout state from settings based on its name.
+        Handles new dict-based layouts and ignores legacy byte strings.
         """
         layouts = self.settings_manager.get_talent_profile_layouts()
-        state_str = layouts.get(layout_name)
-        if state_str:
-            try:
-                state_bytes = QByteArray.fromBase64(state_str.encode('ascii'))
-                if self.restoreState(state_bytes):
-                    logger.info(f"Successfully loaded layout '{layout_name}'.")
-                    self.settings_manager.set_setting("talent_profile_last_layout", layout_name)
-                else:
-                    # This is a critical piece of information. restoreState() can fail.
-                    logger.warning(f"self.restoreState() returned 'False' for layout '{layout_name}'. The layout data may be corrupt or incompatible with the current UI.")
-                    QMessageBox.warning(self, "Load Error", f"Failed to load layout '{layout_name}'. The data may be corrupt.")
-            except Exception as e:
-                logger.error(f"An exception occurred while decoding or restoring layout '{layout_name}': {e}", exc_info=True)
-                QMessageBox.critical(self, "Load Error", f"An unexpected error occurred while loading layout '{layout_name}'. See logs for details.")
-        else:
+        data = layouts.get(layout_name)
+        
+        if not data:
             logger.warning(f"Could not find layout data for name '{layout_name}' in settings.")
+            return
+
+        # Validation: Check if it's the new format (dict)
+        if not isinstance(data, dict):
+            logger.warning(f"Layout '{layout_name}' is in an old format. Please save a new layout.")
+            return
+
+        try:
+            if "main" in data: self.main_splitter.setSizes(data["main"])
+            if "top" in data: self.top_splitter.setSizes(data["top"])
+            if "left" in data: self.left_splitter.setSizes(data["left"])
+            if "right" in data: self.right_splitter.setSizes(data["right"])
+            if "bottom_tab" in data: 
+                self.bottom_tabs.setCurrentIndex(data["bottom_tab"])
+            
+            self.settings_manager.set_setting("talent_profile_last_layout", layout_name)
+            logger.info(f"Successfully loaded layout '{layout_name}'.")
+            
+        except Exception as e:
+            logger.error(f"Error applying layout '{layout_name}': {e}", exc_info=True)
+            QMessageBox.critical(self, "Load Error", f"Failed to apply layout '{layout_name}'.")

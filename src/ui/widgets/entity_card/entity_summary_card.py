@@ -25,7 +25,7 @@ class EntitySummaryCard(QWidget):
         container_layout.setContentsMargins(5, 5, 5, 5)
         
         # Reuse existing details widget
-        self.details_widget = DetailsWidget(settings_manager, icon_manager)
+        self.details_widget = DetailsWidget(settings_manager, icon_manager, use_horizontal_layout=False)
         # Hide the physical attributes row by default in summary to save space if needed, 
         # or keep it if detail is preferred.
         
