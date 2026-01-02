@@ -1,9 +1,12 @@
 import logging
 from PyQt6.QtWidgets import ( 
-    QToolBar, QTabBar, QLabel, QMessageBox,
-    QSplitter, QVBoxLayout, QTabWidget
+    QWidget, QTabBar, QMessageBox, QSplitter, 
+    QVBoxLayout, QHBoxLayout, QTabWidget
 )
-from PyQt6.QtCore import Qt, pyqtSlot, QEvent, QSize, pyqtSignal
+from PyQt6.QtCore import (
+    Qt, pyqtSlot, QEvent, QSize, pyqtSignal, QTimer,
+    QByteArray
+)
 
 from ui.dialogs.base_game_window import BaseGameWindow
 from ui.widgets.preset_widget import PresetWidget
@@ -36,7 +39,13 @@ class TalentProfileWindow(BaseGameWindow):
 
         self._setup_ui()
         self._connect_signals()
-        self._load_last_used_layout()
+    
+    # Add showEvent override
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._is_loading_layout:
+            # Only load if we haven't already (or simple check to prevent overwrite)
+            QTimer.singleShot(0, self._load_last_used_layout)
 
     def _get_window_name(self) -> str:
         """Provides a consistent key for saving settings."""
@@ -56,23 +65,28 @@ class TalentProfileWindow(BaseGameWindow):
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
 
-        # 2. Tab Toolbar
-        self.tab_toolbar = QToolBar("Talent Tabs")
-        self.tab_toolbar.setObjectName("TalentTabToolBar") # For state saving
+        # 2. Tab Bar Container
+        self.tab_container = QWidget()
+        tab_layout = QHBoxLayout(self.tab_container)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
         self.tab_bar = QTabBar()
         self.tab_bar.setExpanding(True)
         self.tab_bar.setTabsClosable(True)
         self.tab_bar.setMovable(True)
-        self.tab_toolbar.addWidget(self.tab_bar)
 
-        self.main_layout.addWidget(self.tab_toolbar)
+        tab_layout.addWidget(self.tab_bar)
 
-        # 3. Layout Management Toolbar
-        self.layout_toolbar = QToolBar("Layout Management")
-        self.layout_toolbar.setObjectName("LayoutManagementToolBar")
+        self.main_layout.addWidget(self.tab_container)
+
+        # 3. Layout Management Container
+        self.layout_toolbar = QWidget()
+        layout_mgr_layout = QHBoxLayout(self.layout_toolbar)
+        layout_mgr_layout.setContentsMargins(5, 5, 5, 5)
         
         self.layout_preset_widget = PresetWidget(label_text="Layout:")
-        self.layout_toolbar.addWidget(self.layout_preset_widget)
+
+        layout_mgr_layout.addWidget(self.layout_preset_widget)
+        layout_mgr_layout.addStretch()
 
         self.main_layout.addWidget(self.layout_toolbar)
 
@@ -93,7 +107,8 @@ class TalentProfileWindow(BaseGameWindow):
         self.left_splitter.addWidget(self.details_widget)
         self.left_splitter.addWidget(self.preferences_widget)
         # Initial sizes: details larger
-        self.left_splitter.setSizes([600, 300])
+        self.left_splitter.setStretchFactor(0, 2)
+        self.left_splitter.setStretchFactor(1, 1)
 
         # Right Splitter (Vertical): Schedule | Hiring
         self.right_splitter = QSplitter(Qt.Orientation.Vertical)
@@ -101,14 +116,16 @@ class TalentProfileWindow(BaseGameWindow):
         self.right_splitter.addWidget(self.schedule_widget)
         self.right_splitter.addWidget(self.hiring_widget)
         # Initial sizes: schedule larger
-        self.right_splitter.setSizes([600, 300])
+        self.right_splitter.setStretchFactor(0, 2)
+        self.right_splitter.setStretchFactor(1, 1)
 
         # Top Splitter (Horizontal): Left Splitter | Right Splitter
         self.top_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.top_splitter.setObjectName("TopSplitter")
         self.top_splitter.addWidget(self.left_splitter)
         self.top_splitter.addWidget(self.right_splitter)
-        self.top_splitter.setSizes([680, 680])
+        self.top_splitter.setStretchFactor(0, 1)
+        self.top_splitter.setStretchFactor(1, 1)
 
         # Bottom Tabs: History | Chemistry
         self.bottom_tabs = QTabWidget()
@@ -121,7 +138,8 @@ class TalentProfileWindow(BaseGameWindow):
         self.main_splitter.setObjectName("MainSplitter")
         self.main_splitter.addWidget(self.top_splitter)
         self.main_splitter.addWidget(self.bottom_tabs)
-        self.main_splitter.setSizes([900, 300])
+        self.main_splitter.setStretchFactor(0, 3)
+        self.main_splitter.setStretchFactor(1, 1)
 
         # Add main splitter to layout
         self.main_layout.addWidget(self.main_splitter)
@@ -246,12 +264,12 @@ class TalentProfileWindow(BaseGameWindow):
             QMessageBox.warning(self, "Save Layout", "Please enter a name for the layout.")
             return
 
-        # Capture layout state
+        # Capture layout state using QByteArray for robustness
         layout_data = {
-            "main": self.main_splitter.sizes(),
-            "top": self.top_splitter.sizes(),
-            "left": self.left_splitter.sizes(),
-            "right": self.right_splitter.sizes(),
+            "main": self.main_splitter.saveState().toBase64().data().decode('ascii'),
+            "top": self.top_splitter.saveState().toBase64().data().decode('ascii'),
+            "left": self.left_splitter.saveState().toBase64().data().decode('ascii'),
+            "right": self.right_splitter.saveState().toBase64().data().decode('ascii'),
             "bottom_tab": self.bottom_tabs.currentIndex()
         }
 
@@ -295,16 +313,22 @@ class TalentProfileWindow(BaseGameWindow):
             logger.warning(f"Could not find layout data for name '{layout_name}' in settings.")
             return
 
-        # Validation: Check if it's the new format (dict)
-        if not isinstance(data, dict):
-            logger.warning(f"Layout '{layout_name}' is in an old format. Please save a new layout.")
-            return
-
         try:
-            if "main" in data: self.main_splitter.setSizes(data["main"])
-            if "top" in data: self.top_splitter.setSizes(data["top"])
-            if "left" in data: self.left_splitter.setSizes(data["left"])
-            if "right" in data: self.right_splitter.setSizes(data["right"])
+            # Helper to restore state or fallback to sizes if legacy data
+            def restore_splitter(splitter: QSplitter, key: str):
+                if key in data:
+                    val = data[key]
+                    if isinstance(val, str):
+                        # New format: Base64 string
+                        splitter.restoreState(QByteArray.fromBase64(val.encode('ascii')))
+                    elif isinstance(val, list):
+                        # Legacy format: List of sizes
+                        splitter.setSizes(val)
+
+            restore_splitter(self.main_splitter, "main")
+            restore_splitter(self.top_splitter, "top")
+            restore_splitter(self.left_splitter, "left")
+            restore_splitter(self.right_splitter, "right")
             if "bottom_tab" in data: 
                 self.bottom_tabs.setCurrentIndex(data["bottom_tab"])
             

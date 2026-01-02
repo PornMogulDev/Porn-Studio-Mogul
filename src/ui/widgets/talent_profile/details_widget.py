@@ -86,7 +86,6 @@ class DetailsWidget(QWidget):
         # Traits Section
         main_layout.addWidget(QLabel("<b>Traits:</b>"))
         self.traits_list = QListWidget()
-        self.traits_list.setMaximumHeight(150) # Keep it compact
         main_layout.addWidget(self.traits_list)
 
         main_layout.addStretch()
