@@ -449,6 +449,8 @@ class ScenePlannerPresenter(QObject):
         return result
 
     def _apply_preset_to_scene(self, preset_data: Dict):
+        # BUG: Sometimes it will fail to move to the Casting phase, removing the action segments.
+        # Doesn't seem to be a timing issue.
         """Callback for PresetHandler to apply loaded data."""
         
         # DEBUG: Trace ID restoration
