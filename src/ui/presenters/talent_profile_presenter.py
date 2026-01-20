@@ -20,6 +20,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Constants for bottom tab indices
+TAB_IDX_HISTORY = 0
+TAB_IDX_CHEMISTRY = 1
+
 class TalentProfilePresenter(QObject):
     """
     Coordinator Presenter for the TalentProfileWindow.
@@ -36,6 +40,10 @@ class TalentProfilePresenter(QObject):
         self.open_talents = {}  # {talent_id: Talent}
         self.current_talent_id = None
 
+        # Tracking dirty state for heavy tabs {talent_id: {tab_idx: bool}}
+        # If an entry is True, that tab needs reloading when it becomes visible.
+        self._heavy_tabs_dirty = {} 
+
         # Initialize Sub-Presenters
         self.details_presenter = DetailsPresenter(controller, view.details_widget, parent=self)
         self.schedule_presenter = SchedulePresenter(controller, view.schedule_widget, parent=self)
@@ -46,6 +54,9 @@ class TalentProfilePresenter(QObject):
         self.hiring_presenter = HiringPresenter(controller, view.hiring_widget, uimanager, view_parent=view, parent=self)
 
         self._connect_global_signals()
+
+        # Connect local view signals
+        self.view.bottom_tab_changed.connect(self._on_bottom_tab_changed)
         
         # Initial Theme Setup
         current_theme_name = self.controller.settings_manager.get_setting("theme", "light")
@@ -103,6 +114,10 @@ class TalentProfilePresenter(QObject):
         del self.open_talents[talent_id]
         self.view.remove_talent_tab(talent_id)
 
+        # Cleanup dirty state tracking
+        if talent_id in self._heavy_tabs_dirty:
+            del self._heavy_tabs_dirty[talent_id]
+
         if not self.open_talents:
             self.current_talent_id = None
             # Optionally close window here, usually handled by UI Manager or user action
@@ -118,12 +133,17 @@ class TalentProfilePresenter(QObject):
             
         talent = self.open_talents[self.current_talent_id]
 
+        # Mark heavy tabs as dirty for this talent so they load when viewed
+        self._mark_heavy_tabs_dirty(self.current_talent_id)
+
+        # Load "Core" tabs immediately (Fast/Always Visible)
         self.details_presenter.set_talent(talent)
         self.schedule_presenter.set_talent(talent)
         self.preferences_presenter.set_talent(talent)
-        self.history_presenter.set_talent(talent)
-        self.chemistry_presenter.set_talent(talent)
         self.hiring_presenter.set_talent(talent)
+
+        # Trigger load for whichever heavy tab is currently visible
+        self._load_visible_heavy_tab()
 
     def _refresh_current_talent_data_on_change(self):
         """Refreshes dynamic data when game state changes."""
@@ -139,8 +159,46 @@ class TalentProfilePresenter(QObject):
                 # Update sub-presenters that display dynamic data
                 self.schedule_presenter.set_talent(updated_talent)
                 self.hiring_presenter.set_talent(updated_talent)
-                self.history_presenter.set_talent(updated_talent)
                 self.details_presenter.set_talent(updated_talent) # Fatigue/Stats might change
+
+                # Mark heavy tabs dirty and reload visible one
+                self._mark_heavy_tabs_dirty(self.current_talent_id)
+                self._load_visible_heavy_tab()
+
+    def _mark_heavy_tabs_dirty(self, talent_id: int):
+        """Resets the dirty flags for heavy tabs."""
+        self._heavy_tabs_dirty[talent_id] = {
+            TAB_IDX_HISTORY: True,
+            TAB_IDX_CHEMISTRY: True
+        }
+
+    @pyqtSlot(int)
+    def _on_bottom_tab_changed(self, index: int):
+        """Handle user switching the bottom tab (History vs Chemistry)."""
+        self._load_visible_heavy_tab()
+
+    def _load_visible_heavy_tab(self):
+        """Checks the currently visible bottom tab and loads its data if dirty."""
+        if not self.current_talent_id or self.current_talent_id not in self.open_talents:
+            return
+
+        # Ensure we have a tracking dict for this talent
+        if self.current_talent_id not in self._heavy_tabs_dirty:
+            self._mark_heavy_tabs_dirty(self.current_talent_id)
+
+        talent = self.open_talents[self.current_talent_id]
+        dirty_flags = self._heavy_tabs_dirty[self.current_talent_id]
+        current_tab_idx = self.view.get_active_bottom_tab_index()
+
+        if current_tab_idx == TAB_IDX_HISTORY:
+            if dirty_flags.get(TAB_IDX_HISTORY, False):
+                self.history_presenter.set_talent(talent)
+                dirty_flags[TAB_IDX_HISTORY] = False
+                
+        elif current_tab_idx == TAB_IDX_CHEMISTRY:
+            if dirty_flags.get(TAB_IDX_CHEMISTRY, False):
+                self.chemistry_presenter.set_talent(talent)
+                dirty_flags[TAB_IDX_CHEMISTRY] = False
 
     def _apply_theme_colors(self, danger_color: str):
         """Propagates theme colors to relevant sub-presenters."""

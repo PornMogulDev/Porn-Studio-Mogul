@@ -160,11 +160,11 @@ class HiringPresenter(QObject):
         )
         self._active_tour_dialog.tour_confirmed.connect(self._execute_tour)
         
-        # 5. Clean up on dialog close
-        if self._active_tour_dialog.exec():
-            # Accepted logic handled by tour_confirmed signal or here
-            pass
+        # Dialog lifecycle is now managed by _execute_tour's success/fail logic
+        # or the user clicking Cancel (rejected).
+        self._active_tour_dialog.exec()
         
+        # Cleanup after dialog closes
         self._active_tour_dialog = None
         self._current_tour_roles = []
 
@@ -176,13 +176,26 @@ class HiringPresenter(QObject):
         final_tour_details = self._active_tour_dialog.get_selected_tour_details()
         total_cost = self._active_tour_dialog.get_final_cost()
         
-        if final_tour_details:
+        if not final_tour_details:
+            self._active_tour_dialog.show_error_message("Invalid tour details.")
+            return
+
+        try:
+            # Attempt to execute the transaction
             self.controller.sponsor_tour(
                 self.current_talent_id,
                 self._current_tour_roles,
                 final_tour_details,
                 total_cost
             )
+            
+            # If successful (no exception raised), we close the dialog
+            self._active_tour_dialog.accept()
+            
+        except Exception as e:
+            logger.error(f"Failed to sponsor tour: {e}", exc_info=True)
+            # If failed, keep dialog open and show error
+            self._active_tour_dialog.show_error_message(f"An error occurred while processing the tour: {str(e)}")
 
     @pyqtSlot(dict)
     def _on_contract_preview_requested(self, terms: dict):

@@ -25,6 +25,8 @@ class TalentProfileWindow(BaseGameWindow):
     Acts as a container for various widgets managed by sub-presenters.
     """
 
+    bottom_tab_changed = pyqtSignal(int)
+
     def __init__(self, settings_manager, icon_manager, parent=None):
         super().__init__(settings_manager, parent)
         self.icon_manager = icon_manager
@@ -144,6 +146,7 @@ class TalentProfileWindow(BaseGameWindow):
         self._populate_layouts_combobox()
 
     def _connect_signals(self):
+        self.bottom_tabs.currentChanged.connect(self.bottom_tab_changed)
         self.tab_bar.currentChanged.connect(self._on_tab_changed)
         self.tab_bar.tabCloseRequested.connect(self._on_tab_close_requested)
         self.layout_preset_widget.load_requested.connect(self._load_layout_by_name)
@@ -178,6 +181,10 @@ class TalentProfileWindow(BaseGameWindow):
             if self.tab_bar.tabData(i) == talent_id and self.tab_bar.currentIndex() != i:
                 self.tab_bar.setCurrentIndex(i)
                 break
+        
+    def get_active_bottom_tab_index(self) -> int:
+        """Returns the index of the currently visible bottom tab."""
+        return self.bottom_tabs.currentIndex()
 
     # --- Slots for UI signals ---
     @pyqtSlot(int)
