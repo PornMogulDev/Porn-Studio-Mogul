@@ -1,4 +1,5 @@
     
+import os
 import sys
 from pathlib import Path
 from platformdirs import user_documents_dir
@@ -46,7 +47,9 @@ def get_user_data_root(app_name="PSM Saves & Config"):
     # Fallback
     return Path.home() / app_name
 
-USER_DATA_ROOT = get_user_data_root()
+# Override this before importing application modules to isolate development data.
+_user_data_override = os.environ.get("PSM_USER_DATA_DIR")
+USER_DATA_ROOT = Path(_user_data_override).expanduser().resolve() if _user_data_override else get_user_data_root()
 
 # --- ROOT LEVEL DOCUMENTATION ---
 ACKNOWLEDGEMENTS_FILE = APP_ROOT / "acknowledgements.md"
