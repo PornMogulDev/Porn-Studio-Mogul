@@ -12,19 +12,24 @@ from ui.presenters.role_details_presenter import RoleDetailsPresenter
 from ui.builders.scene_summary_builder import prepare_summary_data
 
 if TYPE_CHECKING:
+    from services.calculation.talent_demand_calculator import TalentDemandCalculator
     from ui.managers.ui_manager import UIManager
     from ui.managers.icon_manager import IconManager
 
 # --- Asynchronous Worker for Demand Calculation ---
 class WorkerSignals(QObject):
     """Defines signals available from a running worker thread."""
-    finished = pyqtSignal(dict) # dict will be {talent_id: demand_cost}
+    finished = pyqtSignal(dict, int)
 
 class DemandCalculationWorker(QRunnable):
     """Worker thread for calculating talent demands without freezing the UI."""
-    def __init__(self, controller: IGameController, talents_data: List[Talent], scene_data: Scene, vp_id: int, talent_locations: Dict[int, str]):
+    def __init__(self, calculator: 'TalentDemandCalculator', absolute_week: int, request_id: int,
+                 talents_data: List[Talent], scene_data: Scene, vp_id: int,
+                 talent_locations: Dict[int, str]):
         super().__init__()
-        self.controller = controller
+        self.calculator = calculator
+        self.absolute_week = absolute_week
+        self.request_id = request_id
         self.talents = talents_data
         self.scene = scene_data
         self.vp_id = vp_id
@@ -33,16 +38,14 @@ class DemandCalculationWorker(QRunnable):
 
     @pyqtSlot()
     def run(self):
-        # This worker is now "dumb". It receives all data and just calls the calculator.
         demands = {}
-        game_state = self.controller.game_state
         for talent in self.talents:
             effective_location = self.talent_locations.get(talent.id, talent.base_location)
-            cost_breakdown = self.controller.talent_demand_calculator.calculate_total_demand(
-                talent, self.scene, self.vp_id, effective_location, game_state.absolute_week
+            cost_breakdown = self.calculator.calculate_total_demand(
+                talent, self.scene, self.vp_id, effective_location, self.absolute_week
             )
             demands[talent.id] = cost_breakdown['total_cost']
-        self.signals.finished.emit(demands)
+        self.signals.finished.emit(demands, self.request_id)
 
 class TalentTabPresenter(QObject):
     def __init__(self, controller: IGameController, view: TalentTab, ui_manager: 'UIManager', icon_manager: 'IconManager', parent=None):
@@ -109,6 +112,7 @@ class TalentTabPresenter(QObject):
                     self.view.talent_table_view.setColumnHidden(i, False)
 
     def _connect_signals(self):
+        self.controller.signals.session_changing.connect(self._reset_session_state)
         self.controller.signals.talent_pool_changed.connect(self._invalidate_filter_cache)
         self.controller.signals.go_to_categories_changed.connect(self.view.refresh_from_state)
         self.controller.signals.go_to_list_changed.connect(self.view.refresh_from_state)
@@ -178,6 +182,26 @@ class TalentTabPresenter(QObject):
         user_wants_it = self.controller.settings_manager.get_setting("demand_column_user_preference", True)
         should_show = user_wants_it and self._is_casting_mode
         self.view.set_demand_column_visible(should_show)
+
+    def load_initial_data(self):
+        self.filter_widget.populate_categories(self.controller.get_go_to_list_categories())
+        self.view.refresh_from_state()
+
+    @pyqtSlot()
+    def _reset_session_state(self):
+        self._filter_sequence_id += 1
+        self.thread_pool.clear()
+        self._all_talents_for_filtering.clear()
+        self._talent_filter_cache.clear()
+        self._demand_cache.clear()
+        self._current_casting_context = None
+        self._is_casting_mode = False
+        self._cache_is_dirty = True
+        for key in ("scene_id", "vp_id", "go_to_list_only", "go_to_category_id"):
+            self.view.advanced_filters.pop(key, None)
+        self.filter_widget.reset_session_selection()
+        self._update_casting_ui_state(None, None)
+        self.view.update_talent_list([])
 
     @pyqtSlot()
     def _invalidate_filter_cache(self):
@@ -328,8 +352,11 @@ class TalentTabPresenter(QObject):
             # --- Step 4: Background Calc ---
             if talent_ids_to_calculate:
                 talents_to_calc = self.controller.get_multiple_talents_by_ids(talent_ids_to_calculate)
-                worker = DemandCalculationWorker(self.controller, talents_to_calc, scene_dc, vp_id, talent_locations)
-                worker.signals.finished.connect(lambda res: self._on_demand_calculation_finished(res, current_seq_id))
+                worker = DemandCalculationWorker(
+                    self.controller.talent_demand_calculator, self.controller.game_state.absolute_week,
+                    current_seq_id, talents_to_calc, scene_dc, vp_id, talent_locations,
+                )
+                worker.signals.finished.connect(self._on_demand_calculation_finished)
                 self.thread_pool.start(worker)
         else:
             # --- PATH B: Standard Filtering ---
@@ -347,7 +374,7 @@ class TalentTabPresenter(QObject):
                     cache_items_passing_skills.append(filter_cache_item)
             self.view.update_talent_list(cache_items_passing_skills)
 
-    @pyqtSlot(dict)
+    @pyqtSlot(dict, int)
     def _on_demand_calculation_finished(self, demands: dict, seq_id: int):
         """Slot to receive results from the background worker and update the model."""
         if seq_id != self._filter_sequence_id:

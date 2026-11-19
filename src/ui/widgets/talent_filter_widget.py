@@ -98,9 +98,7 @@ class TalentFilterWidget(QWidget):
         go_to_layout.addWidget(self.go_to_only_checkbox)
         self.category_combo = QComboBox()
         self.category_combo.setEnabled(False)
-        self.category_combo.addItem("Any", -1)
-        for category in sorted(self.go_to_categories, key=lambda c: c['name']):
-            self.category_combo.addItem(category['name'], category['id'])
+        self.populate_categories(self.go_to_categories)
         go_to_layout.addWidget(self.category_combo)
         self.scroll_layout.addWidget(go_to_group)
         
@@ -242,6 +240,23 @@ class TalentFilterWidget(QWidget):
             self.role_selected.emit(self.current_scene_id, vp_id)
 
     # --- Public methods for the Presenter to command the View ---
+
+    def populate_categories(self, categories: List[Dict]):
+        self.category_combo.clear()
+        self.category_combo.addItem("Any", -1)
+        for category in sorted(categories, key=lambda category: category['name']):
+            self.category_combo.addItem(category['name'], category['id'])
+
+    def reset_session_selection(self):
+        self.current_scene_id = None
+        self.populate_scenes([])
+        self.populate_roles([])
+        self.go_to_only_checkbox.setChecked(False)
+        self.populate_categories([])
+        self.set_category_combo_enabled(False)
+        self.set_gender_filter_enabled(True)
+        self.set_ethnicity_filter_enabled(True)
+        self.set_physical_filters_for_gender('Any')
 
     def populate_scenes(self, scenes: List[Dict]):
         self.scene_combo.blockSignals(True)

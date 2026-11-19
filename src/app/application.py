@@ -121,7 +121,6 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
         self._restore_geometry()
 
     def show_start_screen(self):
-        self.ui_manager.close_all_dialogs()
         self.stacked_widget.setCurrentWidget(self.start_screen)
 
     def show_main_window(self):
@@ -165,6 +164,8 @@ class ApplicationWindow(QMainWindow, GeometryManagerMixin):
                 self._apply_resolution_preset(preset)
 
     def closeEvent(self, event: QCloseEvent):
+        if not self.controller.handle_application_shutdown():
+            event.ignore()
+            return
         self._save_geometry()
-        self.controller.handle_application_shutdown()
         super().closeEvent(event)

@@ -1,167 +1,129 @@
 import logging
-from typing import Optional, Tuple
+import sqlite3
 
-from database.db_models import (GameInfoDB, MarketGroupStateDB, TalentDB, AIStudioDB,
-                                GoToListCategoryDB, EmailMessageDB, StudioStateDB)
-from data.game_state import GameState, MarketGroupState, StudioState, AIStudio
-from data.save_manager import SaveManager, LIVE_SESSION_NAME, QUICKSAVE_NAME, EXITSAVE_NAME
-from core.talent_generator import TalentGenerator
 from core.ai_studio_generator import AIStudioGenerator
-from data.data_manager import DataManager
 from core.game_signals import GameSignals
-
+from core.talent_generator import TalentGenerator
+from data.data_manager import DataManager
+from data.game_state import GameState, MarketGroupState, StudioState
+from data.save_manager import EXITSAVE_NAME, QUICKSAVE_NAME, SaveManager
+from database.db_models import (
+    AIStudioDB, GameInfoDB, GoToListCategoryDB, MarketGroupStateDB, StudioStateDB, TalentDB,
+)
 
 logger = logging.getLogger(__name__)
 
+
 class GameSessionService:
-    """
-    Manages the game session lifecycle: new, save, load, quit.
-    """
+    """Starts, loads and saves games using the active working database."""
+
     def __init__(self, save_manager: SaveManager, data_manager: DataManager,
-        signals: GameSignals, talent_generator: TalentGenerator, ai_studio_generator: AIStudioGenerator):
+                 signals: GameSignals, talent_generator: TalentGenerator,
+                 ai_studio_generator: AIStudioGenerator):
         self.save_manager = save_manager
-        self.data_manager = data_manager
         self.signals = signals
         self.talent_generator = talent_generator
         self.ai_studio_generator = ai_studio_generator
-        self.game_constant = self.data_manager.game_config
-        self.market_data = self.data_manager.market_data
-        
-    def start_new_game(self) -> Optional[Tuple[GameState, str]]:
-        """
-        Creates a new game database, initializes it with starting data,
-        and returns the essential state for the controller.
-        """
-        # Ensure any previous session is disconnected before starting fresh.
-        self.save_manager.db_manager.disconnect()
-        save_path = self.save_manager.create_new_save_db(LIVE_SESSION_NAME)
-        session = self.save_manager.db_manager.get_session()
-        try:
+        self.game_constant = data_manager.game_config
+        self.market_data = data_manager.market_data
 
-            studio_state = StudioState(
+    def start_new_game(self) -> GameState | None:
+        try:
+            studio = StudioState(
                 money=self.game_constant["initial_money"],
-                location=self.game_constant["default_player_studio_location"]
+                location=self.game_constant["default_player_studio_location"],
             )
-            
-            game_state = GameState(
-                studio=studio_state,
-                absolute_week=1
-             )
+            state = GameState(studio=studio, absolute_week=1)
+            with self.save_manager.replace_session() as candidate:
+                with candidate.get_session() as session, session.begin():
+                    session.add(GameInfoDB(key="absolute_week", value=str(state.absolute_week)))
+                    studio_db = StudioStateDB.from_dataclass(studio)
+                    studio_db.id = 1
+                    session.add(studio_db)
 
-            # Initialize GameInfo
-            session.add(GameInfoDB(key='absolute_week', value=str(game_state.absolute_week)))
- 
-            # Initialize StudioState
-            studio_state_db = StudioStateDB.from_dataclass(studio_state)
-            studio_state_db.id = 1 # Ensure singleton
-            session.add(studio_state_db)
+                    group_names = [group["name"] for group in self.market_data.get("viewer_groups", [])]
+                    for name in group_names:
+                        if name:
+                            session.add(MarketGroupStateDB.from_dataclass(MarketGroupState(name=name)))
+                    for talent in self.talent_generator.generate_multiple_talents(150, start_id=1):
+                        for name in group_names:
+                            talent.popularity[name] = 0.0
+                        session.add(TalentDB.from_dataclass(talent))
 
-            # Initialize Market Groups
-            all_group_names = [g['name'] for g in self.market_data.get('viewer_groups', [])]
-            for group in self.market_data.get('viewer_groups', []):
-                if name := group.get('name'):
-                    market_state = MarketGroupState(name=name)
-                    session.add(MarketGroupStateDB.from_dataclass(market_state))
-            
-            # Generate initial talent pool
-            initial_talents = self.talent_generator.generate_multiple_talents(150, start_id=1)
-            for talent in initial_talents:
-                for name in all_group_names: talent.popularity[name] = 0.0
-                session.add(TalentDB.from_dataclass(talent))
-
-            # Create default Go-To List category
-            general_category = GoToListCategoryDB(name="General", is_deletable=False)
-            session.add(general_category)
-
-            # --- Create Initial AI Studios ---
-            generated_studios = self.ai_studio_generator.generate_studios(count=4, start_id=1)
-            for studio in generated_studios:
-                db_studio = AIStudioDB.from_dataclass(studio)
-                session.add(db_studio)
-
-            session.commit()
-            return game_state, save_path
-        except Exception as e:
-            logger.error(f"Couldn't create a new game: {e}", exc_info=True)
-            session.rollback()
+                    session.add(GoToListCategoryDB(name="General", is_deletable=False))
+                    for rival in self.ai_studio_generator.generate_studios(count=4, start_id=1):
+                        session.add(AIStudioDB.from_dataclass(rival))
+                self.signals.session_changing.emit()
+            return state
+        except Exception:
+            logger.exception("Could not create a new game")
+            self.signals.notification_posted.emit("Error: Could not start a new game.")
             return None
-        finally:
-            session.close()
 
-
-    def load_game(self, save_name: str) -> Optional[Tuple[GameState, str]]:
-        """
-        Loads a game from a save file by copying it to the live session.
-        Returns the essential game state for the controller.
-        """
+    def load_game(self, save_name: str) -> GameState | None:
         try:
-            # Step 1: Disconnect any previously active session to ensure a clean slate.
-            self.save_manager.db_manager.disconnect()
-
-            # Step 2: This method copies the save file AND connects the DB manager to it.
-            game_state = self.save_manager.load_game(save_name)
-
-            # Step 3: Now that a connection is established, we can safely get the session.
-            save_path = self.save_manager.get_current_session_path()
-            
-            return game_state, save_path
+            with self.save_manager.replace_session(save_name) as candidate:
+                with candidate.get_session() as session:
+                    week = session.get(GameInfoDB, "absolute_week")
+                    studio = session.get(StudioStateDB, 1)
+                    if week is None or studio is None or int(week.value) < 1:
+                        raise ValueError("Save is missing valid game state.")
+                    state = GameState(absolute_week=int(week.value), studio=studio.to_dataclass(StudioState))
+                self.signals.session_changing.emit()
+            return state
         except FileNotFoundError:
-            logger.error(f"Attempted to load a save file that does not exist: {save_name}")
+            logger.warning("Save file %r was not found", save_name)
             self.signals.notification_posted.emit(f"Error: Save file '{save_name}' not found.")
-            return None
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while loading game '{save_name}': {e}", exc_info=True)
-            self.signals.notification_posted.emit("A critical error occurred while loading the game.")
-            return None
+        except Exception:
+            logger.exception("Could not load save %r", save_name)
+            self.signals.notification_posted.emit("Error: Could not load the selected save.")
+        return None
 
-    def continue_game(self) -> Optional[Tuple[GameState, str]]:
-        """Loads the most recent save file."""
+    def continue_game(self) -> GameState | None:
         latest_save = self.save_manager.load_latest_save()
         if latest_save:
             return self.load_game(latest_save)
         return None
 
-    def save_game(self, save_name: str):
-        """Saves the current game session to a named file."""
-        # The service is now self-sufficient. It gets the session and path from its own manager.
-        session = self.save_manager.db_manager.get_session()
-        current_save_path = self.save_manager.get_current_session_path()
+    def save_game(self, save_name: str) -> bool:
+        try:
+            self.save_manager.save_game(save_name)
+        except (OSError, sqlite3.Error, ValueError):
+            logger.exception("Could not write save %r", save_name)
+            self.signals.notification_posted.emit("Error: Could not save the game.")
+            return False
+        self.signals.saves_changed.emit()
+        return True
 
-        if session and current_save_path:
-            try:
-                session.commit() # Commit any pending changes.
-                self.save_manager.copy_save(current_save_path, save_name)
-                self.signals.saves_changed.emit()
-            except Exception as e:
-                logger.error(f"Failed to save game to '{save_name}': {e}")
-                session.rollback()
-                self.signals.notification_posted.emit("Error: Could not save the game.")
-            finally:
-                session.close()
+    def auto_save(self):
+        try:
+            self.save_manager.auto_save()
+        except (OSError, sqlite3.Error):
+            logger.exception("Could not write autosave")
+            self.signals.notification_posted.emit("Error: Could not create an autosave.")
+            return
+        self.signals.saves_changed.emit()
 
     def quick_save(self):
-        self.save_game(QUICKSAVE_NAME)
-        self.signals.notification_posted.emit("Game quick saved!")
+        if self.save_game(QUICKSAVE_NAME):
+            self.signals.notification_posted.emit("Game quick saved!")
 
-    def quick_load(self) -> Optional[Tuple[GameState, str]]:
+    def quick_load(self) -> GameState | None:
         if self.save_manager.quick_load_exists():
-            self.signals.notification_posted.emit("Game quick loaded!")
             return self.load_game(QUICKSAVE_NAME)
-        else:
-            self.signals.notification_posted.emit("No quick save found!")
-            return None
+        self.signals.notification_posted.emit("No quick save found!")
+        return None
 
     def delete_save(self, save_name: str) -> bool:
-        if self.save_manager.delete_save(save_name): 
+        if self.save_manager.delete_save(save_name):
             self.signals.saves_changed.emit()
             return True
         return False
 
-    def handle_exit_save(self, exit_save: bool):
-        """Handles saving the game on exit if requested."""
+    def handle_exit_save(self, exit_save: bool) -> bool:
         if exit_save and self.save_manager.get_current_session_path():
-             self.save_game(EXITSAVE_NAME)
+            return self.save_game(EXITSAVE_NAME)
+        return True
 
     def has_saves(self) -> bool:
-        """Checks if any save files exist."""
         return self.save_manager.has_saves()

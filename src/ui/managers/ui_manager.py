@@ -88,6 +88,7 @@ class UIManager:
         # Keep references to main presenters to prevent GC if not parented correctly
         self.main_presenter = None
         self.tab_presenters = []
+        self.controller.signals.session_changing.connect(self.close_all_dialogs)
 
         # Listen for Alt-Tab events to hide tooltips
         QApplication.instance().applicationStateChanged.connect(self._on_app_state_changed)
@@ -209,13 +210,13 @@ class UIManager:
                 dialog = dialog_class(self.controller, parent=self.parent_widget)
             
             # Standard cleanup hook
-            dialog.destroyed.connect(lambda: self._on_dialog_closed(dialog_name))
+            dialog.destroyed.connect(lambda: self._on_dialog_closed(dialog_name, dialog))
             self._dialog_instances[dialog_name] = dialog
             
         return self._dialog_instances[dialog_name]
 
-    def _on_dialog_closed(self, dialog_name: str):
-        if dialog_name in self._dialog_instances:
+    def _on_dialog_closed(self, dialog_name: str, dialog: QWidget):
+        if self._dialog_instances.get(dialog_name) is dialog:
             del self._dialog_instances[dialog_name]
             logger.info(f"Closed and untracked dialog: {dialog_name}.")
 
@@ -332,13 +333,13 @@ class UIManager:
             dialog.presenter = presenter
 
         # Cleanup
-        dialog.destroyed.connect(lambda: self._on_scene_dialog_closed(scene_id))
+        dialog.destroyed.connect(lambda: self._on_scene_dialog_closed(scene_id, dialog))
         
         self._open_scene_dialogs[scene_id] = dialog
         dialog.show()
 
-    def _on_scene_dialog_closed(self, scene_id: int):
-        if scene_id in self._open_scene_dialogs:
+    def _on_scene_dialog_closed(self, scene_id: int, dialog: QWidget):
+        if self._open_scene_dialogs.get(scene_id) is dialog:
             del self._open_scene_dialogs[scene_id]
             logger.info(f"Closed Scene Planner for scene ID: {scene_id}.")
 
@@ -362,13 +363,13 @@ class UIManager:
         if hasattr(presenter, 'disconnect_signals'):
             dialog.destroyed.connect(presenter.disconnect_signals)
             
-        dialog.destroyed.connect(lambda: self._on_shot_scene_dialog_closed(scene_id))
+        dialog.destroyed.connect(lambda: self._on_shot_scene_dialog_closed(scene_id, dialog))
         
         self._open_shot_scene_dialogs[scene_id] = dialog
         dialog.show()
 
-    def _on_shot_scene_dialog_closed(self, scene_id: int):
-        if scene_id in self._open_shot_scene_dialogs:
+    def _on_shot_scene_dialog_closed(self, scene_id: int, dialog: QWidget):
+        if self._open_shot_scene_dialogs.get(scene_id) is dialog:
             del self._open_shot_scene_dialogs[scene_id]
             logger.info(f"Closed Shot Scene Details for scene ID: {scene_id}.")
 
@@ -382,7 +383,7 @@ class UIManager:
             window.presenter = presenter
             presenter.open_talent_profile_requested.connect(self.show_talent_profile_by_id)
             
-            window.destroyed.connect(self._on_singleton_profile_closed)
+            window.destroyed.connect(lambda: self._on_singleton_profile_closed(window))
             self._talent_profile_window_singleton = window
             window.show()
         else:
@@ -396,8 +397,9 @@ class UIManager:
         if talent := self.controller.get_talent_by_id(talent_id):
             self.show_talent_profile(talent)
 
-    def _on_singleton_profile_closed(self):
-        self._talent_profile_window_singleton = None
+    def _on_singleton_profile_closed(self, window: TalentProfileWindow):
+        if self._talent_profile_window_singleton is window:
+            self._talent_profile_window_singleton = None
 
     # -------------------------------------------------------------------------
     # Simple Modal Dialogs
@@ -557,11 +559,13 @@ class UIManager:
         for dialog in dialog_list:
             if dialog:
                 # Explicitly call cleanup on the presenter before closing the dialog
-                if hasattr(dialog, 'presenter') and dialog.presenter and hasattr(dialog.presenter, 'cleanup'):
+                presenter = getattr(dialog, "presenter", None)
+                cleanup = getattr(presenter, "cleanup", None) or getattr(presenter, "disconnect_signals", None)
+                if cleanup is not None:
                     try:
-                        dialog.presenter.cleanup()
-                    except Exception as e:
-                        logger.warning(f"Error during presenter cleanup for {type(dialog).__name__}: {e}")
+                        cleanup()
+                    except Exception:
+                        logger.exception("Could not clean up %s", type(dialog).__name__)
 
                 # Force deletion to ensure signal disconnection for other Qt reasons
                 dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)

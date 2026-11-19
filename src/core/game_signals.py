@@ -5,6 +5,7 @@ class GameSignals(QObject):
     
     show_start_screen_requested = pyqtSignal()
     show_main_window_requested = pyqtSignal()
+    session_changing = pyqtSignal()
     money_changed = pyqtSignal(int)
     time_changed = pyqtSignal(int, int)
     roster_changed = pyqtSignal()

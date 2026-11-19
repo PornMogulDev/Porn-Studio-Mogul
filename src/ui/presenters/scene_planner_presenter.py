@@ -2,7 +2,7 @@ import logging
 import dataclasses
 import copy
 from typing import Optional, List, Dict, Set
-from PyQt6.QtCore import Qt, pyqtSlot, QObject
+from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtWidgets import QDialog, QMessageBox
 from PyQt6 import sip
 
@@ -15,17 +15,16 @@ from ui.view_models import PerformerEditorViewModel, TotalRuntimeViewModel
 from ui.dialogs.scene_planner_dialog import ScenePlannerDialog
 from ui.dialogs.scene_filter_dialog import SceneFilterDialog
 from ui.builders.scene_summary_builder import prepare_summary_data
+from ui.presenters.base_presenter import BasePresenter
 from utils.preset_handler import PresetHandler
 from utils import time_utils
 
 logger = logging.getLogger(__name__)
 
-class ScenePlannerPresenter(QObject):
+class ScenePlannerPresenter(BasePresenter):
     def __init__(self, controller: IGameController, scene_id: int, view: ScenePlannerDialog, parent=None):
-        super().__init__(parent) # Parent the presenter to the view for lifecycle management
-        self.controller = controller
+        super().__init__(controller, view, parent)
         self.settings_manager = self.controller.settings_manager
-        self.view = view
         
         # Use Controller Factory for DI
         self.state_editor = self.controller.get_scene_state_editor(scene_id)
@@ -103,9 +102,9 @@ class ScenePlannerPresenter(QObject):
         self.view.segment_parameter_changed.connect(self.on_segment_parameter_changed)
         self.view.slot_assignment_changed.connect(self.on_slot_assignment_changed)
   
-        self.controller.signals.favorites_changed.connect(self.on_favorites_changed)
+        self.connect_signal(self.controller.signals.favorites_changed, self.on_favorites_changed)
 
-        self.controller.signals.scenes_changed.connect(self.on_external_scene_change)
+        self.connect_signal(self.controller.signals.scenes_changed, self.on_external_scene_change)
 
     def on_view_loaded(self):
         self._load_and_set_initial_data()

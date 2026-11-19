@@ -55,9 +55,6 @@ class GameController(QObject):
         self.game_session_service = self.service_container.game_session_service
         self.game_state = GameState(studio=StudioState())
         
-        self.current_save_path = None 
-        self._graceful_shutdown_in_progress = False
-        
         self.game_constant = self.data_manager.game_config
         self.market_data = self.data_manager.market_data
         self.affinity_data = self.data_manager.affinity_data
@@ -184,7 +181,8 @@ class GameController(QObject):
 
     # --- Game Logic ---
     def advance_week(self):
-        if self.game_over: return
+        if self.game_over or self.time_service is None:
+            return
 
         incomplete_scenes = self.query_service.get_incomplete_scenes_for_week(self.game_state.absolute_week)
         if incomplete_scenes:
@@ -195,7 +193,8 @@ class GameController(QObject):
 
         self.game_state.absolute_week = result.new_absolute_week
         self.game_state.studio.money = result.new_money
-        self.save_manager.auto_save()
+        if not result.was_paused or result.scenes_shot:
+            self.game_session_service.auto_save()
 
         if result.was_paused:
             if result.scenes_shot > 0: self.signals.scenes_changed.emit()
@@ -260,22 +259,21 @@ class GameController(QObject):
         return self.service_container.create_scene_state_editor(scene)
 
     # --- Game Session Management ---
-    def _on_session_loaded(self, result: Optional[Tuple[GameState, str]]):
-        """Helper to handle common setup after a game is loaded or started."""
-        if result:
-            self.game_state, self.current_save_path = result
-            self.service_container.initialize_and_populate_services(self, self.game_state)
-            
-            self.signals.money_changed.emit(self.game_state.studio.money)
-            year, week = time_utils.from_absolute(self.game_state.absolute_week)
-            self.signals.time_changed.emit(week, year)
-            self.signals.scenes_changed.emit()
-            self.signals.talent_pool_changed.emit()
-            
-            logger.info(f"Emitting emails_changed from {__name__} on session load.")
-            self.signals.emails_changed.emit()
-            
-            self.signals.show_main_window_requested.emit()
+    def _on_session_loaded(self, state: GameState | None):
+        if state is None:
+            return
+
+        self.game_state = state
+        self.game_over = False
+        self.service_container.initialize_and_populate_services(self, state)
+
+        self.signals.money_changed.emit(state.studio.money)
+        year, week = time_utils.from_absolute(state.absolute_week)
+        self.signals.time_changed.emit(week, year)
+        self.signals.scenes_changed.emit()
+        self.signals.talent_pool_changed.emit()
+        self.signals.emails_changed.emit()
+        self.signals.show_main_window_requested.emit()
 
     def new_game_started(self):
         result = self.game_session_service.start_new_game()
@@ -297,6 +295,8 @@ class GameController(QObject):
     def quick_load(self):
         result = self.game_session_service.quick_load()
         self._on_session_loaded(result)
+        if result is not None:
+            self.signals.notification_posted.emit("Game quick loaded!")
         
     def get_blocs_for_schedule_view(self, year: int) -> List[ShootingBloc]:
         if not self.query_service: return []
@@ -397,27 +397,32 @@ class GameController(QObject):
     def save_game(self, save_name: str): self.game_session_service.save_game(save_name)
     def delete_save_file(self, save_name: str) -> bool: return self.game_session_service.delete_save(save_name)
     def quick_save(self): self.game_session_service.quick_save()
+    def _finish_session(self, exit_save: bool) -> bool:
+        if not self.game_session_service.handle_exit_save(exit_save and not self.game_over):
+            return False
+        if self.save_manager.get_current_session_path() is not None:
+            self.signals.session_changing.emit()
+            self.service_container.cleanup_services(self)
+            self.game_state = GameState(studio=StudioState())
+        return True
+
     def return_to_main_menu(self, exit_save: bool):
-        self._graceful_shutdown_in_progress = True
-        self.game_session_service.handle_exit_save(exit_save and not self.game_over)
-        self.service_container.cleanup_services(self)
-        self.current_save_path = None
-        self.game_over = False
-        self._graceful_shutdown_in_progress = False
-        self.signals.show_start_screen_requested.emit()
+        if self._finish_session(exit_save):
+            self.game_over = False
+            self.signals.show_start_screen_requested.emit()
+
     def quit_game(self, exit_save: bool = False):
-        self._graceful_shutdown_in_progress = True
-        self.game_session_service.handle_exit_save(exit_save and not self.game_over)
-        self.service_container.cleanup_services(self)
-        self._graceful_shutdown_in_progress = False
-        self.signals.quit_game_requested.emit()
-    def handle_application_shutdown(self):
-        if self.current_save_path and not self._graceful_shutdown_in_progress: self.service_container.cleanup_services(self)
+        if self._finish_session(exit_save):
+            self.signals.quit_game_requested.emit()
+
+    def handle_application_shutdown(self) -> bool:
+        return self._finish_session(self.settings_manager.get_setting("save_on_exit", True))
+
     def handle_game_over(self):
         self.game_over = True
-        self.service_container.cleanup_services(self)
-        self.current_save_path = None
+        self._finish_session(False)
         self.signals.game_over_triggered.emit("Your studio has gone bankrupt.")
+
     def check_for_saves(self) -> bool: return self.game_session_service.has_saves()
     def get_unread_email_count(self) -> int: return self.query_service.get_unread_email_count() if self.query_service else 0
     def mark_email_as_read(self, email_id: int):
