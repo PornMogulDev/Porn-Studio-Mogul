@@ -221,6 +221,7 @@ class HiringWidget(QWidget):
         container_layout.addLayout(orient_col)
             
         self.scope_layout.addWidget(container)
+        self._request_contract_preview()
 
     def update_available_roles(self, available_roles: list, talent_base_location: str, studio_location: str, is_contracted: bool):
         self.available_roles_list.clear()
