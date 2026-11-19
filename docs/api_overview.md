@@ -239,6 +239,7 @@ This flow is used in the `TalentTabPresenter` when in "Casting Mode". It is used
 2.  It calls `controller.get_eligible_talent_for_role(scene_id, vp_id, attribute_filters)`.
 3.  The `GameController` delegates to `TalentQueryService.get_eligible_talent_for_role()`.
 4.  The `TalentQueryService` first performs a pre-filter on the database to find all talents who match the role's hard requirements (gender, ethnicity) and any user-supplied filters.
+    * A parent ethnicity matches itself and its subgroups. A specific subgroup matches that subgroup. Both hiring flows use the same hierarchy from `DataManager`.
 5.  For each of these `potential_candidates_db`:
     *   It gathers the same context as in Flow 1 (bookings, bloc, policies).
     *   It estimates fatigue via `ShootResultsCalculator.estimate_fatigue_gain()`.

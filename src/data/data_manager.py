@@ -443,28 +443,16 @@ class DataManager:
         if not self.generator_data: return {}
         return self.generator_data.get('ethnicity_hierarchy', {})
     
+    def get_ethnicities_for_requirement(self, required_ethnicity: str) -> List[str]:
+        """Return the exact ethnicity and any subgroups that satisfy it."""
+        subgroups = self.generator_data.get('primary_ethnicities', {}).get(required_ethnicity, [])
+        return [required_ethnicity, *subgroups]
+
     def is_ethnicity_match(self, specific_ethnicity: str, required_ethnicity: str) -> bool:
-        """
-        Checks if a specific ethnicity satisfies a requirement, supporting primary group hierarchy.
-        e.g., is_ethnicity_match('Western European', 'White') -> True
-        """
+        """Check whether a specific ethnicity satisfies a role or tag requirement."""
         if not specific_ethnicity or not required_ethnicity:
             return False
-
-        # An ethnicity always satisfies a requirement for itself.
-        if specific_ethnicity == required_ethnicity:
-            return True
-
-        # Check for hierarchical match (e.g., specific is 'Western European', requirement is 'White')
-        primary_to_sub_map = self.generator_data.get('primary_ethnicities', {})
-        
-        # Is the requirement a primary group with sub-groups?
-        if required_ethnicity in primary_to_sub_map:
-            # If so, is the specific ethnicity one of those sub-groups?
-            if specific_ethnicity in primary_to_sub_map[required_ethnicity]:
-                return True
-            
-        return False
+        return specific_ethnicity in self.get_ethnicities_for_requirement(required_ethnicity)
 
     def get_available_cup_sizes(self) -> List[str]:
         return [c['name'] for c in self.generator_data.get('cup_sizes', [])]

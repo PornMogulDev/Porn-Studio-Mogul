@@ -225,13 +225,10 @@ class TalentQueryService:
             # 1. Strict Gender Override: The Role determines the gender, not the user filter.
             query_filters['gender'] = vp.gender
 
-            # 2. Strict Ethnicity Override: 
-            # If the Role requires a specific ethnicity, it overrides user preference.
-            # If the Role is "Any", we respect the user's filter (allows casting a specific ethnicity for an 'Any' role).
-            if vp.ethnicity != "Any":
-                query_filters['ethnicity'] = vp.ethnicity
-                # Remove list-based 'ethnicities' if present so GameQueryService uses the strict 'ethnicity' key
-                query_filters.pop('ethnicities', None)
+            # A role's ethnicity takes priority over the manual filter.
+            if vp.ethnicity and vp.ethnicity != "Any":
+                query_filters.pop('ethnicity', None)
+                query_filters['ethnicities'] = self.data_manager.get_ethnicities_for_requirement(vp.ethnicity)
 
             # 3. Contextual Cleanup: Remove filters irrelevant to the target gender
             if vp.gender == "Male":
