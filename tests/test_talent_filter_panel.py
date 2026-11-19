@@ -15,6 +15,9 @@ def test_reset_clears_the_role_and_keeps_the_filter_panel_open(window):
 
     assert not filters.ethnicity_tree.isEnabled()
     assert filters.ethnicity_group.title() == "Ethnicity (set by role)"
+    assert not filters.gender_group.isEnabled()
+    assert not filters.gender_any_radio.isEnabled()
+    assert filters.gender_group.title() == "Gender (set by role)"
     filters.apply_btn.click()
     assert view.advanced_filters["vp_id"] == role.id
     assert not view.is_filter_panel_expanded
@@ -26,3 +29,6 @@ def test_reset_clears_the_role_and_keeps_the_filter_panel_open(window):
     assert "vp_id" not in view.advanced_filters
     assert filters.ethnicity_tree.isEnabled()
     assert filters.ethnicity_group.title() == "Ethnicity"
+    assert filters.gender_group.isEnabled()
+    assert filters.gender_any_radio.isEnabled()
+    assert filters.gender_group.title() == "Gender"

@@ -206,7 +206,9 @@ class ThemeManager:
                 color: {theme.disabled_text};
                 border: 2px solid {theme.disabled_text};
             }}
-            QGroupBox#talentEthnicityFilter::title:disabled {{
+            QGroupBox#talentEthnicityFilter::title:disabled,
+            QGroupBox#talentGenderFilter::title:disabled,
+            QGroupBox#talentGenderFilter QRadioButton:disabled {{
                 color: {theme.disabled_text};
             }}
             QGroupBox#talentEthnicityFilter QTreeView:disabled,

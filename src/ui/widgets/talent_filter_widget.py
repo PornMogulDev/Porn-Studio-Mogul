@@ -104,6 +104,7 @@ class TalentFilterWidget(QWidget):
         
         # --- Gender & Age ---
         self.gender_group = CollapsibleGroupBox("Gender", self.icon_manager)
+        self.gender_group.setObjectName("talentGenderFilter")
         gender_layout = QHBoxLayout(self.gender_group)
         self.gender_any_radio = QRadioButton("Any")
         self.gender_female_radio = QRadioButton("Female")
@@ -285,16 +286,9 @@ class TalentFilterWidget(QWidget):
         self.role_combo.setCurrentIndex(0)
         self.role_combo.blockSignals(False)
 
-    def _set_layout_widgets_enabled(self, layout, enabled: bool):
-        """Helper to enable/disable all widgets within a given layout."""
-        if layout is None: return
-        for i in range(layout.count()):
-            item = layout.itemAt(i)
-            if item and item.widget():
-                item.widget().setEnabled(enabled)
-
     def set_gender_filter_enabled(self, enabled: bool):
-        self._set_layout_widgets_enabled(self.gender_group.layout(), enabled)
+        self.gender_group.setEnabled(enabled)
+        self.gender_group.setTitle("Gender" if enabled else "Gender (set by role)")
         if not enabled:
             self.gender_any_radio.setChecked(True)
  
