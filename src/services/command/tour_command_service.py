@@ -93,31 +93,35 @@ class TourCommandService:
             # --- 4. Delegate Casting to CastingCommandService ---
             self.casting_command_service.cast_roles_with_precalculated_salaries(session, talent_id, hiring_data)
  
-            # --- 5. Notifications & Email ---
-            if talent_db.go_to_list_assignments:
+            # --- 5. Email ---
+            talent_alias = talent_db.alias
+            is_bookmarked = bool(talent_db.go_to_list_assignments)
+            if is_bookmarked:
                 # If the player is sponsoring a talent they have bookmarked, verify the confirmation email via template
                 self.email_service.create_tour_booking_email(
-                    session, talent_id, talent_db.alias,
+                    session, talent_id, talent_alias,
                     tour_details['destination_location'], tour_details['duration_weeks'], 
                     new_tour.start_absolute_week, 'player'
                 )
 
-            # --- 6. Commit & Signal ---
             session.commit()
-            self.signals.money_changed.emit(new_money)
-            self.signals.notification_posted.emit(f"Sponsored tour and hired {talent_db.alias} for {len(roles_to_cast)} roles. Upfront cost: ${total_upfront_cost:,}")
-            self.signals.scenes_changed.emit()
-            self.signals.roster_changed.emit()
-            if talent_db.go_to_list_assignments:
-                self.signals.emails_changed.emit()
-                
-            return True
         except Exception as e:
             logger.error(f"Error in sponsoring tour for talent {talent_id}: {e}", exc_info=True)
             session.rollback()
             return False
         finally:
             session.close()
+
+        try:
+            self.signals.money_changed.emit(new_money)
+            self.signals.notification_posted.emit(f"Sponsored tour and hired {talent_alias} for {len(roles_to_cast)} roles. Upfront cost: ${total_upfront_cost:,}")
+            self.signals.scenes_changed.emit()
+            self.signals.roster_changed.emit()
+            if is_bookmarked:
+                self.signals.emails_changed.emit()
+        except Exception:
+            logger.exception("Failed to notify the UI of the committed tour for talent %s", talent_id)
+        return True
 
     def process_autonomous_tour_decisions(self, session: Session, current_absolute_week: int) -> bool:
         """

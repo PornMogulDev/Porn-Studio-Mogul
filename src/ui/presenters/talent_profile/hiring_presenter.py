@@ -43,13 +43,17 @@ class HiringPresenter(QObject):
         self.widget.contract_sign_requested.connect(self._on_contract_sign_requested)
 
     def set_talent(self, talent: Talent):
-        """Refreshes the available roles list for the given talent."""
+        """Loads contract options on talent changes and refreshes available roles."""
         if not talent:
             self.current_talent_id = None
             return
             
+        talent_changed = self.current_talent_id != talent.id
         self.current_talent_id = talent.id
         self.refresh_available_roles(talent)
+        if talent_changed:
+            concepts, orientations = self.controller.get_unique_contract_options(talent.gender)
+            self.widget.populate_contract_options(concepts, orientations)
 
     def refresh_available_roles(self, talent: Talent):
         """Fetches and updates the list of available roles for the current talent."""
@@ -181,21 +185,20 @@ class HiringPresenter(QObject):
             return
 
         try:
-            # Attempt to execute the transaction
-            self.controller.sponsor_tour(
+            sponsored = self.controller.sponsor_tour(
                 self.current_talent_id,
                 self._current_tour_roles,
                 final_tour_details,
                 total_cost
             )
-            
-            # If successful (no exception raised), we close the dialog
+        except Exception:
+            logger.exception("Failed to sponsor tour for talent %s", self.current_talent_id)
+            sponsored = False
+
+        if sponsored:
             self._active_tour_dialog.accept()
-            
-        except Exception as e:
-            logger.error(f"Failed to sponsor tour: {e}", exc_info=True)
-            # If failed, keep dialog open and show error
-            self._active_tour_dialog.show_error_message(f"An error occurred while processing the tour: {str(e)}")
+        else:
+            self._active_tour_dialog.show_error_message("The tour could not be sponsored.")
 
     @pyqtSlot(dict)
     def _on_contract_preview_requested(self, terms: dict):

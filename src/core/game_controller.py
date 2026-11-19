@@ -367,9 +367,10 @@ class GameController(QObject):
         if not self.tour_sponsorship_service: return TourSponsorshipPreviewResult(is_feasible=False, refusal_reason="Tour calculation service not available.")
         studio_location = self.game_state.studio.location
         return self.tour_sponsorship_service.generate_preview(talent_id, roles, studio_location)
-    def sponsor_tour(self, talent_id: int, roles_to_cast: list, tour_details: dict, total_upfront_cost: int):
-        if not self.tour_command_service: return
-        self.tour_command_service.sponsor_tour(talent_id, roles_to_cast, tour_details, total_upfront_cost)
+    def sponsor_tour(self, talent_id: int, roles_to_cast: list, tour_details: dict, total_upfront_cost: int) -> bool:
+        if not self.tour_command_service:
+            return False
+        return self.tour_command_service.sponsor_tour(talent_id, roles_to_cast, tour_details, total_upfront_cost)
     def get_thematic_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]: return self.tag_query_service.get_tags_for_planner('Thematic')
     def get_physical_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]: return self.tag_query_service.get_tags_for_planner('Physical')
     def get_action_tags_for_planner(self) -> Tuple[List[Dict], Set[str], Set[str]]: return self.tag_query_service.get_tags_for_planner('Action')

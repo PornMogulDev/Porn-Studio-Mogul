@@ -31,7 +31,7 @@ class TalentProfileWindow(BaseGameWindow):
         super().__init__(settings_manager, parent)
         self.icon_manager = icon_manager
         self.presenter = None # Will be set by UIManager
-        self._is_loading_layout = False # Flag to prevent signal loops
+        self._has_shown = False
 
         self.defaultSize = QSize(1360, 1200)
         self.setWindowTitle("Talent Profile")
@@ -39,11 +39,10 @@ class TalentProfileWindow(BaseGameWindow):
         self._setup_ui()
         self._connect_signals()
     
-    # Add showEvent override
     def showEvent(self, event):
         super().showEvent(event)
-        if not self._is_loading_layout:
-            # Only load if we haven't already (or simple check to prevent overwrite)
+        if not self._has_shown:
+            self._has_shown = True
             QTimer.singleShot(0, self._load_last_used_layout)
 
     def _get_window_name(self) -> str:
@@ -205,19 +204,24 @@ class TalentProfileWindow(BaseGameWindow):
 
     # --- Layout Management ---
     def _populate_layouts_combobox(self):
-        """Loads saved layout names into the combobox."""
+        """Removes incompatible dock presets and lists the saved splitter layouts."""
         layouts = self.settings_manager.get_talent_profile_layouts()
+        splitter_layouts = {name: data for name, data in layouts.items() if isinstance(data, dict) and data}
+        if len(splitter_layouts) != len(layouts):
+            self.settings_manager.set_talent_profile_layouts(splitter_layouts)
+
         current_layout = self.settings_manager.get_setting("talent_profile_last_layout")
-        preset_list = list(layouts.keys()) if layouts else []
-        self.layout_preset_widget.populate_presets(preset_list, current_selection=current_layout)
+        if current_layout is not None and current_layout not in splitter_layouts:
+            current_layout = None
+            self.settings_manager.set_setting("talent_profile_last_layout", None)
+
+        self.layout_preset_widget.populate_presets(list(splitter_layouts), current_selection=current_layout)
         
 
     def _load_last_used_layout(self):
         """Loads the last layout that was active in the previous session."""
         last_layout_name = self.settings_manager.get_setting("talent_profile_last_layout")
         if last_layout_name:
-            # Logic: We attempt to load it. The UI (combobox) is already updated 
-            # via _populate_layouts_combobox called in _setup_ui -> init.
             self._load_layout_by_name(last_layout_name)
 
     @pyqtSlot(str)
@@ -267,15 +271,12 @@ class TalentProfileWindow(BaseGameWindow):
 
     @pyqtSlot(str)
     def _load_layout_by_name(self, layout_name: str):
-        """
-        Loads and applies a layout state from settings based on its name.
-        Handles new dict-based layouts and ignores legacy byte strings.
-        """
+        """Loads a saved splitter layout by name."""
         layouts = self.settings_manager.get_talent_profile_layouts()
         data = layouts.get(layout_name)
-        
-        if not data:
-            logger.warning(f"Could not find layout data for name '{layout_name}' in settings.")
+
+        if not isinstance(data, dict) or not data:
+            logger.warning("No compatible splitter layout found for '%s'.", layout_name)
             return
 
         try:

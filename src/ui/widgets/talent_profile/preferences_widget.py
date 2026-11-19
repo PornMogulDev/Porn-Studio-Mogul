@@ -36,7 +36,7 @@ class PreferencesWidget(QWidget):
         self.preferences_tree = QTreeWidget()
         self.preferences_tree.setHeaderLabels(["Preference", "Summary / Score"])
         header = self.preferences_tree.header()
-        header.setSectionResizeMode(QHeaderView.Stretch) 
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         prefs_grid_layout.addWidget(self.preferences_tree, 1, 0, 1, 2)
         # D/S Dynamics Section
         prefs_grid_layout.addWidget(QLabel("<b>D/s Dynamic Comfort:</b>"), 2, 0, 1, 2)
