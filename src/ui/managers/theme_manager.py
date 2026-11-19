@@ -206,6 +206,18 @@ class ThemeManager:
                 color: {theme.disabled_text};
                 border: 2px solid {theme.disabled_text};
             }}
+            QGroupBox#talentEthnicityFilter::title:disabled {{
+                color: {theme.disabled_text};
+            }}
+            QGroupBox#talentEthnicityFilter QTreeView:disabled,
+            QGroupBox#talentEthnicityFilter QTreeView::item:disabled {{
+                background-color: {theme.disabled_background};
+                color: {theme.disabled_text};
+            }}
+            QGroupBox#talentEthnicityFilter QTreeView::indicator:disabled {{
+                background-color: {theme.disabled_background};
+                border-color: {theme.disabled_text};
+            }}
             /* Ensure the dropdown arrow on a disabled combobox is also muted */
             QComboBox::down-arrow:disabled {{
                 /* You could specify a custom disabled arrow image here if needed */

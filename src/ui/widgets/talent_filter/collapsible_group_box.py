@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QGroupBox, QWidget, QStylePainter, QStyleOptionGroupBox, QStyle
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
 
 class CollapsibleGroupBox(QGroupBox):
     """
@@ -65,7 +66,8 @@ class CollapsibleGroupBox(QGroupBox):
             
         # Paint the icon into that rectangle
         if not icon.isNull():
-            icon.paint(painter, indicator_rect, Qt.AlignmentFlag.AlignCenter)
+            mode = QIcon.Mode.Normal if self.isEnabled() else QIcon.Mode.Disabled
+            icon.paint(painter, indicator_rect, Qt.AlignmentFlag.AlignCenter, mode)
 
     def _toggle_contents(self, checked: bool):
         """

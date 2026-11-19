@@ -17,6 +17,7 @@ class GeometryManagerMixin:
     3. Call `self._restore_geometry()` at the end of your `__init__`.
     """
     _initial_geometry: QRect | None = None
+    _fit_default_to_screen = False
 
     def _get_window_name(self) -> str:
         """
@@ -136,10 +137,17 @@ class GeometryManagerMixin:
             logger.warning(f"Could not determine a default size for {self._get_window_name()}; "
                              f"using failsafe {default_size.width()}x{default_size.height()}.")
 
-        self.resize(default_size)
-
-        # --- Centering logic ---
         parent = self.parentWidget()
+        if self._fit_default_to_screen:
+            screen = parent.screen() if parent is not None else self.screen()
+            if screen is not None:
+                # Leave room for the window frame and center within the display's work area.
+                available = screen.availableGeometry().adjusted(16, 32, -16, -32)
+                self.resize(default_size.boundedTo(available.size().expandedTo(QSize(1, 1))))
+                self.move(available.center() - self.rect().center())
+                return
+
+        self.resize(default_size)
         if parent:
             # Center on parent
             parent_center = parent.mapToGlobal(parent.rect().center())

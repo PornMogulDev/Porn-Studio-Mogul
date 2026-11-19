@@ -9,12 +9,14 @@ from ui.mixins.geometry_manager_mixin import GeometryManagerMixin
 from ui.managers.icon_manager import IconManager
 
 class CallSheetDialog(GeometryManagerMixin, QDialog):
+    _fit_default_to_screen = True
+
     def __init__(self, settings_manager, icon_manager: IconManager, parent=None):
         super().__init__(parent)
         self.settings_manager = settings_manager
         self.icon_manager = icon_manager
         self.setWindowTitle("Production Call Sheet")
-        self.defaultSize = QSize(1250, 500)
+        self.defaultSize = QSize(1250, 800)
         
         self.presenter = None
         
@@ -89,7 +91,15 @@ class CallSheetDialog(GeometryManagerMixin, QDialog):
 
     def _create_logistics_panel(self) -> QGroupBox:
         group = QGroupBox("Logistics & Budget")
-        layout = QVBoxLayout(group)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        scroll.setWidget(container)
+        group_layout = QVBoxLayout(group)
+        group_layout.addWidget(scroll)
         
         # Name
         layout.addWidget(QLabel("Block Name:"))

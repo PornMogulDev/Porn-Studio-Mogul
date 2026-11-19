@@ -320,11 +320,11 @@ class TalentTab(QWidget):
     def update_talent_list(self, talents: list):
         self.talent_model.update_data(talents)
 
-    def on_filters_applied(self, filters: dict):
+    def on_filters_applied(self, filters: dict, allow_auto_hide: bool = True):
         self.advanced_filters = filters
         self.filter_talent_list()
 
-        if self.settings_manager.get_setting("auto_hide_filter_on_apply", True):
+        if allow_auto_hide and self.settings_manager.get_setting("auto_hide_filter_on_apply", True):
             self.set_filter_panel_visible(False)
 
     def refresh_from_state(self):

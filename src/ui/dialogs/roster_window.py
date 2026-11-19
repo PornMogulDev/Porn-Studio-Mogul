@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QHeaderView, QLineEdit
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QSize
+from PyQt6.QtCore import QEvent, Qt, pyqtSignal, QPoint, QSize
 
 from ui.dialogs.base_game_window import BaseGameWindow
 from ui.widgets.buttons.help_button import HelpButton
@@ -67,13 +67,13 @@ class RosterWindow(BaseGameWindow):
         self.table_view.setSelectionMode(SmartTableView.SelectionMode.SingleSelection)
         self.table_view.verticalHeader().setVisible(False)
         self.table_view.horizontalHeader().setStretchLastSection(False)
-        self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
         # Enable sorting
         self.table_view.setSortingEnabled(True)
 
         # Configure Header Sizes
         self._configure_header_sizes()
+        self.table_view.viewport().installEventFilter(self)
 
         main_layout.addWidget(self.table_view)
 
@@ -95,6 +95,26 @@ class RosterWindow(BaseGameWindow):
         header.resizeSection(RosterTableModel.COL_ORIENTATIONS, 150)
         header.resizeSection(RosterTableModel.COL_CONCEPTS, 150)
         header.resizeSection(RosterTableModel.COL_DYN_DISP, 100)
+
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.Resize and watched is self.table_view.viewport():
+            self._fit_columns_to_width(event.size().width())
+        return super().eventFilter(watched, event)
+
+    def _fit_columns_to_width(self, width: int):
+        header = self.table_view.horizontalHeader()
+        columns = [column for column in range(header.count()) if not header.isSectionHidden(column)]
+        minimums = [max(header.minimumSectionSize(), header.sectionSizeHint(column)) for column in columns]
+        weights = [max(1, header.sectionSize(column) - minimum) for column, minimum in zip(columns, minimums)]
+        remaining_width = max(0, width - sum(minimums))
+        remaining_weight = sum(weights)
+
+        # Keep header labels readable and share the extra width according to the current sizes.
+        for column, minimum, weight in zip(columns, minimums, weights):
+            extra = remaining_width * weight // remaining_weight
+            header.resizeSection(column, minimum + extra)
+            remaining_width -= extra
+            remaining_weight -= weight
 
     def _setup_table_behavior(self):
         """Wires up the smart table interactions."""
@@ -129,6 +149,8 @@ class RosterWindow(BaseGameWindow):
     def set_column_hidden(self, col_index: int, hidden: bool):
         """Proxy method to hide/show columns in the table view."""
         self.table_view.setColumnHidden(col_index, hidden)
+        if self.isVisible():
+            self._fit_columns_to_width(self.table_view.viewport().width())
 
     def configure_view_menu(self, items: list):
         """Passes the configuration list to the ViewMenuButton."""

@@ -1,7 +1,7 @@
 import logging
 from typing import List
 
-from PyQt6.QtWidgets import QWidget, QGridLayout, QLabel
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QLayout, QLabel
 from PyQt6.QtCore import Qt
 
 from ui.view_models import TalentScheduleWeekViewModel
@@ -18,7 +18,16 @@ class ScheduleWidget(QWidget):
         self._grid_layout = QGridLayout()
         self._grid_layout.setSpacing(2)
         self._grid_layout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(self._grid_layout)
+        self.calendar_header = QLabel("Calendar")
+        header_font = self.calendar_header.font()
+        header_font.setBold(True)
+        self.calendar_header.setFont(header_font)
+
+        layout = QVBoxLayout(self)
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.calendar_header)
+        layout.addLayout(self._grid_layout)
         self._week_labels = [] # To keep references to labels for cleanup
 
     def _clear_grid(self):
@@ -33,9 +42,10 @@ class ScheduleWidget(QWidget):
         Populates the grid with schedule information for a given year.
 
         Args:
-            year: The year being displayed (for future use).
+            year: The year being displayed.
             week_data: A list of view models, one for each week.
         """
+        self.calendar_header.setText(f"Calendar ({year})")
         self._clear_grid()
 
         num_cols = 13 # 13 weeks per row, 4 rows total

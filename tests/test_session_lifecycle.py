@@ -4,41 +4,10 @@ from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QCoreApplication, QEvent
-from PyQt6.QtWidgets import QApplication
 
-from app.application import ApplicationWindow
-from data import save_manager, settings_manager
+from data import save_manager
 from database.db_models import GameInfoDB
 from ui.presenters.talent_tab_presenter import TalentTabPresenter
-
-
-@pytest.fixture
-def saves(monkeypatch, tmp_path):
-    monkeypatch.setattr(save_manager, "SAVE_DIR", tmp_path / "saves")
-    manager = save_manager.SaveManager()
-    yield manager
-    manager.cleanup_session_file()
-
-
-@pytest.fixture(scope="module")
-def qt_app():
-    with pytest.MonkeyPatch.context() as environment:
-        environment.setenv("QT_QPA_PLATFORM", "offscreen")
-        app = QApplication.instance() or QApplication([])
-        yield app
-
-
-@pytest.fixture
-def window(qt_app, saves, monkeypatch, tmp_path):
-    monkeypatch.setattr(settings_manager, "SETTINGS_FILE", tmp_path / "settings.json")
-    monkeypatch.setattr(settings_manager.SettingsManager, "_instance", None)
-    main = ApplicationWindow()
-    main.controller.new_game_started()
-    yield main
-    main.settings_manager.set_setting("save_on_exit", False)
-    main.close()
-    main.deleteLater()
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
 
 
 @pytest.mark.parametrize("bad_save", ["missing", "corrupt", "empty", "incompatible"])

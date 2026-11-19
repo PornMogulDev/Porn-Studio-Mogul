@@ -22,7 +22,7 @@ class TalentFilterWidget(QWidget):
     All actions are delegated to the TalentFilterPresenter.
     """
     # --- Public API and Internal Signals ---
-    filters_applied = pyqtSignal(dict)
+    filters_applied = pyqtSignal(dict, bool)
     apply_requested = pyqtSignal()
     reset_requested = pyqtSignal()
     go_to_toggled = pyqtSignal(bool)
@@ -187,6 +187,7 @@ class TalentFilterWidget(QWidget):
 
         # --- Ethnicity ---
         self.ethnicity_group = CollapsibleGroupBox("Ethnicity", self.icon_manager)
+        self.ethnicity_group.setObjectName("talentEthnicityFilter")
         ethnicity_layout = QVBoxLayout(self.ethnicity_group)
         self.ethnicity_tree = CheckableHierarchyTreeView()
         self.ethnicity_tree.populate_data(self.ethnicities_hierarchy)
@@ -271,6 +272,7 @@ class TalentFilterWidget(QWidget):
             for scene in scenes:
                 self.scene_combo.addItem(scene['title'], scene['id'])
         self.scene_combo.setCurrentIndex(0)
+        self.current_scene_id = self.scene_combo.currentData()
         self.scene_combo.blockSignals(False)
     
     def populate_roles(self, roles: List[Dict]):
@@ -297,7 +299,8 @@ class TalentFilterWidget(QWidget):
             self.gender_any_radio.setChecked(True)
  
     def set_ethnicity_filter_enabled(self, enabled: bool):
-        self._set_layout_widgets_enabled(self.ethnicity_group.layout(), enabled)
+        self.ethnicity_group.setEnabled(enabled)
+        self.ethnicity_group.setTitle("Ethnicity" if enabled else "Ethnicity (set by role)")
         if not enabled:
             self.ethnicity_tree.uncheck_all()
 

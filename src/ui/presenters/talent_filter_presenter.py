@@ -45,7 +45,7 @@ class TalentFilterPresenter(QObject):
     def _reload_scenes(self):
         scenes = self.controller.get_castable_scenes()
         self.view.populate_scenes(scenes)
-        self.view.populate_roles([])
+        self._on_scene_selected(-1)
 
     def _connect_signals(self):
         self.view.apply_requested.connect(self.on_apply_requested)
@@ -58,40 +58,27 @@ class TalentFilterPresenter(QObject):
 
     @pyqtSlot(int)
     def _on_scene_selected(self, scene_id: int):
-        self.current_scene_id = scene_id
-        if scene_id is not None and scene_id > -1:
-            roles = self.controller.get_uncast_roles_for_scene(scene_id)
-            self.view.populate_roles(roles)
-        else:
-            self.current_scene_id = None; self.current_vp_id = None
-            self.view.populate_roles([])
-            self.view.set_gender_filter_enabled(True); self.view.set_ethnicity_filter_enabled(True)
-            self.view.set_physical_filters_for_gender('Any')
+        roles = self.controller.get_uncast_roles_for_scene(scene_id) if scene_id > -1 else []
+        self.view.populate_roles(roles)
+        self._on_role_selected(scene_id, -1)
 
     @pyqtSlot(int, int)
     def _on_role_selected(self, scene_id: int, vp_id: int):
-        self.current_vp_id = vp_id
-        if vp_id is not None and vp_id > -1:
-            role_details = self.controller.get_role_details_for_ui(scene_id, vp_id)
-            self.view.set_gender_filter_enabled(False); self.view.set_ethnicity_filter_enabled(False)
-            self.view.set_physical_filters_for_gender(role_details.get('gender', 'Any'))
-        else:
-            self.current_vp_id = None
-            self.view.set_gender_filter_enabled(True); self.view.set_ethnicity_filter_enabled(True)
-            self.view.set_physical_filters_for_gender('Any')
+        role_selected = vp_id > -1
+        self.view.set_gender_filter_enabled(not role_selected)
+        self.view.set_ethnicity_filter_enabled(not role_selected)
+        role_details = self.controller.get_role_details_for_ui(scene_id, vp_id) if role_selected else {}
+        self.view.set_physical_filters_for_gender(role_details.get('gender', 'Any'))
 
     @pyqtSlot()
     def on_apply_requested(self):
-        self.view.filters_applied.emit(self.view.gather_current_filters())
+        self.view.filters_applied.emit(self.view.gather_current_filters(), True)
 
     @pyqtSlot()
     def on_reset_requested(self):
         self.view.load_filters(self.default_filters)
-        self.view.populate_scenes(self.controller.get_castable_scenes())
-        self.view.populate_roles([])
-        self.view.set_gender_filter_enabled(True); self.view.set_ethnicity_filter_enabled(True)
-        self.view.set_physical_filters_for_gender('Any')
-        self.on_apply_requested() # Immediately apply the reset filters
+        self._reload_scenes()
+        self.view.filters_applied.emit(self.view.gather_current_filters(), False)
 
     @pyqtSlot(bool)
     def on_go_to_toggled(self, is_checked: bool):

@@ -1,7 +1,7 @@
 import logging
 from PyQt6.QtWidgets import ( 
     QWidget, QTabBar, QMessageBox, QSplitter, 
-    QVBoxLayout, QHBoxLayout, QTabWidget, QApplication
+    QVBoxLayout, QHBoxLayout, QTabWidget, QApplication, QScrollArea, QFrame
 )
 from PyQt6.QtCore import (
     Qt, pyqtSlot, QEvent, QSize, pyqtSignal, QTimer,
@@ -25,15 +25,16 @@ class TalentProfileWindow(BaseGameWindow):
     Acts as a container for various widgets managed by sub-presenters.
     """
 
+    _fit_default_to_screen = True
     bottom_tab_changed = pyqtSignal(int)
 
     def __init__(self, settings_manager, icon_manager, parent=None):
+        self.defaultSize = QSize(1536, 864)
         super().__init__(settings_manager, parent)
         self.icon_manager = icon_manager
         self.presenter = None # Will be set by UIManager
         self._has_shown = False
 
-        self.defaultSize = QSize(1360, 1200)
         self.setWindowTitle("Talent Profile")
 
         self._setup_ui()
@@ -102,7 +103,7 @@ class TalentProfileWindow(BaseGameWindow):
         # Left Splitter (Vertical): Details | Preferences
         self.left_splitter = QSplitter(Qt.Orientation.Vertical)
         self.left_splitter.setObjectName("LeftSplitter")
-        self.left_splitter.addWidget(self.details_widget)
+        self.left_splitter.addWidget(self._scrollable_pane(self.details_widget))
         self.left_splitter.addWidget(self.preferences_widget)
         # Initial sizes: details larger
         self.left_splitter.setStretchFactor(0, 2)
@@ -112,9 +113,8 @@ class TalentProfileWindow(BaseGameWindow):
         self.right_splitter = QSplitter(Qt.Orientation.Vertical)
         self.right_splitter.setObjectName("RightSplitter")
         self.right_splitter.addWidget(self.schedule_widget)
-        self.right_splitter.addWidget(self.hiring_widget)
-        # Initial sizes: schedule larger
-        self.right_splitter.setStretchFactor(0, 2)
+        self.right_splitter.addWidget(self._scrollable_pane(self.hiring_widget))
+        self.right_splitter.setStretchFactor(0, 0)
         self.right_splitter.setStretchFactor(1, 1)
 
         # Top Splitter (Horizontal): Left Splitter | Right Splitter
@@ -143,6 +143,14 @@ class TalentProfileWindow(BaseGameWindow):
         self.main_layout.addWidget(self.main_splitter)
 
         self._populate_layouts_combobox()
+
+    @staticmethod
+    def _scrollable_pane(widget: QWidget) -> QScrollArea:
+        scroll = QScrollArea()
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(widget)
+        return scroll
 
     def _connect_signals(self):
         self.bottom_tabs.currentChanged.connect(self.bottom_tab_changed)
