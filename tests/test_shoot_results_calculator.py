@@ -88,18 +88,11 @@ def scene_data():
         final_cast={"101": 1, "102": 2}, # VP 101 -> Talent 1, VP 102 -> Talent 2
         action_segments=[
             ActionSegment(tag_name="tag_A", runtime_percentage=50,
-                          slot_assignments=[SlotAssignment(slot_id="tag_A_role_1", virtual_performer_id=101)]),
+                          slot_assignments=[SlotAssignment(slot_id="tag_A_role_1", role="role", virtual_performer_id=101)]),
             ActionSegment(tag_name="tag_B", runtime_percentage=50,
-                          slot_assignments=[SlotAssignment(slot_id="tag_B_role_1", virtual_performer_id=101)])
+                          slot_assignments=[SlotAssignment(slot_id="tag_B_role_1", role="role", virtual_performer_id=101)])
         ]
     )
-    # Mock expanded action segments for simplicity in testing _calculate_stamina_cost_for_role
-    scene.get_expanded_action_segments = MagicMock(return_value=[
-        ActionSegment(tag_name="tag_A", runtime_percentage=50,
-                      slot_assignments=[SlotAssignment(slot_id="tag_A_role_1", virtual_performer_id=101)]),
-        ActionSegment(tag_name="tag_B", runtime_percentage=50,
-                      slot_assignments=[SlotAssignment(slot_id="tag_B_role_1", virtual_performer_id=101)])
-    ])
     return scene
 
 @pytest.fixture
@@ -351,14 +344,6 @@ class TestEstimateFatigueGain:
             0.5, # for tag_A
             2.0  # for tag_B
         ]
-        # Recalculate expanded action segments to ensure mock is used correctly
-        scene_data.get_expanded_action_segments.return_value = [
-            ActionSegment(tag_name="tag_A", runtime_percentage=50,
-                          slot_assignments=[SlotAssignment(slot_id="tag_A_role_1", virtual_performer_id=vp_id)]),
-            ActionSegment(tag_name="tag_B", runtime_percentage=50,
-                          slot_assignments=[SlotAssignment(slot_id="tag_B_role_1", virtual_performer_id=vp_id)])
-        ]
-
         # Stamina cost for VP 101:
         # tag_A: runtime 10 * modifier 0.5 = 5.0
         # tag_B: runtime 10 * modifier 2.0 = 20.0
@@ -373,6 +358,6 @@ class TestEstimateFatigueGain:
         # ASSERT
         assert fatigue_gain == expected_fatigue_gain
         mock_role_performance_calculator.get_role_stamina_modifier.assert_has_calls([
-            call(scene_data.get_expanded_action_segments()[0], vp_id, scene_data, mock_data_manager.tag_definitions),
-            call(scene_data.get_expanded_action_segments()[1], vp_id, scene_data, mock_data_manager.tag_definitions)
+            call(scene_data.action_segments[0], vp_id, scene_data, mock_data_manager.tag_definitions),
+            call(scene_data.action_segments[1], vp_id, scene_data, mock_data_manager.tag_definitions)
         ])

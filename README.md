@@ -51,13 +51,15 @@ python -m pip install pytest==8.4.2
 python -m pytest -q
 ```
 
-The initial audit found existing failures in the shoot-result fixtures and market/revenue tests. Run `python -m pytest -q tests/test_production_smoke.py` to check the development scenario alone. See [AGENTS.md](AGENTS.md#verification) for guidance on verifying changes.
+Pytest uses a temporary folder for player data. Generate the game database first so the production smoke test can start a game. Run `python -m pytest -q tests/test_production_smoke.py` to check that scenario alone. See [AGENTS.md](AGENTS.md#verification) for guidance on verifying changes.
 
 ## Contributing
 
 For a bug report, include the build or commit, operating system, steps to reproduce, and what you expected to happen. If a save or preset is needed to reproduce it, note which version created it.
 
 For a code change, start with the [request flows](docs/api_overview.md) and the [service architecture guide](docs/SERVICE_ARCHITECTURE.md). The [project structure guide](docs/project_structure.md) helps locate components. [AGENTS.md](AGENTS.md) describes the conventions for changes and checks.
+
+For AI-assisted changes, use the [workflow and review prompts](docs/ai_workflow_prompt.md) to describe the player action, expected outcome, and reproduction steps.
 
 ## License and credits
 

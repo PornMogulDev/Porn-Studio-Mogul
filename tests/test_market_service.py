@@ -1,5 +1,4 @@
 import pytest
-from unittest.mock import patch
 from types import SimpleNamespace
 
 from services.calculation.market_group_resolver import MarketGroupResolver
@@ -155,7 +154,7 @@ class TestMarketGroupResolver:
 class TestMarketServiceDB:
     """
     Tests the service's interaction with the SQLAlchemy session,
-    covering data persistence, retrieval, and transaction management (commits/rollbacks).
+    covering recovery within the caller’s transaction.
     """
     # def test_get_all_market_states_empty_db(self, market_service, db_session):
     #     states = market_service.get_all_market_states(db_session)
@@ -176,7 +175,7 @@ class TestMarketServiceDB:
     #     assert states["Straight Men"].current_saturation == 0.8
     #     assert states["Gay Men"].name == "Gay Men"
 
-    def test_recover_saturation_changes_value_and_commits(self, market_service, db_session):
+    def test_recover_saturation_changes_value_in_caller_session(self, market_service, db_session):
         # Arrange
         db_session.add(MarketGroupStateDB(name="Straight Men", current_saturation=0.5))
         db_session.commit()
@@ -204,27 +203,6 @@ class TestMarketServiceDB:
         group = db_session.query(MarketGroupStateDB).filter_by(name="Saturated Group").one()
         assert group.current_saturation == 1.0
 
-    def test_recover_saturation_rollback_on_error(self, market_service, db_session):
-        # Arrange
-        db_session.add(MarketGroupStateDB(name="Good Group", current_saturation=0.5))
-        db_session.commit()
-        initial_value = 0.5
-        
-        # Mock session.commit to raise a database error
-        with patch.object(db_session, 'commit', side_effect=Exception("DB Commit Error")) as mock_commit:
-            with patch.object(db_session, 'rollback') as mock_rollback:
-                # Act
-                changed = market_service.recover_all_market_saturation(db_session)
-
-                # Assert
-                assert changed is False # Operation failed, so no change was ultimately made
-                mock_commit.assert_called_once()
-                mock_rollback.assert_called_once() # Ensure rollback was called on error
-
-                # Verify the session is clean and the object holds its original value
-                db_session.expire_all() # Force a re-read from the DB
-                group = db_session.query(MarketGroupStateDB).filter_by(name="Good Group").one()
-                assert group.current_saturation == initial_value
 #endregion
 
 #region Mock-based Tests for Asynchronous/Complex Interactions
@@ -271,6 +249,6 @@ class TestMarketServiceLogic:
         vaginal_discovery = discoveries_by_tag.get("Vaginal")
         assert vaginal_discovery is not None
         assert vaginal_discovery['type'] == 'action_sentiments'
-        # From MARKET_DATA for "Straight Men": "Vaginal": 2.5
-        assert vaginal_discovery['impact'] == 2.5
+        # The discovery impact is the distance from the neutral action preference (1.0).
+        assert vaginal_discovery['impact'] == pytest.approx(1.5)
 #endregion

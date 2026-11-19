@@ -1,145 +1,98 @@
+from types import SimpleNamespace
+from unittest.mock import Mock, create_autospec
+
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from collections import defaultdict
 
-# --- Import all necessary components from your project ---
-from database.db_models import Base, MarketGroupStateDB, SceneDB, GameInfoDB, StudioStateDB
-from data.game_state import MarketGroupState
-from services.market_service import MarketService
+from database.db_models import MarketGroupStateDB, SceneDB, StudioStateDB
+from services.calculation.market_group_resolver import MarketGroupResolver
+from services.calculation.revenue_calculator import RevenueCalculator
+from services.command.email_service import EmailService
 from services.command.scene_command_service import SceneCommandService
-
-# --- Mock Dependencies that aren't under test ---
-# We create simple placeholder classes to satisfy the constructor of SceneCommandService
-class MockRevenueCalculator:
-    def calculate_revenue(self, scene, cast, markets, resolved_groups):
-        # Return a result that will DEFINITELY trigger a discovery
-        return type('RevenueResult', (), {
-            'total_revenue': 1000,
-            'viewer_group_interest': {'Straight Men': 1.0}, # Interest > threshold
-            'market_saturation_updates': {'Straight Men': 0.1},
-            'revenue_modifier_details': {}
-        })
-
-class MockGameQueryService:
-    def get_all_market_states(self):
-        # This will be replaced by the actual DB query inside the test
-        return {}
-
-class MockTalentCommandService:
-    def update_popularity_from_scene(self, session, scene_id): pass
-
-class MockEmailService:
-    def create_market_discovery_email(self, session, title, discoveries): pass
-
-# --- Pytest Fixtures for setting up the test environment ---
-
-@pytest.fixture(scope="function")
-def session():
-    """Creates a fresh, in-memory database session for each test."""
-    engine = create_engine('sqlite:///:memory:')
-    Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
-    db_session = Session()
-    yield db_session
-    db_session.close()
-    engine.dispose()
-
-@pytest.fixture
-def setup_data(session: Session):
-    """Populates the test database with prerequisite data."""
-    # Arrange: Create a market group with empty discoveries
-    market_state = MarketGroupStateDB(
-        name="Straight Men",
-        current_saturation=1.0,
-        discovered_sentiments={} # IMPORTANT: Starts empty
-    )
-    # Arrange: Create a scene that is ready to be released
-    scene = SceneDB(
-        id=1,
-        title="Test Scene",
-        status="ready_to_release",
-        assigned_tags={"Big Boobs": [1]} # A tag that can be discovered
-    )
-    # Arrange: Add starting money
-    studio_state = StudioStateDB(id=1, money="50000")
-    
-    session.add(market_state)
-    session.add(scene)
-    session.add(studio_state)
-    session.commit()
+from services.command.scene_processing_service import SceneProcessingService
+from services.command.talent_command_service import TalentCommandService
+from services.market_service import MarketService
+from services.models.configs import MarketConfig
+from services.models.inputs import ContentTagInput, RevenueInput
+from services.models.results import SceneRevenueResult
+from services.query.game_query_service import GameQueryService
 
 
-# --- The Actual Test ---
+def test_release_scene_processes_and_saves_discoveries(game_session_factory):
+    group = "Straight Men"
+    tag = "Big Boobs"
+    with game_session_factory.begin() as session:
+        session.add_all([
+            MarketGroupStateDB(name=group, current_saturation=1.0),
+            SceneDB(
+                id=1,
+                title="Test Scene",
+                status="ready_to_release",
+                focus_target=group,
+                scheduled_absolute_week=1,
+                assigned_tags={tag: [1]},
+            ),
+            StudioStateDB(id=1, money=50_000),
+        ])
 
-def test_release_scene_processes_and_saves_discoveries(session: Session, setup_data):
-    """
-    This test verifies that releasing a scene correctly updates the
-    discovered_sentiments in the database and persists the change.
-    """
-    # --- ARRANGE ---
-    
-    # Create instances of our services, using mocks where needed
-    mock_resolver = type('Resolver', (), {
-        'get_resolved_group': lambda self, name: {
-            'preferences': {
-                'physical_sentiments': {'Big Boobs': 2.5}
-            }
-        },
-        'get_all_resolved_groups': lambda self: {}
-    })()
-    
-    mock_config = type('Config', (), {
-        'discovery_interest_threshold': 0.5,
-        'discoveries_per_scene': 5,
-        'saturation_recovery_rate': 0.1
-    })()
-
-    # The MarketService must be the REAL implementation
+    market_data = {"viewer_groups": [{
+        "name": group,
+        "preferences": {"physical_sentiments": {tag: 2.5}},
+    }]}
     market_service = MarketService(
-        market_group_resolver=mock_resolver,
-        tag_definitions={'Big Boobs': {'type': 'Physical'}},
-        config=mock_config
+        market_group_resolver=MarketGroupResolver(market_data),
+        tag_definitions={tag: {"type": "Physical"}},
+        config=MarketConfig(
+            saturation_recovery_rate=0.1,
+            discovery_interest_threshold=0.5,
+            discoveries_per_scene=5,
+        ),
+    )
+    scene_processor = create_autospec(SceneProcessingService, instance=True)
+    scene_processor.prepare_revenue_input.return_value = RevenueInput(
+        title="Test Scene",
+        focus_target=group,
+        dom_sub_level=0,
+        total_runtime_minutes=10,
+        content_tags=[ContentTagInput(tag, "Physical", quality=0.8, weight=5.0)],
+    )
+    revenue_calculator = create_autospec(RevenueCalculator, instance=True)
+    revenue_calculator.calculate_revenue.return_value = SceneRevenueResult(
+        total_revenue=1_000,
+        viewer_group_interest={group: 1.0},
+        revenue_modifier_details={},
+        market_saturation_updates={group: 0.1},
+    )
+    signals = SimpleNamespace(emails_changed=Mock())
+    email_service = create_autospec(EmailService, instance=True)
+    scene_command_service = SceneCommandService(
+        session_factory=game_session_factory,
+        signals=signals,
+        data_manager=None,
+        query_service=GameQueryService(game_session_factory),
+        talent_command_service=create_autospec(TalentCommandService, instance=True),
+        market_service=market_service,
+        email_service=email_service,
+        scene_processing_service=scene_processor,
+        revenue_calculator=revenue_calculator,
+        scene_event_trigger_service=None,
+        bloc_cost_calculator=None,
+        crew_skill_calculator=None,
     )
 
-    # A mock query service that just reads from our test DB
-    class LiveQueryService(MockGameQueryService):
-        def get_all_market_states(self):
-            states_db = session.query(MarketGroupStateDB).all()
-            return {s.name: s.to_dataclass(MarketGroupState) for s in states_db}
-
-    # The SceneCommandService must be the REAL implementation
-    scene_command_service = SceneCommandService(
-        session_factory=lambda: session,
-        signals=defaultdict(lambda: type('Signal', (), {'emit': lambda *args: None})), # Mock signals
-        data_manager=None, # Not needed for this specific test path
-        query_service=LiveQueryService(),
-        talent_command_service=MockTalentCommandService(),
-        market_service=market_service, # Use the real one
-        email_service=MockEmailService(),
-        scene_processing_service=None, # Not needed
-        revenue_calculator=MockRevenueCalculator(),
-                    scene_event_trigger_service=None, # Not needed
-                    bloc_cost_calculator=None, # Not needed
-                    crew_skill_calculator=None # Not needed
-                )
-    # --- ACT ---
-    
-    # Call the method we want to test
     result = scene_command_service.release_scene(scene_id=1)
 
-    # --- ASSERT ---
-
-    assert result is not None, "release_scene should return a result dictionary"
-    assert result.get('market_changed') is True
-
-    # Crucial check: Re-fetch the market state from the DB to see if it was saved
-    session.commit() # Ensure any pending changes are flushed
-    market_state_after = session.query(MarketGroupStateDB).get("Straight Men")
-    
-    assert market_state_after is not None
-    
-    # This is the assertion that will fail with the current code
-    discovered = market_state_after.discovered_sentiments
-    assert "physical_sentiments" in discovered
-    assert "Big Boobs" in discovered["physical_sentiments"]
+    assert result["market_changed"] is True
+    assert result["discoveries"] == {group: [tag]}
+    with game_session_factory() as session:
+        market_state = session.get(MarketGroupStateDB, group)
+        assert market_state.discovered_sentiments == {"physical_sentiments": [tag]}
+        assert market_state.current_saturation == pytest.approx(0.9)
+        scene = session.get(SceneDB, 1)
+        assert scene.status == "released"
+        assert scene.revenue == 1_000
+        assert session.get(StudioStateDB, 1).money == 51_000
+    email_service.create_market_discovery_email.assert_called_once()
+    assert email_service.create_market_discovery_email.call_args.args[1:] == (
+        "Test Scene", {group: [tag]},
+    )
+    signals.emails_changed.emit.assert_called_once_with()

@@ -24,27 +24,13 @@ Edit the tracked JSON inputs when changing static rules. Rebuild `data/game_data
 
 ## Verification
 
-Start a bug fix from a concrete player action and expected outcome. Run the affected tests with `python -m pytest -q tests/<test_file>.py`. Add a focused regression test when the existing suite misses the behavior. Exercise the normal entry point for changes that involve a state transition, database round trip, or signal delivery. For generated scenarios, seed both Python's `random` and NumPy, or use explicit test data when exact values matter.
+Start a bug fix from a concrete player action and expected outcome. The [workflow prompt](docs/ai_workflow_prompt.md) provides a checklist for implementation and review. Run the affected tests with `python -m pytest -q tests/<test_file>.py`. Add a focused regression test when the existing suite misses the behavior. Exercise the normal entry point for changes that involve a state transition, database round trip, or signal delivery. For generated scenarios, seed both Python's `random` and NumPy, or use explicit test data when exact values matter.
 
-Run the full suite with `python -m pytest -q`. The initial baseline includes failures in shoot-result fixtures and market/revenue tests. Compare against the baseline for the checkout and report the checks and results. When a test and the code disagree about a game rule, look for the intended behavior in the design notes and adjacent tests before changing the expectation.
+Run the full suite with `python -m pytest -q` after generating the game database. Pytest redirects player data to a temporary folder before collecting the tests. Report the checks and results. When a test and the code disagree about a game rule, look for the intended behavior in the design notes and adjacent tests before changing the expectation.
 
 Use the [development game](README.md#repeatable-development-game) for the production loop. `python src/dev_game.py --smoke` checks the full path from design through release and save/load using the real services. `python src/dev_game.py` opens the same starting scenario for hands-on debugging.
 
-For other headless checks that import application code, set `PSM_USER_DATA_DIR` to a temporary directory before importing PSM modules. On a POSIX shell, the following runs pytest with Qt offscreen. Replace `-q` with pytest arguments for a focused check.
-
-```bash
-QT_QPA_PLATFORM=offscreen python - -q <<'PY'
-import os
-import sys
-from tempfile import TemporaryDirectory
-
-import pytest
-
-with TemporaryDirectory(prefix="psm-test-") as data_dir:
-    os.environ["PSM_USER_DATA_DIR"] = data_dir
-    raise SystemExit(pytest.main(sys.argv[1:]))
-PY
-```
+For checks outside pytest or the development game, set `PSM_USER_DATA_DIR` to a scratch directory before importing application code or launching the game. Set `QT_QPA_PLATFORM=offscreen` when the check runs without a display.
 
 For layout and theme changes, also record the platform and theme checked. Use headless Qt for widget behavior and check native geometry, styling, or packaged builds on the affected platform as applicable.
 

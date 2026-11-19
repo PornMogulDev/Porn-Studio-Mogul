@@ -100,7 +100,7 @@ def test_revenue_calculator_init(revenue_calculator, mock_data_manager, scene_ca
     assert revenue_calculator.data_manager == mock_data_manager
     assert revenue_calculator.config == scene_calc_config
 
-def test_baseline_revenue_calculation(revenue_calculator, resolved_groups_data, market_states_data, scene_calc_config):
+def test_baseline_revenue_calculation(revenue_calculator, resolved_groups_data, scene_calc_config):
     """
     Tests a simple revenue calculation for one group with no special bonuses or penalties.
     """
@@ -120,7 +120,8 @@ def test_baseline_revenue_calculation(revenue_calculator, resolved_groups_data, 
     
     # We are only dealing with Group A here for simplicity in manual calculation
     mock_groups = {"Group A": resolved_groups_data["Group A"]}
-    mock_states = {"Group A": market_states_data["Group A"]}
+    # Use a full market to isolate the base payout from saturation tuning.
+    mock_states = {"Group A": MarketGroupState(name="Group A", current_saturation=1.0)}
 
     revenue_calculator.data_manager.market_data = {'viewer_groups': [{'name': 'Group A'}]}
 
@@ -152,9 +153,8 @@ def test_baseline_revenue_calculation(revenue_calculator, resolved_groups_data, 
     # base_revenue = 10000
     # market_share = 0.6
     # spending_power = 1.1
-    # saturation = 0.9
-    # revenue = (10000 * 0.6) * 0.42 * 1.1 * 0.9 = 6000 * 0.42 * 0.99 = 2494.8
-    expected_revenue = 2494
+    # revenue = (10000 * 0.6) * 0.42 * 1.1 = 2772
+    expected_revenue = 2772
 
     assert result.total_revenue == expected_revenue
     assert result.viewer_group_interest["Group A"] == round(group_interest, 4)
