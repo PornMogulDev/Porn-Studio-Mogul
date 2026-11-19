@@ -101,7 +101,7 @@ class TourSponsorshipPreviewResult:
     is_feasible: bool
     refusal_reason: Optional[str] = None
     destination_location: Optional[str] = None
-    start_week: Optional[int] = None; start_year: Optional[int] = None
+    start_week: Optional[int] = None; start_year: Optional[int] = None; start_absolute_week: Optional[int] = None
     minimum_duration_weeks: Optional[int] = None
     travel_cost: int = 0
     required_accommodation_tier_id: Optional[str] = None

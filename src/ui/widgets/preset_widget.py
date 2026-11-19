@@ -7,8 +7,9 @@ class PresetWidget(QWidget):
     save_requested = pyqtSignal(str)
     delete_requested = pyqtSignal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, label_text="Preset:", parent=None):
         super().__init__(parent)
+        self.label_text = label_text
         self._known_presets: Set[str] = set()
         self.setup_ui()
 
@@ -16,7 +17,7 @@ class PresetWidget(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        layout.addWidget(QLabel("Preset:"))
+        layout.addWidget(QLabel(self.label_text))
         
         self.preset_combo = QComboBox()
         self.preset_combo.setEditable(True)

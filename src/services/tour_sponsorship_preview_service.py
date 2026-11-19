@@ -77,6 +77,7 @@ class TourSponsorshipPreviewService:
             destination_location=studio_location,
             start_week=_start_week,
             start_year=_start_year,
+            start_absolute_week=start_absolute_week,
             minimum_duration_weeks=duration_weeks,
             travel_cost=travel_cost,
             required_accommodation_tier_id=required_tier_id,

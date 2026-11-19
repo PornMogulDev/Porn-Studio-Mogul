@@ -1,12 +1,12 @@
 import logging
 from typing import Dict, Optional
-from PyQt6.QtCore import QCoreApplication, pyqtSignal
+from PyQt6.QtCore import pyqtSignal, QTimer
 from PyQt6.QtWidgets import (
      QDialog, QVBoxLayout, QFormLayout, QLabel, QComboBox,
-     QDialogButtonBox, QWidget, QSpinBox
+     QDialogButtonBox, QWidget, QSpinBox, QMessageBox
 )
 
-from utils import time_utils
+# No utils import needed now, as we trust the DTO
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,10 @@ class SponsorTourDialog(QDialog):
         self.character_comment_label = QLabel()
         self.character_comment_label.setObjectName("characterComment") # For QSS styling
         self.total_cost_label = QLabel()
-        self.total_cost_label.setStyleSheet("font-weight: bold;")
+        self.total_cost_label.setObjectName("totalCostLabel") # For QSS styling
+        
+        # Default state for styling
+        self.total_cost_label.setProperty("status", "neutral")
 
         form_layout.addRow("Talent:", QLabel(self.talent_alias))
         form_layout.addRow("Destination:", self.destination_label)
@@ -68,14 +71,14 @@ class SponsorTourDialog(QDialog):
         main_layout.addLayout(form_layout)
 
         # Dialog buttons
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        main_layout.addWidget(button_box)
-        self.ok_button = button_box.button(QDialogButtonBox.StandardButton.Ok)
+        self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        main_layout.addWidget(self.button_box)
+        self.ok_button = self.button_box.button(QDialogButtonBox.StandardButton.Ok)
 
         # Connections
         # We handle OK manually to show a "Processing" state
         self.ok_button.clicked.connect(self._on_confirm_clicked)
-        button_box.rejected.connect(self.reject)
+        self.button_box.rejected.connect(self.reject)
 
     def _populate_data(self):
         self.destination_label.setText(self.tour_data.get('destination_location', 'N/A'))
@@ -129,39 +132,46 @@ class SponsorTourDialog(QDialog):
 
     def _on_confirm_clicked(self):
         """
-        Updates UI to show processing state, executes logic, then closes.
+        Updates UI to show processing state, executes logic via signal, 
+        then waits for Presenter to call accept() or show_error().
         """
         if not self.selected_accommodation_id:
             return
 
         # 1. Update UI to show busy state
-        self.ok_button.setEnabled(False)
-        self.duration_spinbox.setEnabled(False)
-        self.accommodation_combo.setEnabled(False)
+        self._set_ui_busy(True)
         self.total_cost_label.setText("Finalizing tour details... This may take a moment.")
-        self.total_cost_label.setStyleSheet("color: #2980b9; font-weight: bold;") # Use a visible color (blue-ish)
         
-        # 2. Force the UI to repaint so the user sees the message
-        QCoreApplication.processEvents()
+        # 2. Use a timer to let the UI repaint *before* the heavy blocking call starts.
+        # This replaces processEvents() and fixes the "frozen UI" perception 
+        # by ensuring the "Finalizing..." text is rendered first.
+        QTimer.singleShot(50, self.tour_confirmed.emit)
 
-        # 3. Emit signal to trigger the heavy synchronous work in the Controller
-        self.tour_confirmed.emit()
+    def _set_ui_busy(self, busy: bool):
+        """Toggles input widgets."""
+        self.button_box.setEnabled(not busy)
+        self.duration_spinbox.setEnabled(not busy)
+        self.accommodation_combo.setEnabled(not busy)
+        
+        # Update style property for feedback (e.g., make text blue or grey)
+        status = "processing" if busy else "neutral"
+        self.total_cost_label.setProperty("status", status)
+        self.total_cost_label.style().unpolish(self.total_cost_label)
+        self.total_cost_label.style().polish(self.total_cost_label)
 
-        # 4. Work is done, close the dialog
-        self.accept()
+    def show_error_message(self, message: str):
+        """Called by the Presenter if the tour logic fails."""
+        self._set_ui_busy(False)
+        self._update_costs() # Restore cost text
+        QMessageBox.critical(self, "Sponsorship Failed", message)
 
     def get_selected_tour_details(self) -> Optional[Dict]:
         """Returns the final negotiated details of the tour."""
         if self.selected_accommodation_id:
-
-            # Convert the UI-friendly start date back to absolute week for the database
-            start_year = self.tour_data.get('start_year')
-            start_week = self.tour_data.get('start_week')
-            start_absolute_week = time_utils.to_absolute(start_year, start_week)
-
+            # We trust the 'start_absolute_week' provided by the service and passed in via constructor
             return {
                 "destination_location": self.tour_data.get('destination_location'),
-                "start_absolute_week": start_absolute_week,
+                "start_absolute_week": self.tour_data.get('start_absolute_week'),
                 "duration_weeks": self.duration_spinbox.value(),
                 "accommodation_tier_id": self.selected_accommodation_id
             }
